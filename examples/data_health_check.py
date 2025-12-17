@@ -9,7 +9,7 @@ import pandas as pd
 from attrs import define, field
 from sklearn.datasets import make_classification
 
-from octopus import OctoStudy
+from octopus import OctoClassification
 from octopus.modules import Octo
 
 
@@ -200,15 +200,14 @@ df_warnings = generator_warnings.get_dataframe()
 
 print(df_warnings)
 
-### Create and run OctoStudy with health check
+### Create and run OctoClassification with health check
 
-study = OctoStudy(
+study = OctoClassification(
     name="health_check",
     path=os.environ.get("STUDIES_PATH", "./studies"),
-    ml_type="classification",
     target_metric="AUCROC",
     feature_columns=df_warnings.columns.drop("target").drop("id").drop("sample_id").drop("stratification").tolist(),
-    target_columns=["target"],
+    target="target",
     sample_id="sample_id",
     datasplit_type="group_sample_and_features",
     stratification_column="target",

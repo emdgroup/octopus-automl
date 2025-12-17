@@ -7,8 +7,8 @@ import pandas as pd
 import pytest
 from upath import UPath
 
-from octopus import OctoStudy
 from octopus.modules import Octo
+from octopus.study import OctoClassification, OctoRegression
 from octopus.study.core import _RUNNING_IN_TESTSUITE
 from octopus.study.types import DatasplitType, ImputationMethod, MLType
 from octopus.task import Task
@@ -31,14 +31,13 @@ def sample_data():
 
 @pytest.fixture
 def basic_study():
-    """Create a basic OctoStudy instance."""
+    """Create a basic OctoClassification instance."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        yield OctoStudy(
+        yield OctoClassification(
             name="test_study",
-            ml_type="classification",
             target_metric="AUCROC",
             feature_columns=["feature1", "feature2", "feature3"],
-            target_columns=["target"],
+            target="target",
             sample_id="sample_id",
             path=temp_dir,
             ignore_data_health_warning=True,
@@ -51,35 +50,37 @@ def test_initialization(basic_study):
     assert basic_study.ml_type == MLType.CLASSIFICATION
     assert basic_study.target_metric == "AUCROC"
     assert basic_study.feature_columns == ["feature1", "feature2", "feature3"]
-    assert basic_study.target_columns == ["target"]
+    assert basic_study.target == "target"
+    assert basic_study.target_columns == ["target"]  # Property should return list
     assert basic_study.sample_id == "sample_id"
 
 
 @pytest.mark.parametrize(
-    "param_name,param_value,expected_enum,kwargs",
+    "study_class,param_name,param_value,expected_enum,kwargs",
     [
-        ("ml_type", "regression", MLType.REGRESSION, {"ml_type": "regression", "target_metric": "R2"}),
+        (OctoRegression, "ml_type", "regression", MLType.REGRESSION, {"target_metric": "R2", "target": "target"}),
         (
+            OctoClassification,
             "datasplit_type",
             "group_features",
             DatasplitType.GROUP_FEATURES,
-            {"ml_type": "classification", "target_metric": "AUCROC", "datasplit_type": "group_features"},
+            {"target_metric": "AUCROC", "datasplit_type": "group_features", "target": "target"},
         ),
         (
+            OctoClassification,
             "imputation_method",
             "halfmin",
             ImputationMethod.HALFMIN,
-            {"ml_type": "classification", "target_metric": "AUCROC", "imputation_method": "halfmin"},
+            {"target_metric": "AUCROC", "imputation_method": "halfmin", "target": "target"},
         ),
     ],
 )
-def test_string_to_enum_conversion(param_name, param_value, expected_enum, kwargs):
+def test_string_to_enum_conversion(study_class, param_name, param_value, expected_enum, kwargs):
     """Test that parameters accept strings and convert to enum types."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        study = OctoStudy(
+        study = study_class(
             name="test",
             feature_columns=["f1"],
-            target_columns=["target"],
             sample_id="id",
             path=temp_dir,
             **kwargs,
@@ -90,12 +91,11 @@ def test_string_to_enum_conversion(param_name, param_value, expected_enum, kwarg
 def test_output_path_property():
     """Test that output_path is correctly computed."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        study = OctoStudy(
+        study = OctoClassification(
             name="my_study",
-            ml_type="classification",
             target_metric="AUCROC",
             feature_columns=["f1"],
-            target_columns=["target"],
+            target="target",
             sample_id="id",
             path=temp_dir,
         )
@@ -105,12 +105,11 @@ def test_output_path_property():
 def test_default_workflow():
     """Test that default workflow is a single Octo task."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        study = OctoStudy(
+        study = OctoClassification(
             name="test",
-            ml_type="classification",
             target_metric="AUCROC",
             feature_columns=["f1"],
-            target_columns=["target"],
+            target="target",
             sample_id="id",
             path=temp_dir,
         )
@@ -131,29 +130,27 @@ def test_metrics(metrics_input, expected_metrics):
     with tempfile.TemporaryDirectory() as temp_dir:
         kwargs = {
             "name": "test",
-            "ml_type": "classification",
             "target_metric": "AUCROC",
             "feature_columns": ["f1"],
-            "target_columns": ["target"],
+            "target": "target",
             "sample_id": "id",
             "path": temp_dir,
         }
         if metrics_input is not None:
             kwargs["metrics"] = metrics_input
 
-        study = OctoStudy(**kwargs)
+        study = OctoClassification(**kwargs)
         assert study.metrics == expected_metrics
 
 
 def test_default_values():
     """Test default values are set correctly."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        study = OctoStudy(
+        study = OctoClassification(
             name="test",
-            ml_type="classification",
             target_metric="AUCROC",
             feature_columns=["f1"],
-            target_columns=["target"],
+            target="target",
             sample_id="id",
             path=temp_dir,
         )
@@ -170,49 +167,32 @@ def test_default_values():
 
 
 def test_ml_type_values():
-    """Test all valid ml_type values."""
-    ml_type_metrics = {
-        "classification": "AUCROC",
-        "regression": "R2",
-        "multiclass": "AUCROC_MACRO",
-    }
-    for ml_type, metric in ml_type_metrics.items():
+    """Test all valid ml_type values with appropriate classes."""
+    test_cases = [
+        (MLType.CLASSIFICATION, OctoClassification, "AUCROC", {"target": "target"}),
+        (MLType.REGRESSION, OctoRegression, "R2", {"target": "target"}),
+    ]
+    for expected_ml_type, study_class, metric, extra_kwargs in test_cases:
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoStudy(
+            study = study_class(
                 name="test",
-                ml_type=ml_type,
                 target_metric=metric,
                 feature_columns=["f1"],
-                target_columns=["target"],
                 sample_id="id",
                 path=temp_dir,
+                **extra_kwargs,
             )
-            assert study.ml_type.value == ml_type
-
-
-def test_invalid_ml_type():
-    """Test that invalid ml_type raises error."""
-    with tempfile.TemporaryDirectory() as temp_dir, pytest.raises(ValueError):
-        OctoStudy(
-            name="test",
-            ml_type="invalid_type",
-            target_metric="AUCROC",
-            feature_columns=["f1"],
-            target_columns=["target"],
-            sample_id="id",
-            path=temp_dir,
-        )
+            assert study.ml_type == expected_ml_type
 
 
 def test_start_with_empty_study_valid():
     """Test that start_with_empty_study=True works with tasks that don't have load_task=True."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        study = OctoStudy(
+        study = OctoClassification(
             name="test",
-            ml_type="classification",
             target_metric="AUCROC",
             feature_columns=["f1"],
-            target_columns=["target"],
+            target="target",
             sample_id="id",
             path=temp_dir,
             start_with_empty_study=True,
@@ -229,12 +209,11 @@ def test_start_with_empty_study_invalid():
             ValueError, match="Cannot set start_with_empty_study=True when workflow contains tasks with load_task=True"
         ),
     ):
-        OctoStudy(
+        OctoClassification(
             name="test",
-            ml_type="classification",
             target_metric="AUCROC",
             feature_columns=["f1"],
-            target_columns=["target"],
+            target="target",
             sample_id="id",
             path=temp_dir,
             start_with_empty_study=True,
@@ -245,12 +224,11 @@ def test_start_with_empty_study_invalid():
 def test_start_with_empty_study_false_with_load_task():
     """Test that start_with_empty_study=False allows tasks with load_task=True."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        study = OctoStudy(
+        study = OctoClassification(
             name="test",
-            ml_type="classification",
             target_metric="AUCROC",
             feature_columns=["f1"],
-            target_columns=["target"],
+            target="target",
             sample_id="id",
             path=temp_dir,
             start_with_empty_study=False,

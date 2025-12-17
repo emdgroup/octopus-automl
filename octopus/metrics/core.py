@@ -108,3 +108,26 @@ class Metrics:
             "maximize" if higher_is_better is True, else "minimize".
         """
         return "maximize" if cls.get_instance(name).higher_is_better else "minimize"
+
+    @classmethod
+    def get_by_type(cls, *ml_types: str) -> list[str]:
+        """Get list of metric names for specified ML types.
+
+        Args:
+            *ml_types: One or more ML types (e.g., "regression", "classification", "multiclass", "timetoevent").
+
+        Returns:
+            List of metric names matching the specified ML types.
+
+        Example:
+            >>> Metrics.get_by_type("regression")
+            ['RMSE', 'MAE', 'R2', ...]
+            >>> Metrics.get_by_type("classification", "multiclass")
+            ['AUCROC', 'Accuracy', ...]
+        """
+        matching_metrics = []
+        for name, factory in cls._config_factories.items():
+            metric = factory()
+            if metric.ml_type in ml_types:
+                matching_metrics.append(name)
+        return sorted(matching_metrics)

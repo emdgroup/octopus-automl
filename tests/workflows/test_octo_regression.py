@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_regression
 
-from octopus import OctoStudy
+from octopus import OctoRegression
 from octopus.modules import Octo
 
 
@@ -55,12 +55,11 @@ class TestOctoRegression:
         _, features = diabetes_dataset
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoStudy(
+            study = OctoRegression(
                 name="test_regression",
-                ml_type="regression",
                 target_metric="MAE",
                 feature_columns=features,
-                target_columns=["target"],
+                target="target",
                 sample_id="index",
                 path=temp_dir,
                 ignore_data_health_warning=True,
@@ -199,12 +198,11 @@ class TestOctoRegression:
         df, features = diabetes_dataset
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoStudy(
+            study = OctoRegression(
                 name="test_octo_regression_execution",
-                ml_type="regression",
                 target_metric="MAE",
                 feature_columns=features,
-                target_columns=["target"],
+                target="target",
                 sample_id="index",
                 metrics=["MAE", "MSE", "R2"],
                 datasplit_seed_outer=1234,

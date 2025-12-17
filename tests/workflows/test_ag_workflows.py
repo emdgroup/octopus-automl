@@ -10,7 +10,7 @@ import pytest
 from sklearn.datasets import make_classification, make_regression
 from upath import UPath
 
-from octopus import OctoStudy
+from octopus import OctoClassification, OctoRegression
 from octopus.experiment import OctoExperiment
 from octopus.modules import AutoGluon
 
@@ -49,12 +49,11 @@ class TestAutogluonWorkflows:
 
     def test_full_classification_workflow(self):
         """Test the complete classification workflow execution."""
-        study = OctoStudy(
+        study = OctoClassification(
             name="test_classification_workflow",
-            ml_type="classification",
             target_metric="ACCBAL",
             feature_columns=self.features,
-            target_columns=["target"],
+            target="target",
             sample_id="index",
             stratification_column="target",
             metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS"],
@@ -105,12 +104,11 @@ class TestAutogluonWorkflows:
         df_regression["target"] = y
         df_regression = df_regression.reset_index()
 
-        study = OctoStudy(
+        study = OctoRegression(
             name="test_regression_workflow",
-            ml_type="regression",
             target_metric="MAE",
             feature_columns=feature_names,
-            target_columns=["target"],
+            target="target",
             sample_id="index",
             metrics=["MAE", "MSE", "R2"],
             datasplit_seed_outer=1234,

@@ -7,7 +7,7 @@ from sklearn.datasets import make_classification
 from sklearn.metrics import auc, roc_curve
 from upath import UPath
 
-from octopus import OctoStudy
+from octopus import OctoClassification
 from octopus.metrics.utils import get_performance_from_model
 from octopus.modules import Octo
 from octopus.predict import OctoPredict
@@ -47,14 +47,13 @@ def trained_study(classification_dataset, tmp_path_factory):
 
     temp_dir = tmp_path_factory.mktemp("test_data")
 
-    # Create OctoStudy with new unified API
-    study = OctoStudy(
+    # Create OctoClassification study
+    study = OctoClassification(
         name="test_analysis_pipeline",
-        ml_type="classification",
         target_metric="ACCBAL",
         metrics=["AUCROC", "ACCBAL", "ACC", "F1", "AUCPR"],
         feature_columns=features,
-        target_columns=["target"],
+        target="target",
         sample_id="index",
         datasplit_type="sample",
         stratification_column="target",

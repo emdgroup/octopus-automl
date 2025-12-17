@@ -67,8 +67,8 @@ class OctoExperiment[ConfigType: Task]:
     target_metric: str = field(validator=[validators.instance_of(str)])
     """Primary metric for model evaluation."""
 
-    positive_class: int = field(validator=[validators.instance_of(int)])
-    """Positive class label for binary classification."""
+    positive_class: int | None = field(validator=validators.optional(validators.instance_of(int)))
+    """Positive class label for binary classification. None for regression, time-to-event, and multiclass."""
 
     metrics: list[str] = field(validator=[validators.instance_of(list)])
     """List of metrics to calculate."""

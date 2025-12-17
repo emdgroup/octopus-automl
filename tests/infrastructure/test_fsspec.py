@@ -9,7 +9,7 @@ from moto.moto_server.threaded_moto_server import ThreadedMotoServer
 from sklearn.datasets import make_classification
 from upath import UPath
 
-from octopus import OctoStudy
+from octopus import OctoClassification
 from octopus.modules import Octo
 
 
@@ -139,12 +139,11 @@ class TestFSSpecIntegration:
             os.chmod(tmpdir, mode=stat.S_IXUSR | stat.S_IRUSR)
 
             try:
-                study = OctoStudy(
+                study = OctoClassification(
                     name="test_octo_intro_execution",
-                    ml_type="classification",
                     target_metric="ACCBAL",
                     feature_columns=features,
-                    target_columns=["target"],
+                    target="target",
                     sample_id="index",
                     stratification_column="target",
                     metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS"],

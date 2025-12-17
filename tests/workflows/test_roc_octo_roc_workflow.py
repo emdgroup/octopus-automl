@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from octopus import OctoStudy
+from octopus import OctoClassification
 from octopus.modules import Octo, Roc
 
 
@@ -118,12 +118,11 @@ class TestRocOctoRocWorkflow:
         _, feature_names = sample_classification_dataset
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoStudy(
+            study = OctoClassification(
                 name="test_roc_octo_roc",
-                ml_type="classification",
                 target_metric="ACCBAL",
                 feature_columns=feature_names,
-                target_columns=["target"],
+                target="target",
                 sample_id="sample_id",
                 stratification_column="target",
                 path=temp_dir,
@@ -277,12 +276,11 @@ class TestRocOctoRocWorkflow:
         df, feature_names = sample_classification_dataset
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoStudy(
+            study = OctoClassification(
                 name="test_roc_octo_roc_execution",
-                ml_type="classification",
                 target_metric="ACCBAL",
                 feature_columns=feature_names,
-                target_columns=["target"],
+                target="target",
                 sample_id="sample_id",
                 stratification_column="target",
                 metrics=["AUCROC", "ACCBAL"],

@@ -4,46 +4,10 @@ from typing import TYPE_CHECKING
 
 from attrs import Attribute
 
-from octopus.metrics import Metrics
 from octopus.task import Task
 
 if TYPE_CHECKING:
     from octopus.study.core import OctoStudy
-
-
-def validate_metric(instance: "OctoStudy", attribute: Attribute, value: str) -> None:
-    """Validate a single target_metric based on the ml_type.
-
-    Args:
-        instance: The ConfigStudy instance being validated.
-        attribute: The name of the attribute being validated.
-        value: The value of the target_metric being validated.
-
-    Raises:
-        ValueError: If the target_metric is not valid for the given ml_type.
-    """
-    metric_ml_type = Metrics.get_instance(value).ml_type
-
-    if metric_ml_type != instance.ml_type:
-        raise ValueError(f"Invalid target metric '{value}' for ml_type '{instance.ml_type}'.")
-
-
-def validate_metrics_list(instance: "OctoStudy", attribute: Attribute, value: list[str]) -> None:
-    """Validate a list of metrics based on the ml_type.
-
-    Args:
-        instance: The ConfigStudy instance being validated.
-        attribute: The name of the attribute being validated.
-        value: The list of metrics being validated.
-
-    Raises:
-        ValueError: If any metric is not valid for the given ml_type.
-    """
-    for metric in value:
-        metric_ml_type = Metrics.get_instance(metric).ml_type
-
-        if metric_ml_type != instance.ml_type:
-            raise ValueError(f"Invalid metric '{metric}' for ml_type '{instance.ml_type}'.")
 
 
 def validate_start_with_empty_study(instance: "OctoStudy", attribute: Attribute, value: bool) -> None:

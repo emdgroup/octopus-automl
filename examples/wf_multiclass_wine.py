@@ -12,7 +12,7 @@ import os
 
 from sklearn.datasets import load_wine
 
-from octopus import OctoStudy
+from octopus import OctoClassification
 from octopus.modules import Octo
 
 ### Load and Preprocess Data
@@ -29,14 +29,14 @@ print(f"  Samples: {df.shape[0]}")
 print(f"  Classes: {len(wine.target_names)} - {wine.target_names}")
 print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict()}")
 
-### Create and run OctoStudy for multiclass classification
-study = OctoStudy(
+### Create and run OctoClassification for multiclass classification
+# OctoClassification automatically detects multiclass (>2 classes) from the data
+study = OctoClassification(
     name="multiclass_wine",
     path=os.environ.get("STUDIES_PATH", "./studies"),
-    ml_type="multiclass",
     target_metric="AUCROC_MACRO",
     feature_columns=features,
-    target_columns=["target"],
+    target="target",
     sample_id="index",
     stratification_column="target",
     metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],

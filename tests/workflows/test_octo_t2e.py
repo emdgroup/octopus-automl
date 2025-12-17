@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from octopus import OctoStudy
+from octopus import OctoTimeToEvent
 from octopus.modules import Octo
 
 
@@ -72,14 +72,13 @@ class TestOctoTimeToEvent:
         _, features = survival_dataset
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoStudy(
+            study = OctoTimeToEvent(
                 name="test_t2e",
-                ml_type="timetoevent",
                 target_metric="CI",
                 feature_columns=features,
-                target_columns=["duration", "event"],
+                duration_column="duration",
+                event_column="event",
                 sample_id="index",
-                target_assignments={"duration": "duration", "event": "event"},
                 path=temp_dir,
                 ignore_data_health_warning=True,
             )
@@ -178,14 +177,13 @@ class TestOctoTimeToEvent:
         df, features = survival_dataset
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoStudy(
+            study = OctoTimeToEvent(
                 name="test_octo_t2e_execution",
-                ml_type="timetoevent",
                 target_metric="CI",
                 feature_columns=features,
-                target_columns=["duration", "event"],
+                duration_column="duration",
+                event_column="event",
                 sample_id="index",
-                target_assignments={"duration": "duration", "event": "event"},
                 metrics=["CI"],
                 datasplit_seed_outer=1234,
                 n_folds_outer=2,

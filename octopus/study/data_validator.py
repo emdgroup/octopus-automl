@@ -36,8 +36,8 @@ class OctoDataValidator:
     ml_type: str
     """Machine learning type (classification, regression, etc.)."""
 
-    positive_class: int
-    """The positive class label for binary classification."""
+    positive_class: int | None
+    """The positive class label for binary classification. None for non-classification tasks."""
 
     relevant_columns: list[str] = field(init=False)
     """Relevant columns of the dataset. Computed automatically."""
@@ -306,12 +306,15 @@ class OctoDataValidator:
         - positive_class value exists in target column
 
         Returns:
-            None: Returns early for non-classification ml_types.
+            None: Returns early for non-classification ml_types or if positive_class is None.
 
         Raises:
             ValueError: If any validation fails for binary classification.
         """
         if self.ml_type != "classification":
+            return
+
+        if self.positive_class is None:
             return
 
         # Get target column - for single target, use target_columns[0]

@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from octopus import OctoStudy
+from octopus import OctoClassification
 from octopus.modules import Octo
 
 
@@ -61,12 +61,11 @@ class TestOctoIntroClassification:
         _, features = breast_cancer_dataset
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoStudy(
+            study = OctoClassification(
                 name="test_classification",
-                ml_type="classification",
                 target_metric="ACCBAL",
                 feature_columns=features,
-                target_columns=["target"],
+                target="target",
                 sample_id="index",
                 stratification_column="target",
                 path=temp_dir,
@@ -190,12 +189,11 @@ class TestOctoIntroClassification:
         df, features = breast_cancer_dataset
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoStudy(
+            study = OctoClassification(
                 name="test_octo_intro_execution",
-                ml_type="classification",
                 target_metric="ACCBAL",
                 feature_columns=features,
-                target_columns=["target"],
+                target="target",
                 sample_id="index",
                 stratification_column="target",
                 metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS"],
