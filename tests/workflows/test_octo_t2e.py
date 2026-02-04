@@ -83,7 +83,7 @@ class TestOctoTimeToEvent:
                 ignore_data_health_warning=True,
             )
 
-            assert study.target_columns == ["duration", "event"]
+            assert study.target_cols == ["duration", "event"]
             assert len(study.feature_cols) == 5
             assert study.sample_id == "index"
             assert study.target_assignments == {"duration": "duration", "event": "event"}

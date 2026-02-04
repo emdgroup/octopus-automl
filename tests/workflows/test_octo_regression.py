@@ -65,7 +65,7 @@ class TestOctoRegression:
                 ignore_data_health_warning=True,
             )
 
-            assert study.target_columns == ["target"]
+            assert study.target_cols == ["target"]
             assert len(study.feature_cols) == 5
             assert study.sample_id == "index"
 

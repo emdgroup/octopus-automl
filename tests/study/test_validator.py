@@ -31,7 +31,7 @@ def validator_factory(sample_data):
     def _create_validator(
         data=None,
         feature_cols=None,
-        target_columns=None,
+        target_cols=None,
         sample_id="sample_id",
         row_id="id",
         stratification_column="strat",
@@ -43,15 +43,15 @@ def validator_factory(sample_data):
             data = sample_data
         if feature_cols is None:
             feature_cols = ["feature1", "feature2", "feature3"]
-        if target_columns is None:
-            target_columns = ["target"]
+        if target_cols is None:
+            target_cols = ["target"]
         if target_assignments is None:
             target_assignments = {}
 
         return OctoDataValidator(
             data=data,
             feature_cols=feature_cols,
-            target_columns=target_columns,
+            target_cols=target_cols,
             sample_id=sample_id,
             row_id=row_id,
             stratification_column=stratification_column,
@@ -133,7 +133,7 @@ def test_validate_stratification_column(validator_factory, stratification_column
 
 
 @pytest.mark.parametrize(
-    "target_columns,target_assignments,should_fail",
+    "target_cols,target_assignments,should_fail",
     [
         (["target"], {}, False),
         (["target"], {"event": "target"}, True),
@@ -144,9 +144,9 @@ def test_validate_stratification_column(validator_factory, stratification_column
         (["target", "time"], {"event": "target", "duration": "time"}, False),
     ],
 )
-def test_validate_target_assignments(validator_factory, target_columns, target_assignments, should_fail):
+def test_validate_target_assignments(validator_factory, target_cols, target_assignments, should_fail):
     """Test target assignment validation."""
-    validator = validator_factory(target_columns=target_columns, target_assignments=target_assignments)
+    validator = validator_factory(target_cols=target_cols, target_assignments=target_assignments)
 
     if should_fail:
         with pytest.raises(ValueError):
@@ -161,7 +161,7 @@ def test_validate_number_of_targets(valid_validator):
 
     # Test with too many targets
     invalid_validator = valid_validator
-    invalid_validator.target_columns = ["target1", "target2", "target3"]
+    invalid_validator.target_cols = ["target1", "target2", "target3"]
     with pytest.raises(ValueError):
         invalid_validator._validate_number_of_targets()
 
@@ -179,12 +179,12 @@ def test_validate_column_dtypes(validator_factory, sample_data):
 def test_validate_with_two_targets(validator_factory):
     """Test two targets."""
     validator = validator_factory(
-        target_columns=["target", "time"],
+        target_cols=["target", "time"],
         target_assignments={"event": "target", "time": "time"},
     )
     validator.validate()
 
-    invalid_validator = validator_factory(target_columns=["target", "time"], target_assignments={})
+    invalid_validator = validator_factory(target_cols=["target", "time"], target_assignments={})
     with pytest.raises(ValueError):
         invalid_validator._validate_number_of_targets()
 

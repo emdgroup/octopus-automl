@@ -43,8 +43,8 @@ class DataFrameGenerator:
         )
 
         # Create DataFrame from features
-        feature_names = [f"feature_{i + 1}" for i in range(self.n_features)]
-        self.df = pd.DataFrame(X, columns=feature_names)
+        feature_cols = [f"feature_{i + 1}" for i in range(self.n_features)]
+        self.df = pd.DataFrame(X, columns=feature_cols)
 
         # Add the target column
         self.df["target"] = y

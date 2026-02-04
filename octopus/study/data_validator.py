@@ -16,7 +16,7 @@ class OctoDataValidator:
     feature_cols: list[str]
     """List of all feature columns in the dataset."""
 
-    target_columns: list[str]
+    target_cols: list[str]
     """List of target columns in the dataset. For regression and classification,
     only one target is allowed. For time-to-event, two targets need to be provided.
     """
@@ -44,7 +44,7 @@ class OctoDataValidator:
 
     def __attrs_post_init__(self):
         """Compute relevant columns after initialization."""
-        relevant_columns = list(set(self.feature_cols + self.target_columns))
+        relevant_columns = list(set(self.feature_cols + self.target_cols))
         if self.sample_id:
             relevant_columns.append(self.sample_id)
         if self.row_id:
@@ -96,7 +96,7 @@ class OctoDataValidator:
     def _validate_columns_exist(self):
         """Validate that all relevant columns exist in the DataFrame.
 
-        Checks that all columns specified in feature_cols, target_columns,
+        Checks that all columns specified in feature_cols, target_cols,
         sample_id, row_id, and stratification_column are present in the DataFrame.
 
         Raises:
@@ -111,14 +111,14 @@ class OctoDataValidator:
         """Validate that no duplicate column names exist in the configuration.
 
         Validates that no column appears multiple times across feature_cols,
-        target_columns, sample_id, and row_id. This prevents ambiguous column
+        target_cols, sample_id, and row_id. This prevents ambiguous column
         references.
 
         Raises:
             ValueError: If any column name appears more than once in the
                 configuration.
         """
-        columns_to_check = self.feature_cols + self.target_columns + [self.sample_id]
+        columns_to_check = self.feature_cols + self.target_cols + [self.sample_id]
 
         if self.row_id:
             columns_to_check.append(self.row_id)
@@ -160,7 +160,7 @@ class OctoDataValidator:
         Returns:
             None: Returns early for single target columns after validation.
         """
-        if len(self.target_columns) == 1:
+        if len(self.target_cols) == 1:
             if self.target_assignments:
                 raise ValueError(
                     "Target assignments provided for a single target column. Assignments are only needed for multiple target columns."
@@ -168,26 +168,26 @@ class OctoDataValidator:
             return
         if not self.target_assignments:
             raise ValueError(
-                f"Multiple target columns detected ({len(self.target_columns)}), "
+                f"Multiple target columns detected ({len(self.target_cols)}), "
                 "but no target assignments provided. "
-                f"Please specify assignments for: {', '.join(self.target_columns)}"
+                f"Please specify assignments for: {', '.join(self.target_cols)}"
             )
 
-        missing_assignments = set(self.target_columns) - set(self.target_assignments.values())
+        missing_assignments = set(self.target_cols) - set(self.target_assignments.values())
         if missing_assignments:
             raise ValueError(
                 "Missing assignments for target column(s): "
                 f"{', '.join(missing_assignments)}. "
                 "Please provide assignments for all target columns: "
-                f"{', '.join(self.target_columns)}"
+                f"{', '.join(self.target_cols)}"
             )
 
-        invalid_assignments = set(self.target_assignments.values()) - set(self.target_columns)
+        invalid_assignments = set(self.target_assignments.values()) - set(self.target_cols)
         if invalid_assignments:
             raise ValueError(
                 "Invalid assignment key(s) detected: "
                 f"{', '.join(invalid_assignments)}. Assignments must be made "
-                f"only for existing target columns: {', '.join(self.target_columns)}"
+                f"only for existing target columns: {', '.join(self.target_cols)}"
             )
 
         if len(set(self.target_assignments.values())) != len(self.target_assignments):
@@ -212,9 +212,9 @@ class OctoDataValidator:
             ValueError: If more than 2 targets are specified, or if 2 targets
                 are provided without target assignments.
         """
-        if len(self.target_columns) > 2:
+        if len(self.target_cols) > 2:
             raise ValueError("More than two targets are not allowed")
-        if len(self.target_columns) == 2 and not self.target_assignments:
+        if len(self.target_cols) == 2 and not self.target_assignments:
             raise ValueError(
                 "Target assignments are required when two targets are selected. This is only for ml_type = 'timetoevent'."
             )
@@ -233,9 +233,9 @@ class OctoDataValidator:
         non_matching_columns = []
 
         if self.stratification_column:
-            columns_to_check = self.feature_cols + self.target_columns + [self.stratification_column]
+            columns_to_check = self.feature_cols + self.target_cols + [self.stratification_column]
         else:
-            columns_to_check = self.feature_cols + self.target_columns
+            columns_to_check = self.feature_cols + self.target_cols
 
         for column in columns_to_check:
             dtype = self.data[column].dtype
@@ -265,14 +265,14 @@ class OctoDataValidator:
     def _validate_feature_target_overlap(self):
         """Validate that no column is both a feature and a target.
 
-        Ensures that feature_cols and target_columns do not share any column
+        Ensures that feature_cols and target_cols do not share any column
         names, preventing logical conflicts in model training.
 
         Raises:
             ValueError: If any columns appear in both feature_cols and
-                target_columns.
+                target_cols.
         """
-        overlap = set(self.feature_cols) & set(self.target_columns)
+        overlap = set(self.feature_cols) & set(self.target_cols)
         if overlap:
             raise ValueError(f"Columns cannot be both features and targets: {', '.join(sorted(overlap))}")
 
@@ -317,12 +317,12 @@ class OctoDataValidator:
         if self.positive_class is None:
             return
 
-        # Get target column - for single target, use target_columns[0]
+        # Get target column - for single target, use target_cols[0]
         # For assigned targets, use the first assignment value
         if self.target_assignments:
             target_col = list(self.target_assignments.values())[0]
         else:
-            target_col = self.target_columns[0]
+            target_col = self.target_cols[0]
 
         target_data = self.data[target_col]
 

@@ -150,7 +150,7 @@ class OctoDataHealthChecker:
     Attributes:
         data: The pandas DataFrame containing the dataset to be checked.
         feature_cols: List of column names designated as features. Can be empty.
-        target_columns: List of column names designated as targets. Can be empty.
+        target_cols: List of column names designated as targets. Can be empty.
         row_id: Name of the column containing unique row identifiers. Can be None.
         sample_id: Name of the column containing sample identifiers. Can be None.
         stratification_column: Name of the column used for stratification. Can be None.
@@ -167,7 +167,7 @@ class OctoDataHealthChecker:
     feature_cols: list[str] = field(factory=list, validator=validators.instance_of(list))
     """List of feature column names."""
 
-    target_columns: list[str] = field(factory=list, validator=validators.instance_of(list))
+    target_cols: list[str] = field(factory=list, validator=validators.instance_of(list))
     """List of target column names."""
 
     row_id: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
@@ -265,7 +265,7 @@ class OctoDataHealthChecker:
         missing_value_share_col = self.data.isnull().mean()
 
         critical_columns = [
-            *self.target_columns,
+            *self.target_cols,
             self.sample_id,
             self.row_id,
             self.stratification_column,
@@ -749,7 +749,7 @@ class OctoDataHealthChecker:
         """
         threshold = self.config.class_imbalance_threshold
 
-        for target_col in self.target_columns:
+        for target_col in self.target_cols:
             if target_col not in self.data.columns:
                 continue
 
@@ -858,7 +858,7 @@ class OctoDataHealthChecker:
 
         numeric_targets = [
             col
-            for col in self.target_columns
+            for col in self.target_cols
             if col in self.data.columns and pd.api.types.is_numeric_dtype(self.data[col])
         ]
 
@@ -923,7 +923,7 @@ class OctoDataHealthChecker:
         skewness_threshold = self.config.target_skewness_threshold
         kurtosis_threshold = self.config.target_kurtosis_threshold
 
-        for target_col in self.target_columns:
+        for target_col in self.target_cols:
             if target_col not in self.data.columns:
                 continue
 

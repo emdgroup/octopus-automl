@@ -28,7 +28,7 @@ def health_checker(sample_data):
     return OctoDataHealthChecker(
         data=sample_data,
         feature_cols=["feature1", "feature2", "feature3"],
-        target_columns=["target"],
+        target_cols=["target"],
         row_id="id",
         sample_id="sample_id",
         stratification_column=None,
@@ -166,7 +166,7 @@ def test_check_high_cardinality(health_checker):
 def test_check_target_leakage(health_checker):
     """Test target leakage check."""
     health_checker.data["target_numeric"] = health_checker.data["target"].astype(float)
-    health_checker.target_columns = ["target_numeric"]
+    health_checker.target_cols = ["target_numeric"]
     health_checker.data["feature9"] = health_checker.data["target_numeric"] * 0.99 + np.random.randn(100) * 0.01
     health_checker.feature_cols.append("feature9")
     health_checker._check_target_leakage()
@@ -176,7 +176,7 @@ def test_check_target_leakage(health_checker):
 def test_check_target_distribution(health_checker):
     """Test target distribution check."""
     health_checker.data["target_regression"] = np.exp(np.random.randn(100) * 2)  # Right-skewed
-    health_checker.target_columns = ["target_regression"]
+    health_checker.target_cols = ["target_regression"]
     health_checker._check_target_distribution()
     assert any(issue["Issue Type"] == "problematic_distribution" for issue in health_checker.issues)
 
@@ -186,7 +186,7 @@ def test_check_minimum_samples(sample_data):
     health_checker_sufficient = OctoDataHealthChecker(
         data=sample_data,
         feature_cols=["feature1"],
-        target_columns=["target"],
+        target_cols=["target"],
         row_id="id",
         sample_id="sample_id",
         stratification_column=None,
@@ -198,7 +198,7 @@ def test_check_minimum_samples(sample_data):
     health_checker_insufficient = OctoDataHealthChecker(
         data=small_data,
         feature_cols=["feature1"],
-        target_columns=["target"],
+        target_cols=["target"],
         row_id="id",
         sample_id="sample_id",
         stratification_column=None,
@@ -213,7 +213,7 @@ def test_check_row_id_unique(sample_data):
     health_checker_unique = OctoDataHealthChecker(
         data=sample_data,
         feature_cols=["feature1"],
-        target_columns=["target"],
+        target_cols=["target"],
         row_id="id",
         sample_id="sample_id",
         stratification_column=None,
@@ -226,7 +226,7 @@ def test_check_row_id_unique(sample_data):
     health_checker_duplicate = OctoDataHealthChecker(
         data=duplicate_data,
         feature_cols=["feature1"],
-        target_columns=["target"],
+        target_cols=["target"],
         row_id="id",
         sample_id="sample_id",
         stratification_column=None,
@@ -241,7 +241,7 @@ def test_check_features_not_all_null(sample_data):
     health_checker_valid = OctoDataHealthChecker(
         data=sample_data,
         feature_cols=["feature1", "feature2"],
-        target_columns=["target"],
+        target_cols=["target"],
         row_id="id",
         sample_id="sample_id",
         stratification_column=None,
@@ -254,7 +254,7 @@ def test_check_features_not_all_null(sample_data):
     health_checker_null = OctoDataHealthChecker(
         data=null_data,
         feature_cols=["feature1", "feature2"],
-        target_columns=["target"],
+        target_cols=["target"],
         row_id="id",
         sample_id="sample_id",
         stratification_column=None,

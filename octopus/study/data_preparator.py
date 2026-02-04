@@ -23,7 +23,7 @@ class OctoDataPreparator:
     feature_cols: list[str]
     """List of all feature columns in the dataset."""
 
-    target_columns: list[str]
+    target_cols: list[str]
     """List of target columns in the dataset. For regression and classification,
     only one target is allowed. For time-to-event, two targets need to be provided.
     """
@@ -75,8 +75,8 @@ class OctoDataPreparator:
             target_assignments is empty. Multi-target scenarios must have
             explicit assignments defined by the user.
         """
-        if len(self.target_columns) == 1 and not self.target_assignments:
-            self.target_assignments["default"] = self.target_columns[0]
+        if len(self.target_cols) == 1 and not self.target_assignments:
+            self.target_assignments["default"] = self.target_cols[0]
 
     def _remove_singlevalue_features(self):
         """Remove features that contain only a single unique value."""

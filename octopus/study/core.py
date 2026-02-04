@@ -119,7 +119,7 @@ class OctoStudy(ABC):
 
     @property
     @abstractmethod
-    def target_columns(self) -> list[str]:
+    def target_cols(self) -> list[str]:
         """Get target columns as a list. Must be implemented in subclasses."""
         ...
 
@@ -142,7 +142,7 @@ class OctoStudy(ABC):
     @property
     def relevant_columns(self) -> list[str]:
         """Relevant columns for the dataset (computed from prepared data)."""
-        relevant_columns = list(set(self.prepared.feature_cols + self.target_columns))
+        relevant_columns = list(set(self.prepared.feature_cols + self.target_cols))
         if self.sample_id:
             relevant_columns.append(self.sample_id)
         if self.prepared.row_id:
@@ -160,7 +160,7 @@ class OctoStudy(ABC):
         validator = OctoDataValidator(
             data=data,
             feature_cols=self.feature_cols,
-            target_columns=self.target_columns,
+            target_cols=self.target_cols,
             sample_id=self.sample_id,
             row_id=self.row_id,
             stratification_column=self.stratification_column,
@@ -253,7 +253,7 @@ class OctoStudy(ABC):
         preparator = OctoDataPreparator(
             data=data,
             feature_cols=self.feature_cols,
-            target_columns=self.target_columns,
+            target_cols=self.target_cols,
             sample_id=self.sample_id,
             row_id=self.row_id,
             target_assignments=self.target_assignments,
@@ -322,7 +322,7 @@ class OctoStudy(ABC):
         checker = OctoDataHealthChecker(
             data=data,
             feature_cols=self.prepared.feature_cols,
-            target_columns=self.target_columns,
+            target_cols=self.target_cols,
             row_id=self.prepared.row_id,
             sample_id=self.sample_id,
             stratification_column=self.stratification_column,
@@ -420,7 +420,7 @@ class OctoRegression(OctoStudy):
     """A list of metrics to be calculated. Defaults to target_metric value."""
 
     @property
-    def target_columns(self) -> list[str]:
+    def target_cols(self) -> list[str]:
         """Get target columns as a list."""
         return [self.target]
 
@@ -474,7 +474,7 @@ class OctoClassification(OctoStudy):
         super()._validate_data(data)
 
     @property
-    def target_columns(self) -> list[str]:
+    def target_cols(self) -> list[str]:
         """Get target columns as a list."""
         return [self.target]
 
@@ -516,7 +516,7 @@ class OctoTimeToEvent(OctoStudy):
     """A list of metrics to be calculated. Defaults to target_metric value."""
 
     @property
-    def target_columns(self) -> list[str]:
+    def target_cols(self) -> list[str]:
         """Get target columns as a list."""
         return [self.duration_column, self.event_column]
 
