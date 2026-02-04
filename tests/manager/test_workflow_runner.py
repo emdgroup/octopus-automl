@@ -41,7 +41,7 @@ def mock_experiment():
     experiment = Mock(spec=OctoExperiment)
     experiment.experiment_id = "test_exp"
     experiment.path_study = UPath("/tmp/test_study")
-    experiment.feature_columns = ["feature1", "feature2"]
+    experiment.feature_cols = ["feature1", "feature2"]
     experiment.calculate_feature_groups = Mock(return_value=["group1"])
     return experiment
 
@@ -125,5 +125,5 @@ class TestWorkflowTaskRunner:
         ):
             runner._apply_dependencies(mock_experiment, exp_path_dict)
 
-        assert mock_experiment.feature_columns == ["new_feature"]
+        assert mock_experiment.feature_cols == ["new_feature"]
         assert mock_experiment.prior_results == {"key": "value"}

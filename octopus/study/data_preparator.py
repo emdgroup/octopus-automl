@@ -20,7 +20,7 @@ class OctoDataPreparator:
     data: pd.DataFrame
     """DataFrame containing the dataset."""
 
-    feature_columns: list[str]
+    feature_cols: list[str]
     """List of all feature columns in the dataset."""
 
     target_columns: list[str]
@@ -54,14 +54,14 @@ class OctoDataPreparator:
 
         return PreparedData(
             data=self.data,
-            feature_columns=self.feature_columns,
+            feature_cols=self.feature_cols,
             row_id=self.row_id,  # type: ignore[arg-type]  # row_id is always set after _create_row_id
             target_assignments=self.target_assignments,
         )
 
     def _sort_features(self):
         """Sort feature columns deterministically by length and lexicographically."""
-        self.feature_columns = sorted(self.feature_columns, key=lambda col: (len(s := str(col)), s))
+        self.feature_cols = sorted(self.feature_cols, key=lambda col: (len(s := str(col)), s))
 
     def _set_target_assignments(self):
         """Set default target assignment for single-target scenarios.
@@ -80,10 +80,10 @@ class OctoDataPreparator:
 
     def _remove_singlevalue_features(self):
         """Remove features that contain only a single unique value."""
-        removed_features = [feature for feature in self.feature_columns if self.data[feature].nunique() <= 1]
+        removed_features = [feature for feature in self.feature_cols if self.data[feature].nunique() <= 1]
         if removed_features:
             logger.info(f"Removing {len(removed_features)} feature(s) with single unique value: {removed_features}")
-        self.feature_columns = [feature for feature in self.feature_columns if self.data[feature].nunique() > 1]
+        self.feature_cols = [feature for feature in self.feature_cols if self.data[feature].nunique() > 1]
 
     def _transform_bool_to_int(self):
         """Convert all boolean columns to integer."""
@@ -113,7 +113,7 @@ class OctoDataPreparator:
         """
         # Step 1: Create group_features column (groups by identical feature values)
         self.data = self.data.assign(
-            group_features=lambda df_: df_.groupby(self.feature_columns, dropna=False, observed=True).ngroup()
+            group_features=lambda df_: df_.groupby(self.feature_cols, dropna=False, observed=True).ngroup()
         )
 
         # Step 2: Initialize Union-Find data structure

@@ -13,7 +13,7 @@ class OctoDataValidator:
     data: pd.DataFrame
     """DataFrame containing the dataset."""
 
-    feature_columns: list[str]
+    feature_cols: list[str]
     """List of all feature columns in the dataset."""
 
     target_columns: list[str]
@@ -44,7 +44,7 @@ class OctoDataValidator:
 
     def __attrs_post_init__(self):
         """Compute relevant columns after initialization."""
-        relevant_columns = list(set(self.feature_columns + self.target_columns))
+        relevant_columns = list(set(self.feature_cols + self.target_columns))
         if self.sample_id:
             relevant_columns.append(self.sample_id)
         if self.row_id:
@@ -96,7 +96,7 @@ class OctoDataValidator:
     def _validate_columns_exist(self):
         """Validate that all relevant columns exist in the DataFrame.
 
-        Checks that all columns specified in feature_columns, target_columns,
+        Checks that all columns specified in feature_cols, target_columns,
         sample_id, row_id, and stratification_column are present in the DataFrame.
 
         Raises:
@@ -110,7 +110,7 @@ class OctoDataValidator:
     def _validate_duplicated_columns(self):
         """Validate that no duplicate column names exist in the configuration.
 
-        Validates that no column appears multiple times across feature_columns,
+        Validates that no column appears multiple times across feature_cols,
         target_columns, sample_id, and row_id. This prevents ambiguous column
         references.
 
@@ -118,7 +118,7 @@ class OctoDataValidator:
             ValueError: If any column name appears more than once in the
                 configuration.
         """
-        columns_to_check = self.feature_columns + self.target_columns + [self.sample_id]
+        columns_to_check = self.feature_cols + self.target_columns + [self.sample_id]
 
         if self.row_id:
             columns_to_check.append(self.row_id)
@@ -233,9 +233,9 @@ class OctoDataValidator:
         non_matching_columns = []
 
         if self.stratification_column:
-            columns_to_check = self.feature_columns + self.target_columns + [self.stratification_column]
+            columns_to_check = self.feature_cols + self.target_columns + [self.stratification_column]
         else:
-            columns_to_check = self.feature_columns + self.target_columns
+            columns_to_check = self.feature_cols + self.target_columns
 
         for column in columns_to_check:
             dtype = self.data[column].dtype
@@ -265,14 +265,14 @@ class OctoDataValidator:
     def _validate_feature_target_overlap(self):
         """Validate that no column is both a feature and a target.
 
-        Ensures that feature_columns and target_columns do not share any column
+        Ensures that feature_cols and target_columns do not share any column
         names, preventing logical conflicts in model training.
 
         Raises:
-            ValueError: If any columns appear in both feature_columns and
+            ValueError: If any columns appear in both feature_cols and
                 target_columns.
         """
-        overlap = set(self.feature_columns) & set(self.target_columns)
+        overlap = set(self.feature_cols) & set(self.target_columns)
         if overlap:
             raise ValueError(f"Columns cannot be both features and targets: {', '.join(sorted(overlap))}")
 

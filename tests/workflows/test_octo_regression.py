@@ -58,7 +58,7 @@ class TestOctoRegression:
             study = OctoRegression(
                 name="test_regression",
                 target_metric="MAE",
-                feature_columns=features,
+                feature_cols=features,
                 target="target",
                 sample_id="index",
                 path=temp_dir,
@@ -66,7 +66,7 @@ class TestOctoRegression:
             )
 
             assert study.target_columns == ["target"]
-            assert len(study.feature_columns) == 5
+            assert len(study.feature_cols) == 5
             assert study.sample_id == "index"
 
     def test_octo_task_configuration(self):
@@ -201,7 +201,7 @@ class TestOctoRegression:
             study = OctoRegression(
                 name="test_octo_regression_execution",
                 target_metric="MAE",
-                feature_columns=features,
+                feature_cols=features,
                 target="target",
                 sample_id="index",
                 metrics=["MAE", "MSE", "R2"],

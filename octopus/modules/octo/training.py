@@ -48,7 +48,7 @@ class Training:
     target_assignments: dict = field(validator=[validators.instance_of(dict)])
     """Target assignments."""
 
-    feature_columns: list[str] = field(validator=[validators.instance_of(list)])
+    feature_cols: list[str] = field(validator=[validators.instance_of(list)])
     """Feature columns."""
 
     row_column: str = field(validator=[validators.instance_of(str)])
@@ -122,24 +122,24 @@ class Training:
     @property
     def x_train(self):
         """x_train."""
-        return self.data_train[self.feature_columns]
+        return self.data_train[self.feature_cols]
 
     @property
     def x_dev_processed(self):
         """x_dev_processed."""
-        processed_data = self.preprocessing_pipeline.transform(self.data_dev[self.feature_columns])
+        processed_data = self.preprocessing_pipeline.transform(self.data_dev[self.feature_cols])
         # Convert back to DataFrame to preserve column names
         if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            return pd.DataFrame(processed_data, columns=self.feature_columns, index=self.data_dev.index)
+            return pd.DataFrame(processed_data, columns=self.feature_cols, index=self.data_dev.index)
         return processed_data
 
     @property
     def x_test_processed(self):
         """x_test_processed."""
-        processed_data = self.preprocessing_pipeline.transform(self.data_test[self.feature_columns])
+        processed_data = self.preprocessing_pipeline.transform(self.data_test[self.feature_cols])
         # Convert back to DataFrame to preserve column names
         if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            return pd.DataFrame(processed_data, columns=self.feature_columns, index=self.data_test.index)
+            return pd.DataFrame(processed_data, columns=self.feature_cols, index=self.data_test.index)
         return processed_data
 
     @property
@@ -198,12 +198,12 @@ class Training:
         model_config = Models.get_config(self.ml_model_type)
 
         # Identify column types
-        sample_data = self.data_train[self.feature_columns]
+        sample_data = self.data_train[self.feature_cols]
         numerical_columns = [
-            col for col in self.feature_columns if sample_data[col].dtype not in ["object", "category", "bool"]
+            col for col in self.feature_cols if sample_data[col].dtype not in ["object", "category", "bool"]
         ]
         categorical_columns = [
-            col for col in self.feature_columns if sample_data[col].dtype in ["object", "category", "bool"]
+            col for col in self.feature_cols if sample_data[col].dtype in ["object", "category", "bool"]
         ]
 
         # Build transformers
@@ -284,7 +284,7 @@ class Training:
         processed_data = self.preprocessing_pipeline.fit_transform(x_train)
         # Convert back to DataFrame to preserve column names
         if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            self.x_train_processed = pd.DataFrame(processed_data, columns=self.feature_columns, index=x_train.index)
+            self.x_train_processed = pd.DataFrame(processed_data, columns=self.feature_cols, index=x_train.index)
         else:
             self.x_train_processed = processed_data
 
@@ -389,7 +389,7 @@ class Training:
                 f"Feature importance calculation failed for model {self.ml_model_type} "
                 f"using method {feature_method}. Returning all features as used."
             )
-            return self.feature_columns.copy()
+            return self.feature_cols.copy()
 
         features_used = fi_df[fi_df["importance"] != 0]["feature"].tolist()
 
@@ -399,14 +399,14 @@ class Training:
                 f"All feature importances are zero for model {self.ml_model_type} "
                 f"using method {feature_method}. Returning all features as used."
             )
-            return self.feature_columns.copy()
+            return self.feature_cols.copy()
 
         return features_used
 
     def calculate_fi_constant(self):
         """Provide flat feature importance table."""
         fi_df = pd.DataFrame()
-        fi_df["feature"] = self.feature_columns
+        fi_df["feature"] = self.feature_cols
         fi_df["importance"] = 1
         self.feature_importances["constant"] = fi_df
 
@@ -422,7 +422,7 @@ class Training:
         # 1) Tree-based models exposing feature_importances_
         if hasattr(self.model, "feature_importances_"):
             fi = np.asarray(self.model.feature_importances_)
-            fi_df = pd.DataFrame({"feature": self.feature_columns, "importance": fi})
+            fi_df = pd.DataFrame({"feature": self.feature_cols, "importance": fi})
             self.feature_importances["internal"] = fi_df
             return
 
@@ -440,17 +440,17 @@ class Training:
                 # Aggregate across classes/targets/pairs
                 importance = np.mean(np.abs(coef), axis=0)
 
-            if len(importance) != len(self.feature_columns):
+            if len(importance) != len(self.feature_cols):
                 # Defensive check in case columns mismatch model coefficients
                 logger.warning(
                     "Length mismatch between coefficients (%d) and feature columns (%d). "
                     "Skipping internal importances.",
                     len(importance),
-                    len(self.feature_columns),
+                    len(self.feature_cols),
                 )
                 fi_df = pd.DataFrame(columns=["feature", "importance"])
             else:
-                fi_df = pd.DataFrame({"feature": self.feature_columns, "importance": importance})
+                fi_df = pd.DataFrame({"feature": self.feature_cols, "importance": importance})
 
             self.feature_importances["internal"] = fi_df
             return
@@ -468,7 +468,7 @@ class Training:
         np.random.seed(42)  # reproducibility
         # fixed confidence level
         confidence_level = 0.95
-        feature_columns = self.feature_columns
+        feature_cols = self.feature_cols
         target_assignments = self.target_assignments
         target_metric = self.target_metric
         model = self.model
@@ -481,19 +481,19 @@ class Training:
         elif partition == "test":
             data = pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1)
 
-        if not set(feature_columns).issubset(data.columns):
+        if not set(feature_cols).issubset(data.columns):
             raise ValueError("Features missing in provided dataset.")
 
         # keep all features and add group features
         # create features dict
-        feature_columns_dict = {x: [x] for x in feature_columns}
-        features_dict = {**feature_columns_dict, **feature_groups}
+        feature_cols_dict = {x: [x] for x in feature_cols}
+        features_dict = {**feature_cols_dict, **feature_groups}
 
         # calculate baseline score
         baseline_score = get_score_from_model(
             model,
             data,
-            feature_columns,
+            feature_cols,
             target_metric,
             target_assignments,
             positive_class=self.config_training.get("positive_class"),
@@ -523,7 +523,7 @@ class Training:
                 pfi_score = get_score_from_model(
                     model,
                     data_pfi,
-                    feature_columns,
+                    feature_cols,
                     target_metric,
                     target_assignments,
                     positive_class=self.config_training.get("positive_class"),
@@ -594,7 +594,7 @@ class Training:
         )
 
         fi_df = pd.DataFrame()
-        fi_df["feature"] = self.feature_columns
+        fi_df["feature"] = self.feature_cols
         fi_df["importance"] = perm_importance.importances_mean
         fi_df["importance_std"] = perm_importance.importances_std
         self.feature_importances["permutation" + "_" + partition] = fi_df
@@ -604,7 +604,7 @@ class Training:
         np.random.seed(42)  # reproducibility
         logger.info("Calculating LOFO feature importance. This may take a while...")
         # first, dev only
-        feature_columns = self.feature_columns
+        feature_cols = self.feature_cols
         target_assignments = self.target_assignments
         # calculate dev+test baseline scores
         target_cols = list(target_assignments.values())
@@ -614,7 +614,7 @@ class Training:
         baseline_dev = get_score_from_model(
             self.model,
             data_dev,
-            feature_columns,
+            feature_cols,
             self.target_metric,
             self.target_assignments,
             positive_class=self.config_training.get("positive_class"),
@@ -622,21 +622,21 @@ class Training:
         baseline_test = get_score_from_model(
             self.model,
             data_test,
-            feature_columns,
+            feature_cols,
             self.target_metric,
             self.target_assignments,
             positive_class=self.config_training.get("positive_class"),
         )
 
         # create features dict
-        feature_columns_dict = {x: [x] for x in feature_columns}
-        lofo_features = {**feature_columns_dict, **self.feature_groups}
+        feature_cols_dict = {x: [x] for x in feature_cols}
+        lofo_features = {**feature_cols_dict, **self.feature_groups}
 
         # lofo
         fi_dev_df = pd.DataFrame(columns=["feature", "importance"])
         fi_test_df = pd.DataFrame(columns=["feature", "importance"])
         for name, lofo_feature in lofo_features.items():
-            selected_features = copy.deepcopy(feature_columns)
+            selected_features = copy.deepcopy(feature_cols)
             model = copy.deepcopy(self.model)
             selected_features = [x for x in selected_features if x not in lofo_feature]
             # retrain model
@@ -700,7 +700,7 @@ class Training:
         n_features = X_eval.shape[1]
 
         # Resolve feature names
-        feature_names = getattr(self, "feature_columns", None)
+        feature_names = getattr(self, "feature_cols", None)
         if not feature_names or len(feature_names) != n_features:
             if hasattr(X_eval_df, "columns"):
                 feature_names = list(X_eval_df.columns)
@@ -741,7 +741,7 @@ class Training:
             importance = np.mean(np.abs(vals), axis=reduce_axes)
 
         if importance.shape[0] != n_features:
-            raise ValueError("Feature count mismatch between SHAP values and feature_columns.")
+            raise ValueError("Feature count mismatch between SHAP values and feature_cols.")
 
         # Build and store importance DataFrame
         fi_df = pd.DataFrame({"feature": feature_names, "importance": importance})
@@ -836,7 +836,7 @@ class Training:
         """
         # Ensure x is a DataFrame with proper column names for ColumnTransformer
         if isinstance(x, np.ndarray):
-            x = pd.DataFrame(x, columns=self.feature_columns)
+            x = pd.DataFrame(x, columns=self.feature_cols)
         elif isinstance(x, pd.DataFrame):
             # Reset index to avoid sklearn ColumnTransformer issues
             x = x.reset_index(drop=True)
@@ -856,7 +856,7 @@ class Training:
         """
         # Ensure x is a DataFrame with proper column names for ColumnTransformer
         if isinstance(x, np.ndarray):
-            x = pd.DataFrame(x, columns=self.feature_columns)
+            x = pd.DataFrame(x, columns=self.feature_cols)
         elif isinstance(x, pd.DataFrame):
             # Reset index to avoid sklearn ColumnTransformer issues
             x = x.reset_index(drop=True)

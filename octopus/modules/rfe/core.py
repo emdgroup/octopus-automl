@@ -188,7 +188,7 @@ class RfeCore(ModuleBaseCore[Rfe]):
 
         rfecv.fit(self.x_traindev, self.y_traindev.squeeze(axis=1))
         optimal_features = rfecv.n_features_
-        selected_features = [self.feature_columns[i] for i in range(len(rfecv.support_)) if rfecv.support_[i]]
+        selected_features = [self.feature_cols[i] for i in range(len(rfecv.support_)) if rfecv.support_[i]]
         self.experiment.selected_features = sorted(selected_features, key=lambda x: (len(x), sorted(x)))
 
         print("RFE completed")

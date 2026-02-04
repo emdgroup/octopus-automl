@@ -29,7 +29,7 @@ class TestGetPerformanceFromModel:
         performance = get_performance_from_model(
             model=model,
             data=data,
-            feature_columns=X.columns.tolist(),
+            feature_cols=X.columns.tolist(),
             target_metric="AUCROC",
             target_assignments={"default": "target"},
             positive_class=1,
@@ -51,7 +51,7 @@ class TestGetPerformanceFromModel:
         performance = get_performance_from_model(
             model=model,
             data=data,
-            feature_columns=X.columns.tolist(),
+            feature_cols=X.columns.tolist(),
             target_metric="ACCBAL_MC",
             target_assignments={"default": "target"},
         )
@@ -72,7 +72,7 @@ class TestGetPerformanceFromModel:
         performance = get_performance_from_model(
             model=model,
             data=data,
-            feature_columns=X.columns.tolist(),
+            feature_cols=X.columns.tolist(),
             target_metric="R2",
             target_assignments={"default": "target"},
         )
@@ -294,7 +294,7 @@ class TestGetScoreFromModel:
         score = get_score_from_model(
             model=model,
             data=data,
-            feature_columns=X.columns.tolist(),
+            feature_cols=X.columns.tolist(),
             target_metric="AUCROC",
             target_assignments={"default": "target"},
             positive_class=1,
@@ -316,7 +316,7 @@ class TestGetScoreFromModel:
         score = get_score_from_model(
             model=model,
             data=data,
-            feature_columns=X.columns.tolist(),
+            feature_cols=X.columns.tolist(),
             target_metric="MSE",
             target_assignments={"default": "target"},
         )

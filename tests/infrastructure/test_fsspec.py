@@ -142,7 +142,7 @@ class TestFSSpecIntegration:
                 study = OctoClassification(
                     name="test_octo_intro_execution",
                     target_metric="ACCBAL",
-                    feature_columns=features,
+                    feature_cols=features,
                     target="target",
                     sample_id="index",
                     stratification_column="target",

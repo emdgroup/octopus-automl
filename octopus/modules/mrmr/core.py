@@ -128,11 +128,11 @@ class MrmrCore(ModuleBaseCore[Mrmr]):
         """Get permutation relevance.
 
         Only use features with positive importance
-        Reduce fi table to feature_columns (previous selected_features).
+        Reduce fi table to feature_cols (previous selected_features).
         Feature columns do not contain any groups.
         """
         re_df = self.feature_importances[self.feature_importance_key]
-        re_df = re_df[re_df["feature"].isin(self.feature_columns)]
+        re_df = re_df[re_df["feature"].isin(self.feature_cols)]
         logger.info(f"Number of features in fi table (based on previous selected features, no groups): {len(re_df)}")
         re_df = re_df[re_df["importance"] > 0].reset_index(drop=True)
         logger.info(f"Number features with positive importance: {len(re_df)}")
@@ -140,7 +140,7 @@ class MrmrCore(ModuleBaseCore[Mrmr]):
 
     def _get_fstats_relevance(self):
         """Get fstats relevance."""
-        return relevance_fstats(self.x_traindev, self.y_traindev, self.feature_columns, self.ml_type)
+        return relevance_fstats(self.x_traindev, self.y_traindev, self.feature_cols, self.ml_type)
 
     def _calculate_mrmr_features(self, relevance_df):
         """Calculate MRMR features."""
@@ -156,11 +156,11 @@ class MrmrCore(ModuleBaseCore[Mrmr]):
 def relevance_fstats(
     features: pd.DataFrame,
     target: pd.DataFrame,
-    feature_columns: list,
+    feature_cols: list,
     ml_type: str,
 ) -> pd.DataFrame:
     """Calculate f-statistics based relevance."""
-    features = features[feature_columns]
+    features = features[feature_cols]
     target_array = target.to_numpy().ravel()
 
     if ml_type == "classification":
@@ -170,7 +170,7 @@ def relevance_fstats(
     else:
         raise ValueError(f"ML-type {ml_type} not supported.")
 
-    return pd.DataFrame({"feature": feature_columns, "importance": values})
+    return pd.DataFrame({"feature": feature_cols, "importance": values})
 
 
 def maxrminr(

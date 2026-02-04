@@ -30,7 +30,7 @@ def validator_factory(sample_data):
 
     def _create_validator(
         data=None,
-        feature_columns=None,
+        feature_cols=None,
         target_columns=None,
         sample_id="sample_id",
         row_id="id",
@@ -41,8 +41,8 @@ def validator_factory(sample_data):
     ):
         if data is None:
             data = sample_data
-        if feature_columns is None:
-            feature_columns = ["feature1", "feature2", "feature3"]
+        if feature_cols is None:
+            feature_cols = ["feature1", "feature2", "feature3"]
         if target_columns is None:
             target_columns = ["target"]
         if target_assignments is None:
@@ -50,7 +50,7 @@ def validator_factory(sample_data):
 
         return OctoDataValidator(
             data=data,
-            feature_columns=feature_columns,
+            feature_cols=feature_cols,
             target_columns=target_columns,
             sample_id=sample_id,
             row_id=row_id,
@@ -87,7 +87,7 @@ def test_validate_columns_exist_valid(validator_factory):
 
 def test_validate_columns_exist_missing(validator_factory):
     """Test column exists validation with missing column."""
-    validator = validator_factory(feature_columns=["feature1", "non_existent_column"])
+    validator = validator_factory(feature_cols=["feature1", "non_existent_column"])
     with pytest.raises(ValueError):
         validator._validate_columns_exist()
 
@@ -104,7 +104,7 @@ def test_validate_duplicated_columns(validator_factory, duplicate_setup, should_
     validator = validator_factory()
 
     if duplicate_setup == "feature_to_target":
-        validator.feature_columns.append("target")
+        validator.feature_cols.append("target")
 
     if should_fail:
         with pytest.raises(ValueError):
@@ -191,29 +191,29 @@ def test_validate_with_two_targets(validator_factory):
 
 def test_validate_nonempty_dataframe(validator_factory):
     """Test nonempty dataframe validation."""
-    validator_factory(feature_columns=["feature1"])._validate_nonempty_dataframe()
+    validator_factory(feature_cols=["feature1"])._validate_nonempty_dataframe()
 
-    empty_validator = validator_factory(data=pd.DataFrame(), feature_columns=["feature1"])
+    empty_validator = validator_factory(data=pd.DataFrame(), feature_cols=["feature1"])
     with pytest.raises(ValueError, match="DataFrame is empty"):
         empty_validator._validate_nonempty_dataframe()
 
 
 def test_validate_feature_target_overlap(validator_factory):
     """Test feature target overlap validation."""
-    validator_factory(feature_columns=["feature1", "feature2"])._validate_feature_target_overlap()
+    validator_factory(feature_cols=["feature1", "feature2"])._validate_feature_target_overlap()
 
     with pytest.raises(ValueError, match="Columns cannot be both features and targets"):
-        validator_factory(feature_columns=["feature1", "target"])._validate_feature_target_overlap()
+        validator_factory(feature_cols=["feature1", "target"])._validate_feature_target_overlap()
 
 
 def test_validate_reserved_column_conflicts(validator_factory, sample_data):
     """Test reserved column conflicts validation."""
-    validator_factory(feature_columns=["feature1"])._validate_reserved_column_conflicts()
+    validator_factory(feature_cols=["feature1"])._validate_reserved_column_conflicts()
 
     data_with_reserved = sample_data.copy()
     data_with_reserved["group_features"] = 0
     with pytest.raises(ValueError, match="Reserved column names found in data"):
-        validator_factory(data=data_with_reserved, feature_columns=["feature1"])._validate_reserved_column_conflicts()
+        validator_factory(data=data_with_reserved, feature_cols=["feature1"])._validate_reserved_column_conflicts()
 
 
 def test_validate_error_accumulation(validator_factory, sample_data):
@@ -224,7 +224,7 @@ def test_validate_error_accumulation(validator_factory, sample_data):
 
     validator = validator_factory(
         data=data_with_issues,
-        feature_columns=["feature1", "feature2"],
+        feature_cols=["feature1", "feature2"],
         stratification_column="sample_id",  # This will fail as sample_id can't be stratification column
     )
 

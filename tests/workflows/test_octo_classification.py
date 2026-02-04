@@ -64,7 +64,7 @@ class TestOctoIntroClassification:
             study = OctoClassification(
                 name="test_classification",
                 target_metric="ACCBAL",
-                feature_columns=features,
+                feature_cols=features,
                 target="target",
                 sample_id="index",
                 stratification_column="target",
@@ -73,7 +73,7 @@ class TestOctoIntroClassification:
             )
 
             assert study.target_columns == ["target"]
-            assert len(study.feature_columns) == 5
+            assert len(study.feature_cols) == 5
             assert study.sample_id == "index"
             assert study.stratification_column == "target"
 
@@ -192,7 +192,7 @@ class TestOctoIntroClassification:
             study = OctoClassification(
                 name="test_octo_intro_execution",
                 target_metric="ACCBAL",
-                feature_columns=features,
+                feature_cols=features,
                 target="target",
                 sample_id="index",
                 stratification_column="target",

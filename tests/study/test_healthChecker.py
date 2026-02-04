@@ -27,7 +27,7 @@ def health_checker(sample_data):
     """Create health checker instance."""
     return OctoDataHealthChecker(
         data=sample_data,
-        feature_columns=["feature1", "feature2", "feature3"],
+        feature_cols=["feature1", "feature2", "feature3"],
         target_columns=["target"],
         row_id="id",
         sample_id="sample_id",
@@ -71,10 +71,10 @@ def test_check_critical_column_missing_values(health_checker):
     assert any(issue["Issue Type"] == "critical_missing_values" for issue in health_checker.issues)
 
 
-def test_check_feature_column_missing_values(health_checker):
+def test_check_feature_cols_missing_values(health_checker):
     """Test feature column missing values check."""
     health_checker.data.loc[:25, "feature1"] = np.nan
-    health_checker._check_feature_column_missing_values()
+    health_checker._check_feature_cols_missing_values()
     assert any(issue["Issue Type"] == "high_missing_values" for issue in health_checker.issues)
 
 
@@ -101,7 +101,7 @@ def test_check_duplicated_features(health_checker):
 def test_check_feature_feature_correlation(health_checker):
     """Test check feature feature correlation check."""
     health_checker.data["feature4"] = health_checker.data["feature1"] * 2
-    health_checker.feature_columns.append("feature4")
+    health_checker.feature_cols.append("feature4")
     health_checker._check_feature_feature_correlation()
     assert any(issue["Issue Type"] == "high_correlation" for issue in health_checker.issues)
 
@@ -109,7 +109,7 @@ def test_check_feature_feature_correlation(health_checker):
 def test_check_identical_features(health_checker):
     """Test identical features check."""
     health_checker.data["feature5"] = health_checker.data["feature1"]
-    health_checker.feature_columns.append("feature5")
+    health_checker.feature_cols.append("feature5")
     health_checker._check_identical_features()
     assert any(issue["Issue Type"] == "identical_features" for issue in health_checker.issues)
 
@@ -131,7 +131,7 @@ def test_check_infinity_values(health_checker):
 def test_check_string_mismatch(health_checker):
     """Test string mismatch check."""
     health_checker.data["feature6"] = ["apple", "aple", "appl", "banana"] * 25
-    health_checker.feature_columns.append("feature6")
+    health_checker.feature_cols.append("feature6")
     health_checker._check_string_mismatch()
     assert any(issue["Issue Type"] == "string_mismatch" for issue in health_checker.issues)
 
@@ -143,7 +143,7 @@ def test_check_string_out_of_bounds(health_checker):
         "medium",
         "very_long_string_that_exceeds_threshold",
     ] * 33 + ["short"]
-    health_checker.feature_columns.append("feature7")
+    health_checker.feature_cols.append("feature7")
     health_checker._check_string_out_of_bounds()
     assert any(issue["Issue Type"] == "string_out_of_bounds" for issue in health_checker.issues)
 
@@ -158,7 +158,7 @@ def test_check_class_imbalance(health_checker):
 def test_check_high_cardinality(health_checker):
     """Test high cardinality check."""
     health_checker.data["feature8"] = [f"cat_{i}" for i in range(80)] + ["cat_0"] * 20
-    health_checker.feature_columns.append("feature8")
+    health_checker.feature_cols.append("feature8")
     health_checker._check_high_cardinality()
     assert any(issue["Issue Type"] == "high_cardinality" for issue in health_checker.issues)
 
@@ -168,7 +168,7 @@ def test_check_target_leakage(health_checker):
     health_checker.data["target_numeric"] = health_checker.data["target"].astype(float)
     health_checker.target_columns = ["target_numeric"]
     health_checker.data["feature9"] = health_checker.data["target_numeric"] * 0.99 + np.random.randn(100) * 0.01
-    health_checker.feature_columns.append("feature9")
+    health_checker.feature_cols.append("feature9")
     health_checker._check_target_leakage()
     assert any(issue["Issue Type"] == "target_leakage" for issue in health_checker.issues)
 
@@ -185,7 +185,7 @@ def test_check_minimum_samples(sample_data):
     """Test minimum samples check."""
     health_checker_sufficient = OctoDataHealthChecker(
         data=sample_data,
-        feature_columns=["feature1"],
+        feature_cols=["feature1"],
         target_columns=["target"],
         row_id="id",
         sample_id="sample_id",
@@ -197,7 +197,7 @@ def test_check_minimum_samples(sample_data):
     small_data = sample_data.head(10)
     health_checker_insufficient = OctoDataHealthChecker(
         data=small_data,
-        feature_columns=["feature1"],
+        feature_cols=["feature1"],
         target_columns=["target"],
         row_id="id",
         sample_id="sample_id",
@@ -212,7 +212,7 @@ def test_check_row_id_unique(sample_data):
     """Test row_id unique check."""
     health_checker_unique = OctoDataHealthChecker(
         data=sample_data,
-        feature_columns=["feature1"],
+        feature_cols=["feature1"],
         target_columns=["target"],
         row_id="id",
         sample_id="sample_id",
@@ -225,7 +225,7 @@ def test_check_row_id_unique(sample_data):
     duplicate_data.loc[5, "id"] = duplicate_data.loc[0, "id"]
     health_checker_duplicate = OctoDataHealthChecker(
         data=duplicate_data,
-        feature_columns=["feature1"],
+        feature_cols=["feature1"],
         target_columns=["target"],
         row_id="id",
         sample_id="sample_id",
@@ -240,7 +240,7 @@ def test_check_features_not_all_null(sample_data):
     """Test features not all null check."""
     health_checker_valid = OctoDataHealthChecker(
         data=sample_data,
-        feature_columns=["feature1", "feature2"],
+        feature_cols=["feature1", "feature2"],
         target_columns=["target"],
         row_id="id",
         sample_id="sample_id",
@@ -253,7 +253,7 @@ def test_check_features_not_all_null(sample_data):
     null_data["feature1"] = np.nan
     health_checker_null = OctoDataHealthChecker(
         data=null_data,
-        feature_columns=["feature1", "feature2"],
+        feature_cols=["feature1", "feature2"],
         target_columns=["target"],
         row_id="id",
         sample_id="sample_id",

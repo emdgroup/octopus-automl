@@ -63,7 +63,7 @@ def mock_octo_experiment(correlated_data):
         imputation_method="median",
         datasplit_column="split",
         row_column="row_id",
-        feature_columns=["x1", "x2", "x3", "x4", "x5", "x6", "x7"],
+        feature_cols=["x1", "x2", "x3", "x4", "x5", "x6", "x7"],
         target_assignments={"target": "value"},
         data_traindev=correlated_data,
         data_test=correlated_data.sample(n=200, random_state=42),
@@ -119,7 +119,7 @@ def test_correlation_thresholds(mock_octo_experiment):
     """Test correlation thresholds."""
     feature_groups = mock_octo_experiment.feature_groups
     correlation_matrix = (
-        mock_octo_experiment.data_traindev[mock_octo_experiment.feature_columns].corr(method="spearman").abs()
+        mock_octo_experiment.data_traindev[mock_octo_experiment.feature_cols].corr(method="spearman").abs()
     )
 
     for group_name, group in feature_groups.items():

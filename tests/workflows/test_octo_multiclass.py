@@ -73,7 +73,7 @@ class TestOctoMulticlass:
             study = OctoClassification(
                 name="test_multiclass",
                 target_metric="AUCROC_MACRO",
-                feature_columns=features,
+                feature_cols=features,
                 target="target",
                 sample_id="index",
                 stratification_column="target",
@@ -82,7 +82,7 @@ class TestOctoMulticlass:
             )
 
             assert study.target_columns == ["target"]
-            assert len(study.feature_columns) == 5
+            assert len(study.feature_cols) == 5
             assert study.sample_id == "index"
             assert study.stratification_column == "target"
 
@@ -157,7 +157,7 @@ class TestOctoMulticlass:
             study = OctoClassification(
                 name="test_multiclass_metrics",
                 target_metric="AUCROC_MACRO",
-                feature_columns=["f1"],
+                feature_cols=["f1"],
                 target="target",
                 sample_id="index",
                 metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],
@@ -207,7 +207,7 @@ class TestOctoMulticlass:
             study = OctoClassification(
                 name="test_multiclass_execution",
                 target_metric="AUCROC_MACRO",
-                feature_columns=features,
+                feature_cols=features,
                 target="target",
                 sample_id="index",
                 stratification_column="target",
@@ -311,7 +311,7 @@ class TestOctoMulticlass:
                 study = OctoClassification(
                     name=f"test_multiclass_{target_metric.lower()}",
                     target_metric=target_metric,
-                    feature_columns=["f1"],
+                    feature_cols=["f1"],
                     target="target",
                     sample_id="index",
                     metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],

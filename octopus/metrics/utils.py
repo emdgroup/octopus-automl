@@ -49,7 +49,7 @@ def _get_probability_columns(pred_df: pd.DataFrame, target_col: str) -> list[int
 def get_performance_from_model(
     model: Any,
     data: pd.DataFrame,
-    feature_columns: list,
+    feature_cols: list,
     target_metric: str,
     target_assignments: dict,
     threshold: float = 0.5,
@@ -60,7 +60,7 @@ def get_performance_from_model(
     Args:
         model: Trained model with predict/predict_proba methods
         data: DataFrame containing features and targets
-        feature_columns: List of feature column names
+        feature_cols: List of feature column names
         target_metric: Name of the metric to calculate
         target_assignments: Dictionary mapping target types to column names
         threshold: Classification threshold (default: 0.5)
@@ -74,10 +74,10 @@ def get_performance_from_model(
                    positive_class not found in model classes, predict_proba used for regression,
                    or ml_type is unknown
     """
-    input_data = data[feature_columns]
+    input_data = data[feature_cols]
 
     # Validate input data
-    if input_data.empty or not all(col in input_data.columns for col in feature_columns):
+    if input_data.empty or not all(col in input_data.columns for col in feature_cols):
         raise ValueError("Input data is empty or does not contain the required feature columns.")
 
     # Get metric instance
@@ -266,7 +266,7 @@ def get_score_from_prediction(
 def get_score_from_model(
     model: Any,
     data: pd.DataFrame,
-    feature_columns: list,
+    feature_cols: list,
     target_metric: str,
     target_assignments: dict,
     positive_class: int | str | None = None,
@@ -279,7 +279,7 @@ def get_score_from_model(
     Args:
         model: Trained model
         data: DataFrame containing features and targets
-        feature_columns: List of feature column names
+        feature_cols: List of feature column names
         target_metric: Name of the metric to calculate
         target_assignments: Dictionary mapping target types to column names
         positive_class: Positive class for binary classification
@@ -288,7 +288,7 @@ def get_score_from_model(
         Score value (direction-adjusted performance)
     """
     performance = get_performance_from_model(
-        model, data, feature_columns, target_metric, target_assignments, positive_class=positive_class
+        model, data, feature_cols, target_metric, target_assignments, positive_class=positive_class
     )
 
     # Apply optimization direction

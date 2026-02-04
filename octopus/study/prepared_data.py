@@ -11,7 +11,7 @@ class PreparedData:
     data: pd.DataFrame
     """Prepared DataFrame after all transformations."""
 
-    feature_columns: list[str]
+    feature_cols: list[str]
     """Feature columns actually used after preparation (sorted, single-value features removed)."""
 
     row_id: str
@@ -25,7 +25,7 @@ class PreparedData:
         """Get numerical feature columns from effective features."""
         return [
             col
-            for col in self.feature_columns
+            for col in self.feature_cols
             if col in self.data.columns
             and pd.api.types.is_numeric_dtype(self.data[col])
             and not isinstance(self.data[col].dtype, pd.CategoricalDtype)
@@ -35,7 +35,7 @@ class PreparedData:
     def cat_nominal_features(self) -> list[str]:
         """Get categorical nominal feature columns from effective features."""
         cat_nominal_features = []
-        for col in self.feature_columns:
+        for col in self.feature_cols:
             if col in self.data.columns:
                 dtype = self.data[col].dtype
                 if isinstance(dtype, pd.CategoricalDtype) and not dtype.ordered:
@@ -46,7 +46,7 @@ class PreparedData:
     def cat_ordinal_features(self) -> list[str]:
         """Get categorical ordinal feature columns from effective features."""
         cat_ordinal_features = []
-        for col in self.feature_columns:
+        for col in self.feature_cols:
             if col in self.data.columns:
                 dtype = self.data[col].dtype
                 if isinstance(dtype, pd.CategoricalDtype) and dtype.ordered:

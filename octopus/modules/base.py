@@ -15,7 +15,7 @@ class ModuleBaseCore[TaskConfigType: Task]:
     Provides shared properties and initialization logic for all module cores:
     - Path management (path_module, path_results)
     - Data access properties (x_traindev, y_traindev, x_test, y_test, etc.)
-    - Experiment metadata (feature_columns, target_metric, ml_type, etc.)
+    - Experiment metadata (feature_cols, target_metric, ml_type, etc.)
     - Directory initialization and cleanup
 
     Type Parameters:
@@ -72,7 +72,7 @@ class ModuleBaseCore[TaskConfigType: Task]:
         Returns:
             Subset of data_traindev containing only feature columns
         """
-        return self.experiment.data_traindev[self.experiment.feature_columns]
+        return self.experiment.data_traindev[self.experiment.feature_cols]
 
     @property
     def y_traindev(self) -> pd.DataFrame:
@@ -90,7 +90,7 @@ class ModuleBaseCore[TaskConfigType: Task]:
         Returns:
             Subset of data_test containing only feature columns
         """
-        return self.experiment.data_test[self.experiment.feature_columns]
+        return self.experiment.data_test[self.experiment.feature_cols]
 
     @property
     def y_test(self) -> pd.DataFrame:
@@ -102,13 +102,13 @@ class ModuleBaseCore[TaskConfigType: Task]:
         return self.experiment.data_test[self.experiment.target_assignments.values()]
 
     @property
-    def feature_columns(self) -> list[str]:
+    def feature_cols(self) -> list[str]:
         """Feature column names.
 
         Returns:
             List of feature column names used in the experiment
         """
-        return self.experiment.feature_columns
+        return self.experiment.feature_cols
 
     @property
     def target_assignments(self) -> dict:

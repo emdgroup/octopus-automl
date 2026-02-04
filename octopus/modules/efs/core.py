@@ -169,7 +169,7 @@ class EfsCore(ModuleBaseCore[Efs]):
         random.seed(0)
 
         # print()
-        # print("features: ", self.feature_columns)
+        # print("features: ", self.feature_cols)
 
         # Configuration, define default model
         if self.ml_type == "classification":
@@ -219,7 +219,7 @@ class EfsCore(ModuleBaseCore[Efs]):
 
         subsets = []
         for _ in range(self.config.n_subsets):
-            subset = random.sample(self.feature_columns, self.config.subset_size)
+            subset = random.sample(self.feature_cols, self.config.subset_size)
             subsets.append(subset)
 
         # (A) create model table

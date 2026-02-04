@@ -112,25 +112,23 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
         logger.info("Calculating MRMR feature sets...")
         # remove duplicates and cap max number
         feature_numbers = list(set(self.experiment.ml_config.mrmr_feature_numbers))
-        feature_numbers = [
-            x for x in feature_numbers if isinstance(x, int) and x <= len(self.experiment.feature_columns)
-        ]
+        feature_numbers = [x for x in feature_numbers if isinstance(x, int) and x <= len(self.experiment.feature_cols)]
         # if no mrmr features are requested, only add original features
         if not feature_numbers:
             # add original features
-            self.mrmr_features[len(self.experiment.feature_columns)] = self.experiment.feature_columns
+            self.mrmr_features[len(self.experiment.feature_cols)] = self.experiment.feature_cols
             return
 
         # prepare inputs
-        feature_columns = self.experiment.feature_columns
-        features = self.experiment.data_traindev[feature_columns]
+        feature_cols = self.experiment.feature_cols
+        features = self.experiment.data_traindev[feature_cols]
         target = self.experiment.data_traindev[self.experiment.target_assignments.values()]
 
         # create relevance information
         re_df = relevance_fstats(
             features=features,
             target=target,
-            feature_columns=feature_columns,
+            feature_cols=feature_cols,
             ml_type=self.experiment.ml_type,
         )
 
@@ -142,7 +140,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
             correlation_type="spearman",
         )
         # add original features
-        self.mrmr_features[len(self.experiment.feature_columns)] = self.experiment.feature_columns
+        self.mrmr_features[len(self.experiment.feature_cols)] = self.experiment.feature_cols
 
     def _check_resources(self):
         """Check resources, assigned vs requested."""
@@ -357,7 +355,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
 
         logger.info("Create best bag.....")
         n_input_features = user_attrs["config_training"]["n_input_features"]
-        best_bag_feature_columns = self.mrmr_features[n_input_features]
+        best_bag_feature_cols = self.mrmr_features[n_input_features]
 
         # create best bag from optuna info
         best_trainings = []
@@ -367,7 +365,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
                     training_id=self.experiment.id + "_" + str(key),
                     ml_type=self.experiment.ml_type,
                     target_assignments=self.experiment.target_assignments,
-                    feature_columns=best_bag_feature_columns,
+                    feature_cols=best_bag_feature_cols,
                     row_column=self.experiment.row_column,
                     data_train=split["train"],  # inner datasplit, train
                     data_dev=split["test"],  # inner datasplit, dev
@@ -439,7 +437,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
         # save selected features to experiment
         logger.set_log_group(LogGroup.RESULTS)
         logger.info("---")
-        logger.info(f"Number of original features: {len(self.experiment.feature_columns)}")
+        logger.info(f"Number of original features: {len(self.experiment.feature_cols)}")
         self.experiment.selected_features = selected_features
         logger.info(f"Number of selected features: {len(self.experiment.selected_features)}")
         if len(self.experiment.selected_features) == 0:

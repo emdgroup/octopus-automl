@@ -34,7 +34,7 @@ def prepared_data(sample_data_with_types):
     """Create PreparedData instance."""
     return PreparedData(
         data=sample_data_with_types,
-        feature_columns=[
+        feature_cols=[
             "int_feature",
             "float_feature",
             "bool_feature",
@@ -87,7 +87,7 @@ def test_all_columns_covered(prepared_data):
     all_typed_columns = (
         prepared_data.num_features + prepared_data.cat_nominal_features + prepared_data.cat_ordinal_features
     )
-    assert set(all_typed_columns) == set(prepared_data.feature_columns)
+    assert set(all_typed_columns) == set(prepared_data.feature_cols)
 
 
 def test_no_overlap_between_column_types(prepared_data):
@@ -107,4 +107,4 @@ def test_no_overlap_between_column_types(prepared_data):
         + len(prepared_data.cat_nominal_features)
         + len(prepared_data.cat_ordinal_features)
     )
-    assert total_by_type == len(prepared_data.feature_columns)
+    assert total_by_type == len(prepared_data.feature_cols)

@@ -96,13 +96,13 @@ class RocCore(ModuleBaseCore[Roc]):
             values = filter_inventory[self.filter_type][self.ml_type](
                 self.x_traindev, self.y_traindev.to_numpy().ravel(), random_state=0
             )
-            dependency = pd.Series(values, index=self.feature_columns)
+            dependency = pd.Series(values, index=self.feature_cols)
         elif self.filter_type == "f_statistics":
             # ignoring p-values
             values, _ = filter_inventory[self.filter_type][self.ml_type](
                 self.x_traindev, self.y_traindev.to_numpy().ravel()
             )
-            dependency = pd.Series(values, index=self.feature_columns)
+            dependency = pd.Series(values, index=self.feature_cols)
 
         logger.info("Calculating feature groups.")
         # correlation matrix
@@ -119,8 +119,8 @@ class RocCore(ModuleBaseCore[Roc]):
         g = nx.Graph()
 
         # Add edges to the graph based on the correlation matrix
-        for i in range(len(self.feature_columns)):
-            for j in range(i + 1, len(self.feature_columns)):
+        for i in range(len(self.feature_cols)):
+            for j in range(i + 1, len(self.feature_cols)):
                 if pos_corr_matrix[i, j] > threshold:
                     g.add_edge(i, j)
 
@@ -132,15 +132,15 @@ class RocCore(ModuleBaseCore[Roc]):
         # Create groups of feature columns
         groups = []
         for sg in subgraphs:
-            groups.append([self.feature_columns[node] for node in sorted(sg.nodes())])
+            groups.append([self.feature_cols[node] for node in sorted(sg.nodes())])
 
         # Sort each group to ensure determinism
         self.feature_groups = [sorted(g) for g in groups]
 
         # g = nx.Graph()
         #
-        # for i in range(len(self.feature_columns)):
-        #    for j in range(i + 1, len(self.feature_columns)):
+        # for i in range(len(self.feature_cols)):
+        #    for j in range(i + 1, len(self.feature_cols)):
         #        if pos_corr_matrix[i, j] > threshold:
         #            g.add_edge(i, j)
         #
@@ -148,7 +148,7 @@ class RocCore(ModuleBaseCore[Roc]):
         #
         # groups = []
         # for sg in subgraphs:
-        #    groups.append([self.feature_columns[node] for node in sg.nodes()])
+        #    groups.append([self.feature_cols[node] for node in sg.nodes()])
         # self.feature_groups = [sorted(g) for g in groups]
 
         # select features to keep and to remove
@@ -171,12 +171,12 @@ class RocCore(ModuleBaseCore[Roc]):
                 remove_list.extend([x for x in group if x != keep_feature])
 
         # get features after filtering
-        # remaining_features = sorted(set(self.feature_columns) - set(remove_list))
-        remaining_features = sorted(set(self.feature_columns) - set(remove_list))
+        # remaining_features = sorted(set(self.feature_cols) - set(remove_list))
+        remaining_features = sorted(set(self.feature_cols) - set(remove_list))
 
         logger.info(f"Remaining features: {remaining_features}")
 
-        logger.info(f"Number of features before correlation removal: {len(self.feature_columns)}")
+        logger.info(f"Number of features before correlation removal: {len(self.feature_cols)}")
         logger.info(f"Number of features after correlation removal: {len(remaining_features)}")
 
         # save features selected by ROC

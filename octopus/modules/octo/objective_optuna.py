@@ -79,9 +79,9 @@ class ObjectiveOptuna:
         # (4) selected mrmr features
         if self.mrmr_features:
             feat_id = trial.suggest_categorical(name="n_mrmr_features", choices=list(self.mrmr_features.keys()))
-            feature_columns = self.mrmr_features[feat_id]
+            feature_cols = self.mrmr_features[feat_id]
         else:
-            feature_columns = self.experiment.feature_columns
+            feature_cols = self.experiment.feature_cols
 
         # get hyper parameter space for selected model
         model_params = Models.create_trial_parameters(
@@ -94,7 +94,7 @@ class ObjectiveOptuna:
 
         config_training = {
             "outl_reduction": num_outl,
-            "n_input_features": len(feature_columns),
+            "n_input_features": len(feature_cols),
             "ml_model_type": ml_model_type,
             "ml_model_params": model_params,
             "positive_class": self.experiment.positive_class,
@@ -108,7 +108,7 @@ class ObjectiveOptuna:
                     training_id=self.experiment.id + "_" + str(key),
                     ml_type=self.experiment.ml_type,
                     target_assignments=self.experiment.target_assignments,
-                    feature_columns=feature_columns,
+                    feature_cols=feature_cols,
                     row_column=self.experiment.row_column,
                     data_train=split["train"],  # inner datasplit, train
                     data_dev=split["test"],  # inner datasplit, dev
@@ -170,7 +170,7 @@ class ObjectiveOptuna:
             diff_nfeatures = n_features_mean - self.max_features
             # only consider if n_features_mean > max_features
             diff_nfeatures = max(diff_nfeatures, 0)
-            n_features = len(self.experiment.feature_columns)
+            n_features = len(self.experiment.feature_cols)
             optuna_target = optuna_target - self.penalty_factor * diff_nfeatures / n_features
 
         # save bag if we plan to run ensemble selection

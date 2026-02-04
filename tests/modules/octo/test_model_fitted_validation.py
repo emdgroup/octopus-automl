@@ -210,12 +210,12 @@ def test_data():
 @pytest.fixture(scope="session")
 def feature_config():
     """Feature configuration for tests."""
-    feature_columns = ["num_col1", "num_col2", "num_col3", "nominal_col", "ordinal_col"]
+    feature_cols = ["num_col1", "num_col2", "num_col3", "nominal_col", "ordinal_col"]
     feature_groups = {
         "numerical_group": ["num_col1", "num_col2"],
         "categorical_group": ["nominal_col", "ordinal_col"],
     }
-    return feature_columns, feature_groups
+    return feature_cols, feature_groups
 
 
 def create_training_instance(
@@ -224,7 +224,7 @@ def create_training_instance(
     data_test: pd.DataFrame,
     ml_type: str,
     model_name: str,
-    feature_columns: list[str],
+    feature_cols: list[str],
     feature_groups: dict[str, list[str]],
 ) -> Training:
     """Create a Training instance for testing."""
@@ -244,7 +244,7 @@ def create_training_instance(
         training_id=f"test_{ml_type}_{model_name}",
         ml_type=ml_type,
         target_assignments=config["target_assignments"],
-        feature_columns=feature_columns,
+        feature_cols=feature_cols,
         row_column="row_id",
         data_train=data_train,
         data_dev=data_dev,
@@ -414,7 +414,7 @@ class TestModelFittedValidation:
     def test_classification_models_fitted_validation(self, test_data, feature_config):
         """Test _validate_model_trained method for all classification models."""
         data_train, data_dev, data_test = test_data
-        feature_columns, feature_groups = feature_config
+        feature_cols, feature_groups = feature_config
 
         warnings.filterwarnings("ignore")
 
@@ -427,7 +427,7 @@ class TestModelFittedValidation:
         for model_name in classification_models:
             try:
                 training = create_training_instance(
-                    data_train, data_dev, data_test, "classification", model_name, feature_columns, feature_groups
+                    data_train, data_dev, data_test, "classification", model_name, feature_cols, feature_groups
                 )
 
                 result = _test_model_fitted_validation(training, model_name)
@@ -474,7 +474,7 @@ class TestModelFittedValidation:
     def test_regression_models_fitted_validation(self, test_data, feature_config):
         """Test _validate_model_trained method for all regression models."""
         data_train, data_dev, data_test = test_data
-        feature_columns, feature_groups = feature_config
+        feature_cols, feature_groups = feature_config
 
         warnings.filterwarnings("ignore")
 
@@ -487,7 +487,7 @@ class TestModelFittedValidation:
         for model_name in regression_models:
             try:
                 training = create_training_instance(
-                    data_train, data_dev, data_test, "regression", model_name, feature_columns, feature_groups
+                    data_train, data_dev, data_test, "regression", model_name, feature_cols, feature_groups
                 )
 
                 result = _test_model_fitted_validation(training, model_name)
@@ -534,7 +534,7 @@ class TestModelFittedValidation:
     def test_timetoevent_models_fitted_validation(self, test_data, feature_config):
         """Test _validate_model_trained method for all time-to-event models."""
         data_train, data_dev, data_test = test_data
-        feature_columns, feature_groups = feature_config
+        feature_cols, feature_groups = feature_config
 
         warnings.filterwarnings("ignore")
 
@@ -550,7 +550,7 @@ class TestModelFittedValidation:
         for model_name in timetoevent_models:
             try:
                 training = create_training_instance(
-                    data_train, data_dev, data_test, "timetoevent", model_name, feature_columns, feature_groups
+                    data_train, data_dev, data_test, "timetoevent", model_name, feature_cols, feature_groups
                 )
 
                 result = _test_model_fitted_validation(training, model_name)
@@ -596,7 +596,7 @@ class TestModelFittedValidation:
     def test_comprehensive_model_fitted_validation(self, test_data, feature_config):
         """Comprehensive test across all model types."""
         data_train, data_dev, data_test = test_data
-        feature_columns, feature_groups = feature_config
+        feature_cols, feature_groups = feature_config
 
         warnings.filterwarnings("ignore")
 
@@ -610,7 +610,7 @@ class TestModelFittedValidation:
             for model_name in config["models"]:
                 try:
                     training = create_training_instance(
-                        data_train, data_dev, data_test, ml_type, model_name, feature_columns, feature_groups
+                        data_train, data_dev, data_test, ml_type, model_name, feature_cols, feature_groups
                     )
 
                     result = _test_model_fitted_validation(training, model_name)

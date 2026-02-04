@@ -52,7 +52,7 @@ class TestAutogluonWorkflows:
         study = OctoClassification(
             name="test_classification_workflow",
             target_metric="ACCBAL",
-            feature_columns=self.features,
+            feature_cols=self.features,
             target="target",
             sample_id="index",
             stratification_column="target",
@@ -107,7 +107,7 @@ class TestAutogluonWorkflows:
         study = OctoRegression(
             name="test_regression_workflow",
             target_metric="MAE",
-            feature_columns=feature_names,
+            feature_cols=feature_names,
             target="target",
             sample_id="index",
             metrics=["MAE", "MSE", "R2"],

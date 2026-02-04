@@ -32,7 +32,7 @@ def base_study_kwargs():
     return {
         "name": "test",
         "target_metric": "AUCROC",
-        "feature_columns": ["f1"],
+        "feature_cols": ["f1"],
         "target": "target",
         "sample_id": "id",
     }

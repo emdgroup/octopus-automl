@@ -64,7 +64,7 @@ def mock_experiment(sample_data, mock_model):
     experiment._task_path = UPath("outersplit0/workflowtask0")
     experiment.datasplit_column = "target"
     experiment.row_column = "row_id"
-    experiment.feature_columns = ["feature1", "feature2", "feature3"]
+    experiment.feature_cols = ["feature1", "feature2", "feature3"]
     experiment.target_assignments = {"target": "target"}
     experiment.target_metric = "AUCROC"
     experiment.ml_type = "classification"
@@ -91,7 +91,7 @@ def mock_study_path(tmp_path):
     config_data = {
         "name": "test_study",
         "ml_type": "classification",
-        "feature_columns": ["feature1", "feature2", "feature3"],
+        "feature_cols": ["feature1", "feature2", "feature3"],
         "row_id": "row_id",
         "sample_id": "row_id",
         "target_columns": ["target"],
@@ -142,7 +142,7 @@ def predictor_with_experiments(mock_study_path, mock_experiment, sample_data, mo
                 model=mock_model,
                 data_traindev=sample_data.iloc[:80],
                 data_test=sample_data.iloc[80:],
-                feature_columns=["feature1", "feature2", "feature3"],
+                feature_cols=["feature1", "feature2", "feature3"],
                 row_column="row_id",
                 target_assignments={"target": "target"},
                 target_metric="AUCROC",

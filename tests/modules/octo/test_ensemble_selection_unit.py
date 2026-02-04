@@ -61,7 +61,7 @@ def create_mock_training(training_id, performance_dev, performance_test, n_sampl
         training_id=training_id,
         ml_type="regression",
         target_assignments={"default": "target"},
-        feature_columns=[f"feature_{i}" for i in range(4)],
+        feature_cols=[f"feature_{i}" for i in range(4)],
         row_column="row_id",
         data_train=train_df,
         data_dev=dev_df,

@@ -131,7 +131,7 @@ class BorutaCore(ModuleBaseCore[Boruta]):
 
         print("Feature Selection completed")
         self.experiment.selected_features = [
-            self.feature_columns[i] for i in range(len(boruta.support_)) if boruta.support_[i]
+            self.feature_cols[i] for i in range(len(boruta.support_)) if boruta.support_[i]
         ]
         n_optimal_features = len(self.experiment.selected_features)
 

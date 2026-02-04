@@ -103,7 +103,7 @@ class SfsCore:
     @property
     def x_traindev(self) -> pd.DataFrame:
         """x_train."""
-        return self.experiment.data_traindev[self.experiment.feature_columns]
+        return self.experiment.data_traindev[self.experiment.feature_cols]
 
     @property
     def y_traindev(self) -> pd.DataFrame:
@@ -118,7 +118,7 @@ class SfsCore:
     @property
     def x_test(self) -> pd.DataFrame:
         """x_test."""
-        return self.experiment.data_test[self.experiment.feature_columns]
+        return self.experiment.data_test[self.experiment.feature_cols]
 
     @property
     def y_test(self) -> pd.DataFrame:

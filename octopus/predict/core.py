@@ -124,7 +124,7 @@ class OctoPredict:
                     model=experiment.results[self.results_key].model,
                     data_traindev=experiment.data_traindev,
                     data_test=experiment.data_test,
-                    feature_columns=experiment.feature_columns,
+                    feature_cols=experiment.feature_cols,
                     row_column=experiment.row_column,
                     target_assignments=experiment.target_assignments,
                     target_metric=experiment.target_metric,
@@ -145,12 +145,12 @@ class OctoPredict:
         """Predict on new data."""
         preds_lst = []
         for experiment in self.experiments.values():
-            feature_columns = experiment.feature_columns
+            feature_cols = experiment.feature_cols
 
-            if set(feature_columns).issubset(data.columns):
+            if set(feature_cols).issubset(data.columns):
                 df = pd.DataFrame(columns=["row_id", "prediction"])
                 df["row_id"] = data.index
-                df["prediction"] = experiment.model.predict(data[feature_columns])
+                df["prediction"] = experiment.model.predict(data[feature_cols])
                 preds_lst.append(df)
             else:
                 raise ValueError("Features missing in provided dataset.")
@@ -172,10 +172,10 @@ class OctoPredict:
         """Predict_proba on new data."""
         preds_lst = []
         for _, experiment in self.experiments.items():
-            feature_columns = experiment.feature_columns
-            probabilities = experiment.model.predict_proba(data[feature_columns])
+            feature_cols = experiment.feature_cols
+            probabilities = experiment.model.predict_proba(data[feature_cols])
 
-            if set(feature_columns).issubset(data.columns):
+            if set(feature_cols).issubset(data.columns):
                 df = pd.DataFrame()
                 df["row_id"] = data.index
                 # only binary predictions are supported
@@ -199,12 +199,12 @@ class OctoPredict:
         preds_lst = []
         for _, experiment in self.experiments.items():
             data_test = experiment.data_test
-            feature_columns = experiment.feature_columns
+            feature_cols = experiment.feature_cols
             row_column = experiment.row_column
 
             df = pd.DataFrame(columns=["row_id", "prediction"])
             df["row_id"] = data_test[row_column]
-            df["prediction"] = experiment.model.predict(data_test[feature_columns])
+            df["prediction"] = experiment.model.predict(data_test[feature_cols])
             preds_lst.append(df)
 
         grouped_df = (
@@ -224,13 +224,13 @@ class OctoPredict:
         preds_lst = []
         for _, experiment in self.experiments.items():
             data_test = experiment.data_test
-            feature_columns = experiment.feature_columns
+            feature_cols = experiment.feature_cols
             row_column = experiment.row_column
 
             df = pd.DataFrame(columns=["row_id", "probability"])
             df["row_id"] = data_test[row_column]
             # only binary classification!!
-            df["probability"] = experiment.model.predict_proba(data_test[feature_columns])[:, 1]
+            df["probability"] = experiment.model.predict_proba(data_test[feature_cols])[:, 1]
             preds_lst.append(df)
 
         grouped_df = (
@@ -282,7 +282,7 @@ class OctoPredict:
         # create combined experiment
         feature_col_lst = []
         for experiment in self.experiments.values():
-            feature_col_lst.extend(experiment.feature_columns)
+            feature_col_lst.extend(experiment.feature_cols)
 
         # use last experiment in for loop
         exp_combined = ExperimentInfo(
@@ -291,7 +291,7 @@ class OctoPredict:
             data_traindev=pd.concat([experiment.data_traindev, experiment.data_test], axis=0),
             # same for all experiments
             data_test=experiment.data_test,  # not used
-            feature_columns=list(set(feature_col_lst)),
+            feature_cols=list(set(feature_col_lst)),
             row_column=experiment.row_column,
             target_assignments=experiment.target_assignments,
             target_metric=experiment.target_metric,

@@ -121,7 +121,7 @@ class TestRocOctoRocWorkflow:
             study = OctoClassification(
                 name="test_roc_octo_roc",
                 target_metric="ACCBAL",
-                feature_columns=feature_names,
+                feature_cols=feature_names,
                 target="target",
                 sample_id="sample_id",
                 stratification_column="target",
@@ -279,7 +279,7 @@ class TestRocOctoRocWorkflow:
             study = OctoClassification(
                 name="test_roc_octo_roc_execution",
                 target_metric="ACCBAL",
-                feature_columns=feature_names,
+                feature_cols=feature_names,
                 target="target",
                 sample_id="sample_id",
                 stratification_column="target",

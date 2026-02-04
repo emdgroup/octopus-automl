@@ -36,7 +36,7 @@ class OctoStudy(ABC):
     name: str = field(validator=[validators.instance_of(str)])
     """The name of the study."""
 
-    feature_columns: list[str] = field(validator=[validators.instance_of(list)])
+    feature_cols: list[str] = field(validator=[validators.instance_of(list)])
     """List of all feature columns in the dataset."""
 
     sample_id: str = field(validator=validators.instance_of(str))
@@ -142,7 +142,7 @@ class OctoStudy(ABC):
     @property
     def relevant_columns(self) -> list[str]:
         """Relevant columns for the dataset (computed from prepared data)."""
-        relevant_columns = list(set(self.prepared.feature_columns + self.target_columns))
+        relevant_columns = list(set(self.prepared.feature_cols + self.target_columns))
         if self.sample_id:
             relevant_columns.append(self.sample_id)
         if self.prepared.row_id:
@@ -159,7 +159,7 @@ class OctoStudy(ABC):
         """Validate the input data."""
         validator = OctoDataValidator(
             data=data,
-            feature_columns=self.feature_columns,
+            feature_cols=self.feature_cols,
             target_columns=self.target_columns,
             sample_id=self.sample_id,
             row_id=self.row_id,
@@ -224,7 +224,7 @@ class OctoStudy(ABC):
             config[attr.name] = serialize_value(value)
 
         config["prepared"] = {
-            "feature_columns": self.prepared.feature_columns,
+            "feature_cols": self.prepared.feature_cols,
             "row_id": self.prepared.row_id,
             "target_assignments": self.prepared.target_assignments,
         }
@@ -252,7 +252,7 @@ class OctoStudy(ABC):
         """Prepare the data for training."""
         preparator = OctoDataPreparator(
             data=data,
-            feature_columns=self.feature_columns,
+            feature_cols=self.feature_cols,
             target_columns=self.target_columns,
             sample_id=self.sample_id,
             row_id=self.row_id,
@@ -308,7 +308,7 @@ class OctoStudy(ABC):
                 imputation_method=self.imputation_method.value,
                 datasplit_column=datasplit_col,
                 row_column=self.prepared.row_id,
-                feature_columns=self.prepared.feature_columns,
+                feature_cols=self.prepared.feature_cols,
                 target_assignments=self.prepared.target_assignments,
                 data_traindev=value["train"],
                 data_test=value["test"],
@@ -321,7 +321,7 @@ class OctoStudy(ABC):
         """Run data health check, save results, and check for issues."""
         checker = OctoDataHealthChecker(
             data=data,
-            feature_columns=self.prepared.feature_columns,
+            feature_cols=self.prepared.feature_cols,
             target_columns=self.target_columns,
             row_id=self.prepared.row_id,
             sample_id=self.sample_id,

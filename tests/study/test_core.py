@@ -36,7 +36,7 @@ def basic_study():
         yield OctoClassification(
             name="test_study",
             target_metric="AUCROC",
-            feature_columns=["feature1", "feature2", "feature3"],
+            feature_cols=["feature1", "feature2", "feature3"],
             target="target",
             sample_id="sample_id",
             path=temp_dir,
@@ -49,7 +49,7 @@ def test_initialization(basic_study):
     assert basic_study.name == "test_study"
     assert basic_study.ml_type == MLType.CLASSIFICATION
     assert basic_study.target_metric == "AUCROC"
-    assert basic_study.feature_columns == ["feature1", "feature2", "feature3"]
+    assert basic_study.feature_cols == ["feature1", "feature2", "feature3"]
     assert basic_study.target == "target"
     assert basic_study.target_columns == ["target"]  # Property should return list
     assert basic_study.sample_id == "sample_id"
@@ -80,7 +80,7 @@ def test_string_to_enum_conversion(study_class, param_name, param_value, expecte
     with tempfile.TemporaryDirectory() as temp_dir:
         study = study_class(
             name="test",
-            feature_columns=["f1"],
+            feature_cols=["f1"],
             sample_id="id",
             path=temp_dir,
             **kwargs,
@@ -94,7 +94,7 @@ def test_output_path_property():
         study = OctoClassification(
             name="my_study",
             target_metric="AUCROC",
-            feature_columns=["f1"],
+            feature_cols=["f1"],
             target="target",
             sample_id="id",
             path=temp_dir,
@@ -108,7 +108,7 @@ def test_default_workflow():
         study = OctoClassification(
             name="test",
             target_metric="AUCROC",
-            feature_columns=["f1"],
+            feature_cols=["f1"],
             target="target",
             sample_id="id",
             path=temp_dir,
@@ -131,7 +131,7 @@ def test_metrics(metrics_input, expected_metrics):
         kwargs = {
             "name": "test",
             "target_metric": "AUCROC",
-            "feature_columns": ["f1"],
+            "feature_cols": ["f1"],
             "target": "target",
             "sample_id": "id",
             "path": temp_dir,
@@ -149,7 +149,7 @@ def test_default_values():
         study = OctoClassification(
             name="test",
             target_metric="AUCROC",
-            feature_columns=["f1"],
+            feature_cols=["f1"],
             target="target",
             sample_id="id",
             path=temp_dir,
@@ -177,7 +177,7 @@ def test_ml_type_values():
             study = study_class(
                 name="test",
                 target_metric=metric,
-                feature_columns=["f1"],
+                feature_cols=["f1"],
                 sample_id="id",
                 path=temp_dir,
                 **extra_kwargs,
@@ -191,7 +191,7 @@ def test_start_with_empty_study_valid():
         study = OctoClassification(
             name="test",
             target_metric="AUCROC",
-            feature_columns=["f1"],
+            feature_cols=["f1"],
             target="target",
             sample_id="id",
             path=temp_dir,
@@ -212,7 +212,7 @@ def test_start_with_empty_study_invalid():
         OctoClassification(
             name="test",
             target_metric="AUCROC",
-            feature_columns=["f1"],
+            feature_cols=["f1"],
             target="target",
             sample_id="id",
             path=temp_dir,
@@ -227,7 +227,7 @@ def test_start_with_empty_study_false_with_load_task():
         study = OctoClassification(
             name="test",
             target_metric="AUCROC",
-            feature_columns=["f1"],
+            feature_cols=["f1"],
             target="target",
             sample_id="id",
             path=temp_dir,

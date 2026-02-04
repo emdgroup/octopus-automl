@@ -208,10 +208,10 @@ class Rfe2Core(OctoCoreGeneric[Rfe2]):
         """Retrain bag using new feature set and calculate feature importances."""
         bag = copy.deepcopy(bag)
 
-        # update feature_columns and feature groups
+        # update feature_cols and feature groups
         feature_groups = self.experiment.calculate_feature_groups(new_features)
         for training in bag.trainings:
-            training.feature_columns = new_features
+            training.feature_cols = new_features
             training.feature_groups = feature_groups
 
         # update feature groups??

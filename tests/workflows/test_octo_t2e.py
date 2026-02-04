@@ -75,7 +75,7 @@ class TestOctoTimeToEvent:
             study = OctoTimeToEvent(
                 name="test_t2e",
                 target_metric="CI",
-                feature_columns=features,
+                feature_cols=features,
                 duration_column="duration",
                 event_column="event",
                 sample_id="index",
@@ -84,7 +84,7 @@ class TestOctoTimeToEvent:
             )
 
             assert study.target_columns == ["duration", "event"]
-            assert len(study.feature_columns) == 5
+            assert len(study.feature_cols) == 5
             assert study.sample_id == "index"
             assert study.target_assignments == {"duration": "duration", "event": "event"}
 
@@ -180,7 +180,7 @@ class TestOctoTimeToEvent:
             study = OctoTimeToEvent(
                 name="test_octo_t2e_execution",
                 target_metric="CI",
-                feature_columns=features,
+                feature_cols=features,
                 duration_column="duration",
                 event_column="event",
                 sample_id="index",

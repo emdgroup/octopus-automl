@@ -20,7 +20,7 @@ study = OctoRegression(
     name="basic_regression",
     path=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="MAE",
-    feature_columns=diabetes["feature_names"],
+    feature_cols=diabetes["feature_names"],
     target="target",
     sample_id="index",
 )

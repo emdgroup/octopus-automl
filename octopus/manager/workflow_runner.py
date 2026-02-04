@@ -104,11 +104,11 @@ class WorkflowTaskRunner:
                 raise FileNotFoundError("Workflow task to be loaded does not exist")
 
             input_experiment = OctoExperiment.from_pickle(input_path)
-            experiment.feature_columns = input_experiment.selected_features
+            experiment.feature_cols = input_experiment.selected_features
             experiment.prior_results = input_experiment.results
             logger.info(f"Prior results keys: {experiment.prior_results.keys()}")
 
-        experiment.feature_groups = experiment.calculate_feature_groups(experiment.feature_columns)
+        experiment.feature_groups = experiment.calculate_feature_groups(experiment.feature_cols)
 
     def _execute_and_save(
         self,

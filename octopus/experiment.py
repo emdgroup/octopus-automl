@@ -82,7 +82,7 @@ class OctoExperiment[ConfigType: Task]:
     row_column: str = field(validator=[validators.instance_of(str)])
     """Column name used as row identifier."""
 
-    feature_columns: list[str] = field(validator=[validators.instance_of(list)])
+    feature_cols: list[str] = field(validator=[validators.instance_of(list)])
     """List of column names used as features in the experiment."""
 
     target_assignments: dict[str, str] = field(validator=[validators.instance_of(dict)])
@@ -161,7 +161,7 @@ class OctoExperiment[ConfigType: Task]:
 
     def __attrs_post_init__(self):
         self._validate_experiment_state()
-        self.feature_groups = self.calculate_feature_groups(self.feature_columns)
+        self.feature_groups = self.calculate_feature_groups(self.feature_cols)
 
     def _validate_experiment_state(self) -> None:
         """Validate consistency between base and workflow experiment fields.
@@ -188,9 +188,9 @@ class OctoExperiment[ConfigType: Task]:
             if self.depends_on_task is None:
                 raise ValueError(f"Workflow experiments (task_id={self.task_id}) must have depends_on_task set")
 
-    def calculate_feature_groups(self, feature_columns: list[str]) -> dict[str, list[str]]:
+    def calculate_feature_groups(self, feature_cols: list[str]) -> dict[str, list[str]]:
         """Calculate feature groups based on correlation thresholds."""
-        if len(feature_columns) <= 2:
+        if len(feature_cols) <= 2:
             logging.warning("Not enough features to calculate correlations for feature groups.")
             return {}
         logging.info("Calculating feature groups.")
@@ -198,14 +198,14 @@ class OctoExperiment[ConfigType: Task]:
         auto_group_thresholds = [0.7, 0.8, 0.9]
         auto_groups = []
 
-        pos_corr_matrix, _ = scipy.stats.spearmanr(np.nan_to_num(self.data_traindev[feature_columns].values))
+        pos_corr_matrix, _ = scipy.stats.spearmanr(np.nan_to_num(self.data_traindev[feature_cols].values))
         pos_corr_matrix = np.abs(pos_corr_matrix)
 
         # get groups depending on threshold
         for threshold in auto_group_thresholds:
             g: nx.Graph = nx.Graph()
-            for i in range(len(feature_columns)):
-                for j in range(i + 1, len(feature_columns)):
+            for i in range(len(feature_cols)):
+                for j in range(i + 1, len(feature_cols)):
                     if pos_corr_matrix[i, j] > threshold:
                         g.add_edge(i, j)
 
@@ -216,7 +216,7 @@ class OctoExperiment[ConfigType: Task]:
             # Create groups of feature columns
             groups = []
             for sg in subgraphs:
-                groups.append([feature_columns[node] for node in sorted(sg.nodes())])
+                groups.append([feature_cols[node] for node in sorted(sg.nodes())])
             auto_groups.extend([sorted(g) for g in groups])
 
         # find unique groups
