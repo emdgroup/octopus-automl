@@ -196,6 +196,10 @@ class TestRocCore:
             mock_experiment.task_path = UPath("roc_test")
             mock_experiment.selected_features = []
 
+            # Add properties that compute x_traindev and y_traindev
+            mock_experiment.x_traindev = data[feature_cols]
+            mock_experiment.y_traindev = data[list(target_assignments.values())]
+
             return mock_experiment
 
     def test_roc_core_classification_spearmanr_f_statistics(self, sample_classification_data):
@@ -535,6 +539,10 @@ class TestRocIntegration:
             mock_experiment.path_study = UPath(temp_dir)
             mock_experiment.task_path = UPath("roc_test")
             mock_experiment.selected_features = []
+
+            # Add properties that compute x_traindev and y_traindev
+            mock_experiment.x_traindev = data[feature_names]
+            mock_experiment.y_traindev = data[list(target_cols.values())]
 
             with patch("shutil.rmtree"), patch("pathlib.Path.mkdir"):
                 roc_core = RocCore(experiment=mock_experiment, log_dir=mock_experiment.path_study)

@@ -159,6 +159,60 @@ class OctoExperiment[ConfigType: Task]:
             )
         return self._task_path
 
+    @property
+    def x_traindev(self) -> pd.DataFrame:
+        """Feature matrix for training/development set.
+
+        Returns:
+            Subset of data_traindev containing only feature columns
+        """
+        return self.data_traindev[self.feature_cols]
+
+    @property
+    def y_traindev(self) -> pd.DataFrame:
+        """Target values for training/development set.
+
+        Returns:
+            Subset of data_traindev containing only target columns
+        """
+        return self.data_traindev[list(self.target_assignments.values())]
+
+    @property
+    def x_test(self) -> pd.DataFrame:
+        """Feature matrix for test set.
+
+        Returns:
+            Subset of data_test containing only feature columns
+        """
+        return self.data_test[self.feature_cols]
+
+    @property
+    def y_test(self) -> pd.DataFrame:
+        """Target values for test set.
+
+        Returns:
+            Subset of data_test containing only target columns
+        """
+        return self.data_test[list(self.target_assignments.values())]
+
+    @property
+    def row_traindev(self) -> pd.Series:
+        """Row identifiers for training/development set.
+
+        Returns:
+            Series containing row identifiers from data_traindev
+        """
+        return self.data_traindev[self.row_column]
+
+    @property
+    def row_test(self) -> pd.Series:
+        """Row identifiers for test set.
+
+        Returns:
+            Series containing row identifiers from data_test
+        """
+        return self.data_test[self.row_column]
+
     def __attrs_post_init__(self):
         self._validate_experiment_state()
         self.feature_groups = self.calculate_feature_groups(self.feature_cols)

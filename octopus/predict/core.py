@@ -198,13 +198,11 @@ class OctoPredict:
         """Predict on available test data."""
         preds_lst = []
         for _, experiment in self.experiments.items():
-            data_test = experiment.data_test
-            feature_cols = experiment.feature_cols
             row_column = experiment.row_column
 
             df = pd.DataFrame(columns=["row_id", "prediction"])
-            df["row_id"] = data_test[row_column]
-            df["prediction"] = experiment.model.predict(data_test[feature_cols])
+            df["row_id"] = experiment.row_test
+            df["prediction"] = experiment.model.predict(experiment.x_test)
             preds_lst.append(df)
 
         grouped_df = (
@@ -223,14 +221,12 @@ class OctoPredict:
         """Predict_proba on available test data."""
         preds_lst = []
         for _, experiment in self.experiments.items():
-            data_test = experiment.data_test
-            feature_cols = experiment.feature_cols
             row_column = experiment.row_column
 
             df = pd.DataFrame(columns=["row_id", "probability"])
-            df["row_id"] = data_test[row_column]
+            df["row_id"] = experiment.row_test
             # only binary classification!!
-            df["probability"] = experiment.model.predict_proba(data_test[feature_cols])[:, 1]
+            df["probability"] = experiment.model.predict_proba(experiment.x_test)[:, 1]
             preds_lst.append(df)
 
         grouped_df = (

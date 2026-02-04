@@ -72,7 +72,7 @@ class ModuleBaseCore[TaskConfigType: Task]:
         Returns:
             Subset of data_traindev containing only feature columns
         """
-        return self.experiment.data_traindev[self.experiment.feature_cols]
+        return self.experiment.x_traindev
 
     @property
     def y_traindev(self) -> pd.DataFrame:
@@ -81,7 +81,7 @@ class ModuleBaseCore[TaskConfigType: Task]:
         Returns:
             Subset of data_traindev containing only target columns
         """
-        return self.experiment.data_traindev[self.experiment.target_assignments.values()]
+        return self.experiment.y_traindev
 
     @property
     def x_test(self) -> pd.DataFrame:
@@ -90,7 +90,7 @@ class ModuleBaseCore[TaskConfigType: Task]:
         Returns:
             Subset of data_test containing only feature columns
         """
-        return self.experiment.data_test[self.experiment.feature_cols]
+        return self.experiment.x_test
 
     @property
     def y_test(self) -> pd.DataFrame:
@@ -99,7 +99,7 @@ class ModuleBaseCore[TaskConfigType: Task]:
         Returns:
             Subset of data_test containing only target columns
         """
-        return self.experiment.data_test[self.experiment.target_assignments.values()]
+        return self.experiment.y_test
 
     @property
     def feature_cols(self) -> list[str]:
@@ -172,6 +172,24 @@ class ModuleBaseCore[TaskConfigType: Task]:
             Name of the column containing row identifiers
         """
         return self.experiment.row_column
+
+    @property
+    def row_traindev(self) -> pd.Series:
+        """Row identifiers for training/development set.
+
+        Returns:
+            Series containing row identifiers from data_traindev
+        """
+        return self.experiment.row_traindev
+
+    @property
+    def row_test(self) -> pd.Series:
+        """Row identifiers for test set.
+
+        Returns:
+            Series containing row identifiers from data_test
+        """
+        return self.experiment.row_test
 
     def __attrs_post_init__(self) -> None:
         """Post-initialization hook to prepare results directory.

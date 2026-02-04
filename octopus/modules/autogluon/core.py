@@ -413,7 +413,7 @@ class AGCore(ModuleBaseCore[AutoGluon]):
 
         # (A) test predictions
         # DataFrame with 'row_id' from test data
-        rowid_test = pd.DataFrame({row_column: self.experiment.data_test[row_column]})
+        rowid_test = pd.DataFrame({row_column: self.experiment.row_test})
 
         if problem_type == "regression":
             # Predictions for regression on test data
@@ -439,7 +439,7 @@ class AGCore(ModuleBaseCore[AutoGluon]):
 
         # (B) validation predictions
         # DataFrame with 'row_id' from validation data
-        rowid_val = pd.DataFrame({row_column: self.experiment.data_traindev[row_column]})
+        rowid_val = pd.DataFrame({row_column: self.experiment.row_traindev})
 
         if problem_type == "regression":
             # Out-of-fold (OOF) predictions for regression

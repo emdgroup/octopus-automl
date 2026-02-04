@@ -47,6 +47,36 @@ class ExperimentInfo:
     positive_class: int | str | None = field(default=None)
     """Positive class for binary classification."""
 
+    @property
+    def x_traindev(self) -> pd.DataFrame:
+        """Feature matrix for training/development set."""
+        return self.data_traindev[self.feature_cols]
+
+    @property
+    def y_traindev(self) -> pd.DataFrame:
+        """Target values for training/development set."""
+        return self.data_traindev[list(self.target_assignments.values())]
+
+    @property
+    def x_test(self) -> pd.DataFrame:
+        """Feature matrix for test set."""
+        return self.data_test[self.feature_cols]
+
+    @property
+    def y_test(self) -> pd.DataFrame:
+        """Target values for test set."""
+        return self.data_test[list(self.target_assignments.values())]
+
+    @property
+    def row_traindev(self) -> pd.Series:
+        """Row identifiers for training/development set."""
+        return self.data_traindev[self.row_column]
+
+    @property
+    def row_test(self) -> pd.Series:
+        """Row identifiers for test set."""
+        return self.data_test[self.row_column]
+
 
 def rdc(x, y, f=np.sin, k=20, s=1 / 6.0, n=5):
     """Randomized Dependence Coefficient.
@@ -366,7 +396,7 @@ def get_fi_shap(
     """
     # experiment_id = experiment["id"]
     feature_cols = experiment.feature_cols
-    data_test = experiment.data_test[feature_cols]
+    data_test = experiment.x_test
     model = experiment.model
     ml_type = experiment.ml_type
 
@@ -440,7 +470,7 @@ def get_fi_group_shap(
     """Calculate SHAP feature importances for feature groups."""
     # experiment_id = experiment["id"]
     feature_cols = experiment.feature_cols
-    data_test = experiment.data_test[feature_cols]
+    data_test = experiment.x_test
     model = experiment.model
     ml_type = experiment.ml_type
     feature_groups = experiment.feature_group_dict

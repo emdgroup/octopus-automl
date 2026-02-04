@@ -121,8 +121,8 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
 
         # prepare inputs
         feature_cols = self.experiment.feature_cols
-        features = self.experiment.data_traindev[feature_cols]
-        target = self.experiment.data_traindev[self.experiment.target_assignments.values()]
+        features = self.experiment.x_traindev
+        target = self.experiment.y_traindev
 
         # create relevance information
         re_df = relevance_fstats(

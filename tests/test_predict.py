@@ -1,7 +1,6 @@
 """Tests for octopus/predict.py."""
 
 import json
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -12,6 +11,24 @@ from upath import UPath
 from octopus.experiment import OctoExperiment
 from octopus.predict import OctoPredict
 from octopus.results import ModuleResults
+
+
+class MockExperiment:
+    """Mock experiment with properties like OctoExperiment."""
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    @property
+    def x_test(self):
+        """Feature matrix for test set."""
+        return self.data_test[self.feature_cols]
+
+    @property
+    def row_test(self):
+        """Row identifiers for test set."""
+        return self.data_test[self.row_column]
 
 
 @pytest.fixture
@@ -135,9 +152,9 @@ def predictor_with_experiments(mock_study_path, mock_experiment, sample_data, mo
         predictor = OctoPredict(study_path=mock_study_path)
 
         # Manually populate experiments since mocking file system is complex
-        # Using SimpleNamespace for attribute access instead of custom dict class
+        # Using MockExperiment with properties like OctoExperiment
         for exp_id in range(3):
-            predictor.experiments[exp_id] = SimpleNamespace(
+            predictor.experiments[exp_id] = MockExperiment(
                 id=exp_id,
                 model=mock_model,
                 data_traindev=sample_data.iloc[:80],

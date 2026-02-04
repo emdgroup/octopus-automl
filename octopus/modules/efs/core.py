@@ -101,7 +101,7 @@ class EfsCore(ModuleBaseCore[Efs]):
     @property
     def row_ids_traindev(self) -> pd.Series:
         """Row IDs for traindev."""
-        return self.experiment.data_traindev[self.row_column]
+        return self.experiment.row_traindev
 
     @property
     def max_n_iterations(self) -> int:

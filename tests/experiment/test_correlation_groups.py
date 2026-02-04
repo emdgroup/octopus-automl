@@ -118,9 +118,7 @@ def test_uncorrelated_features(mock_octo_experiment):
 def test_correlation_thresholds(mock_octo_experiment):
     """Test correlation thresholds."""
     feature_groups = mock_octo_experiment.feature_groups
-    correlation_matrix = (
-        mock_octo_experiment.data_traindev[mock_octo_experiment.feature_cols].corr(method="spearman").abs()
-    )
+    correlation_matrix = mock_octo_experiment.x_traindev.corr(method="spearman").abs()
 
     for group_name, group in feature_groups.items():
         if len(group) > 1:
