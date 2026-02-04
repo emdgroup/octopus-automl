@@ -141,9 +141,9 @@ class SfsCore:
         return self.experiment.ml_config
 
     @property
-    def stratification_column(self) -> str | None:
+    def stratification_col(self) -> str | None:
         """Stratification Column."""
-        return self.experiment.stratification_column
+        return self.experiment.stratification_col
 
     def __attrs_post_init__(self):
         # delete directories /trials /optuna /results to ensure clean state
@@ -179,8 +179,8 @@ class SfsCore:
         scoring_type = scorer_string_inventory[self.target_metric]
 
         cv: int | StratifiedKFold
-        stratification_column = self.experiment.stratification_column
-        if stratification_column:
+        stratification_col = self.experiment.stratification_col
+        if stratification_col:
             cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
         else:
             cv = self.config.cv

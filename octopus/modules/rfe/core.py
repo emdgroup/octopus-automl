@@ -134,8 +134,8 @@ class RfeCore(ModuleBaseCore[Rfe]):
         scoring_type = metric.scorer_string
 
         cv: int | StratifiedKFold
-        stratification_column = self.experiment.stratification_column
-        if stratification_column:
+        stratification_col = self.experiment.stratification_col
+        if stratification_col:
             cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
         else:
             cv = self.config.cv

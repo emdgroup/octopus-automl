@@ -76,7 +76,7 @@ class TestOctoMulticlass:
                 feature_cols=features,
                 target="target",
                 sample_id_col="index",
-                stratification_column="target",
+                stratification_col="target",
                 path=temp_dir,
                 ignore_data_health_warning=True,
             )
@@ -84,7 +84,7 @@ class TestOctoMulticlass:
             assert study.target_cols == ["target"]
             assert len(study.feature_cols) == 5
             assert study.sample_id_col == "index"
-            assert study.stratification_column == "target"
+            assert study.stratification_col == "target"
 
     def test_multiclass_task_configuration(self):
         """Test that multiclass Octo task can be properly configured."""
@@ -210,7 +210,7 @@ class TestOctoMulticlass:
                 feature_cols=features,
                 target="target",
                 sample_id_col="index",
-                stratification_column="target",
+                stratification_col="target",
                 metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],
                 datasplit_seed_outer=1234,
                 n_folds_outer=2,

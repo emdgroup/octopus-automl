@@ -124,7 +124,7 @@ class TestRocOctoRocWorkflow:
                 feature_cols=feature_names,
                 target="target",
                 sample_id_col="sample_id_col",
-                stratification_column="target",
+                stratification_col="target",
                 path=temp_dir,
                 ignore_data_health_warning=True,
                 workflow=[
@@ -282,7 +282,7 @@ class TestRocOctoRocWorkflow:
                 feature_cols=feature_names,
                 target="target",
                 sample_id_col="sample_id_col",
-                stratification_column="target",
+                stratification_col="target",
                 metrics=["AUCROC", "ACCBAL"],
                 datasplit_seed_outer=1234,
                 n_folds_outer=2,

@@ -34,7 +34,7 @@ def validator_factory(sample_data):
         target_cols=None,
         sample_id_col="sample_id_col",
         row_id_col="id",
-        stratification_column="strat",
+        stratification_col="strat",
         target_assignments=None,
         ml_type="classification",
         positive_class=1,
@@ -54,7 +54,7 @@ def validator_factory(sample_data):
             target_cols=target_cols,
             sample_id_col=sample_id_col,
             row_id_col=row_id_col,
-            stratification_column=stratification_column,
+            stratification_col=stratification_col,
             target_assignments=target_assignments,
             ml_type=ml_type,
             positive_class=positive_class,
@@ -114,22 +114,22 @@ def test_validate_duplicated_columns(validator_factory, duplicate_setup, should_
 
 
 @pytest.mark.parametrize(
-    "stratification_column,should_fail",
+    "stratification_col,should_fail",
     [
         ("strat", False),
         ("sample_id_col", True),
         ("id", True),
     ],
 )
-def test_validate_stratification_column(validator_factory, stratification_column, should_fail):
+def test_validate_stratification_col(validator_factory, stratification_col, should_fail):
     """Test stratification column validation."""
-    validator = validator_factory(stratification_column=stratification_column)
+    validator = validator_factory(stratification_col=stratification_col)
 
     if should_fail:
         with pytest.raises(ValueError):
-            validator._validate_stratification_column()
+            validator._validate_stratification_col()
     else:
-        validator._validate_stratification_column()
+        validator._validate_stratification_col()
 
 
 @pytest.mark.parametrize(
@@ -225,7 +225,7 @@ def test_validate_error_accumulation(validator_factory, sample_data):
     validator = validator_factory(
         data=data_with_issues,
         feature_cols=["feature1", "feature2"],
-        stratification_column="sample_id_col",  # This will fail as sample_id_col can't be stratification column
+        stratification_col="sample_id_col",  # This will fail as sample_id_col can't be stratification column
     )
 
     with pytest.raises(ValueError) as exc_info:

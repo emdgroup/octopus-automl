@@ -27,7 +27,7 @@ class OctoDataValidator:
     row_id_col: str | None
     """Unique row identifier."""
 
-    stratification_column: str | None
+    stratification_col: str | None
     """List of columns used for stratification."""
 
     target_assignments: dict[str, str]
@@ -49,8 +49,8 @@ class OctoDataValidator:
             relevant_columns.append(self.sample_id_col)
         if self.row_id_col:
             relevant_columns.append(self.row_id_col)
-        if self.stratification_column:
-            relevant_columns.append(self.stratification_column)
+        if self.stratification_col:
+            relevant_columns.append(self.stratification_col)
         # Note: group_features/group_sample_and_features are added during preparation,
         # so they don't exist yet at validation time
         object.__setattr__(self, "relevant_columns", list(set(relevant_columns)))
@@ -75,7 +75,7 @@ class OctoDataValidator:
             self._validate_columns_exist,
             self._validate_duplicated_columns,
             self._validate_feature_target_overlap,
-            self._validate_stratification_column,
+            self._validate_stratification_col,
             self._validate_target_assignments,
             self._validate_number_of_targets,
             self._validate_column_dtypes,
@@ -97,7 +97,7 @@ class OctoDataValidator:
         """Validate that all relevant columns exist in the DataFrame.
 
         Checks that all columns specified in feature_cols, target_cols,
-        sample_id_col, row_id_col, and stratification_column are present in the DataFrame.
+        sample_id_col, row_id_col, and stratification_col are present in the DataFrame.
 
         Raises:
             ValueError: If any relevant columns are missing from the DataFrame.
@@ -129,16 +129,16 @@ class OctoDataValidator:
             duplicates_str = ", ".join(duplicates)
             raise ValueError(f"Duplicate columns found: {duplicates_str}")
 
-    def _validate_stratification_column(self):
-        """Validate that stratification_column is not a reserved identifier.
+    def _validate_stratification_col(self):
+        """Validate that stratification_col is not a reserved identifier.
 
         Ensures that the stratification column (if specified) is not the same as
         sample_id_col or row_id_col, which are reserved for data identification.
 
         Raises:
-            ValueError: If stratification_column is the same as sample_id_col or row_id_col.
+            ValueError: If stratification_col is the same as sample_id_col or row_id_col.
         """
-        if self.stratification_column and self.stratification_column in [
+        if self.stratification_col and self.stratification_col in [
             self.sample_id_col,
             self.row_id_col,
         ]:
@@ -232,8 +232,8 @@ class OctoDataValidator:
         """
         non_matching_columns = []
 
-        if self.stratification_column:
-            columns_to_check = self.feature_cols + self.target_cols + [self.stratification_column]
+        if self.stratification_col:
+            columns_to_check = self.feature_cols + self.target_cols + [self.stratification_col]
         else:
             columns_to_check = self.feature_cols + self.target_cols
 

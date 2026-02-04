@@ -56,7 +56,7 @@ def trained_study(classification_dataset, tmp_path_factory):
         target="target",
         sample_id_col="index",
         datasplit_type="sample",
-        stratification_column="target",
+        stratification_col="target",
         datasplit_seed_outer=1234,
         n_folds_outer=5,
         start_with_empty_study=True,

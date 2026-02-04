@@ -156,13 +156,13 @@ class ModuleBaseCore[TaskConfigType: Task]:
         return self.experiment.metrics
 
     @property
-    def stratification_column(self) -> str | None:
+    def stratification_col(self) -> str | None:
         """Column to use for stratified splitting.
 
         Returns:
             Column name for stratification, or None if not stratified
         """
-        return self.experiment.stratification_column
+        return self.experiment.stratification_col
 
     @property
     def row_column(self) -> str:

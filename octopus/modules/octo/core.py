@@ -87,7 +87,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
             datasplit_col=self.experiment.datasplit_column,
             seeds=self.experiment.ml_config.datasplit_seeds_inner,
             num_folds=self.experiment.ml_config.n_folds_inner,
-            stratification_col=self.experiment.stratification_column,
+            stratification_col=self.experiment.stratification_col,
             process_id=f"EXP {self.experiment.experiment_id} SEQ TBD",
         ).get_datasplits()
         # if we don't want to resume optimization:

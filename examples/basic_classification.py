@@ -28,7 +28,7 @@ study = OctoClassification(
     feature_cols=features,
     target="target",
     sample_id_col="index",
-    stratification_column="target",
+    stratification_col="target",
 )
 
 study.fit(data=df)

@@ -94,7 +94,7 @@ class OctoExperiment[ConfigType: Task]:
     data_test: pd.DataFrame = field(validator=[validators.instance_of(pd.DataFrame)])
     """DataFrame containing test data."""
 
-    stratification_column: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    stratification_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
     """Column name used for stratification, if applicable."""
 
     ml_module: str = field(init=False, default="", validator=[validators.instance_of(str)])

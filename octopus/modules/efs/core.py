@@ -195,8 +195,8 @@ class EfsCore(ModuleBaseCore[Efs]):
 
         # needs general improvements (consider groups and stratification column)
         cv: KFold | StratifiedKFold
-        stratification_column = self.experiment.stratification_column
-        if stratification_column:
+        stratification_col = self.experiment.stratification_col
+        if stratification_col:
             cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
         else:
             cv = KFold(n_splits=self.config.cv, shuffle=True, random_state=42)

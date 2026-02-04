@@ -55,7 +55,7 @@ class TestAutogluonWorkflows:
             feature_cols=self.features,
             target="target",
             sample_id_col="index",
-            stratification_column="target",
+            stratification_col="target",
             metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS"],
             datasplit_seed_outer=1234,
             n_folds_outer=5,

@@ -31,7 +31,7 @@ def health_checker(sample_data):
         target_cols=["target"],
         row_id_col="id",
         sample_id_col="sample_id_col",
-        stratification_column=None,
+        stratification_col=None,
     )
 
 
@@ -189,7 +189,7 @@ def test_check_minimum_samples(sample_data):
         target_cols=["target"],
         row_id_col="id",
         sample_id_col="sample_id_col",
-        stratification_column=None,
+        stratification_col=None,
     )
     health_checker_sufficient._check_minimum_samples()
     assert not any(issue["Issue Type"] == "insufficient_samples" for issue in health_checker_sufficient.issues)
@@ -201,7 +201,7 @@ def test_check_minimum_samples(sample_data):
         target_cols=["target"],
         row_id_col="id",
         sample_id_col="sample_id_col",
-        stratification_column=None,
+        stratification_col=None,
     )
     health_checker_insufficient._check_minimum_samples()
     assert any(issue["Issue Type"] == "insufficient_samples" for issue in health_checker_insufficient.issues)
@@ -216,7 +216,7 @@ def test_check_row_id_col_unique(sample_data):
         target_cols=["target"],
         row_id_col="id",
         sample_id_col="sample_id_col",
-        stratification_column=None,
+        stratification_col=None,
     )
     health_checker_unique._check_row_id_col_unique()
     assert not any(issue["Issue Type"] == "duplicate_row_ids" for issue in health_checker_unique.issues)
@@ -229,7 +229,7 @@ def test_check_row_id_col_unique(sample_data):
         target_cols=["target"],
         row_id_col="id",
         sample_id_col="sample_id_col",
-        stratification_column=None,
+        stratification_col=None,
     )
     health_checker_duplicate._check_row_id_col_unique()
     assert any(issue["Issue Type"] == "duplicate_row_ids" for issue in health_checker_duplicate.issues)
@@ -244,7 +244,7 @@ def test_check_features_not_all_null(sample_data):
         target_cols=["target"],
         row_id_col="id",
         sample_id_col="sample_id_col",
-        stratification_column=None,
+        stratification_col=None,
     )
     health_checker_valid._check_features_not_all_null()
     assert not any(issue["Issue Type"] == "all_null_features" for issue in health_checker_valid.issues)
@@ -257,7 +257,7 @@ def test_check_features_not_all_null(sample_data):
         target_cols=["target"],
         row_id_col="id",
         sample_id_col="sample_id_col",
-        stratification_column=None,
+        stratification_col=None,
     )
     health_checker_null._check_features_not_all_null()
     assert any(issue["Issue Type"] == "all_null_features" for issue in health_checker_null.issues)

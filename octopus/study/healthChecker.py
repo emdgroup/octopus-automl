@@ -153,7 +153,7 @@ class OctoDataHealthChecker:
         target_cols: List of column names designated as targets. Can be empty.
         row_id_col: Name of the column containing unique row identifiers. Can be None.
         sample_id_col: Name of the column containing sample identifiers. Can be None.
-        stratification_column: Name of the column used for stratification. Can be None.
+        stratification_col: Name of the column used for stratification. Can be None.
         config: Configuration object containing customizable thresholds for health checks.
             Uses default HealthCheckConfig if not provided.
         issues: List of dictionaries storing detected data quality issues. Each issue
@@ -176,7 +176,7 @@ class OctoDataHealthChecker:
     sample_id_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
     """Name of the sample ID column."""
 
-    stratification_column: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    stratification_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
     """Name of the stratification column."""
 
     config: HealthCheckConfig = field(
@@ -254,7 +254,7 @@ class OctoDataHealthChecker:
     def _check_critical_column_missing_values(self):
         """Check for missing values in critical columns.
 
-        Examines target columns, sample_id_col, row_id_col, and stratification_column for any
+        Examines target columns, sample_id_col, row_id_col, and stratification_col for any
         missing values. These columns are considered critical for model training and
         data integrity, so any missing values are flagged as Critical severity.
 
@@ -268,7 +268,7 @@ class OctoDataHealthChecker:
             *self.target_cols,
             self.sample_id_col,
             self.row_id_col,
-            self.stratification_column,
+            self.stratification_col,
         ]
         critical_columns_not_none = [col for col in critical_columns if col is not None]
 

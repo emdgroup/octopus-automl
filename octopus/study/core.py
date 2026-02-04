@@ -55,7 +55,7 @@ class OctoStudy(ABC):
     )
     """Unique row identifier."""
 
-    stratification_column: str | None = field(
+    stratification_col: str | None = field(
         default=Factory(lambda: None),
         validator=validators.optional(validators.instance_of(str)),
     )
@@ -147,8 +147,8 @@ class OctoStudy(ABC):
             relevant_columns.append(self.sample_id_col)
         if self.prepared.row_id_col:
             relevant_columns.append(self.prepared.row_id_col)
-        if self.stratification_column:
-            relevant_columns.append(self.stratification_column)
+        if self.stratification_col:
+            relevant_columns.append(self.stratification_col)
         if "group_features" in self.prepared.data.columns:
             relevant_columns.append("group_features")
         if "group_sample_and_features" in self.prepared.data.columns:
@@ -163,7 +163,7 @@ class OctoStudy(ABC):
             target_cols=self.target_cols,
             sample_id_col=self.sample_id_col,
             row_id_col=self.row_id_col,
-            stratification_column=self.stratification_column,
+            stratification_col=self.stratification_col,
             target_assignments=self.target_assignments,
             ml_type=self.ml_type.value,
             positive_class=getattr(self, "positive_class", None),
@@ -277,7 +277,7 @@ class OctoStudy(ABC):
             datasplit_col=datasplit_col,
             seeds=[self.datasplit_seed_outer],
             num_folds=self.n_folds_outer,
-            stratification_col=self.stratification_column,
+            stratification_col=self.stratification_col,
         ).get_datasplits()
 
         return datasplits
@@ -325,7 +325,7 @@ class OctoStudy(ABC):
             target_cols=self.target_cols,
             row_id_col=self.prepared.row_id_col,
             sample_id_col=self.sample_id_col,
-            stratification_column=self.stratification_column,
+            stratification_col=self.stratification_col,
             config=config or HealthCheckConfig(),
         )
         report = checker.generate_report()

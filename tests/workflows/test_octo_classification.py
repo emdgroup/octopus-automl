@@ -67,7 +67,7 @@ class TestOctoIntroClassification:
                 feature_cols=features,
                 target="target",
                 sample_id_col="index",
-                stratification_column="target",
+                stratification_col="target",
                 path=temp_dir,
                 ignore_data_health_warning=True,
             )
@@ -75,7 +75,7 @@ class TestOctoIntroClassification:
             assert study.target_cols == ["target"]
             assert len(study.feature_cols) == 5
             assert study.sample_id_col == "index"
-            assert study.stratification_column == "target"
+            assert study.stratification_col == "target"
 
     def test_octo_task_configuration(self):
         """Test that Octo task can be properly configured."""
@@ -195,7 +195,7 @@ class TestOctoIntroClassification:
                 feature_cols=features,
                 target="target",
                 sample_id_col="index",
-                stratification_column="target",
+                stratification_col="target",
                 metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS"],
                 datasplit_seed_outer=1234,
                 n_folds_outer=2,

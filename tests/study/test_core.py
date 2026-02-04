@@ -156,7 +156,7 @@ def test_default_values():
         )
         assert study.datasplit_type == DatasplitType.SAMPLE
         assert study.row_id_col is None
-        assert study.stratification_column is None
+        assert study.stratification_col is None
         assert study.positive_class == 1
         assert study.n_folds_outer == 5 if not _RUNNING_IN_TESTSUITE else 2
         assert study.datasplit_seed_outer == 0
