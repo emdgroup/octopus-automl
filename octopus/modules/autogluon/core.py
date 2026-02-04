@@ -412,7 +412,7 @@ class AGCore(ModuleBaseCore[AutoGluon]):
         row_column = self.experiment.row_column
 
         # (A) test predictions
-        # DataFrame with 'row_id' from test data
+        # DataFrame with 'row_id_col' from test data
         rowid_test = pd.DataFrame({row_column: self.experiment.row_test})
 
         if problem_type == "regression":
@@ -431,14 +431,14 @@ class AGCore(ModuleBaseCore[AutoGluon]):
 
         # Verify alignment
         assert len(rowid_test) == len(test_pred), "Mismatch in number of test rows!"
-        # Combine 'row_id' and test predictions
+        # Combine 'row_id_col' and test predictions
         predictions["test"] = pd.concat(
             [rowid_test.reset_index(drop=True), test_pred.reset_index(drop=True)],
             axis=1,
         )
 
         # (B) validation predictions
-        # DataFrame with 'row_id' from validation data
+        # DataFrame with 'row_id_col' from validation data
         rowid_val = pd.DataFrame({row_column: self.experiment.row_traindev})
 
         if problem_type == "regression":
@@ -457,7 +457,7 @@ class AGCore(ModuleBaseCore[AutoGluon]):
 
         # Verify alignment
         assert len(rowid_val) == len(oof_pred), "Mismatch in number of validation rows!"
-        # Combine 'row_id' and validation predictions
+        # Combine 'row_id_col' and validation predictions
         predictions["val"] = pd.concat(
             [rowid_val.reset_index(drop=True), oof_pred.reset_index(drop=True)],
             axis=1,

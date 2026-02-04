@@ -202,7 +202,7 @@ class TestAnalysisPipeline:
             target_col = list(experiment.target_assignments.values())[0]
 
             df = pd.DataFrame()
-            df["row_id"] = data_test[row_column]
+            df["row_id_col"] = data_test[row_column]
             df["prediction"] = experiment.model.predict(data_test[feature_cols])
 
             pred = experiment.model.predict_proba(data_test[feature_cols])

@@ -187,7 +187,7 @@ def test_data():
     data["nominal_col"] = nominal_col
 
     # Add row identifier
-    data["row_id"] = range(n_samples)
+    data["row_id_col"] = range(n_samples)
 
     # Generate targets
     data["target_class"] = np.random.choice([0, 1], n_samples)
@@ -258,7 +258,7 @@ def create_training_instance(
         ml_type=ml_type,
         target_assignments=config["target_assignments"],
         feature_cols=feature_cols,
-        row_column="row_id",
+        row_column="row_id_col",
         data_train=data_train,
         data_dev=data_dev,
         data_test=data_test,
@@ -368,7 +368,7 @@ def run_comprehensive_feature_importance_tests():
     nominal_col[::15] = np.nan
     data["nominal_col"] = nominal_col
 
-    data["row_id"] = range(n_samples)
+    data["row_id_col"] = range(n_samples)
 
     # Generate targets
     data["target_class"] = np.random.choice([0, 1], n_samples)

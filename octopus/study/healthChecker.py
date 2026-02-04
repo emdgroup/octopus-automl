@@ -151,7 +151,7 @@ class OctoDataHealthChecker:
         data: The pandas DataFrame containing the dataset to be checked.
         feature_cols: List of column names designated as features. Can be empty.
         target_cols: List of column names designated as targets. Can be empty.
-        row_id: Name of the column containing unique row identifiers. Can be None.
+        row_id_col: Name of the column containing unique row identifiers. Can be None.
         sample_id_col: Name of the column containing sample identifiers. Can be None.
         stratification_column: Name of the column used for stratification. Can be None.
         config: Configuration object containing customizable thresholds for health checks.
@@ -170,7 +170,7 @@ class OctoDataHealthChecker:
     target_cols: list[str] = field(factory=list, validator=validators.instance_of(list))
     """List of target column names."""
 
-    row_id: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    row_id_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
     """Name of the row ID column."""
 
     sample_id_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
@@ -235,7 +235,7 @@ class OctoDataHealthChecker:
                 - Recommended Action: Suggested steps to address the issue
         """
         self._check_minimum_samples()
-        self._check_row_id_unique()
+        self._check_row_id_col_unique()
         self._check_critical_column_missing_values()
         self._check_features_not_all_null()
         self._check_feature_cols_missing_values()
@@ -254,7 +254,7 @@ class OctoDataHealthChecker:
     def _check_critical_column_missing_values(self):
         """Check for missing values in critical columns.
 
-        Examines target columns, sample_id_col, row_id, and stratification_column for any
+        Examines target columns, sample_id_col, row_id_col, and stratification_column for any
         missing values. These columns are considered critical for model training and
         data integrity, so any missing values are flagged as Critical severity.
 
@@ -267,7 +267,7 @@ class OctoDataHealthChecker:
         critical_columns = [
             *self.target_cols,
             self.sample_id_col,
-            self.row_id,
+            self.row_id_col,
             self.stratification_column,
         ]
         critical_columns_not_none = [col for col in critical_columns if col is not None]
@@ -279,7 +279,7 @@ class OctoDataHealthChecker:
                 issue_type="critical_missing_values",
                 affected_items=critical_missing,
                 severity="Critical",
-                description=("These critical columns (target, sample_id_col, or row_id) have missing values."),
+                description=("These critical columns (target, sample_id_col, or row_id_col) have missing values."),
                 action=(
                     "Investigate and resolve missing values in these columns immediately. These are crucial for model training and data integrity."
                 ),
@@ -1023,20 +1023,20 @@ class OctoDataHealthChecker:
                 ),
             )
 
-    def _check_row_id_unique(self):
-        """Check if row_id column contains unique values.
+    def _check_row_id_col_unique(self):
+        """Check if row_id_col column contains unique values.
 
-        If a row_id column is specified, ensures that all values in that column
+        If a row_id_col column is specified, ensures that all values in that column
         are unique, as row IDs are used to uniquely identify each data row.
         """
-        if self.row_id and self.row_id in self.data.columns and not self.data[self.row_id].is_unique:
-            duplicate_count = self.data[self.row_id].duplicated().sum()
+        if self.row_id_col and self.row_id_col in self.data.columns and not self.data[self.row_id_col].is_unique:
+            duplicate_count = self.data[self.row_id_col].duplicated().sum()
             self.add_issue(
                 category="columns",
                 issue_type="duplicate_row_ids",
-                affected_items=[self.row_id],
+                affected_items=[self.row_id_col],
                 severity="Critical",
-                description=f"Row ID column '{self.row_id}' contains {duplicate_count} duplicate values. Each row ID must be unique.",
+                description=f"Row ID column '{self.row_id_col}' contains {duplicate_count} duplicate values. Each row ID must be unique.",
                 action="Investigate and resolve duplicate row IDs. Each row must have a unique identifier.",
             )
 

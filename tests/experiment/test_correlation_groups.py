@@ -62,7 +62,7 @@ def mock_octo_experiment(correlated_data):
         metrics=["R2"],
         imputation_method="median",
         datasplit_column="split",
-        row_column="row_id",
+        row_column="row_id_col",
         feature_cols=["x1", "x2", "x3", "x4", "x5", "x6", "x7"],
         target_assignments={"target": "value"},
         data_traindev=correlated_data,

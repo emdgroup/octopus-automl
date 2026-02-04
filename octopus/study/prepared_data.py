@@ -14,7 +14,7 @@ class PreparedData:
     feature_cols: list[str]
     """Feature columns actually used after preparation (sorted, single-value features removed)."""
 
-    row_id: str
+    row_id_col: str
     """Row ID column used (auto-generated if not provided by user)."""
 
     target_assignments: dict[str, str]

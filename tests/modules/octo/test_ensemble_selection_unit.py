@@ -33,15 +33,15 @@ def create_mock_training(training_id, performance_dev, performance_test, n_sampl
 
     # Create dataframes
     train_df = pd.DataFrame(X[train_idx], columns=[f"feature_{i}" for i in range(4)])
-    train_df["row_id"] = row_ids[train_idx]
+    train_df["row_id_col"] = row_ids[train_idx]
     train_df["target"] = y[train_idx]
 
     dev_df = pd.DataFrame(X[dev_idx], columns=[f"feature_{i}" for i in range(4)])
-    dev_df["row_id"] = row_ids[dev_idx]
+    dev_df["row_id_col"] = row_ids[dev_idx]
     dev_df["target"] = y[dev_idx]
 
     test_df = pd.DataFrame(X[test_idx], columns=[f"feature_{i}" for i in range(4)])
-    test_df["row_id"] = row_ids[test_idx]
+    test_df["row_id_col"] = row_ids[test_idx]
     test_df["target"] = y[test_idx]
 
     # Create controlled predictions to achieve target performance
@@ -52,9 +52,13 @@ def create_mock_training(training_id, performance_dev, performance_test, n_sampl
     pred_test = test_df["target"] + np.full(len(test_df), performance_test)  # Exact MAE control
 
     predictions = {
-        "train": pd.DataFrame({"row_id": train_df["row_id"], "prediction": pred_train, "target": train_df["target"]}),
-        "dev": pd.DataFrame({"row_id": dev_df["row_id"], "prediction": pred_dev, "target": dev_df["target"]}),
-        "test": pd.DataFrame({"row_id": test_df["row_id"], "prediction": pred_test, "target": test_df["target"]}),
+        "train": pd.DataFrame(
+            {"row_id_col": train_df["row_id_col"], "prediction": pred_train, "target": train_df["target"]}
+        ),
+        "dev": pd.DataFrame({"row_id_col": dev_df["row_id_col"], "prediction": pred_dev, "target": dev_df["target"]}),
+        "test": pd.DataFrame(
+            {"row_id_col": test_df["row_id_col"], "prediction": pred_test, "target": test_df["target"]}
+        ),
     }
 
     training = Training(
@@ -62,7 +66,7 @@ def create_mock_training(training_id, performance_dev, performance_test, n_sampl
         ml_type="regression",
         target_assignments={"default": "target"},
         feature_cols=[f"feature_{i}" for i in range(4)],
-        row_column="row_id",
+        row_column="row_id_col",
         data_train=train_df,
         data_dev=dev_df,
         data_test=test_df,
@@ -98,7 +102,7 @@ def create_mock_bag(log_dir, bag_id, target_dev_mae, target_test_mae, n_training
         bag_id=bag_id,
         trainings=trainings,
         target_assignments={"default": "target"},
-        row_column="row_id",
+        row_column="row_id_col",
         target_metric="MAE",
         ml_type="regression",
         parallel_execution=False,
@@ -157,7 +161,7 @@ def create_partial_ensel(trials_path, target_metric="MAE", methods_to_run=None):
         target_assignments={"default": "target"},
         path_trials=trials_path,
         max_n_iterations=10,
-        row_column="row_id",
+        row_column="row_id_col",
     )
 
 

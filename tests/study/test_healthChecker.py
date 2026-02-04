@@ -29,7 +29,7 @@ def health_checker(sample_data):
         data=sample_data,
         feature_cols=["feature1", "feature2", "feature3"],
         target_cols=["target"],
-        row_id="id",
+        row_id_col="id",
         sample_id_col="sample_id_col",
         stratification_column=None,
     )
@@ -187,7 +187,7 @@ def test_check_minimum_samples(sample_data):
         data=sample_data,
         feature_cols=["feature1"],
         target_cols=["target"],
-        row_id="id",
+        row_id_col="id",
         sample_id_col="sample_id_col",
         stratification_column=None,
     )
@@ -199,7 +199,7 @@ def test_check_minimum_samples(sample_data):
         data=small_data,
         feature_cols=["feature1"],
         target_cols=["target"],
-        row_id="id",
+        row_id_col="id",
         sample_id_col="sample_id_col",
         stratification_column=None,
     )
@@ -208,17 +208,17 @@ def test_check_minimum_samples(sample_data):
     assert any("10" in issue["Description"] for issue in health_checker_insufficient.issues)
 
 
-def test_check_row_id_unique(sample_data):
-    """Test row_id unique check."""
+def test_check_row_id_col_unique(sample_data):
+    """Test row_id_col unique check."""
     health_checker_unique = OctoDataHealthChecker(
         data=sample_data,
         feature_cols=["feature1"],
         target_cols=["target"],
-        row_id="id",
+        row_id_col="id",
         sample_id_col="sample_id_col",
         stratification_column=None,
     )
-    health_checker_unique._check_row_id_unique()
+    health_checker_unique._check_row_id_col_unique()
     assert not any(issue["Issue Type"] == "duplicate_row_ids" for issue in health_checker_unique.issues)
 
     duplicate_data = sample_data.copy()
@@ -227,11 +227,11 @@ def test_check_row_id_unique(sample_data):
         data=duplicate_data,
         feature_cols=["feature1"],
         target_cols=["target"],
-        row_id="id",
+        row_id_col="id",
         sample_id_col="sample_id_col",
         stratification_column=None,
     )
-    health_checker_duplicate._check_row_id_unique()
+    health_checker_duplicate._check_row_id_col_unique()
     assert any(issue["Issue Type"] == "duplicate_row_ids" for issue in health_checker_duplicate.issues)
     assert any("duplicate" in issue["Description"].lower() for issue in health_checker_duplicate.issues)
 
@@ -242,7 +242,7 @@ def test_check_features_not_all_null(sample_data):
         data=sample_data,
         feature_cols=["feature1", "feature2"],
         target_cols=["target"],
-        row_id="id",
+        row_id_col="id",
         sample_id_col="sample_id_col",
         stratification_column=None,
     )
@@ -255,7 +255,7 @@ def test_check_features_not_all_null(sample_data):
         data=null_data,
         feature_cols=["feature1", "feature2"],
         target_cols=["target"],
-        row_id="id",
+        row_id_col="id",
         sample_id_col="sample_id_col",
         stratification_column=None,
     )

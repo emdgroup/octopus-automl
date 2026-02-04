@@ -24,7 +24,7 @@ class OctoDataValidator:
     sample_id_col: str
     """Identifier for sample instances."""
 
-    row_id: str | None
+    row_id_col: str | None
     """Unique row identifier."""
 
     stratification_column: str | None
@@ -47,8 +47,8 @@ class OctoDataValidator:
         relevant_columns = list(set(self.feature_cols + self.target_cols))
         if self.sample_id_col:
             relevant_columns.append(self.sample_id_col)
-        if self.row_id:
-            relevant_columns.append(self.row_id)
+        if self.row_id_col:
+            relevant_columns.append(self.row_id_col)
         if self.stratification_column:
             relevant_columns.append(self.stratification_column)
         # Note: group_features/group_sample_and_features are added during preparation,
@@ -97,7 +97,7 @@ class OctoDataValidator:
         """Validate that all relevant columns exist in the DataFrame.
 
         Checks that all columns specified in feature_cols, target_cols,
-        sample_id_col, row_id, and stratification_column are present in the DataFrame.
+        sample_id_col, row_id_col, and stratification_column are present in the DataFrame.
 
         Raises:
             ValueError: If any relevant columns are missing from the DataFrame.
@@ -111,7 +111,7 @@ class OctoDataValidator:
         """Validate that no duplicate column names exist in the configuration.
 
         Validates that no column appears multiple times across feature_cols,
-        target_cols, sample_id_col, and row_id. This prevents ambiguous column
+        target_cols, sample_id_col, and row_id_col. This prevents ambiguous column
         references.
 
         Raises:
@@ -120,8 +120,8 @@ class OctoDataValidator:
         """
         columns_to_check = self.feature_cols + self.target_cols + [self.sample_id_col]
 
-        if self.row_id:
-            columns_to_check.append(self.row_id)
+        if self.row_id_col:
+            columns_to_check.append(self.row_id_col)
 
         duplicates = [col for col, count in Counter(columns_to_check).items() if count > 1]
 
@@ -133,16 +133,16 @@ class OctoDataValidator:
         """Validate that stratification_column is not a reserved identifier.
 
         Ensures that the stratification column (if specified) is not the same as
-        sample_id_col or row_id, which are reserved for data identification.
+        sample_id_col or row_id_col, which are reserved for data identification.
 
         Raises:
-            ValueError: If stratification_column is the same as sample_id_col or row_id.
+            ValueError: If stratification_column is the same as sample_id_col or row_id_col.
         """
         if self.stratification_column and self.stratification_column in [
             self.sample_id_col,
-            self.row_id,
+            self.row_id_col,
         ]:
-            raise ValueError("Stratification column cannot be the same as sample_id_col or row_id")
+            raise ValueError("Stratification column cannot be the same as sample_id_col or row_id_col")
 
     def _validate_target_assignments(self):
         """Validate target assignments for multi-target scenarios.
@@ -280,15 +280,15 @@ class OctoDataValidator:
         """Validate that reserved column names are not present in the DataFrame.
 
         Checks for conflicts with columns that will be created during data
-        preparation: 'group_features', 'group_sample_and_features', and 'row_id'
+        preparation: 'group_features', 'group_sample_and_features', and 'row_id_col'
         (if not provided by user).
 
         Raises:
             ValueError: If any reserved column names are found in the DataFrame.
         """
         reserved = ["group_features", "group_sample_and_features"]
-        if not self.row_id:
-            reserved.append("row_id")
+        if not self.row_id_col:
+            reserved.append("row_id_col")
 
         conflicts = [col for col in reserved if col in self.data.columns]
         if conflicts:

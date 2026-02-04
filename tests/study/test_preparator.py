@@ -31,7 +31,7 @@ def octo_preparator(sample_data):
         feature_cols=["feature1", "feature2", "bool_col", "null_col", "inf_col"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -42,7 +42,7 @@ def test_prepare(octo_preparator):
 
     assert isinstance(prepared.data, pd.DataFrame)
     assert isinstance(prepared.feature_cols, list)
-    assert isinstance(prepared.row_id, str)
+    assert isinstance(prepared.row_id_col, str)
     assert isinstance(prepared.target_assignments, dict)
 
 
@@ -94,12 +94,12 @@ def test_transform_bool_to_int(octo_preparator):
     assert octo_preparator.data["bool_col"].tolist() == [1, 0, 1, 0, 1, 1, 0, 1]
 
 
-def test_create_row_id(octo_preparator):
+def test_create_row_id_col(octo_preparator):
     """Test create row id function."""
-    octo_preparator._create_row_id()
-    assert "row_id" in octo_preparator.data.columns
-    assert octo_preparator.row_id == "row_id"
-    assert octo_preparator.data["row_id"].tolist() == list(range(8))
+    octo_preparator._create_row_id_col()
+    assert "row_id_col" in octo_preparator.data.columns
+    assert octo_preparator.row_id_col == "row_id_col"
+    assert octo_preparator.data["row_id_col"].tolist() == list(range(8))
 
 
 def test_add_group_features(octo_preparator):
@@ -161,7 +161,7 @@ def test_prepare_full_process(octo_preparator):
     """Test preparation function."""
     prepared = octo_preparator.prepare()
 
-    assert "row_id" in prepared.data.columns
+    assert "row_id_col" in prepared.data.columns
     assert "group_features" in prepared.data.columns
     assert "group_sample_and_features" in prepared.data.columns
     assert prepared.data["bool_col"].dtype == int
@@ -192,7 +192,7 @@ def test_add_group_features_with_categorical_and_nan():
         feature_cols=["cat_feature", "num_feature"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -223,7 +223,7 @@ def test_add_group_features_with_mixed_types_and_nan():
         feature_cols=["cat_col", "num_col", "str_col", "inf_col"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -255,7 +255,7 @@ def test_add_group_features_with_all_nan_column():
         feature_cols=["all_nan", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -287,7 +287,7 @@ def test_add_group_features_same_sample_different_features():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -318,7 +318,7 @@ def test_add_group_features_same_features_different_samples():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -350,7 +350,7 @@ def test_add_group_features_large_dataset_with_duplicates():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -393,7 +393,7 @@ def test_add_group_features_transitive_closure():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -439,7 +439,7 @@ def test_add_group_features_transitive_closure_long_chain():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -478,7 +478,7 @@ def test_add_group_features_same_sample_consecutive():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -514,7 +514,7 @@ def test_add_group_features_same_sample_with_gaps():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -550,7 +550,7 @@ def test_add_group_features_same_features_consecutive():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -585,7 +585,7 @@ def test_add_group_features_same_features_with_gaps():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -706,7 +706,7 @@ def test_add_group_features_complex_with_gaps():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -751,7 +751,7 @@ def test_add_group_features_single_row():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -785,7 +785,7 @@ def test_add_group_features_all_same_sample():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -819,7 +819,7 @@ def test_add_group_features_all_different():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -856,7 +856,7 @@ def test_add_group_features_multiple_independent_groups():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -906,7 +906,7 @@ def test_add_group_features_data_integrity():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -942,7 +942,7 @@ def test_add_group_features_sequential_numbering():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 
@@ -978,7 +978,7 @@ def test_add_group_features_nan_in_sample_id_col():
         feature_cols=["feat1", "feat2"],
         target_cols=["target"],
         sample_id_col="sample_id_col",
-        row_id=None,
+        row_id_col=None,
         target_assignments={},
     )
 

@@ -74,7 +74,7 @@ def sample_data():
             "x1": np.random.normal(0, 1, n),
             "x2": np.random.normal(0, 1, n),
             "target": np.random.choice([0, 1], n),
-            "row_id": range(n),
+            "row_id_col": range(n),
         }
     )
 
@@ -97,7 +97,7 @@ def test_classification_model_has_classes_attribute(sample_data, model_name):
             ml_type="classification",
             target_assignments={"target": "target"},
             feature_cols=["x1", "x2"],
-            row_column="row_id",
+            row_column="row_id_col",
             data_train=train,
             data_dev=dev,
             data_test=test,

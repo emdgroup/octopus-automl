@@ -49,7 +49,7 @@ class OctoStudy(ABC):
     )
     """Type of datasplit. Allowed are `sample`, `group_features` and `group_sample_and_features`."""
 
-    row_id: str | None = field(
+    row_id_col: str | None = field(
         default=Factory(lambda: None),
         validator=validators.optional(validators.instance_of(str)),
     )
@@ -145,8 +145,8 @@ class OctoStudy(ABC):
         relevant_columns = list(set(self.prepared.feature_cols + self.target_cols))
         if self.sample_id_col:
             relevant_columns.append(self.sample_id_col)
-        if self.prepared.row_id:
-            relevant_columns.append(self.prepared.row_id)
+        if self.prepared.row_id_col:
+            relevant_columns.append(self.prepared.row_id_col)
         if self.stratification_column:
             relevant_columns.append(self.stratification_column)
         if "group_features" in self.prepared.data.columns:
@@ -162,7 +162,7 @@ class OctoStudy(ABC):
             feature_cols=self.feature_cols,
             target_cols=self.target_cols,
             sample_id_col=self.sample_id_col,
-            row_id=self.row_id,
+            row_id_col=self.row_id_col,
             stratification_column=self.stratification_column,
             target_assignments=self.target_assignments,
             ml_type=self.ml_type.value,
@@ -225,7 +225,7 @@ class OctoStudy(ABC):
 
         config["prepared"] = {
             "feature_cols": self.prepared.feature_cols,
-            "row_id": self.prepared.row_id,
+            "row_id_col": self.prepared.row_id_col,
             "target_assignments": self.prepared.target_assignments,
         }
 
@@ -255,7 +255,7 @@ class OctoStudy(ABC):
             feature_cols=self.feature_cols,
             target_cols=self.target_cols,
             sample_id_col=self.sample_id_col,
-            row_id=self.row_id,
+            row_id_col=self.row_id_col,
             target_assignments=self.target_assignments,
         )
         prepared = preparator.prepare()
@@ -307,7 +307,7 @@ class OctoStudy(ABC):
                 metrics=self.metrics,
                 imputation_method=self.imputation_method.value,
                 datasplit_column=datasplit_col,
-                row_column=self.prepared.row_id,
+                row_column=self.prepared.row_id_col,
                 feature_cols=self.prepared.feature_cols,
                 target_assignments=self.prepared.target_assignments,
                 data_traindev=value["train"],
@@ -323,7 +323,7 @@ class OctoStudy(ABC):
             data=data,
             feature_cols=self.prepared.feature_cols,
             target_cols=self.target_cols,
-            row_id=self.prepared.row_id,
+            row_id_col=self.prepared.row_id_col,
             sample_id_col=self.sample_id_col,
             stratification_column=self.stratification_column,
             config=config or HealthCheckConfig(),

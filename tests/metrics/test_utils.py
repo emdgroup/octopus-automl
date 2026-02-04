@@ -136,13 +136,13 @@ class TestGetPerformanceFromPredictions:
         assert "training_0" in performance
         assert isinstance(performance["training_0"]["dev"], float)
 
-    def test_multiclass_with_row_id_column(self):
-        """Test multiclass with numeric 'row_id' column (should be excluded from probabilities)."""
+    def test_multiclass_with_row_id_col(self):
+        """Test multiclass with numeric 'row_id_col' column (should be excluded from probabilities)."""
         predictions = {
             "training_0": {
                 "dev": pd.DataFrame(
                     {
-                        "row_id": [10, 20, 30, 40, 50],  # numeric row identifier
+                        "row_id_col": [10, 20, 30, 40, 50],  # numeric row identifier
                         "prediction": [0, 1, 2, 0, 1],
                         "target": [0, 1, 2, 0, 2],
                         0: [0.7, 0.2, 0.1, 0.8, 0.3],

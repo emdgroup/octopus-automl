@@ -36,7 +36,7 @@ def sample_data():
     """Fixture to provide sample data for testing."""
     np.random.seed(42)
     data = {
-        "row_id": [f"row_{i}" for i in range(100)],
+        "row_id_col": [f"row_{i}" for i in range(100)],
         "feature1": np.random.randn(100),
         "feature2": np.random.randn(100),
         "feature3": np.random.randn(100),
@@ -80,7 +80,7 @@ def mock_experiment(sample_data, mock_model):
     experiment.depends_on_task = -1
     experiment._task_path = UPath("outersplit0/workflowtask0")
     experiment.datasplit_column = "target"
-    experiment.row_column = "row_id"
+    experiment.row_column = "row_id_col"
     experiment.feature_cols = ["feature1", "feature2", "feature3"]
     experiment.target_assignments = {"target": "target"}
     experiment.target_metric = "AUCROC"
@@ -109,8 +109,8 @@ def mock_study_path(tmp_path):
         "name": "test_study",
         "ml_type": "classification",
         "feature_cols": ["feature1", "feature2", "feature3"],
-        "row_id": "row_id",
-        "sample_id_col": "row_id",
+        "row_id_col": "row_id_col",
+        "sample_id_col": "row_id_col",
         "target_cols": ["target"],
         "target_metric": "AUCROC",
         "n_folds_outer": 3,
@@ -160,7 +160,7 @@ def predictor_with_experiments(mock_study_path, mock_experiment, sample_data, mo
                 data_traindev=sample_data.iloc[:80],
                 data_test=sample_data.iloc[80:],
                 feature_cols=["feature1", "feature2", "feature3"],
-                row_column="row_id",
+                row_column="row_id_col",
                 target_assignments={"target": "target"},
                 target_metric="AUCROC",
                 ml_type="classification",

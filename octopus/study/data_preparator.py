@@ -31,7 +31,7 @@ class OctoDataPreparator:
     sample_id_col: str
     """Identifier for sample instances."""
 
-    row_id: str | None
+    row_id_col: str | None
     """Unique row identifier."""
 
     target_assignments: dict[str, str]
@@ -41,7 +41,7 @@ class OctoDataPreparator:
         """Run all data preparation steps and return PreparedData instance.
 
         Returns:
-            PreparedData: The transformed data with effective feature columns, row_id, etc.
+            PreparedData: The transformed data with effective feature columns, row_id_col, etc.
         """
         self._sort_features()
         self._standardize_null_values()
@@ -49,13 +49,13 @@ class OctoDataPreparator:
         self._set_target_assignments()
         self._remove_singlevalue_features()
         self._transform_bool_to_int()
-        self._create_row_id()
+        self._create_row_id_col()
         self._add_group_features()  # needs to be done at the end
 
         return PreparedData(
             data=self.data,
             feature_cols=self.feature_cols,
-            row_id=self.row_id,  # type: ignore[arg-type]  # row_id is always set after _create_row_id
+            row_id_col=self.row_id_col,  # type: ignore[arg-type]  # row_id_col is always set after _create_row_id_col
             target_assignments=self.target_assignments,
         )
 
@@ -90,11 +90,11 @@ class OctoDataPreparator:
         bool_cols = self.data.select_dtypes(include="bool").columns
         self.data[bool_cols] = self.data[bool_cols].astype(int)
 
-    def _create_row_id(self):
+    def _create_row_id_col(self):
         """Create a unique row identifier if not provided."""
-        if not self.row_id:
-            self.data["row_id"] = list(range(len(self.data)))
-            self.row_id = "row_id"
+        if not self.row_id_col:
+            self.data["row_id_col"] = list(range(len(self.data)))
+            self.row_id_col = "row_id_col"
 
     def _add_group_features(self):
         """Add group feature columns for data splitting and tracking.

@@ -36,7 +36,7 @@ def octo_experiment(sample_data):
         metrics=["R2"],
         imputation_method="median",
         datasplit_column="target",
-        row_column="row_id",
+        row_column="row_id_col",
         feature_cols=["feature1", "feature2", "feature3"],
         target_assignments={"target": [0, 1]},
         data_traindev=sample_data,
@@ -52,7 +52,7 @@ def test_initialization(octo_experiment):
     assert octo_experiment.depends_on_task == 1
     assert octo_experiment.task_path == UPath("/path/to/sequence_item")
     assert octo_experiment.datasplit_column == "target"
-    assert octo_experiment.row_column == "row_id"
+    assert octo_experiment.row_column == "row_id_col"
     assert octo_experiment.feature_cols == ["feature1", "feature2", "feature3"]
     assert octo_experiment.target_assignments == {"target": [0, 1]}
     assert isinstance(octo_experiment.data_traindev, pd.DataFrame)
