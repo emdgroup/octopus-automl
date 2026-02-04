@@ -54,7 +54,7 @@ def trained_study(classification_dataset, tmp_path_factory):
         metrics=["AUCROC", "ACCBAL", "ACC", "F1", "AUCPR"],
         feature_cols=features,
         target="target",
-        sample_id="index",
+        sample_id_col="index",
         datasplit_type="sample",
         stratification_column="target",
         datasplit_seed_outer=1234,

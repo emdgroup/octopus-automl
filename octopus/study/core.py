@@ -39,7 +39,7 @@ class OctoStudy(ABC):
     feature_cols: list[str] = field(validator=[validators.instance_of(list)])
     """List of all feature columns in the dataset."""
 
-    sample_id: str = field(validator=validators.instance_of(str))
+    sample_id_col: str = field(validator=validators.instance_of(str))
     """Identifier for sample instances."""
 
     datasplit_type: DatasplitType = field(
@@ -143,8 +143,8 @@ class OctoStudy(ABC):
     def relevant_columns(self) -> list[str]:
         """Relevant columns for the dataset (computed from prepared data)."""
         relevant_columns = list(set(self.prepared.feature_cols + self.target_cols))
-        if self.sample_id:
-            relevant_columns.append(self.sample_id)
+        if self.sample_id_col:
+            relevant_columns.append(self.sample_id_col)
         if self.prepared.row_id:
             relevant_columns.append(self.prepared.row_id)
         if self.stratification_column:
@@ -161,7 +161,7 @@ class OctoStudy(ABC):
             data=data,
             feature_cols=self.feature_cols,
             target_cols=self.target_cols,
-            sample_id=self.sample_id,
+            sample_id_col=self.sample_id_col,
             row_id=self.row_id,
             stratification_column=self.stratification_column,
             target_assignments=self.target_assignments,
@@ -254,7 +254,7 @@ class OctoStudy(ABC):
             data=data,
             feature_cols=self.feature_cols,
             target_cols=self.target_cols,
-            sample_id=self.sample_id,
+            sample_id_col=self.sample_id_col,
             row_id=self.row_id,
             target_assignments=self.target_assignments,
         )
@@ -268,7 +268,7 @@ class OctoStudy(ABC):
         data_clean = data[self.relevant_columns]
 
         if self.datasplit_type.value == "sample":
-            datasplit_col = self.sample_id
+            datasplit_col = self.sample_id_col
         else:
             datasplit_col = self.datasplit_type.value
 
@@ -288,7 +288,7 @@ class OctoStudy(ABC):
 
         # Get datasplit column based on datasplit_type
         if self.datasplit_type.value == "sample":
-            datasplit_col = self.sample_id
+            datasplit_col = self.sample_id_col
         else:
             datasplit_col = self.datasplit_type.value
 
@@ -324,7 +324,7 @@ class OctoStudy(ABC):
             feature_cols=self.prepared.feature_cols,
             target_cols=self.target_cols,
             row_id=self.prepared.row_id,
-            sample_id=self.sample_id,
+            sample_id_col=self.sample_id_col,
             stratification_column=self.stratification_column,
             config=config or HealthCheckConfig(),
         )

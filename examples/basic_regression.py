@@ -22,7 +22,7 @@ study = OctoRegression(
     target_metric="MAE",
     feature_cols=diabetes["feature_names"],
     target="target",
-    sample_id="index",
+    sample_id_col="index",
 )
 
 study.fit(data=diabetes["frame"].reset_index())

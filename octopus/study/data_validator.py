@@ -21,7 +21,7 @@ class OctoDataValidator:
     only one target is allowed. For time-to-event, two targets need to be provided.
     """
 
-    sample_id: str
+    sample_id_col: str
     """Identifier for sample instances."""
 
     row_id: str | None
@@ -45,8 +45,8 @@ class OctoDataValidator:
     def __attrs_post_init__(self):
         """Compute relevant columns after initialization."""
         relevant_columns = list(set(self.feature_cols + self.target_cols))
-        if self.sample_id:
-            relevant_columns.append(self.sample_id)
+        if self.sample_id_col:
+            relevant_columns.append(self.sample_id_col)
         if self.row_id:
             relevant_columns.append(self.row_id)
         if self.stratification_column:
@@ -97,7 +97,7 @@ class OctoDataValidator:
         """Validate that all relevant columns exist in the DataFrame.
 
         Checks that all columns specified in feature_cols, target_cols,
-        sample_id, row_id, and stratification_column are present in the DataFrame.
+        sample_id_col, row_id, and stratification_column are present in the DataFrame.
 
         Raises:
             ValueError: If any relevant columns are missing from the DataFrame.
@@ -111,14 +111,14 @@ class OctoDataValidator:
         """Validate that no duplicate column names exist in the configuration.
 
         Validates that no column appears multiple times across feature_cols,
-        target_cols, sample_id, and row_id. This prevents ambiguous column
+        target_cols, sample_id_col, and row_id. This prevents ambiguous column
         references.
 
         Raises:
             ValueError: If any column name appears more than once in the
                 configuration.
         """
-        columns_to_check = self.feature_cols + self.target_cols + [self.sample_id]
+        columns_to_check = self.feature_cols + self.target_cols + [self.sample_id_col]
 
         if self.row_id:
             columns_to_check.append(self.row_id)
@@ -133,16 +133,16 @@ class OctoDataValidator:
         """Validate that stratification_column is not a reserved identifier.
 
         Ensures that the stratification column (if specified) is not the same as
-        sample_id or row_id, which are reserved for data identification.
+        sample_id_col or row_id, which are reserved for data identification.
 
         Raises:
-            ValueError: If stratification_column is the same as sample_id or row_id.
+            ValueError: If stratification_column is the same as sample_id_col or row_id.
         """
         if self.stratification_column and self.stratification_column in [
-            self.sample_id,
+            self.sample_id_col,
             self.row_id,
         ]:
-            raise ValueError("Stratification column cannot be the same as sample_id or row_id")
+            raise ValueError("Stratification column cannot be the same as sample_id_col or row_id")
 
     def _validate_target_assignments(self):
         """Validate target assignments for multi-target scenarios.

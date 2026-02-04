@@ -110,7 +110,7 @@ def mock_study_path(tmp_path):
         "ml_type": "classification",
         "feature_cols": ["feature1", "feature2", "feature3"],
         "row_id": "row_id",
-        "sample_id": "row_id",
+        "sample_id_col": "row_id",
         "target_cols": ["target"],
         "target_metric": "AUCROC",
         "n_folds_outer": 3,

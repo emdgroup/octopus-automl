@@ -47,7 +47,7 @@ class TestRocOctoRocWorkflow:
 
         df = pd.DataFrame(X_extended, columns=feature_names)
         df["target"] = y
-        df["sample_id"] = range(len(df))
+        df["sample_id_col"] = range(len(df))
 
         return df, feature_names
 
@@ -123,7 +123,7 @@ class TestRocOctoRocWorkflow:
                 target_metric="ACCBAL",
                 feature_cols=feature_names,
                 target="target",
-                sample_id="sample_id",
+                sample_id_col="sample_id_col",
                 stratification_column="target",
                 path=temp_dir,
                 ignore_data_health_warning=True,
@@ -281,7 +281,7 @@ class TestRocOctoRocWorkflow:
                 target_metric="ACCBAL",
                 feature_cols=feature_names,
                 target="target",
-                sample_id="sample_id",
+                sample_id_col="sample_id_col",
                 stratification_column="target",
                 metrics=["AUCROC", "ACCBAL"],
                 datasplit_seed_outer=1234,

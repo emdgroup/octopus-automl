@@ -122,7 +122,7 @@ class TestRocCore:
 
         df = pd.DataFrame(X_corr, columns=feature_names)
         df["target"] = y
-        df["sample_id"] = range(len(df))
+        df["sample_id_col"] = range(len(df))
 
         return df, feature_names
 
@@ -149,7 +149,7 @@ class TestRocCore:
 
         df = pd.DataFrame(X_corr, columns=feature_names)
         df["target"] = y
-        df["sample_id"] = range(len(df))
+        df["sample_id_col"] = range(len(df))
 
         return df, feature_names
 
@@ -179,7 +179,7 @@ class TestRocCore:
         df = pd.DataFrame(X_corr, columns=feature_names)
         df["duration"] = duration
         df["event"] = event
-        df["sample_id"] = range(len(df))
+        df["sample_id_col"] = range(len(df))
 
         return df, feature_names
 
@@ -341,7 +341,7 @@ class TestRocCore:
         feature_names = [f"feature_{i}" for i in range(n_features)]
         data = pd.DataFrame(X, columns=feature_names)
         data["target"] = y
-        data["sample_id"] = range(len(data))
+        data["sample_id_col"] = range(len(data))
 
         roc_config = Roc(task_id=0, threshold=0.8, correlation_type="spearmanr", filter_type="f_statistics")
 
@@ -377,7 +377,7 @@ class TestRocCore:
         feature_names = [f"feature_{i}" for i in range(X.shape[1])]
         data = pd.DataFrame(X, columns=feature_names)
         data["target"] = y
-        data["sample_id"] = range(len(data))
+        data["sample_id_col"] = range(len(data))
 
         roc_config = Roc(task_id=0, threshold=0.8, correlation_type="spearmanr", filter_type="f_statistics")
 
@@ -451,7 +451,7 @@ class TestRocCore:
         feature_names = [f"feature_{i}" for i in range(n_features)]
         data = pd.DataFrame(X, columns=feature_names)
         data["target"] = y
-        data["sample_id"] = range(len(data))
+        data["sample_id_col"] = range(len(data))
 
         # Use mutual_info filter which can handle NaN values better, or expect ValueError for f_statistics
         roc_config = Roc(task_id=0, threshold=0.8, correlation_type="spearmanr", filter_type="f_statistics")
@@ -482,7 +482,7 @@ class TestRocIntegration:
         feature_names = [f"feature_{i}" for i in range(X.shape[1])]
         data = pd.DataFrame(X, columns=feature_names)
         data["target"] = y
-        data["sample_id"] = range(len(data))
+        data["sample_id_col"] = range(len(data))
 
         # Create ROC module configuration
         roc_module = Roc(
@@ -525,7 +525,7 @@ class TestRocIntegration:
             data["duration"] = np.random.exponential(10, n_samples)
             data["event"] = np.random.choice([True, False], n_samples)
 
-        data["sample_id"] = range(len(data))
+        data["sample_id_col"] = range(len(data))
 
         roc_config = Roc(task_id=0, threshold=0.8)
 

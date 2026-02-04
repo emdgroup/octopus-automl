@@ -75,7 +75,7 @@ class TestOctoMulticlass:
                 target_metric="AUCROC_MACRO",
                 feature_cols=features,
                 target="target",
-                sample_id="index",
+                sample_id_col="index",
                 stratification_column="target",
                 path=temp_dir,
                 ignore_data_health_warning=True,
@@ -83,7 +83,7 @@ class TestOctoMulticlass:
 
             assert study.target_cols == ["target"]
             assert len(study.feature_cols) == 5
-            assert study.sample_id == "index"
+            assert study.sample_id_col == "index"
             assert study.stratification_column == "target"
 
     def test_multiclass_task_configuration(self):
@@ -159,7 +159,7 @@ class TestOctoMulticlass:
                 target_metric="AUCROC_MACRO",
                 feature_cols=["f1"],
                 target="target",
-                sample_id="index",
+                sample_id_col="index",
                 metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],
                 path=temp_dir,
                 ignore_data_health_warning=True,
@@ -209,7 +209,7 @@ class TestOctoMulticlass:
                 target_metric="AUCROC_MACRO",
                 feature_cols=features,
                 target="target",
-                sample_id="index",
+                sample_id_col="index",
                 stratification_column="target",
                 metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],
                 datasplit_seed_outer=1234,
@@ -313,7 +313,7 @@ class TestOctoMulticlass:
                     target_metric=target_metric,
                     feature_cols=["f1"],
                     target="target",
-                    sample_id="index",
+                    sample_id_col="index",
                     metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],
                     path=temp_dir,
                     ignore_data_health_warning=True,

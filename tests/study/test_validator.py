@@ -13,7 +13,7 @@ def sample_data():
     return pd.DataFrame(
         {
             "id": range(1, 101),
-            "sample_id": [f"S{i}" for i in range(1, 101)],
+            "sample_id_col": [f"S{i}" for i in range(1, 101)],
             "feature1": np.random.rand(100),
             "feature2": np.random.randint(0, 5, 100),
             "feature3": ["A", "B", "C"] * 33 + ["A"],
@@ -32,7 +32,7 @@ def validator_factory(sample_data):
         data=None,
         feature_cols=None,
         target_cols=None,
-        sample_id="sample_id",
+        sample_id_col="sample_id_col",
         row_id="id",
         stratification_column="strat",
         target_assignments=None,
@@ -52,7 +52,7 @@ def validator_factory(sample_data):
             data=data,
             feature_cols=feature_cols,
             target_cols=target_cols,
-            sample_id=sample_id,
+            sample_id_col=sample_id_col,
             row_id=row_id,
             stratification_column=stratification_column,
             target_assignments=target_assignments,
@@ -117,7 +117,7 @@ def test_validate_duplicated_columns(validator_factory, duplicate_setup, should_
     "stratification_column,should_fail",
     [
         ("strat", False),
-        ("sample_id", True),
+        ("sample_id_col", True),
         ("id", True),
     ],
 )
@@ -225,7 +225,7 @@ def test_validate_error_accumulation(validator_factory, sample_data):
     validator = validator_factory(
         data=data_with_issues,
         feature_cols=["feature1", "feature2"],
-        stratification_column="sample_id",  # This will fail as sample_id can't be stratification column
+        stratification_column="sample_id_col",  # This will fail as sample_id_col can't be stratification column
     )
 
     with pytest.raises(ValueError) as exc_info:
@@ -234,4 +234,4 @@ def test_validate_error_accumulation(validator_factory, sample_data):
     error_message = str(exc_info.value)
     assert "Multiple validation errors found" in error_message
     assert "Reserved column names found in data" in error_message
-    assert "Stratification column cannot be the same as sample_id" in error_message
+    assert "Stratification column cannot be the same as sample_id_col" in error_message

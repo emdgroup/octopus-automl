@@ -144,7 +144,7 @@ class TestFSSpecIntegration:
                     target_metric="ACCBAL",
                     feature_cols=features,
                     target="target",
-                    sample_id="index",
+                    sample_id_col="index",
                     stratification_column="target",
                     metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS"],
                     datasplit_seed_outer=1234,

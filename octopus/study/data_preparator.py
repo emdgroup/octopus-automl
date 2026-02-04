@@ -28,7 +28,7 @@ class OctoDataPreparator:
     only one target is allowed. For time-to-event, two targets need to be provided.
     """
 
-    sample_id: str
+    sample_id_col: str
     """Identifier for sample instances."""
 
     row_id: str | None
@@ -101,8 +101,8 @@ class OctoDataPreparator:
 
         Creates two grouping columns used for data splitting strategies:
         - group_features: Groups rows with identical feature values
-        - group_sample_and_features: Groups rows by sample_id OR identical features
-          using transitive closure (if row A and B share sample_id, and B and C
+        - group_sample_and_features: Groups rows by sample_id_col OR identical features
+          using transitive closure (if row A and B share sample_id_col, and B and C
           share features, then A, B, and C are all in the same group)
 
         The DataFrame index is reset after adding these columns.
@@ -148,13 +148,13 @@ class OctoDataPreparator:
                 # Make root_x point to root_y (could be reversed, doesn't matter)
                 parent[root_x] = root_y
 
-        # Step 3: Union rows with the same sample_id
-        # All rows with same sample_id must be in the same group
-        sample_groups = self.data.groupby(self.sample_id, dropna=False).indices
+        # Step 3: Union rows with the same sample_id_col
+        # All rows with same sample_id_col must be in the same group
+        sample_groups = self.data.groupby(self.sample_id_col, dropna=False).indices
         for indices in sample_groups.values():
             indices_list = list(indices)
-            # Connect all rows in this sample_id group by linking them sequentially
-            # e.g., if rows [2, 5, 7] have same sample_id, do: union(2,5), union(5,7)
+            # Connect all rows in this sample_id_col group by linking them sequentially
+            # e.g., if rows [2, 5, 7] have same sample_id_col, do: union(2,5), union(5,7)
             for i in range(1, len(indices_list)):
                 union(indices_list[0], indices_list[i])
 

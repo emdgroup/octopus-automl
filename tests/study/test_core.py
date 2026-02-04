@@ -20,7 +20,7 @@ def sample_data():
     np.random.seed(42)
     return pd.DataFrame(
         {
-            "sample_id": [f"S{i}" for i in range(100)],
+            "sample_id_col": [f"S{i}" for i in range(100)],
             "feature1": np.random.rand(100),
             "feature2": np.random.randint(0, 10, 100),
             "feature3": np.random.choice(["A", "B", "C"], 100),
@@ -38,7 +38,7 @@ def basic_study():
             target_metric="AUCROC",
             feature_cols=["feature1", "feature2", "feature3"],
             target="target",
-            sample_id="sample_id",
+            sample_id_col="sample_id_col",
             path=temp_dir,
             ignore_data_health_warning=True,
         )
@@ -52,7 +52,7 @@ def test_initialization(basic_study):
     assert basic_study.feature_cols == ["feature1", "feature2", "feature3"]
     assert basic_study.target == "target"
     assert basic_study.target_cols == ["target"]  # Property should return list
-    assert basic_study.sample_id == "sample_id"
+    assert basic_study.sample_id_col == "sample_id_col"
 
 
 @pytest.mark.parametrize(
@@ -81,7 +81,7 @@ def test_string_to_enum_conversion(study_class, param_name, param_value, expecte
         study = study_class(
             name="test",
             feature_cols=["f1"],
-            sample_id="id",
+            sample_id_col="id",
             path=temp_dir,
             **kwargs,
         )
@@ -96,7 +96,7 @@ def test_output_path_property():
             target_metric="AUCROC",
             feature_cols=["f1"],
             target="target",
-            sample_id="id",
+            sample_id_col="id",
             path=temp_dir,
         )
         assert study.output_path == UPath(temp_dir) / "my_study"
@@ -110,7 +110,7 @@ def test_default_workflow():
             target_metric="AUCROC",
             feature_cols=["f1"],
             target="target",
-            sample_id="id",
+            sample_id_col="id",
             path=temp_dir,
         )
         assert len(study.workflow) == 1
@@ -133,7 +133,7 @@ def test_metrics(metrics_input, expected_metrics):
             "target_metric": "AUCROC",
             "feature_cols": ["f1"],
             "target": "target",
-            "sample_id": "id",
+            "sample_id_col": "id",
             "path": temp_dir,
         }
         if metrics_input is not None:
@@ -151,7 +151,7 @@ def test_default_values():
             target_metric="AUCROC",
             feature_cols=["f1"],
             target="target",
-            sample_id="id",
+            sample_id_col="id",
             path=temp_dir,
         )
         assert study.datasplit_type == DatasplitType.SAMPLE
@@ -178,7 +178,7 @@ def test_ml_type_values():
                 name="test",
                 target_metric=metric,
                 feature_cols=["f1"],
-                sample_id="id",
+                sample_id_col="id",
                 path=temp_dir,
                 **extra_kwargs,
             )
@@ -193,7 +193,7 @@ def test_start_with_empty_study_valid():
             target_metric="AUCROC",
             feature_cols=["f1"],
             target="target",
-            sample_id="id",
+            sample_id_col="id",
             path=temp_dir,
             start_with_empty_study=True,
             workflow=[Octo(task_id=0), Task(task_id=1, depends_on_task=0, load_task=False)],
@@ -214,7 +214,7 @@ def test_start_with_empty_study_invalid():
             target_metric="AUCROC",
             feature_cols=["f1"],
             target="target",
-            sample_id="id",
+            sample_id_col="id",
             path=temp_dir,
             start_with_empty_study=True,
             workflow=[Octo(task_id=0), Task(task_id=1, depends_on_task=0, load_task=True)],
@@ -229,7 +229,7 @@ def test_start_with_empty_study_false_with_load_task():
             target_metric="AUCROC",
             feature_cols=["f1"],
             target="target",
-            sample_id="id",
+            sample_id_col="id",
             path=temp_dir,
             start_with_empty_study=False,
             workflow=[Octo(task_id=0), Task(task_id=1, depends_on_task=0, load_task=True)],

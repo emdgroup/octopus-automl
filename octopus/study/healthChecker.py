@@ -152,7 +152,7 @@ class OctoDataHealthChecker:
         feature_cols: List of column names designated as features. Can be empty.
         target_cols: List of column names designated as targets. Can be empty.
         row_id: Name of the column containing unique row identifiers. Can be None.
-        sample_id: Name of the column containing sample identifiers. Can be None.
+        sample_id_col: Name of the column containing sample identifiers. Can be None.
         stratification_column: Name of the column used for stratification. Can be None.
         config: Configuration object containing customizable thresholds for health checks.
             Uses default HealthCheckConfig if not provided.
@@ -173,7 +173,7 @@ class OctoDataHealthChecker:
     row_id: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
     """Name of the row ID column."""
 
-    sample_id: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    sample_id_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
     """Name of the sample ID column."""
 
     stratification_column: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
@@ -254,7 +254,7 @@ class OctoDataHealthChecker:
     def _check_critical_column_missing_values(self):
         """Check for missing values in critical columns.
 
-        Examines target columns, sample_id, row_id, and stratification_column for any
+        Examines target columns, sample_id_col, row_id, and stratification_column for any
         missing values. These columns are considered critical for model training and
         data integrity, so any missing values are flagged as Critical severity.
 
@@ -266,7 +266,7 @@ class OctoDataHealthChecker:
 
         critical_columns = [
             *self.target_cols,
-            self.sample_id,
+            self.sample_id_col,
             self.row_id,
             self.stratification_column,
         ]
@@ -279,7 +279,7 @@ class OctoDataHealthChecker:
                 issue_type="critical_missing_values",
                 affected_items=critical_missing,
                 severity="Critical",
-                description=("These critical columns (target, sample_id, or row_id) have missing values."),
+                description=("These critical columns (target, sample_id_col, or row_id) have missing values."),
                 action=(
                     "Investigate and resolve missing values in these columns immediately. These are crucial for model training and data integrity."
                 ),
@@ -402,18 +402,18 @@ class OctoDataHealthChecker:
         """Check for duplicate rows based on feature values.
 
         Identifies rows that have identical values across all feature columns.
-        If sample_id is provided, also checks for duplicates when considering
-        both features and sample_id together.
+        If sample_id_col is provided, also checks for duplicates when considering
+        both features and sample_id_col together.
 
         Note:
-            Duplicates in features AND sample_id are flagged as Critical, as they
+            Duplicates in features AND sample_id_col are flagged as Critical, as they
             may indicate serious data integrity issues. Duplicates in features only
             are flagged as Warning.
         """
         duplicated_features = self.data[self.feature_cols].duplicated().any()
 
-        if self.sample_id is not None:
-            duplicated_features_and_sample = self.data[[*self.feature_cols, self.sample_id]].duplicated().any()
+        if self.sample_id_col is not None:
+            duplicated_features_and_sample = self.data[[*self.feature_cols, self.sample_id_col]].duplicated().any()
         else:
             duplicated_features_and_sample = None
 
@@ -431,7 +431,7 @@ class OctoDataHealthChecker:
             self.add_issue(
                 category="rows",
                 issue_type="duplicated_features_and_sample",
-                affected_items=["all_features_and_sample_id"],
+                affected_items=["all_features_and_sample_id_col"],
                 severity="Critical",
                 description=("There are duplicated rows when considering all feature columns and the sample ID."),
                 action=(

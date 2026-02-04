@@ -170,7 +170,7 @@ generator_errors = DataFrameGenerator(random_state=42)
 generator_errors.add_nan_to_features()
 generator_errors.add_nan_to_target(num_nan=10)
 generator_errors.add_id_column(unique=True, include_nans=True)
-generator_errors.add_id_column(column_name="sample_id", prefix="Sample", unique=True, include_nans=True)
+generator_errors.add_id_column(column_name="sample_id_col", prefix="Sample", unique=True, include_nans=True)
 generator_errors.add_id_column(
     column_name="stratification",
     prefix="Strat_",
@@ -187,7 +187,7 @@ df_error = generator_errors.get_dataframe()
 generator_warnings = DataFrameGenerator(random_state=42, n_classes=2)
 generator_warnings.add_fixed_unique_values_column()
 generator_warnings.add_id_column(unique=True, include_nans=False)
-generator_warnings.add_id_column(column_name="sample_id", prefix="Sample", unique=True, include_nans=False)
+generator_warnings.add_id_column(column_name="sample_id_col", prefix="Sample", unique=True, include_nans=False)
 generator_warnings.add_id_column(
     column_name="stratification",
     prefix=None,
@@ -206,9 +206,9 @@ study = OctoClassification(
     name="health_check",
     path=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="AUCROC",
-    feature_cols=df_warnings.columns.drop("target").drop("id").drop("sample_id").drop("stratification").tolist(),
+    feature_cols=df_warnings.columns.drop("target").drop("id").drop("sample_id_col").drop("stratification").tolist(),
     target="target",
-    sample_id="sample_id",
+    sample_id_col="sample_id_col",
     datasplit_type="group_sample_and_features",
     stratification_column="target",
     ignore_data_health_warning=False,  # Will stop if health check finds issues

@@ -17,7 +17,7 @@ def sample_data():
             "feature2": np.random.randint(0, 5, 100),
             "feature3": ["A", "B", "C"] * 33 + ["A"],
             "target": np.random.randint(0, 2, 100),
-            "sample_id": [f"S{i}" for i in range(1, 101)],
+            "sample_id_col": [f"S{i}" for i in range(1, 101)],
         }
     )
 
@@ -30,7 +30,7 @@ def health_checker(sample_data):
         feature_cols=["feature1", "feature2", "feature3"],
         target_cols=["target"],
         row_id="id",
-        sample_id="sample_id",
+        sample_id_col="sample_id_col",
         stratification_column=None,
     )
 
@@ -188,7 +188,7 @@ def test_check_minimum_samples(sample_data):
         feature_cols=["feature1"],
         target_cols=["target"],
         row_id="id",
-        sample_id="sample_id",
+        sample_id_col="sample_id_col",
         stratification_column=None,
     )
     health_checker_sufficient._check_minimum_samples()
@@ -200,7 +200,7 @@ def test_check_minimum_samples(sample_data):
         feature_cols=["feature1"],
         target_cols=["target"],
         row_id="id",
-        sample_id="sample_id",
+        sample_id_col="sample_id_col",
         stratification_column=None,
     )
     health_checker_insufficient._check_minimum_samples()
@@ -215,7 +215,7 @@ def test_check_row_id_unique(sample_data):
         feature_cols=["feature1"],
         target_cols=["target"],
         row_id="id",
-        sample_id="sample_id",
+        sample_id_col="sample_id_col",
         stratification_column=None,
     )
     health_checker_unique._check_row_id_unique()
@@ -228,7 +228,7 @@ def test_check_row_id_unique(sample_data):
         feature_cols=["feature1"],
         target_cols=["target"],
         row_id="id",
-        sample_id="sample_id",
+        sample_id_col="sample_id_col",
         stratification_column=None,
     )
     health_checker_duplicate._check_row_id_unique()
@@ -243,7 +243,7 @@ def test_check_features_not_all_null(sample_data):
         feature_cols=["feature1", "feature2"],
         target_cols=["target"],
         row_id="id",
-        sample_id="sample_id",
+        sample_id_col="sample_id_col",
         stratification_column=None,
     )
     health_checker_valid._check_features_not_all_null()
@@ -256,7 +256,7 @@ def test_check_features_not_all_null(sample_data):
         feature_cols=["feature1", "feature2"],
         target_cols=["target"],
         row_id="id",
-        sample_id="sample_id",
+        sample_id_col="sample_id_col",
         stratification_column=None,
     )
     health_checker_null._check_features_not_all_null()

@@ -78,14 +78,14 @@ class TestOctoTimeToEvent:
                 feature_cols=features,
                 duration_column="duration",
                 event_column="event",
-                sample_id="index",
+                sample_id_col="index",
                 path=temp_dir,
                 ignore_data_health_warning=True,
             )
 
             assert study.target_cols == ["duration", "event"]
             assert len(study.feature_cols) == 5
-            assert study.sample_id == "index"
+            assert study.sample_id_col == "index"
             assert study.target_assignments == {"duration": "duration", "event": "event"}
 
     def test_octo_task_configuration(self):
@@ -183,7 +183,7 @@ class TestOctoTimeToEvent:
                 feature_cols=features,
                 duration_column="duration",
                 event_column="event",
-                sample_id="index",
+                sample_id_col="index",
                 metrics=["CI"],
                 datasplit_seed_outer=1234,
                 n_folds_outer=2,

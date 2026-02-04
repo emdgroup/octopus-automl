@@ -27,7 +27,7 @@ study = OctoClassification(
     target_metric="AUCROC",
     feature_cols=features,
     target="target",
-    sample_id="index",
+    sample_id_col="index",
     stratification_column="target",
 )
 

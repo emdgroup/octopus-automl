@@ -60,14 +60,14 @@ class TestOctoRegression:
                 target_metric="MAE",
                 feature_cols=features,
                 target="target",
-                sample_id="index",
+                sample_id_col="index",
                 path=temp_dir,
                 ignore_data_health_warning=True,
             )
 
             assert study.target_cols == ["target"]
             assert len(study.feature_cols) == 5
-            assert study.sample_id == "index"
+            assert study.sample_id_col == "index"
 
     def test_octo_task_configuration(self):
         """Test that Octo task can be properly configured."""
@@ -203,7 +203,7 @@ class TestOctoRegression:
                 target_metric="MAE",
                 feature_cols=features,
                 target="target",
-                sample_id="index",
+                sample_id_col="index",
                 metrics=["MAE", "MSE", "R2"],
                 datasplit_seed_outer=1234,
                 n_folds_outer=2,

@@ -13,7 +13,7 @@ def sample_data_with_types():
     df = pd.DataFrame(
         {
             "id": range(1, 101),
-            "sample_id": [f"S{i}" for i in range(1, 101)],
+            "sample_id_col": [f"S{i}" for i in range(1, 101)],
             "int_feature": np.random.randint(0, 100, 100),
             "float_feature": np.random.rand(100),
             "bool_feature": np.random.choice([True, False], 100),

@@ -34,7 +34,7 @@ def base_study_kwargs():
         "target_metric": "AUCROC",
         "feature_cols": ["f1"],
         "target": "target",
-        "sample_id": "id",
+        "sample_id_col": "id",
     }
 
 
