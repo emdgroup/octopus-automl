@@ -43,7 +43,7 @@ def mock_experiment():
     experiment = Mock(spec=OctoExperiment)
     experiment.experiment_id = "test_exp"
     experiment.path_study = UPath("/tmp/test_study")
-    experiment.feature_columns = ["feature1", "feature2"]
+    experiment.feature_cols = ["feature1", "feature2"]
     experiment.calculate_feature_groups = Mock(return_value=["group1"])
     return experiment
 

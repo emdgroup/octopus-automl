@@ -13,7 +13,7 @@ import os
 import pandas as pd
 from sklearn.datasets import make_classification
 
-from octopus import OctoStudy
+from octopus import OctoClassification
 from octopus.modules import AutoGluon, Octo
 
 ### Generate Synthetic Binary Classification Dataset
@@ -61,17 +61,16 @@ print(f"Class distribution:\n{df['target'].value_counts()}")
 print(f"Class balance: {df['target'].value_counts(normalize=True).to_dict()}")
 print("=====================================\n")
 
-### Create and run OctoStudy with PARALLEL Octo + AutoGluon workflow
+### Create and run OctoClassification with PARALLEL Octo + AutoGluon workflow
 
-study = OctoStudy(
+study = OctoClassification(
     name="wf_octo_autogluon_parallel",
     path=os.environ.get("STUDIES_PATH", "./studies"),
-    ml_type="classification",
     target_metric="AUCROC",  # Area Under ROC Curve for binary classification
-    feature_columns=feature_names,
-    target_columns=["target"],
-    sample_id="index",
-    stratification_column="target",  # Ensure balanced splits
+    feature_cols=feature_names,
+    target="target",
+    sample_id_col="index",
+    stratification_col="target",  # Ensure balanced splits
     metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS", "F1"],
     n_folds_outer=5,  # 5-fold outer cross-validation
     ignore_data_health_warning=True,

@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification
 
-from octopus import OctoStudy
+from octopus import OctoClassification
 from octopus.modules import Mrmr, Octo
 
 # Set random seed for reproducibility
@@ -53,15 +53,14 @@ print(f"  Features: {len(feature_names)}")
 print(f"  Class distribution: {df['target'].value_counts().to_dict()}")
 print()
 
-# Create and run OctoStudy with sequential multi-step workflow
-study = OctoStudy(
+# Create and run OctoClassification with sequential multi-step workflow
+study = OctoClassification(
     name="wf_octo_mrmr_octo",
-    ml_type="classification",
     target_metric="ACCBAL",
-    feature_columns=feature_names,
-    target_columns=["target"],
-    sample_id="index",
-    stratification_column="target",
+    feature_cols=feature_names,
+    target="target",
+    sample_id_col="index",
+    stratification_col="target",
     n_folds_outer=5,  # 5 outer folds
     ignore_data_health_warning=True,
     outer_parallelization=True,  # Run all outer folds in parallel

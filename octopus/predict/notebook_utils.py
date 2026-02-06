@@ -515,7 +515,7 @@ def testset_performance_overview(predictor: "OctoPredict", metrics: list[str]) -
             performance = get_performance_from_model(
                 experiment.model,
                 experiment.data_test,
-                experiment.feature_columns,
+                experiment.feature_cols,
                 metric,
                 experiment.target_assignments,
                 positive_class=experiment.positive_class,
@@ -548,10 +548,10 @@ def _get_predictions_df(experiment: Any) -> pd.DataFrame:
         DataFrame with row_id, prediction, probabilities, and target columns.
     """
     data_test = experiment.data_test
-    feature_columns = experiment.feature_columns
+    feature_cols = experiment.feature_cols
     target_col = list(experiment.target_assignments.values())[0]
 
-    pred_proba = experiment.model.predict_proba(data_test[feature_columns])
+    pred_proba = experiment.model.predict_proba(data_test[feature_cols])
     # Get the index of the positive class
     positive_class_idx = list(experiment.model.classes_).index(experiment.positive_class)
     probabilities = (
@@ -561,7 +561,7 @@ def _get_predictions_df(experiment: Any) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "row_id": data_test[experiment.row_column],
-            "prediction": experiment.model.predict(data_test[feature_columns]),
+            "prediction": experiment.model.predict(data_test[feature_cols]),
             "probabilities": probabilities,
             "target": data_test[target_col],
         }
@@ -796,14 +796,14 @@ def show_confusionmatrix(predictor: "OctoPredict", threshold: float = 0.5, metri
 
         # Extract experiment data
         data_test = experiment.data_test
-        feature_columns = experiment.feature_columns
+        feature_cols = experiment.feature_cols
         target_col = list(experiment.target_assignments.values())[0]
         target = data_test[target_col]
         model = experiment.model
 
         # Get predicted probabilities for the positive class
         positive_class_idx = list(model.classes_).index(experiment.positive_class)  # type: ignore[attr-defined]
-        model_proba = model.predict_proba(data_test[feature_columns])
+        model_proba = model.predict_proba(data_test[feature_cols])
         if isinstance(model_proba, pd.DataFrame):
             probabilities = model_proba[positive_class_idx].values
         elif isinstance(model_proba, np.ndarray):
@@ -903,7 +903,7 @@ def show_confusionmatrix(predictor: "OctoPredict", threshold: float = 0.5, metri
             performance = get_performance_from_model(
                 model,
                 data_test,
-                feature_columns,
+                feature_cols,
                 metric,
                 experiment.target_assignments,
                 positive_class=experiment.positive_class,
