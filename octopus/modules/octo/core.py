@@ -173,7 +173,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
             target_metric=self.experiment.target_metric,
             path_trials=self.path_trials,
             max_n_iterations=100,
-            row_column=self.experiment.row_column,
+            row_id_col=self.experiment.row_id_col,
             target_assignments=self.experiment.target_assignments,
             positive_class=self.experiment.positive_class,
         )
@@ -211,7 +211,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
             parallel_execution=self.experiment.ml_config.inner_parallelization,
             num_workers=self.experiment.ml_config.n_workers,
             target_metric=self.experiment.target_metric,
-            row_column=self.experiment.row_column,
+            row_id_col=self.experiment.row_id_col,
             ml_type=self.experiment.ml_type,
             log_dir=self.log_dir,
         )
@@ -366,7 +366,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
                     ml_type=self.experiment.ml_type,
                     target_assignments=self.experiment.target_assignments,
                     feature_cols=best_bag_feature_cols,
-                    row_column=self.experiment.row_column,
+                    row_id_col=self.experiment.row_id_col,
                     data_train=split["train"],  # inner datasplit, train
                     data_dev=split["test"],  # inner datasplit, dev
                     data_test=self.experiment.data_test,
@@ -384,7 +384,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
             parallel_execution=self.experiment.ml_config.inner_parallelization,
             num_workers=self.experiment.ml_config.n_workers,
             target_metric=self.experiment.target_metric,
-            row_column=self.experiment.row_column,
+            row_id_col=self.experiment.row_id_col,
             ml_type=self.experiment.ml_type,
             log_dir=self.log_dir,
             # path?

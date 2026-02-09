@@ -34,7 +34,7 @@ class ExperimentInfo:
     """Test dataset."""
     feature_cols: list[str] = field(validator=validators.instance_of(list))
     """Feature columns."""
-    row_column: str = field(validator=validators.instance_of(str))
+    row_id_col: str = field(validator=validators.instance_of(str))
     """Row identifier column."""
     target_assignments: dict[str, str] = field(validator=validators.instance_of(dict))
     """Target assignments."""
@@ -70,12 +70,12 @@ class ExperimentInfo:
     @property
     def row_traindev(self) -> pd.Series:
         """Row identifiers for training/development set."""
-        return self.data_traindev[self.row_column]
+        return self.data_traindev[self.row_id_col]
 
     @property
     def row_test(self) -> pd.Series:
         """Row identifiers for test set."""
-        return self.data_test[self.row_column]
+        return self.data_test[self.row_id_col]
 
 
 def rdc(x, y, f=np.sin, k=20, s=1 / 6.0, n=5):

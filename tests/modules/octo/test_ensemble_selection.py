@@ -137,7 +137,7 @@ def create_fake_training(trained_model, model_name, feature_indices, fold_data, 
         ml_type="regression",
         target_assignments={"default": "target"},
         feature_cols=[f"feature_{i}" for i in range(len(feature_indices))],
-        row_column="row_id",
+        row_id_col="row_id",
         data_train=train_df,
         data_dev=val_df,
         data_test=test_df,
@@ -167,7 +167,7 @@ def create_fake_bag(log_dir, trained_model, model_name, feature_indices, cv_fold
         bag_id=bag_id,
         trainings=trainings,
         target_assignments={"default": "target"},
-        row_column="row_id",
+        row_id_col="row_id",
         target_metric="MAE",
         ml_type="regression",
         parallel_execution=False,
@@ -229,7 +229,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
         target_metric="MAE",
         path_trials=trials_path,
         max_n_iterations=50,  # Fewer iterations for speed
-        row_column="row_id",
+        row_id_col="row_id",
         target_assignments={"default": "target"},
     )
 

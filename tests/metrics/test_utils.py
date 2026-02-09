@@ -84,8 +84,8 @@ class TestGetPerformanceFromPredictions:
     """Test get_performance_from_predictions function.
 
     Tests use prediction format from training.py (lines 408-432):
-    - Binary/multiclass: row_column, "prediction", target, probability columns (as int)
-    - Regression: row_column, "prediction", target
+    - Binary/multiclass: row_id_col, "prediction", target, probability columns (as int)
+    - Regression: row_id_col, "prediction", target
     """
 
     def test_binary_classification(self):
@@ -112,7 +112,7 @@ class TestGetPerformanceFromPredictions:
         assert "dev" in performance["training_0"]
         assert isinstance(performance["training_0"]["dev"], float)
 
-    def test_multiclass_standard_row_column(self):
+    def test_multiclass_standard_row_id_col(self):
         """Test multiclass with standard 'row' column."""
         predictions = {
             "training_0": {
@@ -137,12 +137,12 @@ class TestGetPerformanceFromPredictions:
         assert isinstance(performance["training_0"]["dev"], float)
 
     def test_multiclass_with_row_id_col(self):
-        """Test multiclass with numeric 'row_id_col' column (should be excluded from probabilities)."""
+        """Test multiclass with numeric 'row_id' column (should be excluded from probabilities)."""
         predictions = {
             "training_0": {
                 "dev": pd.DataFrame(
                     {
-                        "row_id_col": [10, 20, 30, 40, 50],  # numeric row identifier
+                        "row_id": [10, 20, 30, 40, 50],  # numeric row identifier
                         "prediction": [0, 1, 2, 0, 1],
                         "target": [0, 1, 2, 0, 2],
                         0: [0.7, 0.2, 0.1, 0.8, 0.3],
@@ -184,7 +184,7 @@ class TestGetPerformanceFromPredictions:
         assert "training_0" in performance
         assert isinstance(performance["training_0"]["dev"], float)
 
-    def test_multiclass_with_string_row_column(self):
+    def test_multiclass_with_string_row_id_col(self):
         """Test multiclass with string row column (should be excluded from probabilities)."""
         predictions = {
             "training_0": {

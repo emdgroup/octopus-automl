@@ -560,7 +560,7 @@ def _get_predictions_df(experiment: Any) -> pd.DataFrame:
 
     return pd.DataFrame(
         {
-            "row_id": data_test[experiment.row_column],
+            "row_id": data_test[experiment.row_id_col],
             "prediction": experiment.model.predict(data_test[feature_cols]),
             "probabilities": probabilities,
             "target": data_test[target_col],

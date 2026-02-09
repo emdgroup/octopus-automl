@@ -241,14 +241,14 @@ class EfsCore(ModuleBaseCore[Efs]):
             # predictions
             if self.ml_type == "classification":
                 cv_preds_df = pd.DataFrame()
-                cv_preds_df[self.row_column] = row_ids
+                cv_preds_df[self.row_id_col] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")
                 cv_preds_df["probabilities"] = cross_val_predict(best_model, x, y, cv=cv, method="predict_proba")[
                     :, 1
                 ]  # binary only
             elif self.ml_type == "regression":
                 cv_preds_df = pd.DataFrame()
-                cv_preds_df[self.row_column] = row_ids
+                cv_preds_df[self.row_id_col] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")
                 cv_preds_df["probabilities"] = np.nan
 
@@ -296,7 +296,7 @@ class EfsCore(ModuleBaseCore[Efs]):
         # Extract the DataFrames from the "predict_df" column
         df_lst = filtered_df["predict_df"].tolist()
         # Concatenate all the extracted DataFrames into a single DataFrame
-        groupby_df = pd.concat(df_lst, ignore_index=True).groupby(by=self.row_column).mean()
+        groupby_df = pd.concat(df_lst, ignore_index=True).groupby(by=self.row_id_col).mean()
 
         # print("-----------------------------------")
         # print("groupby_df", groupby_df.head(20)["predictions"])

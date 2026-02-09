@@ -288,7 +288,7 @@ class OctoDataValidator:
         """
         reserved = ["group_features", "group_sample_and_features"]
         if not self.row_id_col:
-            reserved.append("row_id_col")
+            reserved.append("row_id")
 
         conflicts = [col for col in reserved if col in self.data.columns]
         if conflicts:

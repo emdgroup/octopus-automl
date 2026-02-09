@@ -225,7 +225,7 @@ class OctoStudy(ABC):
 
         config["prepared"] = {
             "feature_cols": self.prepared.feature_cols,
-            "row_id_col": self.prepared.row_id_col,
+            "row_id": self.prepared.row_id_col,
             "target_assignments": self.prepared.target_assignments,
         }
 
@@ -307,7 +307,7 @@ class OctoStudy(ABC):
                 metrics=self.metrics,
                 imputation_method=self.imputation_method.value,
                 datasplit_column=datasplit_col,
-                row_column=self.prepared.row_id_col,
+                row_id_col=self.prepared.row_id_col,
                 feature_cols=self.prepared.feature_cols,
                 target_assignments=self.prepared.target_assignments,
                 data_traindev=value["train"],

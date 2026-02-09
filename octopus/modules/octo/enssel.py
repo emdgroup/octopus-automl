@@ -34,7 +34,7 @@ class EnSel:
     target_assignments: dict = field(validator=[validators.instance_of(dict)])
     path_trials: UPath = field(validator=[validators.instance_of(UPath)], converter=UPath)
     max_n_iterations: int = field(validator=[validators.instance_of(int)])
-    row_column: str = field(validator=[validators.instance_of(str)])
+    row_id_col: str = field(validator=[validators.instance_of(str)])
     positive_class = field(default=None)
     model_table: pd.DataFrame = field(
         init=False,
@@ -128,7 +128,7 @@ class EnSel:
         first_bag_key = bag_keys[0]
         first_bag = Bag.from_pickle(first_bag_key)
         for part, pool_value in pool.items():
-            ensemble = pd.concat(pool_value, axis=0).groupby(by=self.row_column).mean().reset_index()
+            ensemble = pd.concat(pool_value, axis=0).groupby(by=self.row_id_col).mean().reset_index()
             for column in list(self.target_assignments.values()):
                 ensemble[column] = ensemble[column].astype(first_bag.trainings[0].data_train[column].dtype)
             predictions["ensemble"][part] = ensemble

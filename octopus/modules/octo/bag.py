@@ -119,7 +119,7 @@ class BagBase(BaseEstimator):
     num_workers: int = field(validator=[validators.instance_of(int)])
     target_metric: str = field(validator=[validators.instance_of(str)])
     target_assignments: dict = field(validator=[validators.instance_of(dict)])
-    row_column: str = field(validator=[validators.instance_of(str)])
+    row_id_col: str = field(validator=[validators.instance_of(str)])
     ml_type: str = field(validator=[validators.instance_of(str)])
     log_dir: UPath = field(validator=[validators.instance_of(UPath)])
     train_status: bool = field(default=False)
@@ -347,7 +347,7 @@ class BagBase(BaseEstimator):
         # Create ensemble predictions for each partition
         predictions["ensemble"] = {}
         for part, pool_value in pool.items():
-            ensemble = pd.concat(pool_value, axis=0).groupby(by=self.row_column).mean().reset_index()
+            ensemble = pd.concat(pool_value, axis=0).groupby(by=self.row_id_col).mean().reset_index()
             for column in list(self.target_assignments.values()):
                 ensemble[column] = ensemble[column].astype(self.trainings[0].data_train[column].dtype)
             predictions["ensemble"][part] = ensemble

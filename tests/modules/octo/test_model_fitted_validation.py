@@ -245,7 +245,7 @@ def create_training_instance(
         ml_type=ml_type,
         target_assignments=config["target_assignments"],
         feature_cols=feature_cols,
-        row_column="row_id",
+        row_id_col="row_id",
         data_train=data_train,
         data_dev=data_dev,
         data_test=data_test,

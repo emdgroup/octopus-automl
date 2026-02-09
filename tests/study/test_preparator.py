@@ -97,9 +97,9 @@ def test_transform_bool_to_int(octo_preparator):
 def test_create_row_id_col(octo_preparator):
     """Test create row id function."""
     octo_preparator._create_row_id_col()
-    assert "row_id_col" in octo_preparator.data.columns
-    assert octo_preparator.row_id_col == "row_id_col"
-    assert octo_preparator.data["row_id_col"].tolist() == list(range(8))
+    assert "row_id" in octo_preparator.data.columns
+    assert octo_preparator.row_id_col == "row_id"
+    assert octo_preparator.data["row_id"].tolist() == list(range(8))
 
 
 def test_add_group_features(octo_preparator):
@@ -161,7 +161,7 @@ def test_prepare_full_process(octo_preparator):
     """Test preparation function."""
     prepared = octo_preparator.prepare()
 
-    assert "row_id_col" in prepared.data.columns
+    assert "row_id" in prepared.data.columns
     assert "group_features" in prepared.data.columns
     assert "group_sample_and_features" in prepared.data.columns
     assert prepared.data["bool_col"].dtype == int
