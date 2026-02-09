@@ -473,10 +473,10 @@ class OctoClassification(OctoStudy):
 class OctoTimeToEvent(OctoStudy):
     """Time-to-event study."""
 
-    duration_column: str = field(kw_only=True, validator=validators.instance_of(str))
+    duration_col: str = field(kw_only=True, validator=validators.instance_of(str))
     """Column containing time until event or censoring."""
 
-    event_column: str = field(kw_only=True, validator=validators.instance_of(str))
+    duration_col: str = field(kw_only=True, validator=validators.instance_of(str))
     """Column containing event indicator (0=censored, 1=event)."""
 
     ml_type: MLType = field(default=MLType.TIMETOEVENT, init=False)
@@ -503,4 +503,4 @@ class OctoTimeToEvent(OctoStudy):
     @property
     def target_assignments(self) -> dict[str, str]:
         """Get target assignments dict."""
-        return {"duration": self.duration_column, "event": self.event_column}
+        return {"duration": self.duration_col, "event": self.duration_col}
