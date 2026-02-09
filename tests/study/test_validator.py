@@ -31,7 +31,7 @@ def validator_factory(sample_data):
     def _create_validator(
         data=None,
         feature_cols=None,
-        target_cols=None,
+        target_col=None,
         sample_id_col="sample_id_col",
         row_id_col="id",
         stratification_col="strat",
@@ -42,7 +42,7 @@ def validator_factory(sample_data):
             data = sample_data
         if feature_cols is None:
             feature_cols = ["feature1", "feature2", "feature3"]
-        if target_cols is None:
+        if target_col is None:
             target_col = "target"
 
         return OctoDataValidator(

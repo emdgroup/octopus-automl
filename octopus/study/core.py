@@ -337,9 +337,9 @@ class OctoStudy(ABC):
         has_critical = False
         has_warning = False
 
-        if "severity" in report.columns:
-            has_critical = (report["severity"] == "critical").any()
-            has_warning = (report["severity"] == "warning").any()
+        if "Severity" in report.columns:
+            has_critical = (report["Severity"] == "Critical").any()
+            has_warning = (report["Severity"] == "Warning").any()
 
         if has_critical:
             raise ValueError(f"Critical data issues detected. Please check: {report_path}")
@@ -416,7 +416,7 @@ class OctoRegression(OctoStudy):
 
     @property
     def target_assignments(self) -> dict[str, str]:
-        """Get target assignments dict. Empty for single target."""
+        """Get target assignments dict."""
         return {"default": self.target_col}
 
 
@@ -427,8 +427,12 @@ class OctoClassification(OctoStudy):
     target_col: str = field(kw_only=True, validator=validators.instance_of(str))
     """The target column to predict."""
 
-    ml_type: MLType = field(default=MLType.CLASSIFICATION, init=False)
-    """The type of machine learning model. Automatically set to classification (binary or multiclass)."""
+    ml_type: MLType | None = field(  # type: ignore[assignment]
+        default=None,
+        kw_only=True,
+        validator=validators.optional(validators.in_([MLType.CLASSIFICATION, MLType.MULTICLASS])),
+    )
+    """The type of machine learning model. Can be set explicitly or auto-detected from data (binary vs multiclass)."""
 
     target_metric: str = field(
         default="AUCROC",
@@ -448,24 +452,32 @@ class OctoClassification(OctoStudy):
     )
     """A list of metrics to be calculated. Defaults to target_metric value."""
 
-    positive_class: int = field(default=1, validator=validators.instance_of(int))
-    """The positive class label for binary classification. Defaults to 1. Not used for multiclass."""
+    positive_class: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
+    """The positive class label for binary classification. Defaults to None. Not used for multiclass."""
 
     def _validate_data(self, data: pd.DataFrame) -> None:
-        """Validate the input data and determine if binary or multiclass."""
-        # Detect if binary or multiclass based on unique values in target
-        unique_values = data[self.target_col].dropna().unique()
-        if len(unique_values) > 2:
-            object.__setattr__(self, "ml_type", MLType.MULTICLASS)
-            object.__setattr__(self, "positive_class", None)
-        else:
-            object.__setattr__(self, "ml_type", MLType.CLASSIFICATION)
+        if self.target_col not in data.columns:
+            raise ValueError(f"Target column '{self.target_col}' not found in input data.")
+
+        if not self.ml_type:
+            """Validate the input data and determine if binary or multiclass."""
+            # Detect if binary or multiclass based on unique values in target
+            unique_values = data[self.target_col].dropna().unique()
+            if len(unique_values) > 2:
+                object.__setattr__(self, "ml_type", MLType.MULTICLASS)
+                object.__setattr__(self, "positive_class", None)
+            else:
+                object.__setattr__(self, "ml_type", MLType.CLASSIFICATION)
+                object.__setattr__(self, "positive_class", 1)
+
+        if self.ml_type == MLType.CLASSIFICATION and self.positive_class is None:
+            raise ValueError("For binary classification, `positive_class` must be specified.")
 
         super()._validate_data(data)
 
     @property
     def target_assignments(self) -> dict[str, str]:
-        """Get target assignments dict. Empty for single target."""
+        """Get target assignments dict."""
         return {"default": self.target_col}
 
 
@@ -476,7 +488,7 @@ class OctoTimeToEvent(OctoStudy):
     duration_col: str = field(kw_only=True, validator=validators.instance_of(str))
     """Column containing time until event or censoring."""
 
-    duration_col: str = field(kw_only=True, validator=validators.instance_of(str))
+    event_col: str = field(kw_only=True, validator=validators.instance_of(str))
     """Column containing event indicator (0=censored, 1=event)."""
 
     ml_type: MLType = field(default=MLType.TIMETOEVENT, init=False)
@@ -503,4 +515,4 @@ class OctoTimeToEvent(OctoStudy):
     @property
     def target_assignments(self) -> dict[str, str]:
         """Get target assignments dict."""
-        return {"duration": self.duration_col, "event": self.duration_col}
+        return {"duration": self.duration_col, "event": self.event_col}

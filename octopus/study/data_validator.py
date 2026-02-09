@@ -248,6 +248,9 @@ class OctoDataValidator:
         if self.ml_type != "classification":
             return
 
+        if self.positive_class is None:
+            return
+
         target_data = self.data[self.target_col]
 
         if not pd.api.types.is_integer_dtype(target_data):
