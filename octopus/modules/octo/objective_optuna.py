@@ -109,7 +109,7 @@ class ObjectiveOptuna:
                     ml_type=self.experiment.ml_type,
                     target_assignments=self.experiment.target_assignments,
                     feature_cols=feature_cols,
-                    row_column=self.experiment.row_column,
+                    row_id_col=self.experiment.row_id_col,
                     data_train=split["train"],  # inner datasplit, train
                     data_dev=split["test"],  # inner datasplit, dev
                     data_test=self.experiment.data_test,
@@ -128,7 +128,7 @@ class ObjectiveOptuna:
             parallel_execution=self.parallel_execution,
             num_workers=self.num_workers,
             target_metric=self.experiment.target_metric,
-            row_column=self.experiment.row_column,
+            row_id_col=self.experiment.row_id_col,
             ml_type=self.experiment.ml_type,
             log_dir=self.log_dir,
             # path?

@@ -51,7 +51,7 @@ class Training:
     feature_cols: list[str] = field(validator=[validators.instance_of(list)])
     """Feature columns."""
 
-    row_column: str = field(validator=[validators.instance_of(str)])
+    row_id_col: str = field(validator=[validators.instance_of(str)])
     """Row column name."""
 
     data_train: pd.DataFrame = field(validator=[validators.instance_of(pd.DataFrame)])
@@ -272,7 +272,7 @@ class Training:
             # print("Number of outliers found:", np.sum(outlier_pred == -1))
 
             # identify outlier samples
-            self.outlier_samples = data_train[outlier_pred == -1][self.row_column].tolist()
+            self.outlier_samples = data_train[outlier_pred == -1][self.row_id_col].tolist()
             # print("Outlier samples:", self.outlier_samples)
 
             # Remove outliers from data_train, x_train, y_train
@@ -311,15 +311,15 @@ class Training:
 
         # (4) Model prediction
         self.predictions["train"] = pd.DataFrame()
-        self.predictions["train"][self.row_column] = data_train[self.row_column]
+        self.predictions["train"][self.row_id_col] = data_train[self.row_id_col]
         self.predictions["train"]["prediction"] = self.model.predict(self.x_train_processed)
 
         self.predictions["dev"] = pd.DataFrame()
-        self.predictions["dev"][self.row_column] = self.data_dev[self.row_column]
+        self.predictions["dev"][self.row_id_col] = self.data_dev[self.row_id_col]
         self.predictions["dev"]["prediction"] = self.model.predict(self.x_dev_processed)
 
         self.predictions["test"] = pd.DataFrame()
-        self.predictions["test"][self.row_column] = self.data_test[self.row_column]
+        self.predictions["test"][self.row_id_col] = self.data_test[self.row_id_col]
         self.predictions["test"]["prediction"] = self.model.predict(self.x_test_processed)
 
         # special treatment of targets due to sklearn

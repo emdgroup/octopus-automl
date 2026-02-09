@@ -125,7 +125,7 @@ class OctoPredict:
                     data_traindev=experiment.data_traindev,
                     data_test=experiment.data_test,
                     feature_cols=experiment.feature_cols,
-                    row_column=experiment.row_column,
+                    row_id_col=experiment.row_id_col,
                     target_assignments=experiment.target_assignments,
                     target_metric=experiment.target_metric,
                     ml_type=experiment.ml_type,
@@ -148,14 +148,14 @@ class OctoPredict:
             feature_cols = experiment.feature_cols
 
             if set(feature_cols).issubset(data.columns):
-                df = pd.DataFrame(columns=["row_id_col", "prediction"])
-                df["row_id_col"] = data.index
+                df = pd.DataFrame(columns=["row_id", "prediction"])
+                df["row_id"] = data.index
                 df["prediction"] = experiment.model.predict(data[feature_cols])
                 preds_lst.append(df)
             else:
                 raise ValueError("Features missing in provided dataset.")
 
-        grouped_df = pd.concat(preds_lst, axis=0).groupby("row_id_col").mean()
+        grouped_df = pd.concat(preds_lst, axis=0).groupby("row_id").mean()
 
         if return_df is True:
             return grouped_df
@@ -177,7 +177,7 @@ class OctoPredict:
 
             if set(feature_cols).issubset(data.columns):
                 df = pd.DataFrame()
-                df["row_id_col"] = data.index
+                df["row_id"] = data.index
                 # only binary predictions are supported
                 prob_columns = range(probabilities.shape[1])
                 for column in prob_columns:
@@ -186,7 +186,7 @@ class OctoPredict:
             else:
                 raise ValueError("Features missing in provided dataset.")
 
-        grouped_df = pd.concat(preds_lst, axis=0).groupby("row_id_col").agg(["mean", "std", "count"])
+        grouped_df = pd.concat(preds_lst, axis=0).groupby("row_id").agg(["mean", "std", "count"])
         if return_df is True:
             return grouped_df
         else:
@@ -198,16 +198,16 @@ class OctoPredict:
         """Predict on available test data."""
         preds_lst = []
         for _, experiment in self.experiments.items():
-            row_column = experiment.row_column
+            row_id_col = experiment.row_id_col
 
-            df = pd.DataFrame(columns=["row_id_col", "prediction"])
-            df["row_id_col"] = experiment.row_test
+            df = pd.DataFrame(columns=["row_id", "prediction"])
+            df["row_id"] = experiment.row_test
             df["prediction"] = experiment.model.predict(experiment.x_test)
             preds_lst.append(df)
 
         grouped_df = (
             pd.concat(preds_lst, axis=0)
-            .groupby(row_column)["prediction"]
+            .groupby(row_id_col)["prediction"]
             .agg(["mean", "std", "count"])
             .rename(
                 columns={"mean": "prediction", "std": "prediction_std", "count": "n"},
@@ -221,17 +221,17 @@ class OctoPredict:
         """Predict_proba on available test data."""
         preds_lst = []
         for _, experiment in self.experiments.items():
-            row_column = experiment.row_column
+            row_id_col = experiment.row_id_col
 
-            df = pd.DataFrame(columns=["row_id_col", "probability"])
-            df["row_id_col"] = experiment.row_test
+            df = pd.DataFrame(columns=["row_id", "probability"])
+            df["row_id"] = experiment.row_test
             # only binary classification!!
             df["probability"] = experiment.model.predict_proba(experiment.x_test)[:, 1]
             preds_lst.append(df)
 
         grouped_df = (
             pd.concat(preds_lst, axis=0)
-            .groupby(row_column)["probability"]
+            .groupby(row_id_col)["probability"]
             .agg(["mean", "std", "count"])
             .rename(
                 columns={"mean": "probability", "std": "probability_std", "count": "n"},
@@ -288,7 +288,7 @@ class OctoPredict:
             # same for all experiments
             data_test=experiment.data_test,  # not used
             feature_cols=list(set(feature_col_lst)),
-            row_column=experiment.row_column,
+            row_id_col=experiment.row_id_col,
             target_assignments=experiment.target_assignments,
             target_metric=experiment.target_metric,
             ml_type=experiment.ml_type,

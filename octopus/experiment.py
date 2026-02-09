@@ -79,7 +79,7 @@ class OctoExperiment[ConfigType: Task]:
     datasplit_column: str = field(validator=[validators.instance_of(str)])
     """Column name used for data splitting."""
 
-    row_column: str = field(validator=[validators.instance_of(str)])
+    row_id_col: str = field(validator=[validators.instance_of(str)])
     """Column name used as row identifier."""
 
     feature_cols: list[str] = field(validator=[validators.instance_of(list)])
@@ -202,7 +202,7 @@ class OctoExperiment[ConfigType: Task]:
         Returns:
             Series containing row identifiers from data_traindev
         """
-        return self.data_traindev[self.row_column]
+        return self.data_traindev[self.row_id_col]
 
     @property
     def row_test(self) -> pd.Series:
@@ -211,7 +211,7 @@ class OctoExperiment[ConfigType: Task]:
         Returns:
             Series containing row identifiers from data_test
         """
-        return self.data_test[self.row_column]
+        return self.data_test[self.row_id_col]
 
     def __attrs_post_init__(self):
         self._validate_experiment_state()

@@ -165,13 +165,13 @@ class ModuleBaseCore[TaskConfigType: Task]:
         return self.experiment.stratification_col
 
     @property
-    def row_column(self) -> str:
+    def row_id_col(self) -> str:
         """Row identifier column name.
 
         Returns:
             Name of the column containing row identifiers
         """
-        return self.experiment.row_column
+        return self.experiment.row_id_col
 
     @property
     def row_traindev(self) -> pd.Series:

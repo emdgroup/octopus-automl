@@ -198,11 +198,11 @@ class TestAnalysisPipeline:
         for _key, experiment in task_item.experiments.items():
             data_test = experiment.data_test
             feature_cols = experiment.feature_cols
-            row_column = experiment.row_column
+            row_id_col = experiment.row_id_col
             target_col = list(experiment.target_assignments.values())[0]
 
             df = pd.DataFrame()
-            df["row_id_col"] = data_test[row_column]
+            df["row_id"] = data_test[row_id_col]
             df["prediction"] = experiment.model.predict(data_test[feature_cols])
 
             pred = experiment.model.predict_proba(data_test[feature_cols])
@@ -302,7 +302,7 @@ class TestAnalysisPipeline:
             assert hasattr(experiment, "data_traindev")
             assert hasattr(experiment, "data_test")
             assert hasattr(experiment, "feature_cols")
-            assert hasattr(experiment, "row_column")
+            assert hasattr(experiment, "row_id_col")
             assert hasattr(experiment, "target_assignments")
             assert hasattr(experiment, "target_metric")
             assert hasattr(experiment, "ml_type")
