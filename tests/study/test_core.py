@@ -47,7 +47,7 @@ def basic_study():
 def test_initialization(basic_study):
     """Test OctoStudy initialization."""
     assert basic_study.name == "test_study"
-    assert basic_study.ml_type == MLType.CLASSIFICATION
+    assert basic_study.ml_type is None  # ml_type is determined during data validation
     assert basic_study.target_metric == "AUCROC"
     assert basic_study.feature_cols == ["feature1", "feature2", "feature3"]
     assert basic_study.target_col == "target"
@@ -156,7 +156,7 @@ def test_default_values():
         assert study.datasplit_type == DatasplitType.SAMPLE
         assert study.row_id_col is None
         assert study.stratification_col is None
-        assert study.positive_class == 1
+        assert study.positive_class is None  # positive_class is determined during data validation
         assert study.n_folds_outer == 5 if not _RUNNING_IN_TESTSUITE else 2
         assert study.datasplit_seed_outer == 0
         assert study.imputation_method == ImputationMethod.MEDIAN
@@ -168,7 +168,7 @@ def test_default_values():
 def test_ml_type_values():
     """Test all valid ml_type values with appropriate classes."""
     test_cases = [
-        (MLType.CLASSIFICATION, OctoClassification, "AUCROC", {"target_col": "target"}),
+        (None, OctoClassification, "AUCROC", {"target_col": "target"}),  # ml_type determined during data validation
         (MLType.REGRESSION, OctoRegression, "R2", {"target_col": "target"}),
     ]
     for expected_ml_type, study_class, metric, extra_kwargs in test_cases:
