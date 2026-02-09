@@ -143,7 +143,7 @@ class TestFSSpecIntegration:
                     name="test_octo_intro_execution",
                     target_metric="ACCBAL",
                     feature_cols=features,
-                    target="target",
+                    target_col="target",
                     sample_id_col="index",
                     stratification_col="target",
                     metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS"],

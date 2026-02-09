@@ -21,7 +21,7 @@ study = OctoRegression(
     path=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="MAE",
     feature_cols=diabetes["feature_names"],
-    target="target",
+    target_col="target",
     sample_id_col="index",
 )
 

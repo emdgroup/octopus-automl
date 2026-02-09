@@ -26,7 +26,7 @@ study = OctoClassification(
     path=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="AUCROC",
     feature_cols=features,
-    target="target",
+    target_col="target",
     sample_id_col="index",
     stratification_col="target",
 )

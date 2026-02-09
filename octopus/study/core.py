@@ -395,7 +395,7 @@ class OctoStudy(ABC):
 class OctoRegression(OctoStudy):
     """Regression study."""
 
-    target: str = field(kw_only=True, validator=validators.instance_of(str))
+    target_col: str = field(kw_only=True, validator=validators.instance_of(str))
     """The target column to predict."""
 
     ml_type: MLType = field(default=MLType.REGRESSION, init=False)
@@ -422,7 +422,7 @@ class OctoRegression(OctoStudy):
     @property
     def target_cols(self) -> list[str]:
         """Get target columns as a list."""
-        return [self.target]
+        return [self.target_col]
 
     @property
     def target_assignments(self) -> dict[str, str]:
@@ -434,7 +434,7 @@ class OctoRegression(OctoStudy):
 class OctoClassification(OctoStudy):
     """Classification study (binary and multiclass)."""
 
-    target: str = field(kw_only=True, validator=validators.instance_of(str))
+    target_col: str = field(kw_only=True, validator=validators.instance_of(str))
     """The target column to predict."""
 
     ml_type: MLType = field(default=MLType.CLASSIFICATION, init=False)
@@ -464,7 +464,7 @@ class OctoClassification(OctoStudy):
     def _validate_data(self, data: pd.DataFrame) -> None:
         """Validate the input data and determine if binary or multiclass."""
         # Detect if binary or multiclass based on unique values in target
-        unique_values = data[self.target].dropna().unique()
+        unique_values = data[self.target_col].dropna().unique()
         if len(unique_values) > 2:
             object.__setattr__(self, "ml_type", MLType.MULTICLASS)
             object.__setattr__(self, "positive_class", None)
@@ -476,7 +476,7 @@ class OctoClassification(OctoStudy):
     @property
     def target_cols(self) -> list[str]:
         """Get target columns as a list."""
-        return [self.target]
+        return [self.target_col]
 
     @property
     def target_assignments(self) -> dict[str, str]:
