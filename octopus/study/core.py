@@ -119,12 +119,6 @@ class OctoStudy(ABC):
 
     @property
     @abstractmethod
-    def target_cols(self) -> list[str]:
-        """Get target columns as a list. Must be implemented in subclasses."""
-        ...
-
-    @property
-    @abstractmethod
     def target_assignments(self) -> dict[str, str]:
         """Get target assignments dict. Must be implemented in subclasses."""
         ...
@@ -139,32 +133,17 @@ class OctoStudy(ABC):
         """Directory where logs are stored."""
         return self.output_path
 
-    @property
-    def relevant_columns(self) -> list[str]:
-        """Relevant columns for the dataset (computed from prepared data)."""
-        relevant_columns = list(set(self.prepared.feature_cols + self.target_cols))
-        if self.sample_id_col:
-            relevant_columns.append(self.sample_id_col)
-        if self.prepared.row_id_col:
-            relevant_columns.append(self.prepared.row_id_col)
-        if self.stratification_col:
-            relevant_columns.append(self.stratification_col)
-        if "group_features" in self.prepared.data.columns:
-            relevant_columns.append("group_features")
-        if "group_sample_and_features" in self.prepared.data.columns:
-            relevant_columns.append("group_sample_and_features")
-        return list(set(relevant_columns))
-
     def _validate_data(self, data: pd.DataFrame) -> None:
         """Validate the input data."""
         validator = OctoDataValidator(
             data=data,
             feature_cols=self.feature_cols,
-            target_cols=self.target_cols,
+            target_col=self.target_col if hasattr(self, "target_col") else None,
+            duration_col=self.duration_col if hasattr(self, "duration_col") else None,
+            event_col=self.event_col if hasattr(self, "event_col") else None,
             sample_id_col=self.sample_id_col,
             row_id_col=self.row_id_col,
             stratification_col=self.stratification_col,
-            target_assignments=self.target_assignments,
             ml_type=self.ml_type.value,
             positive_class=getattr(self, "positive_class", None),
         )
@@ -226,7 +205,7 @@ class OctoStudy(ABC):
         config["prepared"] = {
             "feature_cols": self.prepared.feature_cols,
             "row_id": self.prepared.row_id_col,
-            "target_assignments": self.prepared.target_assignments,
+            "target_assignments": self.target_assignments,
         }
 
         config_path = self.output_path / "config.json"
@@ -253,10 +232,8 @@ class OctoStudy(ABC):
         preparator = OctoDataPreparator(
             data=data,
             feature_cols=self.feature_cols,
-            target_cols=self.target_cols,
             sample_id_col=self.sample_id_col,
             row_id_col=self.row_id_col,
-            target_assignments=self.target_assignments,
         )
         prepared = preparator.prepare()
         object.__setattr__(self, "prepared", prepared)
@@ -265,7 +242,23 @@ class OctoStudy(ABC):
 
     def _create_datasplits(self, data: pd.DataFrame) -> dict:
         """Create datasplits for outer cross-validation."""
-        data_clean = data[self.relevant_columns]
+        relevant_cols = list(self.prepared.feature_cols) + [
+            c
+            for c in (
+                self.target_col if hasattr(self, "target_col") else None,
+                self.duration_col if hasattr(self, "duration_col") else None,
+                self.event_col if hasattr(self, "event_col") else None,
+                self.sample_id_col,
+                self.prepared.row_id_col,
+                self.stratification_col,
+            )
+            if c is not None
+        ]
+
+        relevant_cols += [s for s in ("group_features", "group_sample_and_features") if s in self.prepared.data.columns]
+
+        relevant_cols = list(dict.fromkeys(relevant_cols))
+        data_clean = data[relevant_cols]
 
         if self.datasplit_type.value == "sample":
             datasplit_col = self.sample_id_col
@@ -309,7 +302,7 @@ class OctoStudy(ABC):
                 datasplit_column=datasplit_col,
                 row_id_col=self.prepared.row_id_col,
                 feature_cols=self.prepared.feature_cols,
-                target_assignments=self.prepared.target_assignments,
+                target_assignments=self.target_assignments,
                 data_traindev=value["train"],
                 data_test=value["test"],
             )
@@ -322,7 +315,9 @@ class OctoStudy(ABC):
         checker = OctoDataHealthChecker(
             data=data,
             feature_cols=self.prepared.feature_cols,
-            target_cols=self.target_cols,
+            target_col=self.target_col if hasattr(self, "target_col") else None,
+            duration_col=self.duration_col if hasattr(self, "duration_col") else None,
+            event_col=self.event_col if hasattr(self, "event_col") else None,
             row_id_col=self.prepared.row_id_col,
             sample_id_col=self.sample_id_col,
             stratification_col=self.stratification_col,
@@ -420,14 +415,9 @@ class OctoRegression(OctoStudy):
     """A list of metrics to be calculated. Defaults to target_metric value."""
 
     @property
-    def target_cols(self) -> list[str]:
-        """Get target columns as a list."""
-        return [self.target_col]
-
-    @property
     def target_assignments(self) -> dict[str, str]:
         """Get target assignments dict. Empty for single target."""
-        return {}
+        return {"default": self.target_col}
 
 
 @define
@@ -474,14 +464,9 @@ class OctoClassification(OctoStudy):
         super()._validate_data(data)
 
     @property
-    def target_cols(self) -> list[str]:
-        """Get target columns as a list."""
-        return [self.target_col]
-
-    @property
     def target_assignments(self) -> dict[str, str]:
         """Get target assignments dict. Empty for single target."""
-        return {}
+        return {"default": self.target_col}
 
 
 @define
@@ -514,11 +499,6 @@ class OctoTimeToEvent(OctoStudy):
         ],
     )
     """A list of metrics to be calculated. Defaults to target_metric value."""
-
-    @property
-    def target_cols(self) -> list[str]:
-        """Get target columns as a list."""
-        return [self.duration_column, self.event_column]
 
     @property
     def target_assignments(self) -> dict[str, str]:

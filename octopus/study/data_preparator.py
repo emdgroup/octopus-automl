@@ -23,19 +23,11 @@ class OctoDataPreparator:
     feature_cols: list[str]
     """List of all feature columns in the dataset."""
 
-    target_cols: list[str]
-    """List of target columns in the dataset. For regression and classification,
-    only one target is allowed. For time-to-event, two targets need to be provided.
-    """
-
     sample_id_col: str
     """Identifier for sample instances."""
 
     row_id_col: str | None
     """Unique row identifier."""
-
-    target_assignments: dict[str, str]
-    """Mapping of target assignments."""
 
     def prepare(self) -> PreparedData:
         """Run all data preparation steps and return PreparedData instance.
@@ -46,7 +38,6 @@ class OctoDataPreparator:
         self._sort_features()
         self._standardize_null_values()
         self._standardize_inf_values()
-        self._set_target_assignments()
         self._remove_singlevalue_features()
         self._transform_bool_to_int()
         self._create_row_id_col()
@@ -56,27 +47,11 @@ class OctoDataPreparator:
             data=self.data,
             feature_cols=self.feature_cols,
             row_id_col=self.row_id_col,  # type: ignore[arg-type]  # row_id_col is always set after _create_row_id_col
-            target_assignments=self.target_assignments,
         )
 
     def _sort_features(self):
         """Sort feature columns deterministically by length and lexicographically."""
         self.feature_cols = sorted(self.feature_cols, key=lambda col: (len(s := str(col)), s))
-
-    def _set_target_assignments(self):
-        """Set default target assignment for single-target scenarios.
-
-        For datasets with a single target column and no pre-defined target
-        assignments, automatically creates a default assignment mapping
-        "default" to the target column name.
-
-        Note:
-            This only applies when there is exactly one target column and
-            target_assignments is empty. Multi-target scenarios must have
-            explicit assignments defined by the user.
-        """
-        if len(self.target_cols) == 1 and not self.target_assignments:
-            self.target_assignments["default"] = self.target_cols[0]
 
     def _remove_singlevalue_features(self):
         """Remove features that contain only a single unique value."""

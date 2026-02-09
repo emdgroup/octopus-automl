@@ -42,7 +42,6 @@ def prepared_data(sample_data_with_types):
             "ordinal_feature",
         ],
         row_id_col="id",
-        target_assignments={"target": "target"},
     )
 
 
