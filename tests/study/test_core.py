@@ -37,7 +37,7 @@ def basic_study():
             name="test_study",
             target_metric="AUCROC",
             feature_cols=["feature1", "feature2", "feature3"],
-            target="target",
+            target_col="target",
             sample_id_col="sample_id_col",
             path=temp_dir,
             ignore_data_health_warning=True,
@@ -50,7 +50,7 @@ def test_initialization(basic_study):
     assert basic_study.ml_type == MLType.CLASSIFICATION
     assert basic_study.target_metric == "AUCROC"
     assert basic_study.feature_cols == ["feature1", "feature2", "feature3"]
-    assert basic_study.target == "target"
+    assert basic_study.target_col == "target"
     assert basic_study.target_cols == ["target"]  # Property should return list
     assert basic_study.sample_id_col == "sample_id_col"
 
@@ -58,20 +58,20 @@ def test_initialization(basic_study):
 @pytest.mark.parametrize(
     "study_class,param_name,param_value,expected_enum,kwargs",
     [
-        (OctoRegression, "ml_type", "regression", MLType.REGRESSION, {"target_metric": "R2", "target": "target"}),
+        (OctoRegression, "ml_type", "regression", MLType.REGRESSION, {"target_metric": "R2", "target_col": "target"}),
         (
             OctoClassification,
             "datasplit_type",
             "group_features",
             DatasplitType.GROUP_FEATURES,
-            {"target_metric": "AUCROC", "datasplit_type": "group_features", "target": "target"},
+            {"target_metric": "AUCROC", "datasplit_type": "group_features", "target_col": "target"},
         ),
         (
             OctoClassification,
             "imputation_method",
             "halfmin",
             ImputationMethod.HALFMIN,
-            {"target_metric": "AUCROC", "imputation_method": "halfmin", "target": "target"},
+            {"target_metric": "AUCROC", "imputation_method": "halfmin", "target_col": "target"},
         ),
     ],
 )
@@ -95,7 +95,7 @@ def test_output_path_property():
             name="my_study",
             target_metric="AUCROC",
             feature_cols=["f1"],
-            target="target",
+            target_col="target",
             sample_id_col="id",
             path=temp_dir,
         )
@@ -109,7 +109,7 @@ def test_default_workflow():
             name="test",
             target_metric="AUCROC",
             feature_cols=["f1"],
-            target="target",
+            target_col="target",
             sample_id_col="id",
             path=temp_dir,
         )
@@ -132,7 +132,7 @@ def test_metrics(metrics_input, expected_metrics):
             "name": "test",
             "target_metric": "AUCROC",
             "feature_cols": ["f1"],
-            "target": "target",
+            "target_col": "target",
             "sample_id_col": "id",
             "path": temp_dir,
         }
@@ -150,7 +150,7 @@ def test_default_values():
             name="test",
             target_metric="AUCROC",
             feature_cols=["f1"],
-            target="target",
+            target_col="target",
             sample_id_col="id",
             path=temp_dir,
         )
@@ -169,8 +169,8 @@ def test_default_values():
 def test_ml_type_values():
     """Test all valid ml_type values with appropriate classes."""
     test_cases = [
-        (MLType.CLASSIFICATION, OctoClassification, "AUCROC", {"target": "target"}),
-        (MLType.REGRESSION, OctoRegression, "R2", {"target": "target"}),
+        (MLType.CLASSIFICATION, OctoClassification, "AUCROC", {"target_col": "target"}),
+        (MLType.REGRESSION, OctoRegression, "R2", {"target_col": "target"}),
     ]
     for expected_ml_type, study_class, metric, extra_kwargs in test_cases:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -192,7 +192,7 @@ def test_start_with_empty_study_valid():
             name="test",
             target_metric="AUCROC",
             feature_cols=["f1"],
-            target="target",
+            target_col="target",
             sample_id_col="id",
             path=temp_dir,
             start_with_empty_study=True,
@@ -213,7 +213,7 @@ def test_start_with_empty_study_invalid():
             name="test",
             target_metric="AUCROC",
             feature_cols=["f1"],
-            target="target",
+            target_col="target",
             sample_id_col="id",
             path=temp_dir,
             start_with_empty_study=True,
@@ -228,7 +228,7 @@ def test_start_with_empty_study_false_with_load_task():
             name="test",
             target_metric="AUCROC",
             feature_cols=["f1"],
-            target="target",
+            target_col="target",
             sample_id_col="id",
             path=temp_dir,
             start_with_empty_study=False,
