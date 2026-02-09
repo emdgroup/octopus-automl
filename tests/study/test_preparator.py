@@ -29,10 +29,8 @@ def octo_preparator(sample_data):
     return OctoDataPreparator(
         data=sample_data,
         feature_cols=["feature1", "feature2", "bool_col", "null_col", "inf_col"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
 
@@ -43,7 +41,6 @@ def test_prepare(octo_preparator):
     assert isinstance(prepared.data, pd.DataFrame)
     assert isinstance(prepared.feature_cols, list)
     assert isinstance(prepared.row_id_col, str)
-    assert isinstance(prepared.target_assignments, dict)
 
 
 def test_sort_features(octo_preparator):
@@ -71,12 +68,6 @@ def test_sort_features(octo_preparator):
         "feature2",
         "null_col",
     ]
-
-
-def test_set_target_assignments(octo_preparator):
-    """Test set target assignments function."""
-    octo_preparator._set_target_assignments()
-    assert octo_preparator.target_assignments == {"default": "target"}
 
 
 def test_remove_singlevalue_features(octo_preparator):
@@ -168,7 +159,6 @@ def test_prepare_full_process(octo_preparator):
     assert prepared.data["null_col"].isna().all()
     assert np.isinf(prepared.data["inf_col"].iloc[0])
     assert "single_value" not in prepared.feature_cols
-    assert prepared.target_assignments == {"default": "target"}
 
 
 def test_add_group_features_with_categorical_and_nan():
@@ -190,10 +180,8 @@ def test_add_group_features_with_categorical_and_nan():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["cat_feature", "num_feature"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -221,10 +209,8 @@ def test_add_group_features_with_mixed_types_and_nan():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["cat_col", "num_col", "str_col", "inf_col"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -253,10 +239,8 @@ def test_add_group_features_with_all_nan_column():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["all_nan", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -285,10 +269,8 @@ def test_add_group_features_same_sample_different_features():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -316,10 +298,8 @@ def test_add_group_features_same_features_different_samples():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -348,10 +328,8 @@ def test_add_group_features_large_dataset_with_duplicates():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -391,10 +369,8 @@ def test_add_group_features_transitive_closure():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -437,10 +413,8 @@ def test_add_group_features_transitive_closure_long_chain():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -476,10 +450,8 @@ def test_add_group_features_same_sample_consecutive():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -512,10 +484,8 @@ def test_add_group_features_same_sample_with_gaps():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -548,10 +518,8 @@ def test_add_group_features_same_features_consecutive():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -583,10 +551,8 @@ def test_add_group_features_same_features_with_gaps():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -704,10 +670,8 @@ def test_add_group_features_complex_with_gaps():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -749,10 +713,8 @@ def test_add_group_features_single_row():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -783,10 +745,8 @@ def test_add_group_features_all_same_sample():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -817,10 +777,8 @@ def test_add_group_features_all_different():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -854,10 +812,8 @@ def test_add_group_features_multiple_independent_groups():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -904,10 +860,8 @@ def test_add_group_features_data_integrity():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -940,10 +894,8 @@ def test_add_group_features_sequential_numbering():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()
@@ -976,10 +928,8 @@ def test_add_group_features_nan_in_sample_id_col():
     prep = OctoDataPreparator(
         data=data,
         feature_cols=["feat1", "feat2"],
-        target_cols=["target"],
         sample_id_col="sample_id_col",
         row_id_col=None,
-        target_assignments={},
     )
 
     prep._add_group_features()

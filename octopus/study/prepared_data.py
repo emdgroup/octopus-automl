@@ -17,9 +17,6 @@ class PreparedData:
     row_id_col: str
     """Row ID column used (auto-generated if not provided by user)."""
 
-    target_assignments: dict[str, str]
-    """Target assignments with defaults applied."""
-
     @property
     def num_features(self) -> list[str]:
         """Get numerical feature columns from effective features."""

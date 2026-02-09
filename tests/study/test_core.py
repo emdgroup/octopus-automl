@@ -51,7 +51,6 @@ def test_initialization(basic_study):
     assert basic_study.target_metric == "AUCROC"
     assert basic_study.feature_cols == ["feature1", "feature2", "feature3"]
     assert basic_study.target_col == "target"
-    assert basic_study.target_cols == ["target"]  # Property should return list
     assert basic_study.sample_id_col == "sample_id_col"
 
 

@@ -3,7 +3,7 @@
 from collections import Counter
 
 import pandas as pd
-from attrs import define, field
+from attrs import define, field, validators
 
 
 @define
@@ -16,44 +16,31 @@ class OctoDataValidator:
     feature_cols: list[str]
     """List of all feature columns in the dataset."""
 
-    target_cols: list[str]
-    """List of target columns in the dataset. For regression and classification,
-    only one target is allowed. For time-to-event, two targets need to be provided.
-    """
-
-    sample_id_col: str
-    """Identifier for sample instances."""
-
-    row_id_col: str | None
-    """Unique row identifier."""
-
-    stratification_col: str | None
-    """List of columns used for stratification."""
-
-    target_assignments: dict[str, str]
-    """Mapping of target assignments."""
-
     ml_type: str
     """Machine learning type (classification, regression, etc.)."""
 
-    positive_class: int | None
+    duration_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    """Duration column for time-to-event tasks. None for non-time-to-event tasks."""
+
+    event_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    """Event column for time-to-event tasks. None for non-time-to-event tasks."""
+
+    target_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    """Target column in the dataset. For regression and classification,
+    only one target is allowed. For time-to-event, two targets need to be provided.
+    """
+
+    sample_id_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    """Identifier for sample instances."""
+
+    row_id_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    """Unique row identifier."""
+
+    stratification_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    """List of columns used for stratification."""
+
+    positive_class: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
     """The positive class label for binary classification. None for non-classification tasks."""
-
-    relevant_columns: list[str] = field(init=False)
-    """Relevant columns of the dataset. Computed automatically."""
-
-    def __attrs_post_init__(self):
-        """Compute relevant columns after initialization."""
-        relevant_columns = list(set(self.feature_cols + self.target_cols))
-        if self.sample_id_col:
-            relevant_columns.append(self.sample_id_col)
-        if self.row_id_col:
-            relevant_columns.append(self.row_id_col)
-        if self.stratification_col:
-            relevant_columns.append(self.stratification_col)
-        # Note: group_features/group_sample_and_features are added during preparation,
-        # so they don't exist yet at validation time
-        object.__setattr__(self, "relevant_columns", list(set(relevant_columns)))
 
     def validate(self):
         """Run all validation checks on the OctoData configuration.
@@ -76,8 +63,6 @@ class OctoDataValidator:
             self._validate_duplicated_columns,
             self._validate_feature_target_overlap,
             self._validate_stratification_col,
-            self._validate_target_assignments,
-            self._validate_number_of_targets,
             self._validate_column_dtypes,
             self._validate_positive_class,
         ]
@@ -102,7 +87,19 @@ class OctoDataValidator:
         Raises:
             ValueError: If any relevant columns are missing from the DataFrame.
         """
-        missing_columns = [col for col in self.relevant_columns if col not in self.data.columns]
+        relevant_columns = self.feature_cols + [
+            c
+            for c in (
+                self.duration_col,
+                self.event_col,
+                self.target_col,
+                self.sample_id_col,
+                self.row_id_col,
+                self.stratification_col,
+            )
+            if c is not None
+        ]
+        missing_columns = [col for col in relevant_columns if col not in self.data.columns]
         if missing_columns:
             missing_str = ", ".join(missing_columns)
             raise ValueError(f"Columns not found in the DataFrame: {missing_str}")
@@ -118,11 +115,17 @@ class OctoDataValidator:
             ValueError: If any column name appears more than once in the
                 configuration.
         """
-        columns_to_check = self.feature_cols + self.target_cols + [self.sample_id_col]
-
-        if self.row_id_col:
-            columns_to_check.append(self.row_id_col)
-
+        columns_to_check = self.feature_cols + [
+            c
+            for c in (
+                self.duration_col,
+                self.event_col,
+                self.target_col,
+                self.sample_id_col,
+                self.row_id_col,
+            )
+            if c is not None
+        ]
         duplicates = [col for col, count in Counter(columns_to_check).items() if count > 1]
 
         if duplicates:
@@ -144,81 +147,6 @@ class OctoDataValidator:
         ]:
             raise ValueError("Stratification column cannot be the same as sample_id_col or row_id_col")
 
-    def _validate_target_assignments(self):
-        """Validate target assignments for multi-target scenarios.
-
-        For single target columns, ensures no assignments are provided (not needed).
-        For multiple target columns, validates that:
-        - All target columns have assignments
-        - All assignments reference valid target columns
-        - Each target column has a unique assignment
-
-        Raises:
-            ValueError: If target assignments are invalid, missing, or contain
-                duplicates. Specific error messages indicate the exact issue.
-
-        Returns:
-            None: Returns early for single target columns after validation.
-        """
-        if len(self.target_cols) == 1:
-            if self.target_assignments:
-                raise ValueError(
-                    "Target assignments provided for a single target column. Assignments are only needed for multiple target columns."
-                )
-            return
-        if not self.target_assignments:
-            raise ValueError(
-                f"Multiple target columns detected ({len(self.target_cols)}), "
-                "but no target assignments provided. "
-                f"Please specify assignments for: {', '.join(self.target_cols)}"
-            )
-
-        missing_assignments = set(self.target_cols) - set(self.target_assignments.values())
-        if missing_assignments:
-            raise ValueError(
-                "Missing assignments for target column(s): "
-                f"{', '.join(missing_assignments)}. "
-                "Please provide assignments for all target columns: "
-                f"{', '.join(self.target_cols)}"
-            )
-
-        invalid_assignments = set(self.target_assignments.values()) - set(self.target_cols)
-        if invalid_assignments:
-            raise ValueError(
-                "Invalid assignment key(s) detected: "
-                f"{', '.join(invalid_assignments)}. Assignments must be made "
-                f"only for existing target columns: {', '.join(self.target_cols)}"
-            )
-
-        if len(set(self.target_assignments.values())) != len(self.target_assignments):
-            duplicate_values = [
-                val for val in self.target_assignments.values() if list(self.target_assignments.values()).count(val) > 1
-            ]
-            raise ValueError(
-                f"Duplicate assignment(s) found: {', '.join(set(duplicate_values))}. "
-                "Each target column must have a unique assignment. "
-                f"Current assignments: {dict(self.target_assignments)}"
-            )
-
-    def _validate_number_of_targets(self):
-        """Validate the number of target columns.
-
-        Ensures that:
-        - No more than 2 target columns are specified
-        - If 2 targets are specified, target_assignments must be provided
-          (required for time-to-event modeling)
-
-        Raises:
-            ValueError: If more than 2 targets are specified, or if 2 targets
-                are provided without target assignments.
-        """
-        if len(self.target_cols) > 2:
-            raise ValueError("More than two targets are not allowed")
-        if len(self.target_cols) == 2 and not self.target_assignments:
-            raise ValueError(
-                "Target assignments are required when two targets are selected. This is only for ml_type = 'timetoevent'."
-            )
-
     def _validate_column_dtypes(self):
         """Validate that feature and target columns have supported data types.
 
@@ -232,10 +160,15 @@ class OctoDataValidator:
         """
         non_matching_columns = []
 
-        if self.stratification_col:
-            columns_to_check = self.feature_cols + self.target_cols + [self.stratification_col]
-        else:
-            columns_to_check = self.feature_cols + self.target_cols
+        columns_to_check = self.feature_cols + [
+            c
+            for c in (
+                self.duration_col,
+                self.event_col,
+                self.target_col,
+            )
+            if c is not None
+        ]
 
         for column in columns_to_check:
             dtype = self.data[column].dtype
@@ -272,7 +205,8 @@ class OctoDataValidator:
             ValueError: If any columns appear in both feature_cols and
                 target_cols.
         """
-        overlap = set(self.feature_cols) & set(self.target_cols)
+        present = [c for c in (self.target_col, self.duration_col, self.event_col) if c is not None]
+        overlap = set(self.feature_cols) & set(present)
         if overlap:
             raise ValueError(f"Columns cannot be both features and targets: {', '.join(sorted(overlap))}")
 
@@ -314,17 +248,7 @@ class OctoDataValidator:
         if self.ml_type != "classification":
             return
 
-        if self.positive_class is None:
-            return
-
-        # Get target column - for single target, use target_cols[0]
-        # For assigned targets, use the first assignment value
-        if self.target_assignments:
-            target_col = list(self.target_assignments.values())[0]
-        else:
-            target_col = self.target_cols[0]
-
-        target_data = self.data[target_col]
+        target_data = self.data[self.target_col]
 
         if not pd.api.types.is_integer_dtype(target_data):
             raise ValueError(f"Target column must be integer type for binary classification, got {target_data.dtype}")

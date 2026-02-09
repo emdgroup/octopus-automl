@@ -150,7 +150,9 @@ class OctoDataHealthChecker:
     Attributes:
         data: The pandas DataFrame containing the dataset to be checked.
         feature_cols: List of column names designated as features. Can be empty.
-        target_cols: List of column names designated as targets. Can be empty.
+        target_col: Name of the column designated as target. Can be empty.
+        duration_col: Name of the column containing duration information for time-to-event tasks. Can be None.
+        event_col: Name of the column containing event information for time-to-event tasks. Can be None.
         row_id_col: Name of the column containing unique row identifiers. Can be None.
         sample_id_col: Name of the column containing sample identifiers. Can be None.
         stratification_col: Name of the column used for stratification. Can be None.
@@ -167,8 +169,14 @@ class OctoDataHealthChecker:
     feature_cols: list[str] = field(factory=list, validator=validators.instance_of(list))
     """List of feature column names."""
 
-    target_cols: list[str] = field(factory=list, validator=validators.instance_of(list))
-    """List of target column names."""
+    target_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    """Target column names for Regression/Classification tasks."""
+
+    duration_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    """Duration column for time-to-event tasks."""
+
+    event_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
+    """Event column for time-to-event tasks."""
 
     row_id_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
     """Name of the row ID column."""
@@ -264,22 +272,29 @@ class OctoDataHealthChecker:
         """
         missing_value_share_col = self.data.isnull().mean()
 
-        critical_columns = [
-            *self.target_cols,
-            self.sample_id_col,
-            self.row_id_col,
-            self.stratification_col,
+        critical_cols = [
+            c
+            for c in (
+                self.duration_col,
+                self.event_col,
+                self.target_col,
+                self.sample_id_col,
+                self.row_id_col,
+                self.stratification_col,
+            )
+            if c is not None
         ]
-        critical_columns_not_none = [col for col in critical_columns if col is not None]
 
-        critical_missing = [col for col in critical_columns_not_none if missing_value_share_col.get(col, 0) > 0]
+        critical_missing = [col for col in critical_cols if missing_value_share_col.get(col, 0) > 0]
         if critical_missing:
             self.add_issue(
                 category="columns",
                 issue_type="critical_missing_values",
                 affected_items=critical_missing,
                 severity="Critical",
-                description=("These critical columns (target, sample_id_col, or row_id_col) have missing values."),
+                description=(
+                    "One or more of these columns (target, sample_id_col, row_id_col, duration_col, event_col, or stratification_col) have missing values."
+                ),
                 action=(
                     "Investigate and resolve missing values in these columns immediately. These are crucial for model training and data integrity."
                 ),
@@ -749,10 +764,16 @@ class OctoDataHealthChecker:
         """
         threshold = self.config.class_imbalance_threshold
 
-        for target_col in self.target_cols:
-            if target_col not in self.data.columns:
-                continue
-
+        target_cols = [
+            c
+            for c in (
+                self.duration_col,
+                self.event_col,
+                self.target_col,
+            )
+            if c is not None
+        ]
+        for target_col in target_cols:
             if self.data[target_col].dtype == float:
                 continue
 
@@ -856,10 +877,18 @@ class OctoDataHealthChecker:
         """
         threshold = self.config.target_leakage_threshold
 
+        target_cols = [
+            c
+            for c in (
+                self.duration_col,
+                self.event_col,
+                self.target_col,
+            )
+            if c is not None
+        ]
+
         numeric_targets = [
-            col
-            for col in self.target_cols
-            if col in self.data.columns and pd.api.types.is_numeric_dtype(self.data[col])
+            col for col in target_cols if col in self.data.columns and pd.api.types.is_numeric_dtype(self.data[col])
         ]
 
         if not numeric_targets:
@@ -923,7 +952,9 @@ class OctoDataHealthChecker:
         skewness_threshold = self.config.target_skewness_threshold
         kurtosis_threshold = self.config.target_kurtosis_threshold
 
-        for target_col in self.target_cols:
+        target_cols = [c for c in (self.duration_col, self.event_col, self.target_col) if c is not None]
+
+        for target_col in target_cols:
             if target_col not in self.data.columns:
                 continue
 

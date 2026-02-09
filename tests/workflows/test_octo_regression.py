@@ -59,13 +59,13 @@ class TestOctoRegression:
                 name="test_regression",
                 target_metric="MAE",
                 feature_cols=features,
-                target="target",
+                target_col="target",
                 sample_id_col="index",
                 path=temp_dir,
                 ignore_data_health_warning=True,
             )
 
-            assert study.target_cols == ["target"]
+            assert study.target_col == "target"
             assert len(study.feature_cols) == 5
             assert study.sample_id_col == "index"
 
@@ -202,7 +202,7 @@ class TestOctoRegression:
                 name="test_octo_regression_execution",
                 target_metric="MAE",
                 feature_cols=features,
-                target="target",
+                target_col="target",
                 sample_id_col="index",
                 metrics=["MAE", "MSE", "R2"],
                 datasplit_seed_outer=1234,

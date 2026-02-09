@@ -81,7 +81,7 @@ class TestOctoMulticlass:
                 ignore_data_health_warning=True,
             )
 
-            assert study.target_cols == ["target"]
+            assert study.target_col == "target"
             assert len(study.feature_cols) == 5
             assert study.sample_id_col == "index"
             assert study.stratification_col == "target"
