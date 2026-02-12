@@ -34,16 +34,12 @@ rsync -av \
 pushd "$TEST_ENV_DIR"
 
 echo ""
-echo "Installing dependencies with 'uv sync --extra test' (like GitHub Actions)..."
-uv sync --extra test
-
-echo ""
-echo "Running pytest with coverage (like GitHub Actions)..."
+echo "Running pytest with coverage ..."
 echo "=========================================="
 
 # Set env var to indicate running in testsuite - octopus will look for this variable
 # to reduce default number of trials, splits, etc. for faster test runs
-uv run pytest --cov=octopus
+uv run --extra test --locked pytest --cov=octopus
 
 TEST_RESULT=$?
 

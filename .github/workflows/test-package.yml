@@ -34,13 +34,9 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies
-        run: |
-          uv sync --extra test_core
-
       - name: Test Minimal Installation (no extra dependencies) with pytest
         run: |
-          uv run pytest tests/infrastructure/test_core_install.py
+          uv run --extra test_core --locked pytest tests/infrastructure/test_core_install.py
 
   test:
     needs: test_core
@@ -64,14 +60,9 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies
-        run: |
-          uv sync --extra test
-
       - name: Test with pytest
         run: |
-          uv run pytest
-
+          uv run --extra test --locked pytest
   test_windows:
     needs: test_core
     runs-on: windows-latest
@@ -94,10 +85,6 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies
-        run: |
-          uv sync --extra test
-
       - name: Test with pytest
         run: |
-          uv run pytest -m "windows and not slow"
+          uv run --extra test --locked pytest -m "windows and not slow"
