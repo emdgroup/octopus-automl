@@ -34,18 +34,14 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies
-        run: |
-          uv sync --extra docs
-
       - name: Configure Git Credentials
         run: |
             git config --local user.email "mkdocs-upload[bot]@users.noreply.github.com"
             git config --local user.name "mkdocs-upload[bot]"
 
       - name: Build with MkDocs
-        run: uv run mkdocs build
+        run: uv run --extra docs --locked mkdocs build
 
       - name: Deploy with MkDocs (only on main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: uv run mkdocs gh-deploy --force
+        run: uv run --extra docs --locked mkdocs gh-deploy --force
