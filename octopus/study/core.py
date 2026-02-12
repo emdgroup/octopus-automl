@@ -17,8 +17,8 @@ from octopus.modules import Octo
 from octopus.task import Task
 from octopus.utils import DataSplit
 
-from .data_preparator import OctoDataPreparator
-from .data_validator import OctoDataValidator
+from .data_preparation import prepare_data
+from .data_validation import validate_data
 from .healthChecker import HealthCheckConfig, OctoDataHealthChecker
 from .prepared_data import PreparedData
 from .types import DatasplitType, ImputationMethod, MLType
@@ -133,22 +133,6 @@ class OctoStudy(ABC):
         """Directory where logs are stored."""
         return self.output_path
 
-    def _validate_data(self, data: pd.DataFrame) -> None:
-        """Validate the input data."""
-        validator = OctoDataValidator(
-            data=data,
-            feature_cols=self.feature_cols,
-            target_col=self.target_col if hasattr(self, "target_col") else None,
-            duration_col=self.duration_col if hasattr(self, "duration_col") else None,
-            event_col=self.event_col if hasattr(self, "event_col") else None,
-            sample_id_col=self.sample_id_col,
-            row_id_col=self.row_id_col,
-            stratification_col=self.stratification_col,
-            ml_type=self.ml_type.value,
-            positive_class=getattr(self, "positive_class", None),
-        )
-        validator.validate()
-
     def _initialize_study_directory(self) -> None:
         """Initialize study directory."""
         if self.output_path.exists():
@@ -226,19 +210,6 @@ class OctoStudy(ABC):
             storage_options=prepared_data_path.storage_options,
             engine="pyarrow",
         )
-
-    def _prepare_data(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Prepare the data for training."""
-        preparator = OctoDataPreparator(
-            data=data,
-            feature_cols=self.feature_cols,
-            sample_id_col=self.sample_id_col,
-            row_id_col=self.row_id_col,
-        )
-        prepared = preparator.prepare()
-        object.__setattr__(self, "prepared", prepared)
-
-        return prepared.data
 
     def _create_datasplits(self, data: pd.DataFrame) -> dict:
         """Create datasplits for outer cross-validation."""
@@ -369,12 +340,29 @@ class OctoStudy(ABC):
             health_check_config: Optional configuration for health check thresholds.
         """
         self._initialize_study_directory()
-        self._validate_data(data)
-        prepared_data = self._prepare_data(data)
+        validate_data(
+            data=data,
+            feature_cols=self.feature_cols,
+            ml_type=self.ml_type.value,
+            target_col=getattr(self, "target_col", None),
+            duration_col=getattr(self, "duration_col", None),
+            event_col=getattr(self, "event_col", None),
+            sample_id_col=self.sample_id_col,
+            row_id_col=self.row_id_col,
+            stratification_col=self.stratification_col,
+            positive_class=getattr(self, "positive_class", None),
+        )
+        prepared = prepare_data(
+            data=data,
+            feature_cols=self.feature_cols,
+            sample_id_col=self.sample_id_col,
+            row_id_col=self.row_id_col,
+        )
+        object.__setattr__(self, "prepared", prepared)
         self._initialize_study_outputs(data)
-        self._run_health_check(prepared_data, health_check_config)
+        self._run_health_check(prepared.data, health_check_config)
 
-        datasplits = self._create_datasplits(prepared_data)
+        datasplits = self._create_datasplits(prepared.data)
         experiments = self._create_experiments(datasplits)
         manager = OctoManager(
             base_experiments=experiments,
@@ -455,13 +443,13 @@ class OctoClassification(OctoStudy):
     positive_class: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
     """The positive class label for binary classification. Defaults to None. Not used for multiclass."""
 
-    def _validate_data(self, data: pd.DataFrame) -> None:
-        if self.target_col not in data.columns:
-            raise ValueError(f"Target column '{self.target_col}' not found in input data.")
-
+    def fit(
+        self,
+        data: pd.DataFrame,
+        health_check_config: HealthCheckConfig | None = None,
+    ) -> None:
+        """Fit classification study, auto-detecting binary vs multiclass if needed."""
         if not self.ml_type:
-            """Validate the input data and determine if binary or multiclass."""
-            # Detect if binary or multiclass based on unique values in target
             unique_values = data[self.target_col].dropna().unique()
             if len(unique_values) > 2:
                 object.__setattr__(self, "ml_type", MLType.MULTICLASS)
@@ -469,11 +457,7 @@ class OctoClassification(OctoStudy):
             else:
                 object.__setattr__(self, "ml_type", MLType.CLASSIFICATION)
                 object.__setattr__(self, "positive_class", 1)
-
-        if self.ml_type == MLType.CLASSIFICATION and self.positive_class is None:
-            raise ValueError("For binary classification, `positive_class` must be specified.")
-
-        super()._validate_data(data)
+        super().fit(data, health_check_config)
 
     @property
     def target_assignments(self) -> dict[str, str]:
