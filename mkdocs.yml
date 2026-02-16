@@ -86,6 +86,7 @@ nav:
   - Concepts:
       - "concepts/concepts.md"
       - Nested Cross-Validation: "concepts/nested_cv.md"
+      - Workflow & Modules: concepts/workflow/
       - Understanding the Results: "concepts/understanding_results.md"
       - Feature Importance: "concepts/feature_importance.md"
   - API Reference:
@@ -97,7 +98,6 @@ nav:
       - octopus.modules: "reference/modules.md"
       - octopus.predict: "reference/predict.md"
       - octopus.study: "reference/study.md"
-
   - Project Info:
       - Contributing: contributing.md
       - Contributors: contributors.md
