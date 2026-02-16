@@ -36,16 +36,16 @@
 
 <div>
 <a href="https://github.com/emdgroup/octopus-automl/">
-   <img src="https://raw.githubusercontent.com/emdgroup/octopus/main/docs/assets/logo.png" alt="Logo">
+   <img src="https://raw.githubusercontent.com/emdgroup/octopus-automl/main/docs/assets/logo.png" alt="Logo" width="200">
 </a>
 </div>
 
 <div>
-<a href="https://emdgroup.github.io/octopus-automl/">Homepage<a/>
+<a href="https://emdgroup.github.io/octopus-automl/">Documentation<a/>
 &nbsp;•&nbsp;
 <a href="https://emdgroup.github.io/octopus-automl/userguide/userguide/">User Guide<a/>
 &nbsp;•&nbsp;
-<a href="https://emdgroup.github.io/octopus-automl/reference/reference/">Documentation<a/>
+<a href="https://emdgroup.github.io/octopus-automl/reference/reference/">API Reference<a/>
 &nbsp;•&nbsp;
 <a href="https://emdgroup.github.io/octopus-automl/contributing/">Contribute<a/>
 </div>

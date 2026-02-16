@@ -28,23 +28,29 @@ theme:
     - search.highlight
     #- content.action.edit
     - content.code.copy
-  logo: assets/logo.svg
+  logo: assets/favicon-white.png
   favicon: assets/favicon.png
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
+      primary: indigo
+      accent: indigo
       toggle:
         icon: material/brightness-auto
         name: Switch to light mode
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      primary: indigo
+      accent: indigo
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: indigo
+      accent: indigo
       toggle:
         icon: material/brightness-4
         name: Switch to system preference
@@ -75,29 +81,36 @@ plugins:
 
 nav:
   - Octopus: index.md
+  - Getting Started: getting_started.md
   - User Guide:
       - "userguide/userguide.md"
+      - Data Health Check: "userguide/health_check.md"
       - Classification: "userguide/classification.md"
       - Regression: "userguide/regression.md"
       - Time to Event: "userguide/time_to_event.md"
-      - Examples: examples/
-      - Command Line Interface: "userguide/cli.md"
-      - FAQ: faq.md
+      - Understanding the Output: "userguide/output_structure.md"
   - Concepts:
       - "concepts/concepts.md"
       - Nested Cross-Validation: "concepts/nested_cv.md"
+      - Workflow & Modules: concepts/workflow/
       - Understanding the Results: "concepts/understanding_results.md"
       - Feature Importance: "concepts/feature_importance.md"
+      - Terminology: "concepts/terminology.md"
+  - Examples:
+      - Example Workflows: examples/
+      - Post Study Analysis: post_study_analysis/
+      - Predictions on New Data: predictions/
+      - Command Line Interface: "userguide/cli.md"
+  - FAQ: faq.md
   - API Reference:
       - "reference/reference.md"
-      - octopus.diagnostics: "reference/diagnostics.md"
-      - octopus.manager: "reference/manager.md"
-      - octopus.metrics: "reference/metrics.md"
-      - octopus.models: "reference/models.md"
-      - octopus.modules: "reference/modules.md"
-      - octopus.poststudy: "reference/poststudy.md"
-      - octopus.study: "reference/study.md"
-
+      - Study: "reference/study.md"
+      - Modules: "reference/modules.md"
+      - Models: "reference/models.md"
+      - Metrics: "reference/metrics.md"
+      - Manager: "reference/manager.md"
+      - Diagnostics: "reference/diagnostics.md"
+      - Post Study: "reference/poststudy.md"
   - Project Info:
       - Contributing: contributing.md
       - Contributors: contributors.md

@@ -8,11 +8,16 @@
     generally be removed. Both the moment of deprecation and full removal (deprecation
     expiration) will be noted in the [changelog](../changelog.md).
 
-The most commonly used interface Octopus provides is the central
+This section contains hands-on, step-by-step guides that show you how to
+configure, run, and interpret each type of Octopus study.
+The central interface for all study types is the
 [`OctoStudy`](../reference/study.md) object.
 
-Detailed examples of how to use individual API components can be found via the links below:
+## What You'll Learn
 
-* [Classification](classification.md)
-* [Regression](regression.md)
-* [Time to Event](time_to_event.md)
+- **[Data Health Check](health_check.md)** — Automatic dataset validation that runs before every training. Detects missing values, class imbalance, potential leakage, and more.
+- **Task-specific guides** — How to set up, configure, and run each study type:
+    - **[Classification](classification.md)** — Binary and multiclass classification with `OctoClassification`
+    - **[Regression](regression.md)** — Continuous target prediction with `OctoRegression`
+    - **[Time to Event](time_to_event.md)** — Survival analysis with censored observations using `OctoTimeToEvent`
+- **[Understanding the Output](output_structure.md)** — What Octopus writes to disk after a study completes: directory structure, result files, and how to load them programmatically.
