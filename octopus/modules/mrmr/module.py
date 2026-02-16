@@ -1,18 +1,32 @@
-"""Mrmr module."""
+"""MRMR module configuration."""
 
-from typing import ClassVar, Literal
+from __future__ import annotations
+
+from typing import Literal
 
 from attrs import Factory, define, field, validators
 
-from octopus.task import Task
+from octopus.modules.base import Task
+
+from .core import MrmrModule
 
 
 @define
 class Mrmr(Task):
-    """MRMR Config."""
+    """MRMR module for feature selection based on mutual information and redundancy.
 
-    module: ClassVar[str] = "mrmr"
-    """Module name."""
+    Uses the maximum relevance minimum redundancy algorithm to select features
+    that are maximally relevant to the target while minimizing redundancy among
+    selected features.
+
+    Configuration:
+        n_features: Number of features to select
+        correlation_type: Type of correlation to measure redundancy
+        relevance_type: Method to calculate relevance ("permutation" or "f-statistics")
+        results_module: Module name to filter prior results' feature importances (for permutation relevance)
+        feature_importance_type: Type of FI aggregation ("mean" or "count")
+        feature_importance_method: FI calculation method
+    """
 
     n_features: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 30))
     """Number of features selected by MRMR."""
@@ -27,8 +41,11 @@ class Mrmr(Task):
     )
     """Selection of relevance measure."""
 
-    results_key: str = field(validator=validators.in_(["best", "ensel", "autogluon"]), default="best")
-    """Selection of model from with feature importances were created."""
+    results_module: str = field(
+        validator=validators.instance_of(str),
+        default="octo",
+    )
+    """Module name from which feature importances were created."""
 
     feature_importance_type: Literal["mean", "count"] = field(
         validator=validators.in_(["mean", "count"]), default="mean"
@@ -39,3 +56,7 @@ class Mrmr(Task):
         validator=validators.in_(["permutation", "shap", "internal", "lofo"]), default="permutation"
     )
     """Selection of feature importance method."""
+
+    def create_module(self) -> MrmrModule:
+        """Create MrmrModule execution instance."""
+        return MrmrModule(config=self)

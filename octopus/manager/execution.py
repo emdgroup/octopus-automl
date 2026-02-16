@@ -1,7 +1,8 @@
-"""Execution strategies for running experiments."""
+"""Execution strategies for running outersplits."""
 
 from typing import TYPE_CHECKING, Protocol
 
+import pandas as pd
 from attrs import define
 from upath import UPath
 
@@ -11,85 +12,84 @@ from octopus.manager.ray_parallel import run_parallel_outer_ray
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from octopus.experiment import OctoExperiment
-
 logger = get_logger()
 
 
 class ExecutionStrategy(Protocol):
-    """Protocol for experiment execution strategies."""
+    """Protocol for outersplit execution strategies."""
 
     def execute(
         self,
-        experiments: list["OctoExperiment"],
-        run_fn: "Callable[[OctoExperiment], None]",
+        outersplit_data: dict,
+        run_fn: "Callable[[int, pd.DataFrame, pd.DataFrame], None]",
     ) -> None:
-        """Execute experiments using this strategy."""
+        """Execute outersplits using this strategy."""
         ...
 
 
 @define
-class SingleExperimentStrategy:
-    """Run a single experiment by index."""
+class SingleOutersplitStrategy:
+    """Run a single outersplit by index."""
 
-    experiment_index: int
+    outersplit_index: int
 
     def execute(
         self,
-        experiments: list["OctoExperiment"],
-        run_fn: "Callable[[OctoExperiment], None]",
+        outersplit_data: dict,
+        run_fn: "Callable[[int, pd.DataFrame, pd.DataFrame], None]",
     ) -> None:
-        """Execute only the experiment at experiment_index."""
+        """Execute only the outersplit at outersplit_index."""
         logger.set_log_group(LogGroup.PROCESSING)
-        logger.info(f"Running single experiment: {self.experiment_index}")
-        run_fn(experiments[self.experiment_index])
+        logger.info(f"Running single outersplit: {self.outersplit_index}")
+        outersplit_id = self.outersplit_index
+        run_fn(outersplit_id, outersplit_data[outersplit_id]["train"], outersplit_data[outersplit_id]["test"])
 
 
 @define
 class SequentialStrategy:
-    """Run experiments one after another."""
+    """Run outersplits one after another."""
 
     def execute(
         self,
-        experiments: list["OctoExperiment"],
-        run_fn: "Callable[[OctoExperiment], None]",
+        outersplit_data: dict,
+        run_fn: "Callable[[int, pd.DataFrame, pd.DataFrame], None]",
     ) -> None:
-        """Execute all experiments sequentially."""
+        """Execute all outersplits sequentially."""
         logger.set_log_group(LogGroup.PROCESSING)
-        for idx, experiment in enumerate(experiments):
-            logger.info(f"Running outer split: {idx}")
-            run_fn(experiment)
+        for outersplit_id in outersplit_data:
+            logger.info(f"Running outer split: {outersplit_id}")
+            run_fn(outersplit_id, outersplit_data[outersplit_id]["train"], outersplit_data[outersplit_id]["test"])
 
 
 @define
 class ParallelRayStrategy:
-    """Run experiments in parallel using Ray."""
+    """Run outersplits in parallel using Ray."""
 
     num_workers: int
     log_dir: UPath
 
     def execute(
         self,
-        experiments: list["OctoExperiment"],
-        run_fn: "Callable[[OctoExperiment], None]",
+        outersplit_data: dict,
+        run_fn: "Callable[[int, pd.DataFrame, pd.DataFrame], None]",
     ) -> None:
-        """Execute all experiments in parallel using Ray."""
+        """Execute all outersplits in parallel using Ray."""
 
-        def wrapped_run(experiment: "OctoExperiment", index: int):
-            logger.set_log_group(LogGroup.PROCESSING, f"EXP {index}")
+        def wrapped_run(outersplit_id: int, data_train: pd.DataFrame, data_test: pd.DataFrame):
+            logger.set_log_group(LogGroup.PROCESSING, f"OUTER {outersplit_id}")
             logger.info("Starting execution")
             try:
-                run_fn(experiment)
-                logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"EXP {index}")
+                run_fn(outersplit_id, data_train, data_test)
+                logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"OUTER {outersplit_id}")
                 logger.info("Completed successfully")
                 return True
             except Exception as e:
-                logger.exception(f"Exception in task {index}: {e!s}")
+                logger.exception(f"Exception in task {outersplit_id}: {e!s}")
                 return None
 
         run_parallel_outer_ray(
-            base_experiments=experiments,
-            create_execute_mlmodules=wrapped_run,
+            outersplit_data=outersplit_data,
+            run_fn=wrapped_run,
             log_dir=self.log_dir,
             num_workers=self.num_workers,
         )

@@ -9,12 +9,10 @@ import pandas as pd
 from attrs import Factory, asdict, define, field, fields, has, validators
 from upath import UPath
 
-from octopus.experiment import OctoExperiment
 from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
-from octopus.modules import Octo
-from octopus.task import Task
+from octopus.modules import Octo, Task
 from octopus.utils import DataSplit
 
 from .data_preparator import OctoDataPreparator
@@ -79,8 +77,8 @@ class OctoStudy(ABC):
     outer_parallelization: bool = field(default=Factory(lambda: True), validator=[validators.instance_of(bool)])
     """Indicates whether outer parallelization is enabled. Defaults to True."""
 
-    run_single_experiment_num: int = field(default=Factory(lambda: -1), validator=[validators.instance_of(int)])
-    """Select a single experiment to execute. Defaults to -1 to run all experiments"""
+    run_single_outersplit_num: int = field(default=Factory(lambda: -1), validator=[validators.instance_of(int)])
+    """Select a single outersplit to execute. Defaults to -1 to run all outersplits"""
 
     workflow: list[Task] = field(
         default=Factory(lambda: [Octo(task_id=0)]),
@@ -275,41 +273,6 @@ class OctoStudy(ABC):
 
         return datasplits
 
-    def _create_experiments(self, datasplits: dict) -> list[OctoExperiment]:
-        """Create experiments from datasplits."""
-        experiments = []
-
-        # Get datasplit column based on datasplit_type
-        if self.datasplit_type.value == "sample":
-            datasplit_col = self.sample_id_col
-        else:
-            datasplit_col = self.datasplit_type.value
-
-        for key, value in datasplits.items():
-            experiment: OctoExperiment = OctoExperiment(
-                id=str(key),
-                experiment_id=int(key),
-                task_id=None,  # indicating base experiment
-                depends_on_task=None,  # indicating base experiment
-                task_path=None,  # indicating base experiment
-                study_path=self.path,
-                study_name=self.name,
-                ml_type=self.ml_type.value,
-                target_metric=self.target_metric,
-                positive_class=getattr(self, "positive_class", None),
-                metrics=self.metrics,
-                imputation_method=self.imputation_method.value,
-                datasplit_column=datasplit_col,
-                row_id_col=self.prepared.row_id_col,
-                feature_cols=self.prepared.feature_cols,
-                target_assignments=self.target_assignments,
-                data_traindev=value["train"],
-                data_test=value["test"],
-            )
-            experiments.append(experiment)
-
-        return experiments
-
     def _run_health_check(self, data: pd.DataFrame, config: HealthCheckConfig | None) -> None:
         """Run data health check, save results, and check for issues."""
         checker = OctoDataHealthChecker(
@@ -374,16 +337,12 @@ class OctoStudy(ABC):
         self._initialize_study_outputs(data)
         self._run_health_check(prepared_data, health_check_config)
 
-        datasplits = self._create_datasplits(prepared_data)
-        experiments = self._create_experiments(datasplits)
+        outersplit_data = self._create_datasplits(prepared_data)
         manager = OctoManager(
-            base_experiments=experiments,
-            workflow=self.workflow,
-            outer_parallelization=self.outer_parallelization,
-            run_single_experiment_num=self.run_single_experiment_num,
-            log_dir=self.log_dir,
+            study=self,
+            outersplit_data=outersplit_data,
         )
-        manager.run_outer_experiments()
+        manager.run_outersplits()
 
 
 @define

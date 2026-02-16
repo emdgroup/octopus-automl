@@ -1,14 +1,15 @@
-# type: ignore
+"""ROC module (removal of correlated features)."""
 
-"""ROC core (removal of correlated features)."""
+from __future__ import annotations
 
 import random
+from typing import TYPE_CHECKING
 
 import networkx as nx
 import numpy as np
 import pandas as pd
 import scipy.stats
-from attrs import define, field, validators
+from attrs import Factory, define, field
 from sklearn.feature_selection import (
     f_classif,
     f_regression,
@@ -17,25 +18,18 @@ from sklearn.feature_selection import (
 )
 
 from octopus.logger import get_logger
-from octopus.modules.base import ModuleBaseCore
-from octopus.modules.roc.module import Roc
+from octopus.modules.base import FeatureSelectionExecution
 from octopus.modules.utils import rdc_correlation_matrix
+
+if TYPE_CHECKING:
+    from upath import UPath
+
+    from octopus.modules.roc.module import Roc
+    from octopus.study.core import OctoStudy
 
 logger = get_logger()
 
-# TOBEDONE
-# - add hierarchical clustering
-#   https://scikit-learn.org/stable/auto_examples/inspection/
-#   plot_permutation_importance_multicollinear.html
-# - add pearson
-# - maybe, a function that create as table showing the selected feature and
-# the removed group features
-# - How to select best feature im group
-#   (a) classification and regression --> mutual information
-#   (b) timetoevent --> first feature
-# - Use univariate model to assess association with target, should work for all ml_types
-
-
+# Filter functions for feature selection
 filter_inventory = {
     "mutual_info": {
         "classification": mutual_info_classif,
@@ -49,82 +43,73 @@ filter_inventory = {
 
 
 @define
-class RocCore(ModuleBaseCore[Roc]):
-    """Roc Module (Removal of Correlated features).
+class RocModule(FeatureSelectionExecution["Roc"]):
+    """ROC execution module. Created by Roc.create_module()."""
 
-    Inherits log_dir from ModuleBaseCore.
-    """
+    feature_groups_: list = field(init=False, default=Factory(list))
+    """Feature groups discovered during fit (stored for inspection)."""
 
-    feature_groups: list = field(init=False, validator=[validators.instance_of(list)])
-
-    @property
-    def config(self) -> Roc:
-        """Module configuration."""
-        return self.experiment.ml_config
-
-    @property
-    def filter_type(self) -> str:
-        """Filter Type."""
-        return self.experiment.ml_config.filter_type
-
-    def __attrs_post_init__(self):
-        """Initialize feature groups and prepare directories."""
-        self.feature_groups = []
-        super().__attrs_post_init__()  # Clean/create results directory
-
-    def run_experiment(self):
-        """Run ROC module on experiment."""
-        # run experiment and return updated experiment object
-
-        # set seeds for reproducibility
+    def fit(
+        self,
+        data_traindev: pd.DataFrame,
+        data_test: pd.DataFrame,
+        feature_cols: list[str],
+        study: OctoStudy,
+        outersplit_id: int,
+        output_dir: UPath,
+        num_assigned_cpus: int = 1,
+        feature_groups: dict | None = None,
+        prior_results: dict | None = None,
+    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """Fit ROC module by identifying and filtering correlated features."""
+        # Set seeds for reproducibility
         random.seed(0)
         np.random.seed(0)
 
-        correlation_type = self.config.correlation_type
-        threshold = self.config.threshold
+        logger.info(f"Correlation type: {self.config.correlation_type}")
+        logger.info(f"Threshold: {self.config.threshold}")
+        logger.info(f"Filter type: {self.config.filter_type}")
 
-        logger.info(f"Correlation type: {correlation_type}")
-        logger.info(f"Threshold: {threshold}")
-        logger.info(f"Filter type: {self.filter_type}")
+        # Extract feature matrices (local variables)
+        x_traindev = data_traindev[feature_cols]
+        y_traindev = data_traindev[list(study.target_assignments.values())]
 
+        # Calculate dependency to target
         logger.info("Calculating dependency to target")
-        # Note, timetoevent is treated differently
-        if self.ml_type == "timetoevent":
+        if study.ml_type.value == "timetoevent":
             logger.info("Time2Event: Note, that the first group element is selected.")
-        elif self.filter_type == "mutual_info":
-            # set random state
-            values = filter_inventory[self.filter_type][self.ml_type](
-                self.x_traindev, self.y_traindev.to_numpy().ravel(), random_state=0
+            dependency = None  # Not used for timetoevent
+        elif self.config.filter_type == "mutual_info":
+            # Set random state
+            values = filter_inventory[self.config.filter_type][study.ml_type.value](
+                x_traindev, y_traindev.to_numpy().ravel(), random_state=0
             )
-            dependency = pd.Series(values, index=self.feature_cols)
-        elif self.filter_type == "f_statistics":
-            # ignoring p-values
-            values, _ = filter_inventory[self.filter_type][self.ml_type](
-                self.x_traindev, self.y_traindev.to_numpy().ravel()
+            dependency = pd.Series(values, index=feature_cols)
+        elif self.config.filter_type == "f_statistics":
+            # Ignoring p-values
+            values, _ = filter_inventory[self.config.filter_type][study.ml_type.value](
+                x_traindev, y_traindev.to_numpy().ravel()
             )
-            dependency = pd.Series(values, index=self.feature_cols)
+            dependency = pd.Series(values, index=feature_cols)
 
+        # Calculate correlation matrix
         logger.info("Calculating feature groups.")
-        # correlation matrix
-        if correlation_type == "spearmanr":
-            # (A) spearmamr correlation matrix
-            pos_corr_matrix, _ = scipy.stats.spearmanr(np.nan_to_num(self.x_traindev.values))
+        if self.config.correlation_type == "spearmanr":
+            pos_corr_matrix, _ = scipy.stats.spearmanr(np.nan_to_num(x_traindev.values))
             pos_corr_matrix = np.abs(pos_corr_matrix)
-        elif correlation_type == "rdc":
-            # (B) RDC correlation matrix
-            pos_corr_matrix = np.abs(rdc_correlation_matrix(self.x_traindev))
+        elif self.config.correlation_type == "rdc":
+            pos_corr_matrix = np.abs(rdc_correlation_matrix(x_traindev))
         else:
-            raise ValueError(f"Correlation type {correlation_type} not supported")
+            raise ValueError(f"Correlation type {self.config.correlation_type} not supported")
 
+        # Build graph of correlated features
         g = nx.Graph()
-
-        # Add edges to the graph based on the correlation matrix
-        for i in range(len(self.feature_cols)):
-            for j in range(i + 1, len(self.feature_cols)):
-                if pos_corr_matrix[i, j] > threshold:
+        for i in range(len(feature_cols)):
+            for j in range(i + 1, len(feature_cols)):
+                if pos_corr_matrix[i, j] > self.config.threshold:
                     g.add_edge(i, j)
 
-        # Get connected components and sort them to ensure determinism
+        # Get connected components and sort for determinism
         subgraphs = [
             g.subgraph(c).copy() for c in sorted(nx.connected_components(g), key=lambda x: (len(x), sorted(x)))
         ]
@@ -132,56 +117,41 @@ class RocCore(ModuleBaseCore[Roc]):
         # Create groups of feature columns
         groups = []
         for sg in subgraphs:
-            groups.append([self.feature_cols[node] for node in sorted(sg.nodes())])
+            groups.append([feature_cols[node] for node in sorted(sg.nodes())])
 
-        # Sort each group to ensure determinism
-        self.feature_groups = [sorted(g) for g in groups]
+        # Sort each group for determinism
+        self.feature_groups_ = [sorted(g) for g in groups]
 
-        # g = nx.Graph()
-        #
-        # for i in range(len(self.feature_cols)):
-        #    for j in range(i + 1, len(self.feature_cols)):
-        #        if pos_corr_matrix[i, j] > threshold:
-        #            g.add_edge(i, j)
-        #
-        # subgraphs = [g.subgraph(c) for c in nx.connected_components(g)]
-        #
-        # groups = []
-        # for sg in subgraphs:
-        #    groups.append([self.feature_cols[node] for node in sg.nodes()])
-        # self.feature_groups = [sorted(g) for g in groups]
-
-        # select features to keep and to remove
+        # Select features to keep and to remove
         keep_list = []
         remove_list = []
 
-        # Process each group
-        for group in self.feature_groups:
+        for group in self.feature_groups_:
             if group:
-                if self.ml_type == "timetoevent":
-                    # timetovent: keep first features
+                if study.ml_type.value == "timetoevent":
+                    # timetoevent: keep first feature
                     keep_feature = group[0]
                 else:
-                    # regression, classification: use mutual information
-                    # to find group element with maximum mutual information
+                    # regression, classification: use filter to find best feature
                     keep_feature = dependency[group].idxmax()
 
                 keep_list.append(keep_feature)
-                # Add the remaining features to the remove list
                 remove_list.extend([x for x in group if x != keep_feature])
 
-        # get features after filtering
-        # remaining_features = sorted(set(self.feature_cols) - set(remove_list))
-        remaining_features = sorted(set(self.feature_cols) - set(remove_list))
+        # Get features after filtering
+        remaining_features = sorted(set(feature_cols) - set(remove_list))
 
         logger.info(f"Remaining features: {remaining_features}")
-
-        logger.info(f"Number of features before correlation removal: {len(self.feature_cols)}")
+        logger.info(f"Number of features before correlation removal: {len(feature_cols)}")
         logger.info(f"Number of features after correlation removal: {len(remaining_features)}")
 
-        # save features selected by ROC
-        self.experiment.selected_features = sorted(remaining_features, key=lambda x: (len(x), sorted(x)))
+        # Store selected features (fitted state only)
+        selected_features = sorted(remaining_features, key=lambda x: (len(x), sorted(x)))
+        self.selected_features_ = selected_features
 
         logger.info("ROC completed")
 
-        return self.experiment
+        # Store fitted state
+        self.feature_importances_ = {}
+
+        return (selected_features, pd.DataFrame(), pd.DataFrame(), pd.DataFrame())

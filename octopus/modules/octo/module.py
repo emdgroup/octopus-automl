@@ -1,13 +1,16 @@
-"""Octo module."""
+"""Octo module configuration."""
+
+from __future__ import annotations
 
 import os
-from typing import ClassVar
 
 from attrs import Factory, define, field, validators
 
 from octopus.logger import get_logger
 from octopus.models import Models
-from octopus.task import Task
+from octopus.modules.base import Task
+
+from .core import OctoModule
 
 logger = get_logger()
 
@@ -21,7 +24,21 @@ def _unique_unordered(seq):
 
 @define
 class Octo(Task):
-    """Octofull workflow task config."""
+    """Octo module for feature selection and model optimization.
+
+    Uses Optuna for hyperparameter optimization with cross-validation, supporting:
+    - Multiple ML models
+    - MRMR feature selection
+    - Ensemble selection
+    - Bag-based model ensembling
+
+    Configuration:
+        models: List of model names to optimize
+        n_folds_inner: Number of inner CV folds
+        n_trials: Number of Optuna trials
+        ensemble_selection: Whether to perform ensemble selection
+        mrmr_feature_numbers: Feature counts for MRMR feature selection
+    """
 
     models: list[str] = field(
         default=Factory(lambda: ["ExtraTreesClassifier"]),
@@ -36,9 +53,6 @@ class Octo(Task):
     )
     """Models for ML."""
 
-    module: ClassVar[str] = "octo"
-    """Module name."""
-
     n_folds_inner: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 5))
     """Number of inner folds."""
 
@@ -50,7 +64,6 @@ class Octo(Task):
         ),
     )
     """List of integers used as seeds for data splitting."""
-    # model training
 
     model_seed: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 0))
     """Model seed."""
@@ -68,9 +81,10 @@ class Octo(Task):
             iterable_validator=validators.instance_of(list),
         ),
     )
+    """Feature importance methods for best bag."""
 
     inner_parallelization: bool = field(validator=[validators.instance_of(bool)], default=Factory(lambda: True))
-    """Enable inner paralization. Defaults is True."""
+    """Enable inner parallelization. Defaults is True."""
 
     n_workers: int = field(default=Factory(lambda: None))
     """Number of workers."""
@@ -97,7 +111,7 @@ class Octo(Task):
     """Maximum features to constrain hyperparameter optimization. Default is zero (off)."""
 
     penalty_factor: float = field(validator=[validators.instance_of(float)], default=Factory(lambda: 1.0))
-    """Factor to penalyse optuna target related to feature constraint."""
+    """Factor to penalize optuna target related to feature constraint."""
 
     mrmr_feature_numbers: list = field(validator=[validators.instance_of(list)], default=Factory(list))
     """List of feature numbers to be investigated by mrmr."""
@@ -157,3 +171,7 @@ class Octo(Task):
                 )
                 logger.error(msg)
                 raise ValueError(msg)
+
+    def create_module(self) -> OctoModule:
+        """Create OctoModule execution instance."""
+        return OctoModule(config=self)

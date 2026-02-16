@@ -152,12 +152,12 @@ class TestFSSpecIntegration:
                     path=root_dir,
                     ignore_data_health_warning=True,
                     outer_parallelization=False,
-                    run_single_experiment_num=0,
+                    run_single_outersplit_num=0,
                     workflow=[
                         Octo(
                             description="step_1_octo",
                             task_id=0,
-                            depends_on_task=-1,
+                            depends_on=None,
                             load_task=False,
                             n_folds_inner=3,
                             models=["ExtraTreesClassifier"],
@@ -197,9 +197,7 @@ class TestFSSpecIntegration:
 
                 # Verify that the Octo step was executed by checking for workflow directories
                 experiment_path = study_path / "outersplit0"
-                workflow_dirs = [
-                    d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("workflowtask")
-                ]
+                workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("task")]
 
                 assert len(workflow_dirs) >= 1, (
                     f"Should have at least 1 workflow directory, found: {[d.name for d in workflow_dirs]}"

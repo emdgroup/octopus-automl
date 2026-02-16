@@ -1,6 +1,8 @@
 """Init."""
 
-from .core import RocCore  # type: ignore
 from .module import Roc
 
-__all__ = ["Roc", "RocCore"]
+# Legacy Core class (deprecated - use Roc directly)
+# from .core import RocCore
+
+__all__ = ["Roc"]

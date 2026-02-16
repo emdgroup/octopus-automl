@@ -31,6 +31,16 @@ from octopus.modules.octo.training import Training
 logger = get_logger()
 
 
+def _parse_fi_key(key: str) -> tuple[str, str]:
+    """Parse a FI dict key like 'permutation_dev' into (method, dataset)."""
+    known_methods = {"permutation", "shap", "lofo"}
+    for method in known_methods:
+        if key.startswith(method + "_"):
+            return method, key[len(method) + 1 :]
+    # Keys without partition suffix: "internal", "constant"
+    return key, "train"
+
+
 class TrainingWithLogging:
     """Logging class for trainings."""
 
@@ -347,9 +357,36 @@ class BagBase(BaseEstimator):
         # Create ensemble predictions for each partition
         predictions["ensemble"] = {}
         for part, pool_value in pool.items():
-            ensemble = pd.concat(pool_value, axis=0).groupby(by=self.row_id_col).mean().reset_index()
+            # Get metadata from first training (all have same outer_split_id and task_id)
+            first_pred = pool_value[0]
+            outer_split_id = first_pred["outer_split_id"].iloc[0]
+            task_id = first_pred["task_id"].iloc[0]
+
+            # Concatenate and group by row_id, averaging only numeric columns
+            combined = pd.concat(pool_value, axis=0)
+            # Identify numeric columns to average (exclude metadata and row_id)
+            numeric_cols = combined.select_dtypes(include=["number"]).columns.tolist()
+            if self.row_id_col in numeric_cols:
+                numeric_cols.remove(self.row_id_col)
+            # Remove metadata columns from averaging
+            for col in ["outer_split_id", "inner_split_id", "task_id"]:
+                if col in numeric_cols:
+                    numeric_cols.remove(col)
+
+            # Group by row_id and average only numeric prediction columns
+            ensemble = combined.groupby(self.row_id_col)[numeric_cols].mean().reset_index()
+
+            # Restore target column dtype
             for column in list(self.target_assignments.values()):
-                ensemble[column] = ensemble[column].astype(self.trainings[0].data_train[column].dtype)
+                if column in ensemble.columns:
+                    ensemble[column] = ensemble[column].astype(self.trainings[0].data_train[column].dtype)
+
+            # Add metadata columns for ensemble predictions
+            ensemble["outer_split_id"] = outer_split_id
+            ensemble["inner_split_id"] = "ensemble"
+            ensemble["partition"] = part
+            ensemble["task_id"] = task_id
+
             predictions["ensemble"][part] = ensemble
 
         return predictions
@@ -405,6 +442,102 @@ class BagBase(BaseEstimator):
             performance_output["test_pool"] = performance["ensemble"]["test"]
 
         return performance_output
+
+    def get_performance_df(self, metric: str) -> pd.DataFrame:
+        """Convert get_performance() dict to standard scores DataFrame.
+
+        Args:
+            metric: The metric name (e.g. "MAE", "accuracy").
+
+        Returns:
+            DataFrame with columns: metric, partition, aggregation, fold, value
+        """
+        perf = self.get_performance()
+        rows = []
+
+        # Per-fold scores
+        for partition in ["train", "dev", "test"]:
+            lst_key = f"{partition}_lst"
+            avg_key = f"{partition}_avg"
+            pool_key = f"{partition}_pool"
+
+            if lst_key in perf:
+                for fold_idx, val in enumerate(perf[lst_key]):
+                    rows.append(
+                        {
+                            "metric": metric,
+                            "partition": partition,
+                            "aggregation": "per_fold",
+                            "fold": fold_idx,
+                            "value": val,
+                        }
+                    )
+            if avg_key in perf:
+                rows.append(
+                    {
+                        "metric": metric,
+                        "partition": partition,
+                        "aggregation": "avg",
+                        "fold": None,
+                        "value": perf[avg_key],
+                    }
+                )
+            if pool_key in perf:
+                rows.append(
+                    {
+                        "metric": metric,
+                        "partition": partition,
+                        "aggregation": "pool",
+                        "fold": None,
+                        "value": perf[pool_key],
+                    }
+                )
+
+        return pd.DataFrame(rows)
+
+    def get_predictions_df(self) -> pd.DataFrame:
+        """Concat all training predictions into a single DataFrame.
+
+        Returns:
+            DataFrame with all predictions from get_predictions().
+        """
+        predictions = self.get_predictions()
+        all_dfs = []
+        for _split_id, partitions in predictions.items():
+            if isinstance(partitions, dict):
+                for _part_name, df in partitions.items():
+                    all_dfs.append(df)
+            elif isinstance(partitions, pd.DataFrame):
+                all_dfs.append(partitions)
+        if all_dfs:
+            return pd.concat(all_dfs, ignore_index=True)
+        return pd.DataFrame()
+
+    def get_feature_importances_df(self) -> pd.DataFrame:
+        """Concat per-training FI into a single DataFrame with fi_method, fi_dataset, and training_id columns.
+
+        Returns:
+            DataFrame with columns: feature, importance, fi_method, fi_dataset, training_id
+        """
+        all_dfs = []
+        for key, value in self.feature_importances.items():
+            # Skip aggregated keys like "internal_mean", "permutation_dev_count", etc.
+            if key.endswith("_mean") or key.endswith("_count"):
+                continue
+            if isinstance(value, dict):
+                # Per-training: {fi_key: DataFrame}
+                training_id = key
+                for fi_key, df in value.items():
+                    if isinstance(df, pd.DataFrame) and not df.empty:
+                        temp = df[["feature", "importance"]].copy()
+                        method, dataset = _parse_fi_key(fi_key)
+                        temp["fi_method"] = method
+                        temp["fi_dataset"] = dataset
+                        temp["training_id"] = training_id
+                        all_dfs.append(temp)
+        if all_dfs:
+            return pd.concat(all_dfs, ignore_index=True)
+        return pd.DataFrame()
 
     def _calculate_fi_parallel(self, fi_type="internal", partition="dev"):
         """Calculate feature importance in parallel using Ray."""

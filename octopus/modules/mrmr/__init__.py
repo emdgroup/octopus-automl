@@ -1,6 +1,9 @@
 """Init Mrmr."""
 
-from .core import MrmrCore  # type: ignore
 from .module import Mrmr
+from .core import _maxrminr as maxrminr
 
-__all__ = ["Mrmr", "MrmrCore"]
+# Legacy Core class (deprecated - use Mrmr directly)
+# from .core import MrmrCore
+
+__all__ = ["Mrmr", "maxrminr"]

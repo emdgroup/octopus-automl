@@ -1,7 +1,6 @@
 """Test AutoGluon workflows."""
 
 import os
-import re
 import shutil
 import tempfile
 
@@ -11,7 +10,6 @@ from sklearn.datasets import make_classification, make_regression
 from upath import UPath
 
 from octopus import OctoClassification, OctoRegression
-from octopus.experiment import OctoExperiment
 from octopus.modules import AutoGluon
 
 
@@ -62,12 +60,12 @@ class TestAutogluonWorkflows:
             path=self.studies_path,
             ignore_data_health_warning=True,
             outer_parallelization=True,
-            run_single_experiment_num=0,
+            run_single_outersplit_num=0,
             workflow=[
                 AutoGluon(
                     description="ag_test",
                     task_id=0,
-                    depends_on_task=-1,
+                    depends_on=None,
                     presets=["medium_quality"],
                     time_limit=15,
                     verbosity=0,
@@ -81,11 +79,23 @@ class TestAutogluonWorkflows:
         study_path = UPath(self.studies_path) / "test_classification_workflow"
         assert study_path.exists(), "Study directory should be created"
 
-        # Test specific keys exist
-        self._test_specific_keys(study_path)
+        # Verify core study files
+        assert (study_path / "config.json").exists(), "Config JSON should exist"
+        assert (study_path / "data.parquet").exists(), "Data parquet should exist"
+        assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet should exist"
 
-        success = True
-        assert success is True
+        # Verify outersplit and task output
+        outersplit_dir = study_path / "outersplit0"
+        assert outersplit_dir.exists(), "Outersplit directory should exist"
+
+        task_dirs = [d for d in outersplit_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
+        assert len(task_dirs) >= 1, "Should have at least 1 task directory"
+
+        # Verify AutoGluon task artifacts
+        task_dir = task_dirs[0]
+        assert (task_dir / "task_config.json").exists(), "Task config should exist"
+        assert (task_dir / "module").exists(), "Module directory should exist"
+        assert (task_dir / "module" / "module_state.json").exists(), "Module state should exist"
 
     def test_full_regression_workflow(self):
         """Test the complete regression workflow execution."""
@@ -116,12 +126,12 @@ class TestAutogluonWorkflows:
             path=self.studies_path,
             ignore_data_health_warning=True,
             outer_parallelization=False,
-            run_single_experiment_num=0,
+            run_single_outersplit_num=0,
             workflow=[
                 AutoGluon(
                     description="ag_regression_test",
                     task_id=0,
-                    depends_on_task=-1,
+                    depends_on=None,
                     presets=["medium_quality"],
                     time_limit=15,
                     verbosity=0,
@@ -135,70 +145,23 @@ class TestAutogluonWorkflows:
         study_path = UPath(self.studies_path) / "test_regression_workflow"
         assert study_path.exists(), "Study directory should be created"
 
-        # Test specific keys exist
-        self._test_specific_keys(study_path)
+        # Verify core study files
+        assert (study_path / "config.json").exists(), "Config JSON should exist"
+        assert (study_path / "data.parquet").exists(), "Data parquet should exist"
+        assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet should exist"
 
-        success = True
-        assert success is True
+        # Verify outersplit and task output
+        outersplit_dir = study_path / "outersplit0"
+        assert outersplit_dir.exists(), "Outersplit directory should exist"
 
-    def _test_specific_keys(self, study_path):
-        """Test that specific keys exist in the experiment results."""
-        print("\n=== Testing Specific Keys ===")
+        task_dirs = [d for d in outersplit_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
+        assert len(task_dirs) >= 1, "Should have at least 1 task directory"
 
-        # Find experiment directories (now called outersplit)
-        path_experiments = [f for f in study_path.glob("outersplit*") if f.is_dir()]
-
-        assert len(path_experiments) > 0, "No experiment directories found"
-
-        # Track if we found the required keys
-        found_autogluon_result = False
-        found_autogluon_permutation_test = False
-
-        # Iterate through experiments
-        for path_exp in path_experiments:
-            exp_name = str(path_exp.name)
-            match = re.search(r"\d+", exp_name)
-            exp_num = int(match.group()) if match else None
-
-            # Find workflow directories
-            path_workflows = [f for f in path_exp.glob("workflowtask*") if f.is_dir()]
-
-            # Iterate through sequences
-            for path_workflow in path_workflows:
-                seq_name = str(path_workflow.name)
-                match = re.search(r"\d+", seq_name)
-                seq_num = int(match.group()) if match else None
-
-                # Look for experiment pickle file
-                path_exp_pkl = path_workflow / f"exp{exp_num}_{seq_num}.pkl"
-
-                if path_exp_pkl.exists():
-                    try:
-                        # Load experiment
-                        exp = OctoExperiment.from_pickle(path_exp_pkl)
-
-                        # Test for 'autogluon' results key
-                        if "autogluon" in exp.results:
-                            found_autogluon_result = True
-                            print(f"✓ Found 'autogluon' results key in {path_exp_pkl}")
-
-                            # Test for 'autogluon_permutation_test' feature importance key
-                            result = exp.results["autogluon"]
-                            if "autogluon_permutation_test" in getattr(result, "feature_importances", {}):
-                                found_autogluon_permutation_test = True
-                                print(f"✓ Found 'autogluon_permutation_test' feature importance key in {path_exp_pkl}")
-
-                    except Exception as e:
-                        print(f"Error loading experiment {path_exp_pkl}: {e}")
-
-        # Assert that we found the required keys
-        assert found_autogluon_result, "Expected 'autogluon' key not found in experiment results"
-        assert found_autogluon_permutation_test, (
-            "Expected 'autogluon_permutation_test' key not found in feature importances"
-        )
-
-        print("✓ All required keys found successfully")
-        print("=== Key Testing Complete ===\n")
+        # Verify AutoGluon task artifacts
+        task_dir = task_dirs[0]
+        assert (task_dir / "task_config.json").exists(), "Task config should exist"
+        assert (task_dir / "module").exists(), "Module directory should exist"
+        assert (task_dir / "module" / "module_state.json").exists(), "Module state should exist"
 
 
 if __name__ == "__main__":

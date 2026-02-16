@@ -3,79 +3,19 @@
 import contextlib
 import math
 import statistics
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
 import scipy.stats
 import shap
-from attrs import define, field, validators
 from scipy.stats import rankdata
 
 from octopus.metrics.utils import get_score_from_model
-from octopus.models.config import BaseModel
 
 # Minimum threshold for meaningful feature importance values
 # Below this threshold, importances are considered numerical noise
 MIN_MEANINGFUL_IMPORTANCE = 1e-10
-
-
-@define
-class ExperimentInfo:
-    """Experiment info."""
-
-    id: int | str = field(validator=validators.instance_of((int, str)))
-    """Experiment id."""
-    model: BaseModel
-    """Model Name."""
-    data_traindev: pd.DataFrame = field(validator=validators.instance_of(pd.DataFrame))
-    """Train/Dev dataset."""
-    data_test: pd.DataFrame = field(validator=validators.instance_of(pd.DataFrame))
-    """Test dataset."""
-    feature_cols: list[str] = field(validator=validators.instance_of(list))
-    """Feature columns."""
-    row_id_col: str = field(validator=validators.instance_of(str))
-    """Row identifier column."""
-    target_assignments: dict[str, str] = field(validator=validators.instance_of(dict))
-    """Target assignments."""
-    target_metric: str = field(validator=validators.instance_of(str))
-    """Target metric."""
-    ml_type: str = field(validator=validators.instance_of(str))
-    """Machine learning type."""
-    feature_group_dict: dict = field(validator=validators.instance_of(dict))
-    """Feature group dictionary."""
-    positive_class: int | str | None = field(default=None)
-    """Positive class for binary classification."""
-
-    @property
-    def x_traindev(self) -> pd.DataFrame:
-        """Feature matrix for training/development set."""
-        return self.data_traindev[self.feature_cols]
-
-    @property
-    def y_traindev(self) -> pd.DataFrame:
-        """Target values for training/development set."""
-        return self.data_traindev[list(self.target_assignments.values())]
-
-    @property
-    def x_test(self) -> pd.DataFrame:
-        """Feature matrix for test set."""
-        return self.data_test[self.feature_cols]
-
-    @property
-    def y_test(self) -> pd.DataFrame:
-        """Target values for test set."""
-        return self.data_test[list(self.target_assignments.values())]
-
-    @property
-    def row_traindev(self) -> pd.Series:
-        """Row identifiers for training/development set."""
-        return self.data_traindev[self.row_id_col]
-
-    @property
-    def row_test(self) -> pd.Series:
-        """Row identifiers for test set."""
-        return self.data_test[self.row_id_col]
 
 
 def rdc(x, y, f=np.sin, k=20, s=1 / 6.0, n=5):
@@ -182,16 +122,35 @@ def rdc_correlation_matrix(df):
     return rdc_matrix
 
 
-def get_fi_permutation(experiment: ExperimentInfo, n_repeat, data: pd.DataFrame | None) -> pd.DataFrame:
-    """Calculate permutation feature importances."""
+def get_fi_permutation(
+    model: Any,
+    data_traindev: pd.DataFrame,
+    data_test: pd.DataFrame,
+    feature_cols: list[str],
+    target_assignments: dict[str, str],
+    target_metric: str,
+    positive_class: int | str | None,
+    n_repeat: int,
+    data: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Calculate permutation feature importances.
+
+    Args:
+        model: Trained model with predict method.
+        data_traindev: Training/development data.
+        data_test: Test data.
+        feature_cols: List of feature column names.
+        target_assignments: Dictionary mapping target names to column names.
+        target_metric: Metric to use for evaluation.
+        positive_class: Positive class for binary classification (optional).
+        n_repeat: Number of permutation repeats.
+        data: Optional external data; if None, uses data_test.
+
+    Returns:
+        DataFrame with feature importances and statistics.
+    """
     # fixed confidence level
     confidence_level = 0.95
-    feature_cols = experiment.feature_cols
-    data_traindev = experiment.data_traindev
-    data_test = experiment.data_test
-    target_assignments = experiment.target_assignments
-    target_metric = experiment.target_metric
-    model = experiment.model
 
     # support prediction on new data as well as test data
     if data is None:  # new data
@@ -201,7 +160,7 @@ def get_fi_permutation(experiment: ExperimentInfo, n_repeat, data: pd.DataFrame 
 
     # calculate baseline score
     baseline_score = get_score_from_model(
-        model, data, feature_cols, target_metric, target_assignments, positive_class=experiment.positive_class
+        model, data, feature_cols, target_metric, target_assignments, positive_class=positive_class
     )
 
     # get all data select random feature values
@@ -232,7 +191,7 @@ def get_fi_permutation(experiment: ExperimentInfo, n_repeat, data: pd.DataFrame 
                 feature_cols,
                 target_metric,
                 target_assignments,
-                positive_class=experiment.positive_class,
+                positive_class=positive_class,
             )
             fi_lst.append(baseline_score - pfi_score)
 
@@ -271,17 +230,38 @@ def get_fi_permutation(experiment: ExperimentInfo, n_repeat, data: pd.DataFrame 
     return results_df.sort_values(by="importance", ascending=False)
 
 
-def get_fi_group_permutation(experiment: ExperimentInfo, n_repeat, data: pd.DataFrame | None) -> pd.DataFrame:
-    """Calculate permutation feature importances."""
+def get_fi_group_permutation(
+    model: Any,
+    data_traindev: pd.DataFrame,
+    data_test: pd.DataFrame,
+    feature_cols: list[str],
+    target_assignments: dict[str, str],
+    target_metric: str,
+    positive_class: int | str | None,
+    feature_group_dict: dict,
+    n_repeat: int,
+    data: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Calculate permutation feature importances for feature groups.
+
+    Args:
+        model: Trained model with predict method.
+        data_traindev: Training/development data.
+        data_test: Test data.
+        feature_cols: List of feature column names.
+        target_assignments: Dictionary mapping target names to column names.
+        target_metric: Metric to use for evaluation.
+        positive_class: Positive class for binary classification (optional).
+        feature_group_dict: Dictionary of feature groups.
+        n_repeat: Number of permutation repeats.
+        data: Optional external data; if None, uses data_test.
+
+    Returns:
+        DataFrame with feature importances and statistics.
+    """
     # fixed confidence level
     confidence_level = 0.95
-    feature_cols = experiment.feature_cols
-    data_traindev = experiment.data_traindev
-    data_test = experiment.data_test
-    target_assignments = experiment.target_assignments
-    target_metric = experiment.target_metric
-    model = experiment.model
-    feature_groups = experiment.feature_group_dict
+    feature_groups = feature_group_dict
 
     print("Number of feature groups found and included: ", len(feature_groups))
 
@@ -301,7 +281,7 @@ def get_fi_group_permutation(experiment: ExperimentInfo, n_repeat, data: pd.Data
 
     # calculate baseline score
     baseline_score = get_score_from_model(
-        model, data, feature_cols, target_metric, target_assignments, positive_class=experiment.positive_class
+        model, data, feature_cols, target_metric, target_assignments, positive_class=positive_class
     )
 
     # get all data select random feature values
@@ -334,7 +314,7 @@ def get_fi_group_permutation(experiment: ExperimentInfo, n_repeat, data: pd.Data
                 feature_cols,
                 target_metric,
                 target_assignments,
-                positive_class=experiment.positive_class,
+                positive_class=positive_class,
             )
             fi_lst.append(baseline_score - pfi_score)
 
@@ -374,16 +354,22 @@ def get_fi_group_permutation(experiment: ExperimentInfo, n_repeat, data: pd.Data
 
 
 def get_fi_shap(
-    experiment: ExperimentInfo,
-    data: pd.DataFrame | None,
+    model: Any,
+    data_test: pd.DataFrame,
+    feature_cols: list[str],
+    ml_type: str,
     shap_type: str,
+    data: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, np.ndarray, pd.DataFrame]:
     """Calculate SHAP feature importances.
 
     Args:
-        experiment: A dictionary containing model, test data, and other info.
-        data: Data on which to compute SHAP values; if None, uses test data.
+        model: Trained model with predict method.
+        data_test: Test data.
+        feature_cols: List of feature column names.
+        ml_type: Machine learning type ('classification' or 'regression').
         shap_type: Type of SHAP explainer to use ('exact', 'permutation', or 'kernel').
+        data: Data on which to compute SHAP values; if None, uses test data.
 
     Returns:
         Tuple[pd.DataFrame, np.ndarray, pd.DataFrame]:
@@ -394,20 +380,13 @@ def get_fi_shap(
     Raises:
         ValueError: If shap_type is not one of 'exact', 'permutation', or 'kernel'.
     """
-    # experiment_id = experiment["id"]
-    feature_cols = experiment.feature_cols
-    data_test = experiment.x_test
-    model = experiment.model
-    ml_type = experiment.ml_type
-
     # support prediction on new data as well as test data
     if data is None:  # no external data, use test data
-        data = data_test
-
-    if not set(feature_cols).issubset(data.columns):
-        raise ValueError("Features missing in provided dataset.")
-
-    data = data[feature_cols]
+        data = data_test[feature_cols]
+    else:
+        if not set(feature_cols).issubset(data.columns):
+            raise ValueError("Features missing in provided dataset.")
+        data = data[feature_cols]
 
     def predict_wrapper(data):
         if isinstance(data, pd.Series):
@@ -465,24 +444,37 @@ def get_fi_shap(
 
 
 def get_fi_group_shap(
-    experiment: ExperimentInfo, data: pd.DataFrame | None, shap_type: Literal["exact", "permutation", "kernel"]
+    model: Any,
+    data_test: pd.DataFrame,
+    feature_cols: list[str],
+    ml_type: str,
+    feature_group_dict: dict,
+    shap_type: Literal["exact", "permutation", "kernel"],
+    data: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Calculate SHAP feature importances for feature groups."""
-    # experiment_id = experiment["id"]
-    feature_cols = experiment.feature_cols
-    data_test = experiment.x_test
-    model = experiment.model
-    ml_type = experiment.ml_type
-    feature_groups = experiment.feature_group_dict
+    """Calculate SHAP feature importances for feature groups.
+
+    Args:
+        model: Trained model with predict method.
+        data_test: Test data.
+        feature_cols: List of feature column names.
+        ml_type: Machine learning type ('classification' or 'regression').
+        feature_group_dict: Dictionary of feature groups.
+        shap_type: Type of SHAP explainer to use ('exact', 'permutation', or 'kernel').
+        data: Data on which to compute SHAP values; if None, uses test data.
+
+    Returns:
+        DataFrame with feature group importances.
+    """
+    feature_groups = feature_group_dict
 
     # Support prediction on new data as well as test data
     if data is None:  # No external data, use test data
-        data = data_test
-
-    if not set(feature_cols).issubset(data.columns):
-        raise ValueError("Features missing in provided dataset.")
-
-    data = data[feature_cols]
+        data = data_test[feature_cols]
+    else:
+        if not set(feature_cols).issubset(data.columns):
+            raise ValueError("Features missing in provided dataset.")
+        data = data[feature_cols]
 
     def predict_wrapper(data):
         if isinstance(data, pd.Series):

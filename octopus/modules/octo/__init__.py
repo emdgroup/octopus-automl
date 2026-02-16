@@ -1,6 +1,8 @@
 """Init."""
 
-from .core import OctoCore  # type: ignore
 from .module import Octo
 
-__all__ = ["Octo", "OctoCore"]
+# Legacy Core class (deprecated - use Octo directly)
+# from .core import OctoCore
+
+__all__ = ["Octo"]
