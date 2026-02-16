@@ -86,6 +86,7 @@ nav:
   - Concepts:
       - "concepts/concepts.md"
       - Nested Cross-Validation: "concepts/nested_cv.md"
+      - Workflow & Modules: concepts/workflow/
       - Understanding the Results: "concepts/understanding_results.md"
   - API Reference:
       - "reference/reference.md"
@@ -94,7 +95,6 @@ nav:
       - octopus.models: "reference/models.md"
       - octopus.modules: "reference/modules.md"
       - octopus.study: "reference/study.md"
-      - octopus.task: "reference/task.md"
   - Project Info:
       - Contributing: contributing.md
       - Contributors: contributors.md
