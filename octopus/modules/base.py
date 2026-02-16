@@ -1,216 +1,138 @@
-"""Base core class with shared functionality for all module cores."""
+"""Base task classes: config (user-facing) and execution (internal)."""
 
+from __future__ import annotations
+
+import json
+from abc import ABC, abstractmethod
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
+
+import joblib
 import pandas as pd
 from attrs import define, field, validators
 from upath import UPath
 
-from octopus.experiment import OctoExperiment
-from octopus.task import Task
+if TYPE_CHECKING:
+    from octopus.study.core import OctoStudy
+
+
+class ResultType(StrEnum):
+    """Types of results produced by modules."""
+
+    BEST = "best"
+    ENSEMBLE_SELECTION = "ensemble_selection"
+
+
+class FIMethod(StrEnum):
+    """Feature importance computation methods."""
+
+    INTERNAL = "internal"
+    PERMUTATION = "permutation"
+    SHAP = "shap"
+    LOFO = "lofo"
+    CONSTANT = "constant"
+    COUNTS = "counts"
+    COUNTS_RELATIVE = "counts_relative"
+
+
+class FIDataset(StrEnum):
+    """Dataset partitions for feature importance computation."""
+
+    TRAIN = "train"
+    DEV = "dev"
+    TEST = "test"
 
 
 @define
-class ModuleBaseCore[TaskConfigType: Task]:
-    """Base class for module cores providing common functionality.
+class Task(ABC):
+    """Base config class for all workflow tasks."""
 
-    Provides shared properties and initialization logic for all module cores:
-    - Path management (path_module, path_results)
-    - Data access properties (x_traindev, y_traindev, x_test, y_test, etc.)
-    - Experiment metadata (feature_cols, target_metric, ml_type, etc.)
-    - Directory initialization and cleanup
-
-    Type Parameters:
-        TaskConfigType: The module configuration type (must be a Task subclass)
-
-    Attributes:
-        experiment: The OctoExperiment instance containing configuration and data
-        log_dir: Directory for individual worker logs
-    """
-
-    experiment: OctoExperiment[TaskConfigType] = field(validator=[validators.instance_of(OctoExperiment)])
-    log_dir: UPath = field(validator=[validators.instance_of(UPath)])
+    task_id: int = field(validator=[validators.instance_of(int), validators.ge(0)])
+    depends_on: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
+    description: str = field(default="", validator=[validators.instance_of(str)])
+    load_task: bool = field(default=False, validator=[validators.instance_of(bool)])
+    categorical_encoding: bool = field(default=False, validator=[validators.instance_of(bool)])
 
     @property
-    def path_module(self) -> UPath:
-        """Module directory path.
+    def module(self) -> str:
+        """Module name derived from class name."""
+        return type(self).__name__.lower()
 
-        Returns:
-            Path to module results directory: {study_path}/{task_path}
-        """
-        return self.experiment.path_study / self.experiment.task_path
+    @abstractmethod
+    def create_module(self) -> ModuleExecution:
+        """Create an execution module from this config."""
+        raise NotImplementedError("Subclasses must implement create_module()")
 
-    @property
-    def path_results(self) -> UPath:
-        """Results directory path within module.
 
-        Returns:
-            Path to results directory: {path_module}/results
-        """
-        return self.path_module / "results"
+@define
+class ModuleExecution[T: Task](ABC):
+    """Base execution class. Created on worker via config.create_module()."""
 
-    @property
-    def data_traindev(self) -> pd.DataFrame:
-        """Training and development dataset.
+    config: T = field()
 
-        Returns:
-            Full training/development dataset from experiment
-        """
-        return self.experiment.data_traindev
+    @abstractmethod
+    def fit(
+        self,
+        data_traindev: pd.DataFrame,
+        data_test: pd.DataFrame,
+        feature_cols: list[str],
+        study: OctoStudy,
+        outersplit_id: int,
+        output_dir: UPath,
+        num_assigned_cpus: int = 1,
+        feature_groups: dict | None = None,
+        prior_results: dict | None = None,
+    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """Fit the module. Returns (selected_features, scores, predictions, feature_importances)."""
+        raise NotImplementedError("Subclasses must implement fit()")
 
-    @property
-    def data_test(self) -> pd.DataFrame:
-        """Test dataset.
+    def save(self, path: UPath) -> None:
+        """Save fitted module to disk."""
+        path.mkdir(parents=True, exist_ok=True)
 
-        Returns:
-            Full test dataset from experiment
-        """
-        return self.experiment.data_test
+        if hasattr(self, "model_") and self.model_ is not None:
+            with (path / "model.joblib").open("wb") as f:
+                joblib.dump(self.model_, f)
 
-    @property
-    def x_traindev(self) -> pd.DataFrame:
-        """Feature matrix for training/development set.
+        state = {
+            "selected_features": getattr(self, "selected_features_", None),
+            "feature_importances": getattr(self, "feature_importances_", None),
+        }
+        with (path / "module_state.json").open("w") as f:
+            json.dump(state, f, indent=2, default=str)
 
-        Returns:
-            Subset of data_traindev containing only feature columns
-        """
-        return self.experiment.x_traindev
+        if hasattr(self, "model_") and self.model_ is not None:
+            predictor_state = {
+                "selected_features": getattr(self, "selected_features_", []) or [],
+            }
+            with (path / "predictor.json").open("w") as f:
+                json.dump(predictor_state, f, indent=2)
 
-    @property
-    def y_traindev(self) -> pd.DataFrame:
-        """Target values for training/development set.
+    def is_fitted(self) -> bool:
+        """Check if module has been fitted."""
+        if hasattr(self, "selected_features_"):
+            return self.selected_features_ is not None
+        return False
 
-        Returns:
-            Subset of data_traindev containing only target columns
-        """
-        return self.experiment.y_traindev
 
-    @property
-    def x_test(self) -> pd.DataFrame:
-        """Feature matrix for test set.
+@define
+class FeatureSelectionExecution[T: Task](ModuleExecution[T]):
+    """Execution class for feature selection modules."""
 
-        Returns:
-            Subset of data_test containing only feature columns
-        """
-        return self.experiment.x_test
+    selected_features_: list[str] | None = field(init=False, default=None)
+    feature_importances_: dict | None = field(init=False, default=None)
 
-    @property
-    def y_test(self) -> pd.DataFrame:
-        """Target values for test set.
+    def is_fitted(self) -> bool:
+        """Check if module has been fitted."""
+        return self.selected_features_ is not None
 
-        Returns:
-            Subset of data_test containing only target columns
-        """
-        return self.experiment.y_test
 
-    @property
-    def feature_cols(self) -> list[str]:
-        """Feature column names.
+@define
+class MLModuleExecution[T: Task](FeatureSelectionExecution[T]):
+    """Execution class for ML modules that train predictive models."""
 
-        Returns:
-            List of feature column names used in the experiment
-        """
-        return self.experiment.feature_cols
+    model_: Any = field(init=False, default=None)
 
-    @property
-    def target_assignments(self) -> dict:
-        """Target column assignments.
-
-        Returns:
-            Dictionary mapping target names to column names
-        """
-        return self.experiment.target_assignments
-
-    @property
-    def target_metric(self) -> str:
-        """Primary target metric for optimization.
-
-        Returns:
-            Name of the metric to optimize for
-        """
-        return self.experiment.target_metric
-
-    @property
-    def ml_type(self) -> str:
-        """Machine learning problem type.
-
-        Returns:
-            One of: "classification", "regression", "timetoevent"
-        """
-        return self.experiment.ml_type
-
-    @property
-    def config(self) -> TaskConfigType:
-        """Module-specific configuration.
-
-        Returns:
-            The ml_config from experiment (typed as TaskConfigType)
-        """
-        return self.experiment.ml_config
-
-    @property
-    def metrics(self) -> list[str]:
-        """All metrics to track during execution.
-
-        Returns:
-            List of metric names to calculate
-        """
-        return self.experiment.metrics
-
-    @property
-    def stratification_col(self) -> str | None:
-        """Column to use for stratified splitting.
-
-        Returns:
-            Column name for stratification, or None if not stratified
-        """
-        return self.experiment.stratification_col
-
-    @property
-    def row_id_col(self) -> str:
-        """Row identifier column name.
-
-        Returns:
-            Name of the column containing row identifiers
-        """
-        return self.experiment.row_id_col
-
-    @property
-    def row_traindev(self) -> pd.Series:
-        """Row identifiers for training/development set.
-
-        Returns:
-            Series containing row identifiers from data_traindev
-        """
-        return self.experiment.row_traindev
-
-    @property
-    def row_test(self) -> pd.Series:
-        """Row identifiers for test set.
-
-        Returns:
-            Series containing row identifiers from data_test
-        """
-        return self.experiment.row_test
-
-    def __attrs_post_init__(self) -> None:
-        """Post-initialization hook to prepare results directory.
-
-        Called automatically after attrs initialization. Resets the results
-        directory to ensure a clean state for module execution.
-
-        Can be overridden by subclasses that need custom initialization.
-        Subclasses should call super().__attrs_post_init__() if they want
-        the ModuleBaseCore default directory setup behavior.
-        """
-        self._reset_results_dir()
-
-    def _reset_results_dir(self) -> None:
-        """Reset and recreate the results directory.
-
-        Deletes existing results directory if present and creates a fresh one.
-        This ensures a clean state for each module run and prevents stale files
-        from previous runs interfering with new results.
-        """
-        for directory in [self.path_results]:
-            if directory.exists():
-                directory.rmdir(recursive=True)
-            directory.mkdir(parents=True, exist_ok=True)
+    def is_fitted(self) -> bool:
+        """Check if module has been fitted."""
+        return self.model_ is not None

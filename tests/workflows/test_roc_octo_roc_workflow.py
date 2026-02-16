@@ -57,7 +57,7 @@ class TestRocOctoRocWorkflow:
             Roc(
                 description="step_0_roc_initial",
                 task_id=0,
-                depends_on_task=-1,
+                depends_on=None,
                 load_task=False,
                 threshold=0.85,
                 correlation_type="spearmanr",
@@ -66,7 +66,7 @@ class TestRocOctoRocWorkflow:
             Octo(
                 description="step_1_octo",
                 task_id=1,
-                depends_on_task=0,
+                depends_on=0,
                 n_folds_inner=3,
                 models=["ExtraTreesClassifier"],
                 model_seed=0,
@@ -79,7 +79,7 @@ class TestRocOctoRocWorkflow:
             Roc(
                 description="step_2_roc_final",
                 task_id=2,
-                depends_on_task=1,
+                depends_on=1,
                 load_task=False,
                 threshold=0.5,
                 correlation_type="spearmanr",
@@ -94,7 +94,7 @@ class TestRocOctoRocWorkflow:
         first_roc = workflow[0]
         assert isinstance(first_roc, Roc)
         assert first_roc.task_id == 0
-        assert first_roc.depends_on_task == -1
+        assert first_roc.depends_on is None
         assert first_roc.threshold == 0.85
         assert first_roc.description == "step_0_roc_initial"
 
@@ -102,14 +102,14 @@ class TestRocOctoRocWorkflow:
         octo_step = workflow[1]
         assert isinstance(octo_step, Octo)
         assert octo_step.task_id == 1
-        assert octo_step.depends_on_task == 0
+        assert octo_step.depends_on == 0
         assert octo_step.description == "step_1_octo"
 
         # Verify second ROC step
         second_roc = workflow[2]
         assert isinstance(second_roc, Roc)
         assert second_roc.task_id == 2
-        assert second_roc.depends_on_task == 1
+        assert second_roc.depends_on == 1
         assert second_roc.threshold == 0.5
         assert second_roc.description == "step_2_roc_final"
 
@@ -131,7 +131,7 @@ class TestRocOctoRocWorkflow:
                     Roc(
                         description="step_0_roc_initial",
                         task_id=0,
-                        depends_on_task=-1,
+                        depends_on=None,
                         threshold=0.85,
                         correlation_type="spearmanr",
                         filter_type="f_statistics",
@@ -139,7 +139,7 @@ class TestRocOctoRocWorkflow:
                     Octo(
                         description="step_1_octo",
                         task_id=1,
-                        depends_on_task=0,
+                        depends_on=0,
                         n_folds_inner=3,
                         models=["ExtraTreesClassifier"],
                         model_seed=0,
@@ -149,7 +149,7 @@ class TestRocOctoRocWorkflow:
                     Roc(
                         description="step_2_roc_final",
                         task_id=2,
-                        depends_on_task=1,
+                        depends_on=1,
                         threshold=0.5,
                         correlation_type="spearmanr",
                         filter_type="mutual_info",
@@ -162,19 +162,19 @@ class TestRocOctoRocWorkflow:
     def test_sequence_dependency_chain(self):
         """Test that the sequence dependency chain is correctly configured."""
         workflow = [
-            Roc(task_id=0, depends_on_task=-1, threshold=0.85),
-            Octo(task_id=1, depends_on_task=0, models=["ExtraTreesClassifier"], n_trials=6),
-            Roc(task_id=2, depends_on_task=1, threshold=0.5),
+            Roc(task_id=0, depends_on=None, threshold=0.85),
+            Octo(task_id=1, depends_on=0, models=["ExtraTreesClassifier"], n_trials=6),
+            Roc(task_id=2, depends_on=1, threshold=0.5),
         ]
 
         # First step has no dependencies
-        assert workflow[0].depends_on_task == -1
+        assert workflow[0].depends_on is None
 
         # Second step depends on first
-        assert workflow[1].depends_on_task == workflow[0].task_id
+        assert workflow[1].depends_on == workflow[0].task_id
 
         # Third step depends on second
-        assert workflow[2].depends_on_task == workflow[1].task_id
+        assert workflow[2].depends_on == workflow[1].task_id
 
         # Verify sequence IDs are sequential
         for i, step in enumerate(workflow):
@@ -183,9 +183,9 @@ class TestRocOctoRocWorkflow:
     def test_roc_threshold_configuration(self):
         """Test that ROC thresholds are configured correctly in the sequence."""
         workflow = [
-            Roc(task_id=0, depends_on_task=-1, threshold=0.85),
-            Octo(task_id=1, depends_on_task=0, models=["ExtraTreesClassifier"], n_trials=6),
-            Roc(task_id=2, depends_on_task=1, threshold=0.5),
+            Roc(task_id=0, depends_on=None, threshold=0.85),
+            Octo(task_id=1, depends_on=0, models=["ExtraTreesClassifier"], n_trials=6),
+            Roc(task_id=2, depends_on=1, threshold=0.5),
         ]
 
         first_roc = workflow[0]
@@ -204,15 +204,15 @@ class TestRocOctoRocWorkflow:
         workflow = [
             Roc(
                 task_id=0,
-                depends_on_task=-1,
+                depends_on=None,
                 threshold=0.85,
                 correlation_type=correlation_type,
                 filter_type=filter_type,
             ),
-            Octo(task_id=1, depends_on_task=0, models=["ExtraTreesClassifier"], n_trials=6),
+            Octo(task_id=1, depends_on=0, models=["ExtraTreesClassifier"], n_trials=6),
             Roc(
                 task_id=2,
-                depends_on_task=1,
+                depends_on=1,
                 threshold=0.5,
                 correlation_type=correlation_type,
                 filter_type=filter_type,
@@ -230,17 +230,17 @@ class TestRocOctoRocWorkflow:
     def test_octo_configuration_in_sequence(self):
         """Test OCTO module configuration within the ROC-OCTO-ROC sequence."""
         workflow = [
-            Roc(task_id=0, depends_on_task=-1, threshold=0.85),
+            Roc(task_id=0, depends_on=None, threshold=0.85),
             Octo(
                 task_id=1,
-                depends_on_task=0,
+                depends_on=0,
                 models=["ExtraTreesClassifier", "RandomForestClassifier"],
                 n_trials=10,
                 max_features=15,
                 n_folds_inner=5,
                 model_seed=42,
             ),
-            Roc(task_id=2, depends_on_task=1, threshold=0.5),
+            Roc(task_id=2, depends_on=1, threshold=0.5),
         ]
 
         octo_step = workflow[1]
@@ -255,9 +255,9 @@ class TestRocOctoRocWorkflow:
     def test_workflow_sequence_validation(self):
         """Test that the workflow sequence is properly validated."""
         workflow = [
-            Roc(task_id=0, depends_on_task=-1, threshold=0.85),
-            Octo(task_id=1, depends_on_task=0, models=["ExtraTreesClassifier"], n_trials=6),
-            Roc(task_id=2, depends_on_task=1, threshold=0.5),
+            Roc(task_id=0, depends_on=None, threshold=0.85),
+            Octo(task_id=1, depends_on=0, models=["ExtraTreesClassifier"], n_trials=6),
+            Roc(task_id=2, depends_on=1, threshold=0.5),
         ]
 
         assert len(workflow) == 3
@@ -266,9 +266,9 @@ class TestRocOctoRocWorkflow:
         for i, step in enumerate(workflow):
             assert step.task_id == i
             if i == 0:
-                assert step.depends_on_task == -1
+                assert step.depends_on is None
             else:
-                assert step.depends_on_task == i - 1
+                assert step.depends_on == i - 1
 
     @pytest.mark.slow
     def test_roc_octo_roc_workflow_actual_execution(self, sample_classification_dataset):
@@ -289,12 +289,12 @@ class TestRocOctoRocWorkflow:
                 path=temp_dir,
                 ignore_data_health_warning=True,
                 outer_parallelization=False,
-                run_single_experiment_num=0,
+                run_single_outersplit_num=0,
                 workflow=[
                     Roc(
                         description="step_0_roc_initial",
                         task_id=0,
-                        depends_on_task=-1,
+                        depends_on=None,
                         threshold=0.9,
                         correlation_type="spearmanr",
                         filter_type="f_statistics",
@@ -302,7 +302,7 @@ class TestRocOctoRocWorkflow:
                     Octo(
                         description="step_1_octo",
                         task_id=1,
-                        depends_on_task=0,
+                        depends_on=0,
                         n_folds_inner=5,
                         models=["ExtraTreesClassifier"],
                         model_seed=0,
@@ -314,7 +314,7 @@ class TestRocOctoRocWorkflow:
                     Roc(
                         description="step_2_roc_final",
                         task_id=2,
-                        depends_on_task=1,
+                        depends_on=1,
                         threshold=0.5,
                         correlation_type="spearmanr",
                         filter_type="f_statistics",
@@ -338,7 +338,7 @@ class TestRocOctoRocWorkflow:
 
             # Verify that sequence steps were executed by checking for workflow directories
             experiment_path = study_path / "outersplit0"
-            workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("workflowtask")]
+            workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("task")]
 
             # Should have directories for each sequence step
             assert len(workflow_dirs) >= 3, (
@@ -348,7 +348,7 @@ class TestRocOctoRocWorkflow:
             # Verify the final ROC step was executed with threshold 0.5
             def extract_workflow_task_number(path):
                 name = path.name
-                return int(name.replace("workflowtask", ""))
+                return int(name.replace("task", ""))
 
             workflow_dirs_sorted = sorted(workflow_dirs, key=extract_workflow_task_number)
             final_workflow_dir = workflow_dirs_sorted[-1]

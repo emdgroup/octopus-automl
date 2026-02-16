@@ -1,6 +1,8 @@
 """Init."""
 
-from .core import RfeCore  # type: ignore
 from .module import Rfe
 
-__all__ = ["Rfe", "RfeCore"]
+# Legacy Core class (deprecated - use Rfe directly)
+# from .core import RfeCore
+
+__all__ = ["Rfe"]

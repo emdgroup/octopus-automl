@@ -92,7 +92,7 @@ class TestOctoMulticlass:
         octo_task = Octo(
             description="step_1_octo_multiclass",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             load_task=False,
             n_folds_inner=5,
             models=[
@@ -112,7 +112,7 @@ class TestOctoMulticlass:
 
         assert isinstance(octo_task, Octo)
         assert octo_task.task_id == 0
-        assert octo_task.depends_on_task == -1
+        assert octo_task.depends_on is None
         assert octo_task.description == "step_1_octo_multiclass"
         assert octo_task.n_folds_inner == 5
         assert set(octo_task.models) == {
@@ -130,7 +130,7 @@ class TestOctoMulticlass:
         octo_task = Octo(
             description="step_1_octo_multiclass",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             models=[model],
             n_trials=5,
             n_folds_inner=3,
@@ -144,7 +144,7 @@ class TestOctoMulticlass:
         octo_task = Octo(
             description="step_1_octo_multiclass",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             models=models,
             n_trials=10,
             n_folds_inner=3,
@@ -177,7 +177,7 @@ class TestOctoMulticlass:
         octo_task = Octo(
             description="step_1_octo_multiclass",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             models=["ExtraTreesClassifier"],
             fi_methods_bestbag=fi_methods,
             n_trials=5,
@@ -190,7 +190,7 @@ class TestOctoMulticlass:
         octo_task = Octo(
             description="step_1_octo_multiclass",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             models=["ExtraTreesClassifier"],
             n_trials=25,
             n_folds_inner=5,
@@ -218,12 +218,12 @@ class TestOctoMulticlass:
                 path=temp_dir,
                 ignore_data_health_warning=True,
                 outer_parallelization=False,
-                run_single_experiment_num=0,
+                run_single_outersplit_num=0,
                 workflow=[
                     Octo(
                         description="step_1_octo_multiclass",
                         task_id=0,
-                        depends_on_task=-1,
+                        depends_on=None,
                         load_task=False,
                         n_folds_inner=3,
                         models=["ExtraTreesClassifier"],
@@ -254,7 +254,7 @@ class TestOctoMulticlass:
 
             # Verify that the Octo step was executed by checking for workflow directories
             experiment_path = study_path / "outersplit0"
-            workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("workflowtask")]
+            workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("task")]
 
             assert len(workflow_dirs) >= 1, (
                 f"Should have at least 1 workflow directory, found: {[d.name for d in workflow_dirs]}"
@@ -265,7 +265,7 @@ class TestOctoMulticlass:
         octo_task = Octo(
             description="step_1_octo_multiclass",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             load_task=False,
             n_folds_inner=5,
             models=[
@@ -286,7 +286,7 @@ class TestOctoMulticlass:
         # Verify all parameters are set correctly
         assert octo_task.description == "step_1_octo_multiclass"
         assert octo_task.task_id == 0
-        assert octo_task.depends_on_task == -1
+        assert octo_task.depends_on is None
         assert octo_task.load_task is False
         assert octo_task.n_folds_inner == 5
         assert set(octo_task.models) == {

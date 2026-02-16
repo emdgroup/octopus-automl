@@ -94,7 +94,7 @@ nav:
       - octopus.models: "reference/models.md"
       - octopus.modules: "reference/modules.md"
       - octopus.study: "reference/study.md"
-      - octopus.task: "reference/task.md"
+
   - Project Info:
       - Contributing: contributing.md
       - Contributors: contributors.md

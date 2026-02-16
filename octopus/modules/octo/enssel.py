@@ -128,9 +128,19 @@ class EnSel:
         first_bag_key = bag_keys[0]
         first_bag = Bag.from_pickle(first_bag_key)
         for part, pool_value in pool.items():
-            ensemble = pd.concat(pool_value, axis=0).groupby(by=self.row_id_col).mean().reset_index()
+            combined = pd.concat(pool_value, axis=0)
+            # Identify numeric columns to average (exclude metadata and row_id)
+            numeric_cols = combined.select_dtypes(include=["number"]).columns.tolist()
+            if self.row_id_col in numeric_cols:
+                numeric_cols.remove(self.row_id_col)
+            for col in ["outer_split_id", "inner_split_id", "task_id"]:
+                if col in numeric_cols:
+                    numeric_cols.remove(col)
+
+            ensemble = combined.groupby(by=self.row_id_col)[numeric_cols].mean().reset_index()
             for column in list(self.target_assignments.values()):
-                ensemble[column] = ensemble[column].astype(first_bag.trainings[0].data_train[column].dtype)
+                if column in ensemble.columns:
+                    ensemble[column] = ensemble[column].astype(first_bag.trainings[0].data_train[column].dtype)
             predictions["ensemble"][part] = ensemble
 
         # Calculate performance using the utility function

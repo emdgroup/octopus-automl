@@ -38,6 +38,8 @@ extend-ignore = [
     "E501",    # Line too long (handled by formatter)
     "SIM108",  # Use ternary operator instead of `if`-`else`-block - this is less verbose but often less readable
     "RUF015",  # Prefer 'next(iter(...))' over single element slice - this is more efficient but much less readable
+    "TC001",   # Move application imports into TYPE_CHECKING - disabled because imports are needed at runtime for attrs/base classes
+    "TC002",   # Move third-party imports into TYPE_CHECKING - disabled because imports are needed at runtime for attrs validators
 ]
 
 # Here, we explicitly choose the rules that ruff should verify.

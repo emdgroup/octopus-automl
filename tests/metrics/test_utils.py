@@ -142,7 +142,7 @@ class TestGetPerformanceFromPredictions:
             "training_0": {
                 "dev": pd.DataFrame(
                     {
-                        "row_id": [10, 20, 30, 40, 50],  # numeric row identifier
+                        "row_id_col": [10, 20, 30, 40, 50],  # numeric row identifier
                         "prediction": [0, 1, 2, 0, 1],
                         "target": [0, 1, 2, 0, 2],
                         0: [0.7, 0.2, 0.1, 0.8, 0.3],

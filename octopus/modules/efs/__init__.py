@@ -1,6 +1,8 @@
 """Init."""
 
-from .core import EfsCore  # type: ignore
 from .module import Efs
 
-__all__ = ["Efs", "EfsCore"]
+# Legacy Core class (deprecated - use Efs directly)
+# from .core import EfsCore
+
+__all__ = ["Efs"]
