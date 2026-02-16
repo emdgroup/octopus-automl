@@ -15,7 +15,8 @@ For details on which dtypes are tested and supported, see [tests/infrastructure/
 
 ## How does parallelization work in `octopus`, what are `n_cpus`, `n_workers`,  `n_assigned_cpus`?
 
-Octopus uses a layered approach to parallelization.
+Octopus uses a layered approach to parallelization based on the
+[nested cross-validation](concepts/nested_cv.md) structure.
 Clearly, it is most efficient to distribute the work done for the individual outer splits onto individual CPUs/CPU groups.
 
 If there are more CPUs available than outer splits to be processed, `octopus` activates inner parallelization which allows the individual tasks inside the workflow to distribute their work onto multiple processors within the CPU group assigned to the outer split.
