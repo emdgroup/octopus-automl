@@ -85,7 +85,9 @@ class DataSplit:
 
         return combined_values
 
-    def _single_seed_datasplits(self, datasplit_seed, name_a: str, name_b: str) -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
+    def _single_seed_datasplits(
+        self, datasplit_seed, name_a: str, name_b: str
+    ) -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
         """Get datasplits for single seed."""
         random.seed(datasplit_seed)
         np.random.seed(datasplit_seed)

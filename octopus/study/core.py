@@ -15,6 +15,7 @@ from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
 from octopus.modules import Octo, Task
 
+from .context import StudyContext
 from .data_preparator import OctoDataPreparator
 from .data_validator import OctoDataValidator
 from .healthChecker import HealthCheckConfig, OctoDataHealthChecker
@@ -320,6 +321,23 @@ class OctoStudy(ABC):
 
         set_logger_filename(log_file=None)
 
+    def _create_study_context(self) -> StudyContext:
+        """Create a frozen StudyContext from the current study state."""
+        return StudyContext(
+            ml_type=self.ml_type.value,
+            target_metric=self.target_metric,
+            metrics=self.metrics,
+            target_assignments=self.target_assignments,
+            positive_class=getattr(self, "positive_class", None),
+            stratification_col=self.stratification_col,
+            datasplit_type=self.datasplit_type.value,
+            sample_id_col=self.sample_id_col,
+            feature_cols=self.prepared.feature_cols,
+            row_id_col=self.prepared.row_id_col,
+            output_path=self.output_path,
+            log_dir=self.log_dir,
+        )
+
     def fit(
         self,
         data: pd.DataFrame,
@@ -338,9 +356,13 @@ class OctoStudy(ABC):
         self._run_health_check(prepared_data, health_check_config)
 
         outersplit_data = self._create_datasplits(prepared_data)
+        study_context = self._create_study_context()
         manager = OctoManager(
-            study=self,
             outersplit_data=outersplit_data,
+            study=study_context,
+            workflow=self.workflow,
+            outer_parallelization=self.outer_parallelization,
+            run_single_outersplit_num=self.run_single_outersplit_num,
         )
         manager.run_outersplits()
 

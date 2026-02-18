@@ -19,11 +19,11 @@ from upath import UPath
 from octopus.logger import LogGroup, get_logger
 from octopus.models import Models
 from octopus.modules.base import MLModuleExecution, ResultType, Task
+from octopus.study.context import StudyContext
 
 if TYPE_CHECKING:
     from upath import UPath
 
-    from octopus.study.core import OctoStudy
 from octopus.datasplit import DataSplit, InnerSplits
 from octopus.modules.mrmr.module import _maxrminr, _relevance_fstats
 from octopus.modules.octo.bag import Bag
@@ -216,8 +216,8 @@ class OctoModule(MLModuleExecution[Octo]):
     """MRMR feature sets for different feature counts."""
 
     # Temporary execution state (available during fit)
-    _study: Any = field(init=False, default=None)
-    """OctoStudy reference (temporary state during fit)."""
+    _study: StudyContext | None = field(init=False, default=None)
+    """StudyContext reference (temporary state during fit)."""
 
     _output_dir: Any = field(init=False, default=None)
     """Output directory (temporary state during fit)."""
@@ -248,7 +248,7 @@ class OctoModule(MLModuleExecution[Octo]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -339,9 +339,9 @@ class OctoModule(MLModuleExecution[Octo]):
     @property
     def datasplit_column(self) -> str:
         """Column used for data splitting (available during fit)."""
-        if self._study.datasplit_type.value == "sample":
+        if self._study.datasplit_type == "sample":
             return self._study.sample_id_col
-        return self._study.datasplit_type.value
+        return self._study.datasplit_type
 
     @property
     def stratification_col(self) -> str | None:
@@ -351,7 +351,7 @@ class OctoModule(MLModuleExecution[Octo]):
     @property
     def ml_type(self) -> str:
         """ML type (available during fit)."""
-        return self._study.ml_type.value
+        return self._study.ml_type
 
     @property
     def target_metric(self) -> str:
@@ -366,12 +366,12 @@ class OctoModule(MLModuleExecution[Octo]):
     @property
     def row_column(self) -> str:
         """Row ID column (available during fit)."""
-        return self._study.prepared.row_id_col
+        return self._study.row_id_col
 
     @property
     def positive_class(self):
         """Positive class (available during fit). None for regression."""
-        return getattr(self._study, "positive_class", None)
+        return self._study.positive_class
 
     @property
     def x_traindev(self) -> pd.DataFrame:

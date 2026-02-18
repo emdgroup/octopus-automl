@@ -18,11 +18,10 @@ from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
 from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ResultType, Task
+from octopus.study.context import StudyContext
 
 if TYPE_CHECKING:
     from upath import UPath
-
-    from octopus.study.core import OctoStudy
 
 # Ignore all Warnings
 warnings.filterwarnings("ignore")
@@ -100,7 +99,7 @@ class BorutaModule(FeatureSelectionExecution[Boruta]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -120,12 +119,12 @@ class BorutaModule(FeatureSelectionExecution[Boruta]):
             path_results.mkdir(parents=True, exist_ok=True)
 
         # Configuration, define default model
-        if study.ml_type.value == "classification":
+        if study.ml_type == "classification":
             default_model = "RandomForestClassifier"
-        elif study.ml_type.value == "regression":
+        elif study.ml_type == "regression":
             default_model = "RandomForestRegressor"
         else:
-            raise ValueError(f"{study.ml_type.value} not supported")
+            raise ValueError(f"{study.ml_type} not supported")
 
         model_type = self.config.model
         if model_type == "":

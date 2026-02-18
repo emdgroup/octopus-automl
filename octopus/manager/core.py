@@ -2,7 +2,6 @@
 
 import math
 import os
-from typing import TYPE_CHECKING
 
 from attrs import define, field, validators
 
@@ -16,9 +15,8 @@ from octopus.manager.execution import (
 )
 from octopus.manager.ray_parallel import init_ray, shutdown_ray
 from octopus.manager.workflow_runner import WorkflowTaskRunner
-
-if TYPE_CHECKING:
-    from octopus.study.core import OctoStudy
+from octopus.modules.base import Task
+from octopus.study.context import StudyContext
 
 logger = get_logger()
 
@@ -133,11 +131,20 @@ class ResourceConfig:
 class OctoManager:
     """Orchestrates the execution of outersplits."""
 
-    study: "OctoStudy" = field(validator=[validators.instance_of(object)])  # type: ignore[assignment]
-    """OctoStudy instance containing study configuration and data."""
-
     outersplit_data: OuterSplits = field(validator=[validators.instance_of(dict)])
     """Preprocessed data for each outersplit, keyed by outersplit identifier."""
+
+    study: StudyContext = field(validator=[validators.instance_of(StudyContext)])
+    """Frozen runtime context containing study configuration."""
+
+    workflow: list[Task] = field(validator=[validators.instance_of(list)])
+    """List of workflow tasks to execute."""
+
+    outer_parallelization: bool = field(validator=[validators.instance_of(bool)])
+    """Whether to run outersplits in parallel."""
+
+    run_single_outersplit_num: int = field(validator=[validators.instance_of(int)])
+    """Index of single outersplit to run (-1 for all)."""
 
     def run_outersplits(self) -> None:
         """Run all outersplits."""
@@ -156,13 +163,17 @@ class OctoManager:
 
         resources = ResourceConfig.create(
             num_outersplits=len(self.outersplit_data),
-            outer_parallelization=self.study.outer_parallelization,
-            run_single_outersplit_num=self.study.run_single_outersplit_num,
+            outer_parallelization=self.outer_parallelization,
+            run_single_outersplit_num=self.run_single_outersplit_num,
         )
         logger.info(f"Preparing execution | {resources}")
 
         try:
-            runner = WorkflowTaskRunner(self.study, resources.cpus_per_outersplit)
+            runner = WorkflowTaskRunner(
+                study=self.study,
+                workflow=self.workflow,
+                cpus_per_outersplit=resources.cpus_per_outersplit,
+            )
             strategy = self._select_strategy(resources.num_workers)
             strategy.execute(self.outersplit_data, runner.run)
         finally:
@@ -177,8 +188,8 @@ class OctoManager:
         Returns:
             Appropriate execution strategy based on configuration.
         """
-        if self.study.run_single_outersplit_num != -1:
-            return SingleOutersplitStrategy(self.study.run_single_outersplit_num)
-        if self.study.outer_parallelization:
+        if self.run_single_outersplit_num != -1:
+            return SingleOutersplitStrategy(self.run_single_outersplit_num)
+        if self.outer_parallelization:
             return ParallelRayStrategy(num_workers, self.study.log_dir)
         return SequentialStrategy()

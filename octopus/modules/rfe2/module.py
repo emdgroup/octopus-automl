@@ -14,11 +14,10 @@ from attrs import Factory, define, field, validators
 if TYPE_CHECKING:
     from upath import UPath
 
-    from octopus.study.core import OctoStudy
-
 from octopus.modules.base import FIDataset, FIMethod, ResultType
 from octopus.modules.octo.bag import BagBase
 from octopus.modules.octo.module import Octo, OctoModule
+from octopus.study.context import StudyContext
 from octopus.utils import calculate_feature_groups
 
 
@@ -74,7 +73,7 @@ class Rfe2Module(OctoModule):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,

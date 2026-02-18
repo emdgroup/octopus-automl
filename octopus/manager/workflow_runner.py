@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
 
 import pandas as pd
 import ray
@@ -12,10 +11,8 @@ from upath import UPath
 
 from octopus.logger import get_logger
 from octopus.modules.base import Task
+from octopus.study.context import StudyContext
 from octopus.utils import calculate_feature_groups
-
-if TYPE_CHECKING:
-    from octopus.study.core import OctoStudy
 
 logger = get_logger()
 
@@ -30,11 +27,13 @@ class WorkflowTaskRunner:
     - Saving task results
 
     Attributes:
-        study: OctoStudy instance containing ML configuration (includes workflow, log_dir, etc.)
-        cpus_per_outersplit: Number of CPUs allocated to each task
+        study: Frozen runtime context containing study configuration.
+        workflow: List of workflow tasks to execute.
+        cpus_per_outersplit: Number of CPUs allocated to each task.
     """
 
-    study: OctoStudy = field(validator=[validators.instance_of(object)])  # type: ignore[assignment]
+    study: StudyContext = field(validator=[validators.instance_of(StudyContext)])
+    workflow: list[Task] = field(validator=[validators.instance_of(list)])
     cpus_per_outersplit: int = field(validator=[validators.instance_of(int)])
 
     def run(self, outersplit_id: int, data_train: pd.DataFrame, data_test: pd.DataFrame) -> None:
@@ -66,7 +65,7 @@ class WorkflowTaskRunner:
         # prior_results_dict has keys: "scores", "predictions", "feature_importances" (DataFrames)
         task_results: dict[int, tuple[list[str], dict[str, pd.DataFrame]]] = {}
 
-        for task in self.study.workflow:
+        for task in self.workflow:
             self._log_task_info(task)
 
             if task.load_task:
@@ -109,7 +108,7 @@ class WorkflowTaskRunner:
             feature_cols, prior_results = task_results[task.depends_on]
             logger.info(f"Prior results keys: {prior_results.keys()}")
         else:
-            feature_cols = self.study.prepared.feature_cols
+            feature_cols = self.study.feature_cols
             prior_results = {}
 
         # Calculate feature groups

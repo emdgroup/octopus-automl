@@ -5,15 +5,14 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import joblib
 import pandas as pd
 from attrs import define, field, validators
 from upath import UPath
 
-if TYPE_CHECKING:
-    from octopus.study.core import OctoStudy
+from octopus.study.context import StudyContext
 
 
 class ResultType(StrEnum):
@@ -76,7 +75,7 @@ class ModuleExecution[T: Task](ABC):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
