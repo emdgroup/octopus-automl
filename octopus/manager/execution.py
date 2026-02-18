@@ -6,6 +6,7 @@ import pandas as pd
 from attrs import define
 from upath import UPath
 
+from octopus.datasplit import OuterSplits
 from octopus.logger import LogGroup, get_logger
 from octopus.manager.ray_parallel import run_parallel_outer_ray
 
@@ -20,7 +21,7 @@ class ExecutionStrategy(Protocol):
 
     def execute(
         self,
-        outersplit_data: dict,
+        outersplit_data: OuterSplits,
         run_fn: "Callable[[int, pd.DataFrame, pd.DataFrame], None]",
     ) -> None:
         """Execute outersplits using this strategy."""
@@ -35,14 +36,14 @@ class SingleOutersplitStrategy:
 
     def execute(
         self,
-        outersplit_data: dict,
+        outersplit_data: OuterSplits,
         run_fn: "Callable[[int, pd.DataFrame, pd.DataFrame], None]",
     ) -> None:
         """Execute only the outersplit at outersplit_index."""
         logger.set_log_group(LogGroup.PROCESSING)
         logger.info(f"Running single outersplit: {self.outersplit_index}")
         outersplit_id = self.outersplit_index
-        run_fn(outersplit_id, outersplit_data[outersplit_id]["train"], outersplit_data[outersplit_id]["test"])
+        run_fn(outersplit_id, outersplit_data[outersplit_id].traindev, outersplit_data[outersplit_id].test)
 
 
 @define
@@ -51,14 +52,14 @@ class SequentialStrategy:
 
     def execute(
         self,
-        outersplit_data: dict,
+        outersplit_data: OuterSplits,
         run_fn: "Callable[[int, pd.DataFrame, pd.DataFrame], None]",
     ) -> None:
         """Execute all outersplits sequentially."""
         logger.set_log_group(LogGroup.PROCESSING)
         for outersplit_id in outersplit_data:
             logger.info(f"Running outer split: {outersplit_id}")
-            run_fn(outersplit_id, outersplit_data[outersplit_id]["train"], outersplit_data[outersplit_id]["test"])
+            run_fn(outersplit_id, outersplit_data[outersplit_id].traindev, outersplit_data[outersplit_id].test)
 
 
 @define
@@ -70,7 +71,7 @@ class ParallelRayStrategy:
 
     def execute(
         self,
-        outersplit_data: dict,
+        outersplit_data: OuterSplits,
         run_fn: "Callable[[int, pd.DataFrame, pd.DataFrame], None]",
     ) -> None:
         """Execute all outersplits in parallel using Ray."""

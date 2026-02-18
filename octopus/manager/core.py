@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from attrs import define, field, validators
 
+from octopus.datasplit import OuterSplits
 from octopus.logger import get_logger
 from octopus.manager.execution import (
     ExecutionStrategy,
@@ -32,23 +33,25 @@ def get_available_cpus() -> int:
 
 @define(frozen=True)
 class ResourceConfig:
-    """Immutable configuration for CPU resources.
+    """Immutable configuration for CPU resources."""
 
-    Attributes:
-        num_cpus: Total available CPUs on the system.
-        num_workers: Number of parallel outer workers.
-        cpus_per_outersplit: CPUs allocated to each outersplit for inner parallelization.
-        outer_parallelization: Whether outer parallelization is enabled.
-        run_single_outersplit_num: Index of single outersplit to run (-1 for all).
-        num_outersplits: Total number of outersplits in the study.
-    """
+    num_cpus: int = field(validator=validators.instance_of(int))
+    """Total available CPUs on the system."""
 
-    num_cpus: int
-    num_workers: int
-    cpus_per_outersplit: int
-    outer_parallelization: bool
-    run_single_outersplit_num: int
-    num_outersplits: int
+    num_workers: int = field(validator=validators.instance_of(int))
+    """Number of parallel outer workers."""
+
+    cpus_per_outersplit: int = field(validator=validators.instance_of(int))
+    """CPUs allocated to each outersplit for inner parallelization."""
+
+    outer_parallelization: bool = field(validator=validators.instance_of(bool))
+    """Whether outer parallelization is enabled."""
+
+    run_single_outersplit_num: int = field(validator=validators.instance_of(int))
+    """Index of single outersplit to run (-1 for all). This is mainly used for testing and debugging."""
+
+    num_outersplits: int = field(validator=validators.instance_of(int))
+    """Total number of outersplits in the study."""
 
     @classmethod
     def create(
@@ -131,7 +134,10 @@ class OctoManager:
     """Orchestrates the execution of outersplits."""
 
     study: "OctoStudy" = field(validator=[validators.instance_of(object)])  # type: ignore[assignment]
-    outersplit_data: dict = field(validator=[validators.instance_of(dict)])
+    """OctoStudy instance containing study configuration and data."""
+
+    outersplit_data: OuterSplits = field(validator=[validators.instance_of(dict)])
+    """Preprocessed data for each outersplit, keyed by outersplit identifier."""
 
     def run_outersplits(self) -> None:
         """Run all outersplits."""

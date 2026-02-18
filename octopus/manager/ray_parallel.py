@@ -10,6 +10,7 @@ import threadpoolctl
 from ray import ObjectRef
 from upath import UPath
 
+from octopus.datasplit import OuterSplits
 from octopus.logger import set_logger_filename
 
 
@@ -122,19 +123,19 @@ def _setup_worker_logging(log_dir: UPath):
 
 
 def run_parallel_outer_ray[T](
-    outersplit_data: dict,
+    outersplit_data: OuterSplits,
     run_fn: Callable[[int, pd.DataFrame, pd.DataFrame], T],
     log_dir: UPath,
     num_workers: int,
 ) -> list[T]:
-    """Execute run_fn(outersplit_id, data_train, data_test) in parallel using Ray.
+    """Execute run_fn(outersplit_id, data_traindev, data_test) in parallel using Ray.
 
     Preserves input order and limits concurrency to num_workers. Outer tasks reserve
     0 CPUs so inner Ray work can use available CPUs.
 
     Args:
-        outersplit_data: Dictionary mapping outersplit_id to {"train": df, "test": df}.
-        run_fn: Function called as run_fn(outersplit_id, data_train, data_test).
+        outersplit_data: Dictionary mapping outersplit_id to OuterSplit(traindev, test).
+        run_fn: Function called as run_fn(outersplit_id, data_traindev, data_test).
         log_dir: Directory to store individual Ray worker logs.
         num_workers: Maximum number of concurrent outer tasks.
 
@@ -164,7 +165,7 @@ def run_parallel_outer_ray[T](
         outersplit_id = outersplit_ids[next_i]
         inflight.append(
             outer_task.remote(
-                outersplit_id, outersplit_data[outersplit_id]["train"], outersplit_data[outersplit_id]["test"], log_dir
+                outersplit_id, outersplit_data[outersplit_id].traindev, outersplit_data[outersplit_id].test, log_dir
             )
         )
         next_i += 1
@@ -179,8 +180,8 @@ def run_parallel_outer_ray[T](
             inflight.append(
                 outer_task.remote(
                     outersplit_id,
-                    outersplit_data[outersplit_id]["train"],
-                    outersplit_data[outersplit_id]["test"],
+                    outersplit_data[outersplit_id].traindev,
+                    outersplit_data[outersplit_id].test,
                     log_dir,
                 )
             )

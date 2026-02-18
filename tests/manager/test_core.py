@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 from upath import UPath
 
+from octopus.datasplit import OuterSplit
 from octopus.manager import OctoManager
 from octopus.manager.core import ResourceConfig
 from octopus.manager.workflow_runner import WorkflowTaskRunner
@@ -42,10 +43,10 @@ def mock_workflow():
 def mock_outersplit_data():
     """Create mock fold splits."""
     return {
-        0: {
-            "train": pd.DataFrame({"feature1": [1, 2], "feature2": [3, 4], "target": [0, 1]}),
-            "test": pd.DataFrame({"feature1": [5], "feature2": [6], "target": [1]}),
-        }
+        0: OuterSplit(
+            traindev=pd.DataFrame({"feature1": [1, 2], "feature2": [3, 4], "target": [0, 1]}),
+            test=pd.DataFrame({"feature1": [5], "feature2": [6], "target": [1]}),
+        )
     }
 
 
@@ -327,10 +328,10 @@ class TestOctoManager:
         """
         # Create 8 mock fold splits
         outersplit_data = {
-            i: {
-                "train": pd.DataFrame({"feature1": [1, 2], "feature2": [3, 4], "target": [0, 1]}),
-                "test": pd.DataFrame({"feature1": [5], "feature2": [6], "target": [1]}),
-            }
+            i: OuterSplit(
+                traindev=pd.DataFrame({"feature1": [1, 2], "feature2": [3, 4], "target": [0, 1]}),
+                test=pd.DataFrame({"feature1": [5], "feature2": [6], "target": [1]}),
+            )
             for i in range(8)
         }
 
