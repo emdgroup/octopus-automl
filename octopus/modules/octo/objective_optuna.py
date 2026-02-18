@@ -4,6 +4,7 @@ import heapq
 
 from upath import UPath
 
+from octopus.datasplit import InnerSplits
 from octopus.logger import LogGroup, get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
@@ -34,7 +35,7 @@ class ObjectiveOptuna:
         config,
         path_study: UPath,
         task_path: str,
-        data_splits,
+        data_splits: InnerSplits,
         study_name,
         top_trials,
         mrmr_features,
@@ -133,8 +134,8 @@ class ObjectiveOptuna:
                     target_assignments=self.target_assignments,
                     feature_cols=feature_cols,
                     row_id_col=self.row_id_col,
-                    data_train=split["train"],  # inner datasplit, train
-                    data_dev=split["test"],  # inner datasplit, dev
+                    data_train=split.train,  # inner datasplit, train
+                    data_dev=split.dev,  # inner datasplit, dev
                     data_test=self.data_test,
                     config_training=config_training,
                     target_metric=self.target_metric,

@@ -9,11 +9,11 @@ import pandas as pd
 from attrs import Factory, asdict, define, field, fields, has, validators
 from upath import UPath
 
+from octopus.datasplit import DataSplit, OuterSplits
 from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
 from octopus.modules import Octo, Task
-from octopus.utils import DataSplit
 
 from .data_preparator import OctoDataPreparator
 from .data_validator import OctoDataValidator
@@ -238,7 +238,7 @@ class OctoStudy(ABC):
 
         return prepared.data
 
-    def _create_datasplits(self, data: pd.DataFrame) -> dict:
+    def _create_datasplits(self, data: pd.DataFrame) -> OuterSplits:
         """Create datasplits for outer cross-validation."""
         relevant_cols = list(self.prepared.feature_cols) + [
             c
@@ -263,15 +263,15 @@ class OctoStudy(ABC):
         else:
             datasplit_col = self.datasplit_type.value
 
-        datasplits: dict = DataSplit(
+        outersplits = DataSplit(
             dataset=data_clean,
             datasplit_col=datasplit_col,
             seeds=[self.datasplit_seed_outer],
             num_folds=self.n_folds_outer,
             stratification_col=self.stratification_col,
-        ).get_datasplits()
+        ).get_outer_splits()
 
-        return datasplits
+        return outersplits
 
     def _run_health_check(self, data: pd.DataFrame, config: HealthCheckConfig | None) -> None:
         """Run data health check, save results, and check for issues."""

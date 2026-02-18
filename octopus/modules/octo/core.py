@@ -22,7 +22,7 @@ from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.objective_optuna import ObjectiveOptuna
 from octopus.modules.octo.training import Training
-from octopus.utils import DataSplit
+from octopus.datasplit import DataSplit, InnerSplits
 
 from .optuna_storage_backend import JournalFsspecFileBackend
 
@@ -40,7 +40,7 @@ class OctoModule(MLModuleExecution["Octo"]):
     """Octo execution module. Created by Octo.create_module()."""
 
     # Internal state (set during fit)
-    data_splits_: dict = field(init=False, default=Factory(dict))
+    data_splits_: InnerSplits = field(init=False, default=Factory(dict))
     """Data splits for inner CV."""
 
     paths_optuna_db_: dict[str, UPath] = field(init=False, default=Factory(dict))
@@ -230,7 +230,7 @@ class OctoModule(MLModuleExecution["Octo"]):
             num_folds=self.config.n_folds_inner,
             stratification_col=self.stratification_col,
             process_id=f"OUTER {self._outersplit_id} SEQ TBD",
-        ).get_datasplits()
+        ).get_inner_splits()
 
         # if we don't want to resume optimization:
         # delete directories /trials /results to ensure clean state
@@ -509,8 +509,8 @@ class OctoModule(MLModuleExecution["Octo"]):
                     target_assignments=self.target_assignments,
                     feature_cols=best_bag_feature_cols,
                     row_id_col=self.row_column,
-                    data_train=split["train"],  # inner datasplit, train
-                    data_dev=split["test"],  # inner datasplit, dev
+                    data_train=split.train,  # inner datasplit, train
+                    data_dev=split.dev,  # inner datasplit, dev
                     data_test=self._data_test,
                     config_training=user_attrs["config_training"],
                     target_metric=self.target_metric,
