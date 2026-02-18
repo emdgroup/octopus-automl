@@ -14,7 +14,6 @@ from .boruta import Boruta
 from .efs import Efs
 from .mrmr import Mrmr
 from .octo import Octo
-from .predictor import Predictor
 from .rfe import Rfe
 from .rfe2 import Rfe2
 from .roc import Roc
@@ -28,7 +27,6 @@ __all__ = [
     "FIMethod",
     "Mrmr",
     "Octo",
-    "Predictor",
     "ResultType",
     "Rfe",
     "Rfe2",
