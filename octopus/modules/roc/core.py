@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from upath import UPath
 
     from octopus.modules.roc.module import Roc
-    from octopus.study.core import OctoStudy
+    from octopus.study.context import StudyContext
 
 logger = get_logger()
 
@@ -54,7 +54,7 @@ class RocModule(FeatureSelectionExecution["Roc"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -76,18 +76,18 @@ class RocModule(FeatureSelectionExecution["Roc"]):
 
         # Calculate dependency to target
         logger.info("Calculating dependency to target")
-        if study.ml_type.value == "timetoevent":
+        if study.ml_type == "timetoevent":
             logger.info("Time2Event: Note, that the first group element is selected.")
             dependency = None  # Not used for timetoevent
         elif self.config.filter_type == "mutual_info":
             # Set random state
-            values = filter_inventory[self.config.filter_type][study.ml_type.value](
+            values = filter_inventory[self.config.filter_type][study.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel(), random_state=0
             )
             dependency = pd.Series(values, index=feature_cols)
         elif self.config.filter_type == "f_statistics":
             # Ignoring p-values
-            values, _ = filter_inventory[self.config.filter_type][study.ml_type.value](
+            values, _ = filter_inventory[self.config.filter_type][study.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel()
             )
             dependency = pd.Series(values, index=feature_cols)
@@ -128,7 +128,7 @@ class RocModule(FeatureSelectionExecution["Roc"]):
 
         for group in self.feature_groups_:
             if group:
-                if study.ml_type.value == "timetoevent":
+                if study.ml_type == "timetoevent":
                     # timetoevent: keep first feature
                     keep_feature = group[0]
                 else:

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from upath import UPath
 
     from octopus.modules.efs.module import Efs
-    from octopus.study.core import OctoStudy
+    from octopus.study.context import StudyContext
 
 supported_models = {
     "CatBoostClassifier",
@@ -74,8 +74,8 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
     """Optimized ensemble of models."""
 
     # Temporary execution state (available during fit)
-    _study: Any = field(init=False, default=None)
-    """OctoStudy reference (temporary state during fit)."""
+    _study: StudyContext | None = field(init=False, default=None)
+    """StudyContext reference (temporary state during fit)."""
 
     _data_traindev: Any = field(init=False, default=None)
     """Training/development data (temporary state during fit)."""
@@ -114,7 +114,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
     @property
     def ml_type(self) -> str:
         """ML type."""
-        return self._study.ml_type.value
+        return self._study.ml_type
 
     @property
     def stratification_col(self) -> str | None:
@@ -136,7 +136,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -154,7 +154,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         self._feature_cols = feature_cols
 
         # Create results directory
-        path_results = self._study.output_dir / "results" if self._study.output_dir else None
+        path_results = self._output_dir / "results" if self._output_dir else None
         if path_results:
             path_results.mkdir(parents=True, exist_ok=True)
         self.path_results = path_results
@@ -217,12 +217,12 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         random.seed(0)
 
         # Configuration, define default model
-        if self._study.ml_type.value == "classification":
+        if self._study.ml_type == "classification":
             default_model = "CatBoostClassifier"
-        elif self._study.ml_type.value == "regression":
+        elif self._study.ml_type == "regression":
             default_model = "CatBoostRegressor"
         else:
-            raise ValueError(f"{self._study.ml_type.value} not supported")
+            raise ValueError(f"{self._study.ml_type} not supported")
 
         model_type = self.config.model
         if model_type == "":
@@ -279,14 +279,14 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
             print(f"Subset {i}, best_cv_score: {best_cv_score:.4f}")
 
             # predictions
-            if self._study.ml_type.value == "classification":
+            if self._study.ml_type == "classification":
                 cv_preds_df = pd.DataFrame()
                 cv_preds_df[self.row_column] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")
                 cv_preds_df["probabilities"] = cross_val_predict(best_model, x, y, cv=cv, method="predict_proba")[
                     :, 1
                 ]  # binary only
-            elif self._study.ml_type.value == "regression":
+            elif self._study.ml_type == "regression":
                 cv_preds_df = pd.DataFrame()
                 cv_preds_df[self.row_column] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")

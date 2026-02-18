@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from upath import UPath
 
     from octopus.modules.autogluon.module import AutoGluon
-    from octopus.study.core import OctoStudy
+    from octopus.study.context import StudyContext
 
 logger = get_logger()
 
@@ -110,8 +110,8 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
     _num_cpus_allocated: int = field(init=False, default=1)
     """Allocated CPU count after validation."""
 
-    _study: Any = field(init=False, default=None)
-    """OctoStudy reference (temporary state during fit)."""
+    _study: StudyContext | None = field(init=False, default=None)
+    """StudyContext reference (temporary state during fit)."""
 
     _output_dir: Any = field(init=False, default=None)
     """Output directory (temporary state during fit)."""
@@ -169,21 +169,21 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         """ML type (available during fit)."""
         if self._study is None:
             raise ValueError("Study not available - fit() not called")
-        return self._study.ml_type.value  # type: ignore[no-any-return]
+        return self._study.ml_type  # type: ignore[no-any-return]
 
     @property
     def positive_class(self) -> Any:
         """Positive class (available during fit). None for regression."""
         if self._study is None:
             raise ValueError("Study not available - fit() not called")
-        return getattr(self._study, "positive_class", None)
+        return self._study.positive_class
 
     @property
     def row_column(self) -> str:
         """Row ID column name (available during fit)."""
         if self._study is None:
             raise ValueError("Study not available - fit() not called")
-        return self._study.prepared.row_id_col  # type: ignore[no-any-return]
+        return self._study.row_id_col  # type: ignore[no-any-return]
 
     @property
     def row_traindev(self) -> pd.Series:
@@ -254,7 +254,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -270,7 +270,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         self._feature_cols = feature_cols
 
         target_cols = list(study.target_assignments.values())
-        row_id_col = study.prepared.row_id_col
+        row_id_col = study.row_id_col
 
         self._x_traindev = data_traindev[feature_cols]
         self._y_traindev = data_traindev[target_cols]

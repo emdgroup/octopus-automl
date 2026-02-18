@@ -12,6 +12,7 @@ from octopus.datasplit import OuterSplit
 from octopus.manager import OctoManager
 from octopus.manager.core import ResourceConfig
 from octopus.manager.workflow_runner import WorkflowTaskRunner
+from octopus.study.context import StudyContext
 
 # =============================================================================
 # Fixtures
@@ -51,25 +52,33 @@ def mock_outersplit_data():
 
 
 @pytest.fixture
-def mock_study(mock_workflow):
-    """Create mock study with workflow and settings."""
-    study = Mock()
-    study.output_path = UPath("/tmp/test_study")
-    study.log_dir = UPath("/tmp/test_study")
-    study.workflow = mock_workflow
-    study.outer_parallelization = False
-    study.run_single_outersplit_num = -1
-    study.prepared = Mock()
-    study.prepared.feature_cols = ["feature1", "feature2"]
-    return study
+def study():
+    """Create StudyContext for testing."""
+    return StudyContext(
+        ml_type="classification",
+        target_metric="AUCROC",
+        metrics=["AUCROC"],
+        target_assignments={"default": "target"},
+        positive_class=1,
+        stratification_col=None,
+        datasplit_type="sample",
+        sample_id_col="sample_id",
+        feature_cols=["feature1", "feature2"],
+        row_id_col="row_id",
+        output_path=UPath("/tmp/test_study"),
+        log_dir=UPath("/tmp/test_study"),
+    )
 
 
 @pytest.fixture
-def octo_manager(mock_study, mock_outersplit_data):
+def octo_manager(study, mock_workflow, mock_outersplit_data):
     """Create octo manager."""
     return OctoManager(
-        study=mock_study,
         outersplit_data=mock_outersplit_data,
+        study=study,
+        workflow=mock_workflow,
+        outer_parallelization=False,
+        run_single_outersplit_num=-1,
     )
 
 
@@ -273,26 +282,38 @@ class TestOctoManager:
             octo_manager.run_outersplits()
             assert mock_run.call_count == 1
 
-    def test_run_outersplits_parallel(self, octo_manager):
+    def test_run_outersplits_parallel(self, study, mock_workflow, mock_outersplit_data):
         """Test run outersplits with parallelization."""
-        octo_manager.study.outer_parallelization = True
+        manager = OctoManager(
+            outersplit_data=mock_outersplit_data,
+            study=study,
+            workflow=mock_workflow,
+            outer_parallelization=True,
+            run_single_outersplit_num=-1,
+        )
 
         with (
             patch("octopus.manager.core.shutdown_ray"),
             patch("octopus.manager.execution.run_parallel_outer_ray", return_value=[True]) as mock_ray,
         ):
-            octo_manager.run_outersplits()
+            manager.run_outersplits()
             mock_ray.assert_called_once()
 
-    def test_run_single_outersplit(self, octo_manager):
+    def test_run_single_outersplit(self, study, mock_workflow, mock_outersplit_data):
         """Test run single outersplit."""
-        octo_manager.study.run_single_outersplit_num = 0
+        manager = OctoManager(
+            outersplit_data=mock_outersplit_data,
+            study=study,
+            workflow=mock_workflow,
+            outer_parallelization=False,
+            run_single_outersplit_num=0,
+        )
 
         with (
             patch("octopus.manager.core.shutdown_ray"),
             patch.object(WorkflowTaskRunner, "run") as mock_run,
         ):
-            octo_manager.run_outersplits()
+            manager.run_outersplits()
             # Verify that run was called with outersplit_id, train_df, test_df
             mock_run.assert_called_once()
             call_args = mock_run.call_args[0]
@@ -300,11 +321,14 @@ class TestOctoManager:
             assert isinstance(call_args[1], pd.DataFrame)  # train df
             assert isinstance(call_args[2], pd.DataFrame)  # test df
 
-    def test_no_outersplits_raises_error(self, mock_study):
+    def test_no_outersplits_raises_error(self, study, mock_workflow):
         """Test that empty fold splits raises ValueError."""
         manager = OctoManager(
-            study=mock_study,
             outersplit_data={},
+            study=study,
+            workflow=mock_workflow,
+            outer_parallelization=False,
+            run_single_outersplit_num=-1,
         )
         with pytest.raises(ValueError, match="No outersplit data defined"):
             manager.run_outersplits()
@@ -319,7 +343,7 @@ class TestOctoManager:
                 octo_manager.run_outersplits()
             mock_shutdown.assert_called_once()
 
-    def test_single_outersplit_resource_allocation(self, mock_study):
+    def test_single_outersplit_resource_allocation(self, study, mock_workflow):
         """Test that single outersplit gets all CPUs when run_single_outersplit_num is set.
 
         This is a regression test: previously, when running a single outersplit from
@@ -335,12 +359,12 @@ class TestOctoManager:
             for i in range(8)
         }
 
-        mock_study.outer_parallelization = True
-        mock_study.run_single_outersplit_num = 0  # Run only first outersplit
-
         manager = OctoManager(
-            study=mock_study,
             outersplit_data=outersplit_data,
+            study=study,
+            workflow=mock_workflow,
+            outer_parallelization=True,
+            run_single_outersplit_num=0,
         )
 
         with (
@@ -354,7 +378,7 @@ class TestOctoManager:
             # Verify that WorkflowTaskRunner was initialized with cpus_per_outersplit that allocates all CPUs
             # to the single outersplit (not 8/8=1)
             call_args = mock_runner_init.call_args
-            cpus_per_outersplit = call_args[0][1]  # Second positional arg is cpus_per_outersplit
+            cpus_per_outersplit = call_args[1]["cpus_per_outersplit"]  # Now a keyword arg
             assert cpus_per_outersplit == 8  # All CPUs for that outersplit
 
 
@@ -368,10 +392,22 @@ class TestLoadTaskResults:
 
     @pytest.fixture
     def runner(self):
-        """Create a WorkflowTaskRunner with a mock study."""
-        study = Mock()
-        study.output_path = UPath("/tmp/test_study")
-        return WorkflowTaskRunner(study=study, cpus_per_outersplit=1)
+        """Create a WorkflowTaskRunner with a StudyContext."""
+        ctx = StudyContext(
+            ml_type="classification",
+            target_metric="AUCROC",
+            metrics=["AUCROC"],
+            target_assignments={"default": "target"},
+            positive_class=1,
+            stratification_col=None,
+            datasplit_type="sample",
+            sample_id_col="sample_id",
+            feature_cols=["feature1", "feature2"],
+            row_id_col="row_id",
+            output_path=UPath("/tmp/test_study"),
+            log_dir=UPath("/tmp/test_study"),
+        )
+        return WorkflowTaskRunner(study=ctx, workflow=[], cpus_per_outersplit=1)
 
     def test_no_parquet_files(self, runner, tmp_path):
         """Test that missing parquet files returns dict of empty DataFrames."""
@@ -492,9 +528,21 @@ class TestLoadTask:
     @pytest.fixture
     def runner(self, tmp_path):
         """Create a WorkflowTaskRunner with output_path pointing to tmp_path."""
-        study = Mock()
-        study.output_path = UPath(tmp_path)
-        return WorkflowTaskRunner(study=study, cpus_per_outersplit=1)
+        ctx = StudyContext(
+            ml_type="classification",
+            target_metric="AUCROC",
+            metrics=["AUCROC"],
+            target_assignments={"default": "target"},
+            positive_class=1,
+            stratification_col=None,
+            datasplit_type="sample",
+            sample_id_col="sample_id",
+            feature_cols=["feature1", "feature2"],
+            row_id_col="row_id",
+            output_path=UPath(tmp_path),
+            log_dir=UPath(tmp_path),
+        )
+        return WorkflowTaskRunner(study=ctx, workflow=[], cpus_per_outersplit=1)
 
     def test_load_task_reads_selected_features_from_json(self, runner, tmp_path):
         """Test that _load_task reads selected_features from selected_features.json."""

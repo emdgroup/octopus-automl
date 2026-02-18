@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from upath import UPath
 
     from octopus.modules.mrmr.module import Mrmr
-    from octopus.study.core import OctoStudy
+    from octopus.study.context import StudyContext
 
 logger = get_logger()
 
@@ -31,7 +31,7 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -55,7 +55,7 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
             x_traindev=x_traindev,
             y_traindev=y_traindev,
             feature_cols=feature_cols,
-            ml_type=study.ml_type.value,
+            ml_type=study.ml_type,
             prior_results=prior_results,
         )
 

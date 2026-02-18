@@ -17,7 +17,7 @@ from octopus.utils import calculate_feature_groups
 if TYPE_CHECKING:
     from upath import UPath
 
-    from octopus.study.core import OctoStudy
+    from octopus.study.context import StudyContext
 
 
 @define
@@ -33,7 +33,7 @@ class Rfe2Module(OctoModule):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,

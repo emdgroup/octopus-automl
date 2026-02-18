@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from upath import UPath
 
     from octopus.modules.rfe.module import Rfe
-    from octopus.study.core import OctoStudy
+    from octopus.study.context import StudyContext
 
 # Supported models for RFE
 supported_models = {
@@ -77,7 +77,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: OctoStudy,
+        study: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -94,12 +94,12 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
         path_results.mkdir(parents=True, exist_ok=True)
 
         # Determine default model based on ml_type
-        if study.ml_type.value == "classification":
+        if study.ml_type == "classification":
             default_model = "CatBoostClassifier"
-        elif study.ml_type.value == "regression":
+        elif study.ml_type == "regression":
             default_model = "CatBoostRegressor"
         else:
-            raise ValueError(f"{study.ml_type.value} not supported")
+            raise ValueError(f"{study.ml_type} not supported")
 
         model_type = self.config.model if self.config.model else default_model
 
@@ -114,7 +114,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
 
         # Configure cross-validation
         target_assignments = {col: col for col in list(study.target_assignments.values())}
-        positive_class = getattr(study, "positive_class", None)
+        positive_class = study.positive_class
 
         cv: int | StratifiedKFold
         if study.stratification_col:
