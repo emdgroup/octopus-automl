@@ -142,6 +142,9 @@ class WorkflowTaskRunner:
         # Save task configuration
         self._save_task_config(task, output_dir)
 
+        # Save task runtime context (feature_cols, feature_groups)
+        self._save_task_context(output_dir, feature_cols, feature_groups)
+
         # Save each ModuleResult to its own subdirectory
         for result_type, module_result in results.items():
             module_result.save(output_dir / result_type.value)
@@ -198,6 +201,36 @@ class WorkflowTaskRunner:
 
         with config_path.open("w") as f:
             json.dump(config_dict, f, indent=2)
+
+    def _save_task_context(
+        self,
+        output_dir: UPath,
+        feature_cols: list[str],
+        feature_groups: dict | None,
+    ) -> None:
+        """Save task runtime context to disk.
+
+        Saves the input feature columns and correlation-based feature groups
+        that were used when running this task. These are needed by
+        ``TaskPredictor`` for prediction and feature importance computation.
+
+        Files are written to a ``module/`` subdirectory to match the path
+        expected by ``OuterSplitLoader``.
+
+        Args:
+            output_dir: Task output directory (e.g. outersplit0/task0/).
+            feature_cols: Input feature columns used by this task.
+            feature_groups: Correlation-based feature groups, or None.
+        """
+        module_dir = output_dir / "module"
+        module_dir.mkdir(parents=True, exist_ok=True)
+
+        with (module_dir / "feature_cols.json").open("w") as f:
+            json.dump(feature_cols, f, indent=2)
+
+        if feature_groups:
+            with (module_dir / "feature_groups.json").open("w") as f:
+                json.dump(feature_groups, f, indent=2)
 
     def _log_task_info(self, task: Task) -> None:
         """Log information about a workflow task.
