@@ -34,7 +34,7 @@ class Rfe2Module(OctoModule):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: StudyContext,
+        study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -43,7 +43,7 @@ class Rfe2Module(OctoModule):
     ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Fit Rfe2 module by running Octo optimization followed by RFE."""
         # Store execution state temporarily (inherits Octo's pattern)
-        self._study = study
+        self._study_context = study_context
         self._outersplit_id = outersplit_id
         self._output_dir = output_dir
         self._num_assigned_cpus = num_assigned_cpus

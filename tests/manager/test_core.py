@@ -75,7 +75,7 @@ def octo_manager(study, mock_workflow, mock_outersplit_data):
     """Create octo manager."""
     return OctoManager(
         outersplit_data=mock_outersplit_data,
-        study=study,
+        study_context=study,
         workflow=mock_workflow,
         outer_parallelization=False,
         run_single_outersplit_num=-1,
@@ -286,7 +286,7 @@ class TestOctoManager:
         """Test run outersplits with parallelization."""
         manager = OctoManager(
             outersplit_data=mock_outersplit_data,
-            study=study,
+            study_context=study,
             workflow=mock_workflow,
             outer_parallelization=True,
             run_single_outersplit_num=-1,
@@ -303,7 +303,7 @@ class TestOctoManager:
         """Test run single outersplit."""
         manager = OctoManager(
             outersplit_data=mock_outersplit_data,
-            study=study,
+            study_context=study,
             workflow=mock_workflow,
             outer_parallelization=False,
             run_single_outersplit_num=0,
@@ -325,7 +325,7 @@ class TestOctoManager:
         """Test that empty fold splits raises ValueError."""
         manager = OctoManager(
             outersplit_data={},
-            study=study,
+            study_context=study,
             workflow=mock_workflow,
             outer_parallelization=False,
             run_single_outersplit_num=-1,
@@ -361,7 +361,7 @@ class TestOctoManager:
 
         manager = OctoManager(
             outersplit_data=outersplit_data,
-            study=study,
+            study_context=study,
             workflow=mock_workflow,
             outer_parallelization=True,
             run_single_outersplit_num=0,
@@ -407,7 +407,7 @@ class TestLoadTaskResults:
             output_path=UPath("/tmp/test_study"),
             log_dir=UPath("/tmp/test_study"),
         )
-        return WorkflowTaskRunner(study=ctx, workflow=[], cpus_per_outersplit=1)
+        return WorkflowTaskRunner(study_context=ctx, workflow=[], cpus_per_outersplit=1)
 
     def test_no_parquet_files(self, runner, tmp_path):
         """Test that missing parquet files returns dict of empty DataFrames."""
@@ -542,7 +542,7 @@ class TestLoadTask:
             output_path=UPath(tmp_path),
             log_dir=UPath(tmp_path),
         )
-        return WorkflowTaskRunner(study=ctx, workflow=[], cpus_per_outersplit=1)
+        return WorkflowTaskRunner(study_context=ctx, workflow=[], cpus_per_outersplit=1)
 
     def test_load_task_reads_selected_features_from_json(self, runner, tmp_path):
         """Test that _load_task reads selected_features from selected_features.json."""

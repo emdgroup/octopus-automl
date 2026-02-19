@@ -75,7 +75,7 @@ class ModuleExecution[T: Task](ABC):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: StudyContext,
+        study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,

@@ -27,12 +27,12 @@ class WorkflowTaskRunner:
     - Saving task results
 
     Attributes:
-        study: Frozen runtime context containing study configuration.
+        study_context: Frozen runtime context containing study configuration.
         workflow: List of workflow tasks to execute.
         cpus_per_outersplit: Number of CPUs allocated to each task.
     """
 
-    study: StudyContext = field(validator=[validators.instance_of(StudyContext)])
+    study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     workflow: list[Task] = field(validator=[validators.instance_of(list)])
     cpus_per_outersplit: int = field(validator=[validators.instance_of(int)])
 
@@ -54,7 +54,7 @@ class WorkflowTaskRunner:
             )
 
         # Save fold data
-        fold_dir = self.study.output_path / f"outersplit{outersplit_id}"
+        fold_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
         fold_dir.mkdir(parents=True, exist_ok=True)
         train_path = fold_dir / "data_train.parquet"
         data_train.to_parquet(str(train_path), storage_options=train_path.storage_options, engine="pyarrow")
@@ -108,14 +108,14 @@ class WorkflowTaskRunner:
             feature_cols, prior_results = task_results[task.depends_on]
             logger.info(f"Prior results keys: {prior_results.keys()}")
         else:
-            feature_cols = self.study.feature_cols
+            feature_cols = self.study_context.feature_cols
             prior_results = {}
 
         # Calculate feature groups
         feature_groups = calculate_feature_groups(data_train, feature_cols)
 
         # Create output directory
-        output_dir = self.study.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
+        output_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Running task {task.task_id} for fold {outersplit_id}")
@@ -126,7 +126,7 @@ class WorkflowTaskRunner:
             data_traindev=data_train,
             data_test=data_test,
             feature_cols=feature_cols,
-            study=self.study,
+            study_context=self.study_context,
             outersplit_id=outersplit_id,
             output_dir=output_dir,
             num_assigned_cpus=self.cpus_per_outersplit,
@@ -173,7 +173,7 @@ class WorkflowTaskRunner:
         Raises:
             FileNotFoundError: If the task directory or required files don't exist
         """
-        output_dir = self.study.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
+        output_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
 
         # Load selected features
         sf_path = output_dir / "selected_features.json"

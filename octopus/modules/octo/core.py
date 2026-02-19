@@ -51,8 +51,8 @@ class OctoModule(MLModuleExecution["Octo"]):
     """MRMR feature sets for different feature counts."""
 
     # Temporary execution state (available during fit)
-    _study: StudyContext | None = field(init=False, default=None)
-    """StudyContext reference (temporary state during fit)."""
+    _study_context: StudyContext | None = field(init=False, default=None)
+    """StudyContext (temporary state during fit)."""
 
     _output_dir: Any = field(init=False, default=None)
     """Output directory (temporary state during fit)."""
@@ -83,7 +83,7 @@ class OctoModule(MLModuleExecution["Octo"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: StudyContext,
+        study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -92,7 +92,7 @@ class OctoModule(MLModuleExecution["Octo"]):
     ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Fit Octo module by running hyperparameter optimization with Optuna."""
         # Store execution state temporarily for internal methods
-        self._study = study
+        self._study_context = study_context
         self._outersplit_id = outersplit_id
         self._output_dir = output_dir
         self._num_assigned_cpus = num_assigned_cpus
@@ -174,39 +174,39 @@ class OctoModule(MLModuleExecution["Octo"]):
     @property
     def datasplit_column(self) -> str:
         """Column used for data splitting (available during fit)."""
-        if self._study.datasplit_type == "sample":
-            return self._study.sample_id_col
-        return self._study.datasplit_type
+        if self._study_context.datasplit_type == "sample":
+            return self._study_context.sample_id_col
+        return self._study_context.datasplit_type
 
     @property
     def stratification_col(self) -> str | None:
         """Stratification column (available during fit)."""
-        return self._study.stratification_col
+        return self._study_context.stratification_col
 
     @property
     def ml_type(self) -> str:
         """ML type (available during fit)."""
-        return self._study.ml_type
+        return self._study_context.ml_type
 
     @property
     def target_metric(self) -> str:
         """Target metric (available during fit)."""
-        return self._study.target_metric
+        return self._study_context.target_metric
 
     @property
     def target_assignments(self) -> dict:
         """Target column assignments (available during fit)."""
-        return self._study.target_assignments
+        return self._study_context.target_assignments
 
     @property
     def row_column(self) -> str:
         """Row ID column (available during fit)."""
-        return self._study.row_id_col
+        return self._study_context.row_id_col
 
     @property
     def positive_class(self):
         """Positive class (available during fit). None for regression."""
-        return self._study.positive_class
+        return self._study_context.positive_class
 
     @property
     def x_traindev(self) -> pd.DataFrame:
@@ -216,7 +216,7 @@ class OctoModule(MLModuleExecution["Octo"]):
     @property
     def y_traindev(self) -> pd.DataFrame:
         """Target values (available during fit)."""
-        return self._data_traindev[list(self._study.target_assignments.values())]
+        return self._data_traindev[list(self._study_context.target_assignments.values())]
 
     def _initialize_octo(self):
         """Initialize Octo-specific data structures and directories."""
@@ -340,7 +340,7 @@ class OctoModule(MLModuleExecution["Octo"]):
             target_metric=self.target_metric,
             row_id_col=self.row_column,
             ml_type=self.ml_type,
-            log_dir=self._study.log_dir,
+            log_dir=self._study_context.log_dir,
         )
         # save ensel bag
         ensel_bag.to_pickle(self.path_results / "ensel_bag.pkl")
@@ -402,13 +402,13 @@ class OctoModule(MLModuleExecution["Octo"]):
             feature_groups=self._feature_groups,
             positive_class=self.positive_class,
             config=self.config,
-            path_study=self._study.output_path,
+            path_study=self._study_context.output_path,
             task_path=task_path,
             data_splits=splits,
             study_name=study_name,
             top_trials=self.top_trials_,
             mrmr_features=self.mrmr_features_,
-            log_dir=self._study.log_dir,
+            log_dir=self._study_context.log_dir,
         )
 
         # multivariate sampler with group option
@@ -526,7 +526,7 @@ class OctoModule(MLModuleExecution["Octo"]):
             target_metric=self.target_metric,
             row_id_col=self.row_column,
             ml_type=self.ml_type,
-            log_dir=self._study.log_dir,
+            log_dir=self._study_context.log_dir,
         )
 
         # train all models in best_bag

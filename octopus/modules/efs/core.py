@@ -76,8 +76,8 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
     """Optimized ensemble of models."""
 
     # Temporary execution state (available during fit)
-    _study: StudyContext | None = field(init=False, default=None)
-    """StudyContext reference (temporary state during fit)."""
+    _study_context: StudyContext | None = field(init=False, default=None)
+    """StudyContext (temporary state during fit)."""
 
     _data_traindev: Any = field(init=False, default=None)
     """Training/development data (temporary state during fit)."""
@@ -94,14 +94,14 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
     @property
     def metric_input(self) -> str:
         """Metric input type."""
-        if self._study.target_metric in ["AUCROC", "LOGLOSS"]:
+        if self._study_context.target_metric in ["AUCROC", "LOGLOSS"]:
             return "probabilities"
         return "predictions"
 
     @property
     def direction(self) -> str:
         """Optuna direction."""
-        return Metrics.get_direction(self._study.target_metric)
+        return Metrics.get_direction(self._study_context.target_metric)
 
     @property
     def x_traindev(self) -> pd.DataFrame:
@@ -111,34 +111,34 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
     @property
     def y_traindev(self) -> pd.DataFrame:
         """Target values."""
-        return self._data_traindev[list(self._study.target_assignments.values())]
+        return self._data_traindev[list(self._study_context.target_assignments.values())]
 
     @property
     def ml_type(self) -> str:
         """ML type."""
-        return self._study.ml_type
+        return self._study_context.ml_type
 
     @property
     def stratification_col(self) -> str | None:
         """Stratification column."""
-        return self._study.stratification_col
+        return self._study_context.stratification_col
 
     @property
     def row_column(self) -> str:
         """Row ID column."""
-        return self._study.row_id_col
+        return self._study_context.row_id_col
 
     @property
     def row_traindev(self) -> pd.Series:
         """Row IDs for traindev."""
-        return self._data_traindev[self._study.row_id_col]
+        return self._data_traindev[self._study_context.row_id_col]
 
     def fit(
         self,
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: StudyContext,
+        study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -147,7 +147,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
     ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Fit EFS module by creating and optimizing an ensemble of models."""
         # Store execution state temporarily for internal methods
-        self._study = study
+        self._study_context = study_context
         self._outersplit_id = outersplit_id
         self._output_dir = output_dir
         self._num_assigned_cpus = num_assigned_cpus
@@ -219,12 +219,12 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         random.seed(0)
 
         # Configuration, define default model
-        if self._study.ml_type == "classification":
+        if self._study_context.ml_type == "classification":
             default_model = "CatBoostClassifier"
-        elif self._study.ml_type == "regression":
+        elif self._study_context.ml_type == "regression":
             default_model = "CatBoostRegressor"
         else:
-            raise ValueError(f"{self._study.ml_type} not supported")
+            raise ValueError(f"{self._study_context.ml_type} not supported")
 
         model_type = self.config.model
         if model_type == "":
@@ -237,7 +237,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         # set up model and scoring type
         model = Models.get_instance(model_type, {"random_state": 42})
         # Get scorer string from metrics inventory
-        metric = Metrics.get_instance(self._study.target_metric)
+        metric = Metrics.get_instance(self._study_context.target_metric)
         scoring_type = metric.scorer_string
 
         # needs general improvements (consider groups and stratification column)
@@ -281,14 +281,14 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
             print(f"Subset {i}, best_cv_score: {best_cv_score:.4f}")
 
             # predictions
-            if self._study.ml_type == "classification":
+            if self._study_context.ml_type == "classification":
                 cv_preds_df = pd.DataFrame()
                 cv_preds_df[self.row_column] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")
                 cv_preds_df["probabilities"] = cross_val_predict(best_model, x, y, cv=cv, method="predict_proba")[
                     :, 1
                 ]  # binary only
-            elif self._study.ml_type == "regression":
+            elif self._study_context.ml_type == "regression":
                 cv_preds_df = pd.DataFrame()
                 cv_preds_df[self.row_column] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")
@@ -299,7 +299,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
             feature_importance_df = pd.DataFrame({"feature": subset, "importance": feature_importances})
 
             # ensemble metric
-            metric = Metrics.get_instance(self._study.target_metric)
+            metric = Metrics.get_instance(self._study_context.target_metric)
             if self.metric_input == "probabilities":
                 best_ensel_performance = metric.calculate(y, cv_preds_df["probabilities"])
             else:
@@ -346,11 +346,11 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         # TODO: needs improvement!!
         model_predictions = (
             groupby_df["predictions"].round().astype(int)
-            if self._study.target_metric in ["ACC", "ACCBAL"]
+            if self._study_context.target_metric in ["ACC", "ACCBAL"]
             else groupby_df["predictions"]
         )
 
-        metric = Metrics.get_instance(self._study.target_metric)
+        metric = Metrics.get_instance(self._study_context.target_metric)
         ensel_performance = (
             metric.calculate(y, model_predictions)
             if self.metric_input == "predictions"

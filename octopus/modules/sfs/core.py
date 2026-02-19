@@ -75,7 +75,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: StudyContext,
+        study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -85,7 +85,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         """Fit SFS module for feature selection."""
         # Extract data matrices (local variables)
         x_traindev = data_traindev[feature_cols]
-        y_traindev = data_traindev[list(study.target_assignments.values())]
+        y_traindev = data_traindev[list(study_context.target_assignments.values())]
 
         from octopus._optional.sfs import SFS  # noqa: PLC0415
 
@@ -94,12 +94,12 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         path_results.mkdir(parents=True, exist_ok=True)
 
         # Configuration, define default model
-        if study.ml_type == "classification":
+        if study_context.ml_type == "classification":
             default_model = "CatBoostClassifier"
-        elif study.ml_type == "regression":
+        elif study_context.ml_type == "regression":
             default_model = "CatBoostRegressor"
         else:
-            raise ValueError(f"{study.ml_type} not supported")
+            raise ValueError(f"{study_context.ml_type} not supported")
 
         model_type = self.config.model
         if model_type == "":
@@ -113,11 +113,11 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         model = Models.get_instance(model_type, {"random_state": 42})
 
         # Get scorer string from metrics inventory
-        metric = Metrics.get_instance(study.target_metric)
+        metric = Metrics.get_instance(study_context.target_metric)
         scoring_type = metric.scorer_string
 
         cv: int | BaseCrossValidator
-        if study.stratification_col:
+        if study_context.stratification_col:
             cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
         else:
             cv = self.config.cv
@@ -184,8 +184,8 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         print(f"Dev set performance: {sfs.k_score_:.3f}")
 
         # Report performance on test set
-        target_assignments = {col: col for col in list(study.target_assignments.values())}
-        positive_class = study.positive_class
+        target_assignments = {col: col for col in list(study_context.target_assignments.values())}
+        positive_class = study_context.positive_class
 
         best_estimator = copy.deepcopy(best_model)
         x_traindev_sfs = sfs.transform(x_traindev)
@@ -195,7 +195,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
             best_estimator,
             data_test,
             selected_features,
-            study.target_metric,
+            study_context.target_metric,
             target_assignments,
             positive_class=positive_class,
         )
@@ -210,7 +210,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
             best_gs_estimator,
             data_test,
             selected_features,
-            study.target_metric,
+            study_context.target_metric,
             target_assignments,
             positive_class=positive_class,
         )
@@ -233,7 +233,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
             [
                 {
                     "result_type": ResultType.BEST,
-                    "metric": study.target_metric,
+                    "metric": study_context.target_metric,
                     "partition": "dev",
                     "aggregation": "avg",
                     "fold": None,
@@ -241,7 +241,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
                 },
                 {
                     "result_type": ResultType.BEST,
-                    "metric": study.target_metric,
+                    "metric": study_context.target_metric,
                     "partition": "test",
                     "aggregation": "refit",
                     "fold": None,
@@ -249,7 +249,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
                 },
                 {
                     "result_type": ResultType.BEST,
-                    "metric": study.target_metric,
+                    "metric": study_context.target_metric,
                     "partition": "test",
                     "aggregation": "gsrefit",
                     "fold": None,

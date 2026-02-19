@@ -79,7 +79,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: StudyContext,
+        study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -89,19 +89,19 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
         """Fit RFE module by recursively eliminating features."""
         # Extract data matrices (local variables)
         x_traindev = data_traindev[feature_cols]
-        y_traindev = data_traindev[list(study.target_assignments.values())]
+        y_traindev = data_traindev[list(study_context.target_assignments.values())]
 
         # Create results directory
         path_results = output_dir / "results"
         path_results.mkdir(parents=True, exist_ok=True)
 
         # Determine default model based on ml_type
-        if study.ml_type == "classification":
+        if study_context.ml_type == "classification":
             default_model = "CatBoostClassifier"
-        elif study.ml_type == "regression":
+        elif study_context.ml_type == "regression":
             default_model = "CatBoostRegressor"
         else:
-            raise ValueError(f"{study.ml_type} not supported")
+            raise ValueError(f"{study_context.ml_type} not supported")
 
         model_type = self.config.model if self.config.model else default_model
 
@@ -111,15 +111,15 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
 
         # Set up model and scoring
         model = Models.get_instance(model_type, {"random_state": 42})
-        metric = Metrics.get_instance(study.target_metric)
+        metric = Metrics.get_instance(study_context.target_metric)
         scoring_type = metric.scorer_string
 
         # Configure cross-validation
-        target_assignments = {col: col for col in list(study.target_assignments.values())}
-        positive_class = study.positive_class
+        target_assignments = {col: col for col in list(study_context.target_assignments.values())}
+        positive_class = study_context.positive_class
 
         cv: int | StratifiedKFold
-        if study.stratification_col:
+        if study_context.stratification_col:
             cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
         else:
             cv = self.config.cv
@@ -188,7 +188,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
             best_estimator,
             data_test,
             selected_features,
-            study.target_metric,
+            study_context.target_metric,
             target_assignments,
             positive_class=positive_class,
         )
@@ -203,7 +203,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
             best_gs_estimator,
             data_test,
             selected_features,
-            study.target_metric,
+            study_context.target_metric,
             target_assignments,
             positive_class=positive_class,
         )
@@ -226,7 +226,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
             [
                 {
                     "result_type": ResultType.BEST,
-                    "metric": study.target_metric,
+                    "metric": study_context.target_metric,
                     "partition": "dev",
                     "aggregation": "avg",
                     "fold": None,
@@ -234,7 +234,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
                 },
                 {
                     "result_type": ResultType.BEST,
-                    "metric": study.target_metric,
+                    "metric": study_context.target_metric,
                     "partition": "test",
                     "aggregation": "refit",
                     "fold": None,
@@ -242,7 +242,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
                 },
                 {
                     "result_type": ResultType.BEST,
-                    "metric": study.target_metric,
+                    "metric": study_context.target_metric,
                     "partition": "test",
                     "aggregation": "gsrefit",
                     "fold": None,

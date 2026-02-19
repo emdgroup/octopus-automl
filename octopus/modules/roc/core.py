@@ -56,7 +56,7 @@ class RocModule(FeatureSelectionExecution["Roc"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: StudyContext,
+        study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -74,22 +74,22 @@ class RocModule(FeatureSelectionExecution["Roc"]):
 
         # Extract feature matrices (local variables)
         x_traindev = data_traindev[feature_cols]
-        y_traindev = data_traindev[list(study.target_assignments.values())]
+        y_traindev = data_traindev[list(study_context.target_assignments.values())]
 
         # Calculate dependency to target
         logger.info("Calculating dependency to target")
-        if study.ml_type == "timetoevent":
+        if study_context.ml_type == "timetoevent":
             logger.info("Time2Event: Note, that the first group element is selected.")
             dependency = None  # Not used for timetoevent
         elif self.config.filter_type == "mutual_info":
             # Set random state
-            values = filter_inventory[self.config.filter_type][study.ml_type](
+            values = filter_inventory[self.config.filter_type][study_context.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel(), random_state=0
             )
             dependency = pd.Series(values, index=feature_cols)
         elif self.config.filter_type == "f_statistics":
             # Ignoring p-values
-            values, _ = filter_inventory[self.config.filter_type][study.ml_type](
+            values, _ = filter_inventory[self.config.filter_type][study_context.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel()
             )
             dependency = pd.Series(values, index=feature_cols)
@@ -130,7 +130,7 @@ class RocModule(FeatureSelectionExecution["Roc"]):
 
         for group in self.feature_groups_:
             if group:
-                if study.ml_type == "timetoevent":
+                if study_context.ml_type == "timetoevent":
                     # timetoevent: keep first feature
                     keep_feature = group[0]
                 else:

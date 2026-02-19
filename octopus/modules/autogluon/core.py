@@ -109,8 +109,8 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
     _num_cpus_allocated: int = field(init=False, default=1)
     """Allocated CPU count after validation."""
 
-    _study: StudyContext | None = field(init=False, default=None)
-    """StudyContext reference (temporary state during fit)."""
+    _study_context: StudyContext | None = field(init=False, default=None)
+    """StudyContext (temporary state during fit)."""
 
     _output_dir: Any = field(init=False, default=None)
     """Output directory (temporary state during fit)."""
@@ -145,44 +145,44 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
     @property
     def target_assignments(self) -> dict:
         """Target column assignments (available during fit)."""
-        if self._study is None:
+        if self._study_context is None:
             raise ValueError("StudyContext not available - fit() not called")
-        return self._study.target_assignments
+        return self._study_context.target_assignments
 
     @property
     def target_metric(self) -> str:
         """Target metric (available during fit)."""
-        if self._study is None:
+        if self._study_context is None:
             raise ValueError("StudyContext not available - fit() not called")
-        return self._study.target_metric
+        return self._study_context.target_metric
 
     @property
     def metrics(self) -> list[str]:
         """All metrics (available during fit)."""
-        if self._study is None:
+        if self._study_context is None:
             raise ValueError("StudyContext not available - fit() not called")
-        return self._study.metrics
+        return self._study_context.metrics
 
     @property
     def ml_type(self) -> str:
         """ML type (available during fit)."""
-        if self._study is None:
+        if self._study_context is None:
             raise ValueError("StudyContext not available - fit() not called")
-        return self._study.ml_type
+        return self._study_context.ml_type
 
     @property
     def positive_class(self) -> Any:
         """Positive class (available during fit). None for regression."""
-        if self._study is None:
+        if self._study_context is None:
             raise ValueError("StudyContext not available - fit() not called")
-        return self._study.positive_class
+        return self._study_context.positive_class
 
     @property
     def row_column(self) -> str:
         """Row ID column name (available during fit)."""
-        if self._study is None:
+        if self._study_context is None:
             raise ValueError("StudyContext not available - fit() not called")
-        return self._study.row_id_col
+        return self._study_context.row_id_col
 
     @property
     def row_traindev(self) -> pd.Series:
@@ -253,7 +253,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
-        study: StudyContext,
+        study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
         num_assigned_cpus: int = 1,
@@ -262,14 +262,14 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
     ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Fit AutoGluon TabularPredictor."""
         # Store temporary execution state (available during fit)
-        self._study = study
+        self._study_context = study_context
         self._output_dir = output_dir
         self._feature_groups = feature_groups or {}
         self._outersplit_id = outersplit_id
         self._feature_cols = feature_cols
 
-        target_cols = list(study.target_assignments.values())
-        row_id_col = study.row_id_col
+        target_cols = list(study_context.target_assignments.values())
+        row_id_col = study_context.row_id_col
 
         self._x_traindev = data_traindev[feature_cols]
         self._y_traindev = data_traindev[target_cols]

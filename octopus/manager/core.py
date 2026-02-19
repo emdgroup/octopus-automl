@@ -134,7 +134,7 @@ class OctoManager:
     outersplit_data: OuterSplits = field(validator=[validators.instance_of(dict)])
     """Preprocessed data for each outersplit, keyed by outersplit identifier."""
 
-    study: StudyContext = field(validator=[validators.instance_of(StudyContext)])
+    study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     """Frozen runtime context containing study configuration."""
 
     workflow: list[Task] = field(validator=[validators.instance_of(list)])
@@ -170,7 +170,7 @@ class OctoManager:
 
         try:
             runner = WorkflowTaskRunner(
-                study=self.study,
+                study_context=self.study_context,
                 workflow=self.workflow,
                 cpus_per_outersplit=resources.cpus_per_outersplit,
             )
@@ -191,5 +191,5 @@ class OctoManager:
         if self.run_single_outersplit_num != -1:
             return SingleOutersplitStrategy(self.run_single_outersplit_num)
         if self.outer_parallelization:
-            return ParallelRayStrategy(num_workers, self.study.log_dir)
+            return ParallelRayStrategy(num_workers, self.study_context.log_dir)
         return SequentialStrategy()

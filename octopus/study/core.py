@@ -101,9 +101,6 @@ class OctoStudy(ABC):
     ml_type: MLType = field(init=False)
     """The type of machine learning model. Set automatically by subclass."""
 
-    prepared: PreparedData = field(init=False)
-    """Container for prepared study data and metadata after data preparation."""
-
     @property
     @abstractmethod
     def target_metric(self) -> str:
@@ -132,7 +129,11 @@ class OctoStudy(ABC):
         """Directory where logs are stored."""
         return self.output_path
 
-    def _validate_data(self, data: pd.DataFrame) -> None:
+    def _resolve_ml_config(self, data: pd.DataFrame) -> tuple[MLType, int | None]:
+        """Resolve ml_type and positive_class. Subclasses override for auto-detection."""
+        return self.ml_type, getattr(self, "positive_class", None)
+
+    def _validate_data(self, data: pd.DataFrame, ml_type: MLType, positive_class: int | None) -> None:
         """Validate the input data."""
         validator = OctoDataValidator(
             data=data,
@@ -143,8 +144,8 @@ class OctoStudy(ABC):
             sample_id_col=self.sample_id_col,
             row_id_col=self.row_id_col,
             stratification_col=self.stratification_col,
-            ml_type=self.ml_type.value,
-            positive_class=getattr(self, "positive_class", None),
+            ml_type=ml_type.value,
+            positive_class=positive_class,
         )
         validator.validate()
 
@@ -169,7 +170,9 @@ class OctoStudy(ABC):
         self.log_dir.mkdir(parents=True, exist_ok=True)
         set_logger_filename(log_file=self.log_dir / "octo_manager.log")
 
-    def _initialize_study_outputs(self, data: pd.DataFrame) -> None:
+    def _initialize_study_outputs(
+        self, data: pd.DataFrame, prepared: PreparedData, ml_type: MLType, positive_class: int | None
+    ) -> None:
         """Initialize study saving config and data into study directory."""
 
         def serialize_value(value):
@@ -196,14 +199,17 @@ class OctoStudy(ABC):
         config = {}
         # Use fields from the actual instance class (including subclass fields)
         for attr in fields(type(self)):
-            if attr.name == "prepared":
-                continue
             value = getattr(self, attr.name)
             config[attr.name] = serialize_value(value)
 
+        # Override with resolved values (e.g. auto-detected ml_type for OctoClassification)
+        config["ml_type"] = ml_type.value
+        if "positive_class" in config:
+            config["positive_class"] = positive_class
+
         config["prepared"] = {
-            "feature_cols": self.prepared.feature_cols,
-            "row_id": self.prepared.row_id_col,
+            "feature_cols": prepared.feature_cols,
+            "row_id": prepared.row_id_col,
             "target_assignments": self.target_assignments,
         }
 
@@ -219,14 +225,14 @@ class OctoStudy(ABC):
             engine="pyarrow",
         )
         prepared_data_path = self.output_path / "data_prepared.parquet"
-        self.prepared.data.to_parquet(
+        prepared.data.to_parquet(
             str(prepared_data_path),
             index=False,
             storage_options=prepared_data_path.storage_options,
             engine="pyarrow",
         )
 
-    def _prepare_data(self, data: pd.DataFrame) -> pd.DataFrame:
+    def _prepare_data(self, data: pd.DataFrame) -> PreparedData:
         """Prepare the data for training."""
         preparator = OctoDataPreparator(
             data=data,
@@ -234,30 +240,27 @@ class OctoStudy(ABC):
             sample_id_col=self.sample_id_col,
             row_id_col=self.row_id_col,
         )
-        prepared = preparator.prepare()
-        object.__setattr__(self, "prepared", prepared)
+        return preparator.prepare()
 
-        return prepared.data
-
-    def _create_datasplits(self, data: pd.DataFrame) -> OuterSplits:
+    def _create_datasplits(self, prepared: PreparedData) -> OuterSplits:
         """Create datasplits for outer cross-validation."""
-        relevant_cols = list(self.prepared.feature_cols) + [
+        relevant_cols = list(prepared.feature_cols) + [
             c
             for c in (
                 self.target_col if hasattr(self, "target_col") else None,
                 self.duration_col if hasattr(self, "duration_col") else None,
                 self.event_col if hasattr(self, "event_col") else None,
                 self.sample_id_col,
-                self.prepared.row_id_col,
+                prepared.row_id_col,
                 self.stratification_col,
             )
             if c is not None
         ]
 
-        relevant_cols += [s for s in ("group_features", "group_sample_and_features") if s in self.prepared.data.columns]
+        relevant_cols += [s for s in ("group_features", "group_sample_and_features") if s in prepared.data.columns]
 
         relevant_cols = list(dict.fromkeys(relevant_cols))
-        data_clean = data[relevant_cols]
+        data_clean = prepared.data[relevant_cols]
 
         if self.datasplit_type.value == "sample":
             datasplit_col = self.sample_id_col
@@ -274,15 +277,15 @@ class OctoStudy(ABC):
 
         return outersplits
 
-    def _run_health_check(self, data: pd.DataFrame, config: HealthCheckConfig | None) -> None:
+    def _run_health_check(self, prepared: PreparedData, config: HealthCheckConfig | None) -> None:
         """Run data health check, save results, and check for issues."""
         checker = OctoDataHealthChecker(
-            data=data,
-            feature_cols=self.prepared.feature_cols,
+            data=prepared.data,
+            feature_cols=prepared.feature_cols,
             target_col=self.target_col if hasattr(self, "target_col") else None,
             duration_col=self.duration_col if hasattr(self, "duration_col") else None,
             event_col=self.event_col if hasattr(self, "event_col") else None,
-            row_id_col=self.prepared.row_id_col,
+            row_id_col=prepared.row_id_col,
             sample_id_col=self.sample_id_col,
             stratification_col=self.stratification_col,
             config=config or HealthCheckConfig(),
@@ -321,19 +324,21 @@ class OctoStudy(ABC):
 
         set_logger_filename(log_file=None)
 
-    def _create_study_context(self) -> StudyContext:
+    def _create_study_context(
+        self, prepared: PreparedData, ml_type: MLType, positive_class: int | None
+    ) -> StudyContext:
         """Create a frozen StudyContext from the current study state."""
         return StudyContext(
-            ml_type=self.ml_type.value,
+            ml_type=ml_type.value,
             target_metric=self.target_metric,
             metrics=self.metrics,
             target_assignments=self.target_assignments,
-            positive_class=getattr(self, "positive_class", None),
+            positive_class=positive_class,
             stratification_col=self.stratification_col,
             datasplit_type=self.datasplit_type.value,
             sample_id_col=self.sample_id_col,
-            feature_cols=self.prepared.feature_cols,
-            row_id_col=self.prepared.row_id_col,
+            feature_cols=prepared.feature_cols,
+            row_id_col=prepared.row_id_col,
             output_path=self.output_path,
             log_dir=self.log_dir,
         )
@@ -350,16 +355,17 @@ class OctoStudy(ABC):
             health_check_config: Optional configuration for health check thresholds.
         """
         self._initialize_study_directory()
-        self._validate_data(data)
-        prepared_data = self._prepare_data(data)
-        self._initialize_study_outputs(data)
-        self._run_health_check(prepared_data, health_check_config)
+        ml_type, positive_class = self._resolve_ml_config(data)
+        self._validate_data(data, ml_type, positive_class)
+        prepared = self._prepare_data(data)
+        self._initialize_study_outputs(data, prepared, ml_type, positive_class)
+        self._run_health_check(prepared, health_check_config)
 
-        outersplit_data = self._create_datasplits(prepared_data)
-        study_context = self._create_study_context()
+        outersplit_data = self._create_datasplits(prepared)
+        study_context = self._create_study_context(prepared, ml_type, positive_class)
         manager = OctoManager(
             outersplit_data=outersplit_data,
-            study=study_context,
+            study_context=study_context,
             workflow=self.workflow,
             outer_parallelization=self.outer_parallelization,
             run_single_outersplit_num=self.run_single_outersplit_num,
@@ -436,25 +442,25 @@ class OctoClassification(OctoStudy):
     positive_class: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
     """The positive class label for binary classification. Defaults to None. Not used for multiclass."""
 
-    def _validate_data(self, data: pd.DataFrame) -> None:
+    def _resolve_ml_config(self, data: pd.DataFrame) -> tuple[MLType, int | None]:
         if self.target_col not in data.columns:
             raise ValueError(f"Target column '{self.target_col}' not found in input data.")
-
-        if not self.ml_type:
-            """Validate the input data and determine if binary or multiclass."""
-            # Detect if binary or multiclass based on unique values in target
+        ml_type = self.ml_type
+        positive_class = self.positive_class
+        if not ml_type:
             unique_values = data[self.target_col].dropna().unique()
             if len(unique_values) > 2:
-                object.__setattr__(self, "ml_type", MLType.MULTICLASS)
-                object.__setattr__(self, "positive_class", None)
+                ml_type, positive_class = MLType.MULTICLASS, None
             else:
-                object.__setattr__(self, "ml_type", MLType.CLASSIFICATION)
-                object.__setattr__(self, "positive_class", 1)
-
-        if self.ml_type == MLType.CLASSIFICATION and self.positive_class is None:
+                ml_type, positive_class = MLType.CLASSIFICATION, 1
+        if ml_type == MLType.CLASSIFICATION and positive_class is None:
             raise ValueError("For binary classification, `positive_class` must be specified.")
+        return ml_type, positive_class
 
-        super()._validate_data(data)
+    def _validate_data(self, data: pd.DataFrame, ml_type: MLType, positive_class: int | None) -> None:
+        if self.target_col not in data.columns:
+            raise ValueError(f"Target column '{self.target_col}' not found in input data.")
+        super()._validate_data(data, ml_type, positive_class)
 
     @property
     def target_assignments(self) -> dict[str, str]:
