@@ -314,12 +314,12 @@ class TestOctoManager:
             patch.object(WorkflowTaskRunner, "run") as mock_run,
         ):
             manager.run_outersplits()
-            # Verify that run was called with outersplit_id, train_df, test_df
+            # Verify that run was called with outersplit_id and OuterSplit
             mock_run.assert_called_once()
             call_args = mock_run.call_args[0]
+            assert len(call_args) == 2
             assert call_args[0] == 0  # outersplit_id
-            assert isinstance(call_args[1], pd.DataFrame)  # train df
-            assert isinstance(call_args[2], pd.DataFrame)  # test df
+            assert isinstance(call_args[1], OuterSplit)  # outersplit
 
     def test_no_outersplits_raises_error(self, study, mock_workflow):
         """Test that empty fold splits raises ValueError."""

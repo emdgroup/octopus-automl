@@ -9,6 +9,7 @@ import ray
 from attrs import define, field, validators
 from upath import UPath
 
+from octopus.datasplit import OuterSplit
 from octopus.logger import get_logger
 from octopus.modules.base import Task
 from octopus.study.context import StudyContext
@@ -36,13 +37,12 @@ class WorkflowTaskRunner:
     workflow: list[Task] = field(validator=[validators.instance_of(list)])
     cpus_per_outersplit: int = field(validator=[validators.instance_of(int)])
 
-    def run(self, outersplit_id: int, data_train: pd.DataFrame, data_test: pd.DataFrame) -> None:
+    def run(self, outersplit_id: int, outersplit: OuterSplit) -> None:
         """Process all workflow tasks for a single fold.
 
         Args:
             outersplit_id: Current fold ID
-            data_train: Training DataFrame
-            data_test: Test DataFrame
+            outersplit: OuterSplit containing traindev and test DataFrames
 
         Raises:
             RuntimeError: If Ray is not initialized.
@@ -57,9 +57,9 @@ class WorkflowTaskRunner:
         fold_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
         fold_dir.mkdir(parents=True, exist_ok=True)
         train_path = fold_dir / "data_train.parquet"
-        data_train.to_parquet(str(train_path), storage_options=train_path.storage_options, engine="pyarrow")
+        outersplit.traindev.to_parquet(str(train_path), storage_options=train_path.storage_options, engine="pyarrow")
         test_path = fold_dir / "data_test.parquet"
-        data_test.to_parquet(str(test_path), storage_options=test_path.storage_options, engine="pyarrow")
+        outersplit.test.to_parquet(str(test_path), storage_options=test_path.storage_options, engine="pyarrow")
 
         # task_results: dict[task_id -> (selected_features, prior_results_dict)]
         # prior_results_dict has keys: "scores", "predictions", "feature_importances" (DataFrames)
@@ -74,14 +74,13 @@ class WorkflowTaskRunner:
                 task_results[task.task_id] = result
             else:
                 # Run and save task
-                result = self._run_task(outersplit_id, data_train, data_test, task, task_results)
+                result = self._run_task(outersplit_id, outersplit, task, task_results)
                 task_results[task.task_id] = result
 
     def _run_task(
         self,
         outersplit_id: int,
-        data_train: pd.DataFrame,
-        data_test: pd.DataFrame,
+        outersplit: OuterSplit,
         task: Task,
         task_results: dict[int, tuple[list[str], dict[str, pd.DataFrame]]],
     ) -> tuple[list[str], dict[str, pd.DataFrame]]:
@@ -89,8 +88,7 @@ class WorkflowTaskRunner:
 
         Args:
             outersplit_id: Current fold ID
-            data_train: Training DataFrame
-            data_test: Test DataFrame
+            outersplit: OuterSplit containing traindev and test DataFrames
             task: Task to run
             task_results: Dictionary of results from previous tasks
 
@@ -112,7 +110,7 @@ class WorkflowTaskRunner:
             prior_results = {}
 
         # Calculate feature groups
-        feature_groups = calculate_feature_groups(data_train, feature_cols)
+        feature_groups = calculate_feature_groups(outersplit.traindev, feature_cols)
 
         # Create output directory
         output_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
@@ -123,8 +121,8 @@ class WorkflowTaskRunner:
         # Create execution module from config and run fit()
         module = task.create_module()
         selected_features, scores, predictions, feature_importances = module.fit(
-            data_traindev=data_train,
-            data_test=data_test,
+            data_traindev=outersplit.traindev,
+            data_test=outersplit.test,
             feature_cols=feature_cols,
             study_context=self.study_context,
             outersplit_id=outersplit_id,

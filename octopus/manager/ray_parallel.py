@@ -4,13 +4,12 @@ import os
 from collections.abc import Callable, Iterable
 from typing import Any
 
-import pandas as pd
 import ray
 import threadpoolctl
 from ray import ObjectRef
 from upath import UPath
 
-from octopus.datasplit import OuterSplits
+from octopus.datasplit import OuterSplit, OuterSplits
 from octopus.logger import set_logger_filename
 
 
@@ -124,18 +123,18 @@ def _setup_worker_logging(log_dir: UPath):
 
 def run_parallel_outer_ray[T](
     outersplit_data: OuterSplits,
-    run_fn: Callable[[int, pd.DataFrame, pd.DataFrame], T],
+    run_fn: Callable[[int, OuterSplit], T],
     log_dir: UPath,
     num_workers: int,
 ) -> list[T]:
-    """Execute run_fn(outersplit_id, data_traindev, data_test) in parallel using Ray.
+    """Execute run_fn(outersplit_id, outersplit) in parallel using Ray.
 
     Preserves input order and limits concurrency to num_workers. Outer tasks reserve
     0 CPUs so inner Ray work can use available CPUs.
 
     Args:
         outersplit_data: Dictionary mapping outersplit_id to OuterSplit(traindev, test).
-        run_fn: Function called as run_fn(outersplit_id, data_traindev, data_test).
+        run_fn: Function called as run_fn(outersplit_id, outersplit).
         log_dir: Directory to store individual Ray worker logs.
         num_workers: Maximum number of concurrent outer tasks.
 
@@ -146,9 +145,9 @@ def run_parallel_outer_ray[T](
     init_ray(start_local_if_missing=True)
 
     @ray.remote(num_cpus=0)
-    def outer_task(outersplit_id: int, data_train: pd.DataFrame, data_test: pd.DataFrame, log_dir: UPath):
+    def outer_task(outersplit_id: int, outersplit: OuterSplit, log_dir: UPath):
         _setup_worker_logging(log_dir)
-        return outersplit_id, run_fn(outersplit_id, data_train, data_test)
+        return outersplit_id, run_fn(outersplit_id, outersplit)
 
     outersplit_ids = list(outersplit_data.keys())
     n = len(outersplit_ids)
@@ -164,9 +163,7 @@ def run_parallel_outer_ray[T](
     while next_i < n and len(inflight) < max_concurrent:
         outersplit_id = outersplit_ids[next_i]
         inflight.append(
-            outer_task.remote(
-                outersplit_id, outersplit_data[outersplit_id].traindev, outersplit_data[outersplit_id].test, log_dir
-            )
+            outer_task.remote(outersplit_id, outersplit_data[outersplit_id], log_dir)
         )
         next_i += 1
 
@@ -178,12 +175,7 @@ def run_parallel_outer_ray[T](
         if next_i < n:
             outersplit_id = outersplit_ids[next_i]
             inflight.append(
-                outer_task.remote(
-                    outersplit_id,
-                    outersplit_data[outersplit_id].traindev,
-                    outersplit_data[outersplit_id].test,
-                    log_dir,
-                )
+                outer_task.remote(outersplit_id, outersplit_data[outersplit_id], log_dir)
             )
             next_i += 1
 
