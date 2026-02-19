@@ -1,6 +1,6 @@
 # TaskPredictor Concept — Analysis Layer & Notebook Specification
 
-**Parent document:** [01_overview.md](01_overview.md)  
+**Parent document:** [01_overview.md](01_overview.md)
 **Date:** 2025-02-18
 
 ---
@@ -87,7 +87,7 @@ The `predict/` package avoids importing `octopus.metrics` by **inlining a privat
 
 2. **Private scoring function** — `_get_performance_from_model(model, data, features, metric_name, ...)` looks up the metric in `_METRIC_REGISTRY`, gets predictions from the model, and calls the sklearn function directly. No `Metrics.get_instance()` call.
 
-3. **`TaskPredictor.score_test(metrics)`** uses `_get_performance_from_model()` internally — so `analysis/notebook_utils.py` calls `predictor.score_test(["AUCROC", "ACC"])` and gets scores back without any `octopus.metrics` import.
+3. **`TaskPredictor.performance_test(metrics)`** uses `_get_performance_from_model()` internally — so `analysis/notebook_utils.py` calls `predictor.performance_test(["AUCROC", "ACC"])` and gets scores back without any `octopus.metrics` import.
 
 **Result:** After cleanup, `predict/` is fully self-contained:
 - Zero imports from `octopus.metrics` — scoring is encapsulated inside `TaskPredictor` via `_METRIC_REGISTRY`
@@ -184,7 +184,7 @@ The saved `feature_importances.parquet` files (from training) are **not used** b
 | `load_task_modules()` (250 lines) | `TaskPredictor.__init__()` does the same loading |
 | `ensemble_predict()` (60 lines) | `TaskPredictor.predict()` |
 | `ensemble_predict_proba()` (60 lines) | `TaskPredictor.predict_proba()` |
-| `get_performance_from_model` import in notebook_utils | Replaced by `TaskPredictor.score_test()` |
+| `get_performance_from_model` import in notebook_utils | Replaced by `TaskPredictor.performance_test()` |
 | `get_fi_permutation` import in `__init__.py` | FI computed fresh by `TaskPredictor.calculate_fi_test()` |
 | All FI-loading-from-disk code in `show_overall_fi_table()` | FI read from `predictor.fi_results` in memory |
 | `module` and `result_type` params on functions | Set on predictor creation, not per-function |
@@ -209,7 +209,7 @@ All analysis functionality moves into `octopus/predict/`. The `analysis/` packag
 **`analysis/loaders.py` (`StudyLoader`, `OuterSplitLoader`):**
 Well-designed and version-stable (zero `octopus.*` imports). Move to `predict/` since all analysis functionality lives there. Changes:
 - Remove `module` and `result_type` parameters from `get_outersplit_loader()` if not needed
-- Ensure backward compatibility with both `task{id}` and `workflowtask{id}` directory naming
+- Handle missing files gracefully for older studies (e.g., `feature_cols.json`, `feature_groups.json`)
 
 ### 5.2 `predict/notebook_utils.py` — Refactored from `analysis/`
 
@@ -221,9 +221,9 @@ Functions that need refactoring:
 
 | Function | Current | After |
 |----------|---------|-------|
-| `testset_performance_overview()` | `load_task_modules()` + `get_performance_from_model()` | Takes `predictor` arg, calls `predictor.score_test(metrics)` + display |
+| `testset_performance_overview()` | `load_task_modules()` + `get_performance_from_model()` | Takes `predictor` arg, calls `predictor.performance_test(metrics)` + display |
 | `plot_aucroc()` | `load_task_modules()` + `module.predict_proba()` | Takes `predictor` arg, calls `predictor.predict_proba_test(df=True)` + ROC + plotly |
-| `show_confusionmatrix()` | `load_task_modules()` + `get_performance_from_model()` | Takes `predictor` arg, calls `predictor.predict_proba_test(df=True)` + `score_test()` + plotly |
+| `show_confusionmatrix()` | `load_task_modules()` + `get_performance_from_model()` | Takes `predictor` arg, calls `predictor.predict_proba_test(df=True)` + `performance_test()` + plotly |
 | `show_overall_fi_table()` | `load_task_modules()` + loads FI from parquet | Takes `predictor` arg, reads `predictor.fi_results` (in-memory, after `calculate_fi_test()`) |
 | `show_overall_fi_plot()` | Calls `show_overall_fi_table()` | Takes `predictor` arg, passes to `show_overall_fi_table()` |
 
@@ -293,6 +293,8 @@ These should be planned but can be implemented after the core cleanup.
 
 ## 7. Long-Term Version Stability
 
+> **See [`11_version_stability.md`](11_version_stability.md) for the comprehensive version stability analysis, including model deserialization risks, ONNX migration strategy, reference study test suite, and the distinction between version stability and development isolation.**
+
 ### 7.1 Stability Guarantee
 
 The `octopus/predict/` package (including notebook_utils and study_loader) must satisfy:
@@ -303,13 +305,17 @@ Analysis is prediction + visualization — it belongs in `predict/`.
 
 ### 7.2 Stability Rules
 
-| Rule | Description |
-|------|-------------|
-| **No execution code imports** | `predict/` must NEVER import from `octopus.modules/`, `octopus.study/`, `octopus.manager/`, `octopus.models/`, or `octopus.metrics/` |
-| **Zero `octopus.*` imports** | Everything in `predict/` is self-contained — no imports from any other `octopus` sub-package |
-| **Read-only file access** | Analysis functions only read from study directories, never write |
-| **Stable file formats only** | JSON, Parquet, joblib — no pickle files, no monolithic serialization |
-| **External dependencies are stable** | `pandas`, `numpy`, `plotly`, `sklearn.metrics` — all have stable public APIs |
+**Development isolation** (import separation) is a valuable guideline that prevents accidental coupling, but the **primary version stability mechanisms** are backward-compatible file reading, model deserialization safety, and reference study tests. See `11_version_stability.md` §2 for details.
+
+| Rule | Category | Description |
+|------|----------|-------------|
+| **No execution code imports** | Development isolation | `predict/` should not import from `octopus.modules/`, `octopus.study/`, `octopus.manager/`, `octopus.models/`, or `octopus.metrics/` |
+| **Read-only file access** | Version stability | Analysis functions only read from study directories, never write |
+| **Stable file formats only** | Version stability | JSON, Parquet, joblib — no pickle files, no monolithic serialization |
+| **Backward-compatible file reading** | Version stability | Handle missing files/keys gracefully with defaults (see `11_version_stability.md` §3.2) |
+| **Model class path stability** | Version stability | Never move classes saved in `model.joblib` without compatibility aliases (see `11_version_stability.md` §6) |
+| **Reference study tests** | Version stability | CI tests verify all historical study directories load correctly (see `11_version_stability.md` §5) |
+| **External dependencies are stable** | Version stability | `pandas`, `numpy`, `plotly`, `sklearn.metrics` — all have stable public APIs; pin compatible ranges |
 
 ### 7.3 Dependency Layers (After Cleanup)
 
@@ -364,14 +370,14 @@ for py_file in pathlib.Path("octopus/predict").glob("*.py"):
 
 ## 8. Summary of Changes
 
-| File | Action | Effort |
-|------|--------|--------|
-| `analysis/module_loader.py` | **Delete entirely** — replaced by TaskPredictor | Small |
-| `analysis/notebook_utils.py` | **Move to `predict/notebook_utils.py`** — matching main branch | Medium |
-| `analysis/loaders.py` | **Move to `predict/study_loader.py`** — all analysis in `predict/` | Small |
-| `analysis/__init__.py` | **Remove or reduce to deprecation stub** | Small |
-| `predict/notebook_utils.py` | Refactor all model functions to take `predictor` arg | Medium |
-| `predict/notebook_utils.py` | Remove all FI-loading-from-disk code — FI computed fresh by `predictor.calculate_fi_test()` | Small |
-| `predict/notebook_utils.py` | Remove `from octopus.metrics.utils import get_performance_from_model` | Small |
-| `examples/analyse_study_classification.ipynb` | **Replace with main branch version** adapted for TaskPredictor | Medium |
-| CI/tests | Add forbidden-import check for `predict/` | Small |
+| File | Action | Effort | Status |
+|------|--------|--------|--------|
+| `analysis/module_loader.py` | **Deleted** — replaced by TaskPredictor | Small | ✅ DONE |
+| `analysis/notebook_utils.py` | **Deleted** — replaced by `predict/notebook_utils.py` | Medium | ✅ DONE |
+| `analysis/loaders.py` | **Deleted** — replaced by `predict/study_io.py` | Small | ✅ DONE |
+| `analysis/__init__.py` | **Deleted** — entire `analysis/` directory removed | Small | ✅ DONE |
+| `predict/notebook_utils.py` | Created — all model functions take `predictor` arg | Medium | ✅ DONE |
+| `predict/notebook_utils.py` | FI computed fresh by `predictor.calculate_fi()` — no loading from disk | Small | ✅ DONE |
+| `predict/_metrics.py` | Created — private metric registry, no `octopus.metrics` import | Small | ✅ DONE |
+| `examples/analyse_study_classification.ipynb` | **Updated** to use `octopus.predict.TaskPredictor` pattern | Medium | ✅ DONE |
+| CI/tests | Add forbidden-import check for `predict/` | Small | |

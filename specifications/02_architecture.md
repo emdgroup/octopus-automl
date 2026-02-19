@@ -14,9 +14,7 @@ octopus/
 │   ├── study_io.py                       # Self-contained study data loading (config, data, models)
 │   └── feature_importance.py             # FI calculations (adapted from main branch modules/utils.py)
 │
-├── analysis/                             # Notebook convenience layer (uses predict/)
-│   ├── __init__.py                       # Exports analysis functions (NO imports from modules/)
-│   └── notebook_utils.py                 # High-level notebook functions (delegates to TaskPredictor)
+├── analysis/                             # DELETED — all functionality moved to predict/
 │
 ├── modules/                              # Study execution code
 │   ├── (predictor.py)                    # REMOVE — not replaced; saving logic moves to base.py/workflow_runner

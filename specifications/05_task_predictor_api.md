@@ -14,6 +14,7 @@ from octopus.predict import TaskPredictor
 predictor = TaskPredictor(
     study_path="./studies/my_study/",   # Path to completed study
     task_id=0,                          # Task ID (-1 = last task)
+    result_type="best",                 # Results key for filtering (default: "best")
 )
 ```
 
@@ -21,8 +22,14 @@ predictor = TaskPredictor(
 |-----------|------|---------|-------------|
 | `study_path` | `str \| Path` | — | Path to the completed study directory |
 | `task_id` | `int` | `-1` | Task ID within the workflow. `-1` means last task |
+| `module` | `str` | `"octo"` | Module name for filtering results |
+| `result_type` | `str` | `"best"` | Results key for filtering saved artifacts. Corresponds to `results_key` in the maincode's `OctoPredict` class. Used when loading predictions, scores, and feature importance parquet files that contain a `result_type` column. Common values: `"best"` (best single model) or `"ensemble_selection"` |
 
-> **Note on `result_type`:** Removed from constructor. The saved `model.joblib` always contains the best bag model. The `result_type` column in `predictions.parquet`, `scores.parquet`, and `feature_importances.parquet` distinguishes between "best" and "ensemble_selection" results, but these are study execution artifacts — `TaskPredictor` always uses the saved model for fresh predictions.
+> **Note on `result_type` / `results_key` mapping:**
+> - In the maincode's `OctoPredict` class, this parameter is called `results_key`
+> - In `TaskPredictor`, it is called `result_type` for consistency with the column name in parquet files
+> - The `result_type` is passed through to `OuterSplitLoader` for filtering `predictions.parquet`, `scores.parquet`, and `feature_importances.parquet`
+> - The saved `model.joblib` always contains the best bag model regardless of `result_type`
 
 ### 6.2 Predict on New Data
 

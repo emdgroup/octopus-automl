@@ -1,7 +1,7 @@
 # Specification Review — Inconsistencies & Architectural Weaknesses
 
-**Date:** 2025-02-18  
-**Scope:** All specification documents (01–06)  
+**Date:** 2025-02-18
+**Scope:** All specification documents (01–06)
 **Status:** Most issues resolved — see resolution notes below
 
 ---
@@ -74,7 +74,7 @@ Updated in: `05_task_predictor_api.md` §6.5, §7.8; `02_architecture.md` §3.1b
 
 ### I4: Directory structure naming — No action needed
 
-The actual code on this branch uses `task{task_id}` (e.g., `task0/`), matching the spec. Old studies using `workflowtask{id}` are from the previous format and would need a backward-compatibility migration if supported.
+The code uses `task{task_id}` (e.g., `task0/`), matching the spec. Only the `task{id}` naming convention is supported — no backward compatibility with legacy naming conventions is needed.
 
 ---
 

@@ -202,22 +202,23 @@ Models are loaded via `joblib.load()`. The deserialized object (e.g., `BagClassi
 
 ## 11. Implementation Plan
 
-| Phase | Action | Effort |
-|-------|--------|--------|
-| 1 | Create `octopus/predict/study_io.py` with all I/O functions (including `load_model()`, `load_selected_features()`, `load_feature_cols()`) | Small |
-| 2 | Replace model saving in `octopus/modules/base.py`: instead of `Predictor.save()`, use direct `joblib.dump()` + JSON writes. No shared class between modules/ and predict/ | Small |
-| 2b | Save `feature_cols.json` alongside `selected_features.json` in `workflow_runner._save_task_results()` — persists the input feature columns available to the task | Small |
-| 3 | Remove `octopus/modules/predictor.py` entirely | Small |
-| 4 | Create `octopus/predict/feature_importance.py` — adapt FI functions from main branch `modules/utils.py`, decouple from `ExperimentInfo` | Medium |
-| 5 | Create `octopus/predict/task_predictor.py` — constructor loads models/features directly via `study_io`, inlines feature subsetting. Properties, `predict()`, `predict_proba()` | Medium |
-| 6 | Add `predict_test()`, `predict_proba_test()` | Small |
-| 7 | Add `calculate_fi()` — per-experiment + ensemble FI | Medium |
-| 8 | Create `octopus/predict/__init__.py` — exports `TaskPredictor` only | Small |
-| 9 | Update `octopus/analysis/notebook_utils.py` to use `TaskPredictor` internally | Medium |
-| 10 | Remove imports from `octopus.modules.utils` in `analysis/__init__.py` | Small |
-| 11 | Deprecate/remove `analysis/loaders.py` and `analysis/module_loader.py` | Small |
-| 12 | Update tests (remove `test_predictor.py`, add `test_task_predictor.py`) | Medium |
-| 13 | Update example notebooks | Medium |
+| Phase | Action | Effort | Status |
+|-------|--------|--------|--------|
+| 1 | Create `octopus/predict/study_io.py` with all I/O functions (including `load_model()`, `load_selected_features()`, `load_feature_cols()`) | Small | ✅ DONE |
+| 2 | Replace model saving in `octopus/modules/base.py`: instead of `Predictor.save()`, use direct `joblib.dump()` + JSON writes. No shared class between modules/ and predict/ | Small | |
+| 2b | Save `feature_cols.json` alongside `selected_features.json` in `workflow_runner._save_task_results()` — persists the input feature columns available to the task | Small | |
+| 3 | Remove `octopus/modules/predictor.py` entirely | Small | |
+| 4 | Create `octopus/predict/feature_importance.py` — adapt FI functions from main branch `modules/utils.py`, decouple from `ExperimentInfo` | Medium | ✅ DONE |
+| 5 | Create `octopus/predict/task_predictor.py` — constructor loads models/features directly via `study_io`, inlines feature subsetting. Properties, `predict()`, `predict_proba()` | Medium | ✅ DONE |
+| 6 | Add `predict_test()`, `predict_proba_test()` | Small | |
+| 7 | Add `calculate_fi()` — per-experiment + ensemble FI | Medium | ✅ DONE |
+| 8 | Create `octopus/predict/__init__.py` — exports `TaskPredictor` only | Small | ✅ DONE |
+| 9 | Create `octopus/predict/notebook_utils.py` — task-level functions take TaskPredictor | Medium | ✅ DONE |
+| 10 | Create `octopus/predict/_metrics.py` — private metric registry + scoring | Small | ✅ DONE |
+| 11 | Delete `octopus/analysis/` directory entirely — replaced by `octopus/predict/` | Small | ✅ DONE |
+| 12 | Update tests (remove `test_predictor.py`, add `test_task_predictor.py`) | Medium | |
+| 13 | Update example notebooks — `analyse_study_classification.ipynb` updated to use `octopus.predict` | Medium | ✅ DONE |
+| 14 | Update `evaluation_classification.ipynb` and `evaluation_regression.ipynb` — still reference deleted `octopus.analysis` | Medium | ⚠️ TODO |
 
 ---
 
@@ -225,13 +226,13 @@ Models are loaded via `joblib.load()`. The deserialized object (e.g., `BagClassi
 
 ### Resolved
 
-1. **~~Should `TaskPredictor` also support non-ML tasks (feature selection only)?~~**  
+1. **~~Should `TaskPredictor` also support non-ML tasks (feature selection only)?~~**
    **Decision: No.** `TaskPredictor` only handles tasks that produce a model. Feature-selection-only tasks (whose only output is `selected_features.json`) are out of scope.
 
-2. **~~Should analysis visualization methods live on `TaskPredictor` or stay as standalone functions?~~**  
+2. **~~Should analysis visualization methods live on `TaskPredictor` or stay as standalone functions?~~**
    **Decision: Option B** — `plot_aucroc(predictor)`. Analysis functions take a `TaskPredictor` as input, keeping the class lean and focused on prediction/FI. This also allows analysis functions to be added independently without modifying `TaskPredictor`.
 
-4. **~~Single class or two classes?~~**  
+4. **~~Single class or two classes?~~**
    **Decision: Single class preferred.** A single `TaskPredictor` with both `predict(new_data)` and `predict_test()` methods.
 
    *Pros of single class:*
@@ -248,12 +249,12 @@ Models are loaded via `joblib.load()`. The deserialized object (e.g., `BagClassi
 
 ### Still Open
 
-3. **Model class path stability strategy:**  
+3. **Model class path stability strategy:**
    How do we ensure `octopus.modules.octo.bag.BagClassifier` remains loadable across versions? Register aliases? Freeze the path? Custom unpickler?
 
 ### Resolved (continued)
 
-5. **~~Feature groups:~~**  
+5. **~~Feature groups:~~**
    **Decision: Persist during study execution (option b)** — save `feature_groups.json` alongside `predictor.json`.
 
    **Background:** Feature groups are currently **not persisted to disk**. They are computed at runtime by `calculate_feature_groups()` in `octopus/utils.py` (Spearman correlation-based grouping at thresholds 0.7, 0.8, 0.9) and passed through the execution chain in memory only: `workflow_runner.run_outersplit()` → `module.fit()` → `training`. They are never saved.
@@ -274,7 +275,7 @@ Models are loaded via `joblib.load()`. The deserialized object (e.g., `BagClassi
 
    **Backward compatibility:** Old studies without `feature_groups.json` will have no saved groups. `TaskPredictor` handles this gracefully: group FI methods raise a clear error if no groups are available and none are provided.
 
-6. **~~`data_pool` for permutation FI shuffling:~~**  
+6. **~~`data_pool` for permutation FI shuffling:~~**
    **Decision: Use train + evaluation data combined** (same as main branch).
 
    The main branch's `get_fi_permutation()` builds the shuffling pool as:

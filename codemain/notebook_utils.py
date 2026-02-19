@@ -3,7 +3,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -11,9 +11,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.metrics import auc, confusion_matrix, roc_curve
 
-from octopus.analysis.loaders import StudyLoader
-from octopus.analysis.module_loader import load_task_modules
+from octopus.experiment import OctoExperiment
 from octopus.metrics.utils import get_performance_from_model
+
+if TYPE_CHECKING:
+    from octopus.predict.core import OctoPredict
 
 try:
     from IPython.display import display as ipython_display
@@ -34,7 +36,7 @@ def display_table(data: Any) -> None:
 
     Example:
         >>> import pandas as pd
-        >>> from octopus.analysis.notebook_utils import display_table
+        >>> from octopus.predict.notebook_utils import display_table
         >>> df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
         >>> display_table(df)
     """
@@ -48,7 +50,7 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
     """Display and validate study details including configuration and structure.
 
     This function reads the study configuration, validates the study structure,
-    and displays information about the workflow tasks and outersplit directories.
+    and displays information about the workflow tasks and experiment directories.
 
     Args:
         study_directory: Path to the study directory.
@@ -72,7 +74,7 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
         FileNotFoundError: If the study directory does not exist.
 
     Example:
-        >>> from octopus.analysis.notebook_utils import show_study_details
+        >>> from octopus.predict.notebook_utils import show_study_details
         >>> study_info = show_study_details("./studies/my_study/")
         >>> print(f"Study has {len(study_info['workflow_tasks'])} workflow tasks")
     """
@@ -107,7 +109,7 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
 
     if not outersplit:
         raise ValueError(
-            f"❌ ERROR: No outersplit directories found in study path.\n"
+            f"❌ ERROR: No experiment directories found in study path.\n"
             f"Study path: {path_study}\nThe study may not have been run yet."
         )
     if verbose:
@@ -132,7 +134,7 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
     elif verbose:
         print("All expected outersplit directories found")
 
-    # Check 3: Verify outersplits contain results
+    # Check 3: Verify experiments contain results
     # Extract task_ids from workflow_tasks
     expected_task_ids = [task["task_id"] for task in workflow_tasks]
     if verbose:
@@ -142,21 +144,21 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
     missing_workflow_dirs = []
 
     for split_dir in outersplit:
-        workflow_dirs = list(split_dir.glob("task*"))
+        workflow_dirs = list(split_dir.glob("workflowtask*"))
         if workflow_dirs:
             has_results = True
 
         # Check that all expected workflow task directories exist
         for task_id in expected_task_ids:
-            expected_dir = split_dir / f"task{task_id}"
+            expected_dir = split_dir / f"workflowtask{task_id}"
             if not expected_dir.exists():
                 if verbose:
-                    print(f"⚠️  WARNING: Missing directory 'task{task_id}' in {split_dir.name}")
-                missing_workflow_dirs.append(f"{split_dir.name}/task{task_id}")
+                    print(f"⚠️  WARNING: Missing directory '{expected_dir.name}' in {split_dir.name}")
+                missing_workflow_dirs.append(str(expected_dir.relative_to(path_study)))
 
     if not has_results:
         raise ValueError(
-            "❌ ERROR: No workflow results found in outersplits.\nThe study may not have completed successfully."
+            "❌ ERROR: No workflow results found in experiments.\nThe study may not have completed successfully."
         )
     elif missing_workflow_dirs:
         if verbose:
@@ -196,10 +198,10 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
 
 
 def _build_performance_dataframe(study_info: dict) -> pd.DataFrame:
-    """Build performance dataframe from study outersplits.
+    """Build performance dataframe from study experiments.
 
-    This is a utility function that loads results from all workflow tasks
-    across outersplits and extracts performance metrics and feature information.
+    This is a utility function that loads experiments from all workflow tasks
+    across outer splits and extracts performance metrics and feature information.
 
     Args:
         study_info: Dictionary returned by show_study_details() containing study information.
@@ -219,7 +221,6 @@ def _build_performance_dataframe(study_info: dict) -> pd.DataFrame:
             "OuterSplit",
             "Task",
             "Task_name",
-            "Module",
             "Results_key",
             "Scores_dict",
             "n_features",
@@ -227,92 +228,44 @@ def _build_performance_dataframe(study_info: dict) -> pd.DataFrame:
         ]
     )
 
-    study_loader = StudyLoader(study_info["path"])
-
     for path_split in study_info["outersplit_dirs"]:
         # Name of outer split
         split_name = path_split.name
         # Number of outer split
         match = re.search(r"\d+$", split_name)
-        if not match:
-            continue
-        split_num = int(match.group())
+        split_num = int(match.group()) if match else None
 
-        # Get task directories (handles both 'task' and 'workflowtask' naming)
-        task_dirs = study_loader.get_task_directories(split_num)
+        # Workflows
+        path_workflows = [f for f in path_split.glob("workflowtask*") if f.is_dir()]
 
-        # Iterate through tasks
-        for workflow_num, path_workflow in task_dirs:
+        # Iterate through workflows
+        for path_workflow in path_workflows:
             # Name of workflow task
             workflow_name = str(path_workflow.name)
+            # Number of workflow task
+            match = re.search(r"\d+", workflow_name)
+            workflow_num = int(match.group()) if match else None
+            path_exp_pkl = path_workflow.joinpath(f"exp{split_num}_{workflow_num}.pkl")
 
-            try:
-                # Load selected features
-                try:
-                    loader = study_loader.get_outersplit_loader(outersplit_id=split_num, task_id=workflow_num)
-                    selected_features = loader.load_selected_features()
-                except FileNotFoundError:
-                    selected_features = []
-
-                # Load scores to discover result types
-                scores_df = loader.load_scores()
-
-                if not scores_df.empty and "result_type" in scores_df.columns:
-                    # Determine grouping columns based on available data
-                    group_cols = ["result_type"]
-                    if "module" in scores_df.columns:
-                        group_cols = ["module", "result_type"]
-
-                    # Create one row per (module, result_type) combination found in scores
-                    unique_combos = scores_df[group_cols].drop_duplicates()
-                    for _, combo in unique_combos.iterrows():
-                        mask = pd.Series(True, index=scores_df.index)
-                        for col in group_cols:
-                            mask &= scores_df[col] == combo[col]
-                        key_scores = scores_df[mask]
-                        scores_dict = {}
-                        for _, row in key_scores.iterrows():
-                            score_key = f"{row['partition']}_{row['aggregation']}"
-                            scores_dict[score_key] = row["value"]
-
-                        module_name = combo.get("module", "") if "module" in group_cols else ""
-                        new_row = pd.DataFrame(
-                            [
-                                {
-                                    "OuterSplit": split_num,
-                                    "Task": workflow_num,
-                                    "Task_name": workflow_name,
-                                    "Module": module_name,
-                                    "Results_key": str(combo["result_type"]),
-                                    "Scores_dict": scores_dict,
-                                    "n_features": len(selected_features),
-                                    "Selected_features": sorted(selected_features),
-                                }
-                            ]
-                        )
-                        df = pd.concat([df, new_row], ignore_index=True)
-                else:
-                    # No scores — still record the task with selected features
+            if path_exp_pkl.exists():
+                # Load experiment
+                exp = OctoExperiment.from_pickle(path_exp_pkl)
+                # Iterate through keys
+                for key, result in exp.results.items():
                     new_row = pd.DataFrame(
                         [
                             {
                                 "OuterSplit": split_num,
                                 "Task": workflow_num,
                                 "Task_name": workflow_name,
-                                "Module": "",
-                                "Results_key": "",
-                                "Scores_dict": {},
-                                "n_features": len(selected_features),
-                                "Selected_features": sorted(selected_features),
+                                "Results_key": str(key),
+                                "Scores_dict": result.scores,
+                                "n_features": len(result.selected_features),
+                                "Selected_features": sorted(result.selected_features),
                             }
                         ]
                     )
                     df = pd.concat([df, new_row], ignore_index=True)
-
-            except (FileNotFoundError, KeyError) as e:
-                # Skip if task data is missing
-                print(f"Warning: Could not load data for {workflow_name} in {split_name}: {e}")
-                continue
 
     # Sort dataframe by Task, then by OuterSplit
     df = df.sort_values(by=["Task", "OuterSplit"], ignore_index=True)
@@ -323,19 +276,19 @@ def _build_performance_dataframe(study_info: dict) -> pd.DataFrame:
 def show_target_metric_performance(study_info: dict, details: bool = False) -> list[pd.DataFrame]:
     """Display performance metrics for all workflow tasks in a study.
 
-    This function loads results from all workflow tasks across outersplits,
+    This function loads experiments from all workflow tasks across outer splits,
     extracts performance metrics, and displays aggregated results.
 
     Args:
         study_info: Dictionary returned by show_study_details() containing study information.
         details: If False, only shows performance overview. If True, shows performance
-            overview first, then detailed information for each outersplit.
+            overview first, then detailed information for each experiment.
 
     Returns:
         List of DataFrames, one for each task/key combination with performance metrics
 
     Example:
-        >>> from octopus.analysis.notebook_utils import show_study_details, show_target_metric_performance
+        >>> from octopus.predict.notebook_utils import show_study_details, show_target_metric_performance
         >>> study_info = show_study_details("./studies/my_study/")
         >>> tables = show_target_metric_performance(study_info, details=False)
     """
@@ -389,7 +342,7 @@ def show_target_metric_performance(study_info: dict, details: bool = False) -> l
         print("\n" + "=" * 80)
         print("DETAILED INFORMATION")
         print("=" * 80 + "\n")
-        print("Listing of outersplits available in this study")
+        print("Listing of outer splits available in this study")
 
         # Iterate through outer splits again for detailed output
         for path_split in study_info["outersplit_dirs"]:
@@ -411,12 +364,10 @@ def show_target_metric_performance(study_info: dict, details: bool = False) -> l
 
                 print(f"\tWorkflow Task {workflow_num} at {path_exp_pkl}")
 
-                # NOTE: OctoExperiment was removed during storage class refactoring
-                # This detailed loading is no longer supported
-                # if path_exp_pkl.exists():
-                #     exp = OctoExperiment.from_pickle(path_exp_pkl)
-                #     for key, result in exp.results.items():
-                #         print(f"\t\t{key}: {'\n\t\t\t'.join(f'{m}: {s}' for m, s in result.scores.items())}")
+                if path_exp_pkl.exists():
+                    exp = OctoExperiment.from_pickle(path_exp_pkl)
+                    for key, result in exp.results.items():
+                        print(f"\t\t{key}: {'\n\t\t\t'.join(f'{m}: {s}' for m, s in result.scores.items())}")
 
     return performance_tables
 
@@ -427,8 +378,8 @@ def show_selected_features(
     """Display the number of selected features across outer splits, tasks, and result keys.
 
     This function creates two summary tables:
-    1. Number of features per outersplit for each task-key combination
-    2. Feature frequency table showing how often each feature appears across outersplits for each task-key combination
+    1. Number of features per outer split for each task-key combination
+    2. Feature frequency table showing how often each feature appears across outer splits for each task-key combination
 
     Args:
         study_info: Dictionary returned by show_study_details() containing study information.
@@ -443,10 +394,10 @@ def show_selected_features(
         Tuple of three DataFrames:
         - feature_table: Number of features per outer split for each task-key combination
         - frequency_table: Features as rows, (task, key) combinations as columns, showing selection frequency
-        - raw_feature_table: Raw performance dataframe with outersplit data and selected features
+        - raw_feature_table: Raw performance dataframe with experiment data and selected features
 
     Example:
-        >>> from octopus.analysis.notebook_utils import show_study_details, show_selected_features
+        >>> from octopus.predict.notebook_utils import show_study_details, show_selected_features
         >>> study_info = show_study_details("./studies/my_study/")
         >>> feat_table, freq_table, raw_table = show_selected_features(study_info, sort_task=0, sort_key="best")
     """
@@ -531,69 +482,43 @@ def show_selected_features(
     return feature_table, frequency_table, raw_feature_table
 
 
-def testset_performance_overview(
-    study_path: str,
-    task_id: int = -1,
-    module: str = "octo",
-    result_type: str = "best",
-    metrics: list[str] | None = None,
-) -> pd.DataFrame:
-    """Display test performance metrics across all outersplits for a task.
+def testset_performance_overview(predictor: "OctoPredict", metrics: list[str]) -> pd.DataFrame:
+    """Display test performance metrics across all experiments in a task predictor.
 
-    This function loads modules for a task, evaluates each module's model on its
-    test dataset using the specified metrics, and creates a summary table.
+    This function evaluates each experiment's model on the test dataset using the
+    specified metrics and creates a summary table showing performance across experiments.
 
     Args:
-        study_path: Path to the study directory
-        task_id: Task ID to evaluate. If -1, uses the last task in workflow.
-        module: Module name to filter results (default: 'octo')
-        result_type: Result type to load (default: 'best')
+        predictor: OctoPredict object containing experiments with trained models.
         metrics: List of metric names to evaluate (e.g., ['roc_auc', 'accuracy']).
-            If None, uses a default set based on ML type.
 
     Returns:
-        DataFrame with outersplits as rows (plus a 'Mean' row), metrics as columns,
-        showing performance values for each metric-outersplit combination.
+        DataFrame with experiments as rows (plus a 'Mean' row), metrics as columns,
+        showing performance values for each metric-experiment combination.
 
     Example:
-        >>> from octopus.analysis.notebook_utils import testset_performance_overview
-        >>> df_test_perf = testset_performance_overview(
-        ...     "./studies/my_study/", task_id=0, metrics=["roc_auc", "accuracy"]
-        ... )
+        >>> from octopus.predict import OctoPredict
+        >>> from octopus.predict.notebook_utils import testset_performance_overview
+        >>> task_predictor = OctoPredict(study_directory="./studies/my_study/", task_id=0)
+        >>> df_test_perf = testset_performance_overview(predictor=task_predictor, metrics=["roc_auc", "accuracy"])
     """
-    # Load modules
-    modules = load_task_modules(study_path, task_id=task_id, module=module, result_type=result_type)
-
-    # Set default metrics if not provided
-    if metrics is None:
-        ml_type = next(iter(modules.values()))["ml_type"]
-        if ml_type == "classification":
-            metrics = ["AUCROC", "ACCBAL", "ACC"]
-        elif ml_type == "regression":
-            metrics = ["R2", "MAE", "RMSE"]
-        else:
-            metrics = []
-
     # Collect performance data
     data_list = []
 
     print("Performance on test dataset (pooling)")
 
-    for outersplit_id, module_info in modules.items():
-        # Create a row dictionary for this outersplit
-        row_data: dict[str, int | float] = {"outersplit": outersplit_id}
-
-        loaded_module = module_info["module"]
-        data_test = module_info["data_test"]
+    for exp_id, experiment in predictor.experiments.items():
+        # Create a row dictionary for this experiment
+        row_data: dict[str, int | float] = {"outersplit": exp_id}
 
         for metric in metrics:
             performance = get_performance_from_model(
-                loaded_module.model_,
-                data_test,
-                loaded_module.selected_features_,
+                experiment.model,
+                experiment.data_test,
+                experiment.feature_cols,
                 metric,
-                module_info["target_assignments"],
-                positive_class=module_info["positive_class"],
+                experiment.target_assignments,
+                positive_class=experiment.positive_class,
             )
             row_data[metric] = performance
 
@@ -602,7 +527,7 @@ def testset_performance_overview(
     # Create DataFrame
     df = pd.DataFrame(data_list)
 
-    # Set outersplit id as index
+    # Set experiment_id as index
     df = df.set_index("outersplit")
 
     # Calculate mean for each metric and add as a new row
@@ -613,30 +538,30 @@ def testset_performance_overview(
     return df
 
 
-def _get_predictions_df(module_info: dict) -> pd.DataFrame:
-    """Extract predictions and probabilities from a module.
+def _get_predictions_df(experiment: Any) -> pd.DataFrame:
+    """Extract predictions and probabilities from an experiment.
 
     Args:
-        module_info: Dictionary containing module and test data.
+        experiment: Experiment object containing model and test data.
 
     Returns:
         DataFrame with row_id, prediction, probabilities, and target columns.
     """
-    module = module_info["module"]
-    data_test = module_info["data_test"]
-    target_col = list(module_info["target_assignments"].values())[0]
+    data_test = experiment.data_test
+    feature_cols = experiment.feature_cols
+    target_col = list(experiment.target_assignments.values())[0]
 
-    pred_proba = module.predict_proba(data_test)
+    pred_proba = experiment.model.predict_proba(data_test[feature_cols])
     # Get the index of the positive class
-    positive_class_idx = list(module.model_.classes_).index(module_info["positive_class"])
+    positive_class_idx = list(experiment.model.classes_).index(experiment.positive_class)
     probabilities = (
         pred_proba[positive_class_idx] if isinstance(pred_proba, pd.DataFrame) else pred_proba[:, positive_class_idx]
     )
 
     return pd.DataFrame(
         {
-            "row_id": data_test[module_info["row_id_col"]],
-            "prediction": module.predict(data_test),
+            "row_id": data_test[experiment.row_id_col],
+            "prediction": experiment.model.predict(data_test[feature_cols]),
             "probabilities": probabilities,
             "target": data_test[target_col],
         }
@@ -684,10 +609,7 @@ def _create_roc_figure(
 
 
 def plot_aucroc(
-    study_path: str,
-    task_id: int = -1,
-    module: str = "octo",
-    result_type: str = "best",
+    predictor: "OctoPredict",
     figsize: tuple[int, int] = (8, 8),
     dpi: int = 100,
     show_individual: bool = False,
@@ -697,42 +619,39 @@ def plot_aucroc(
     This function creates comprehensive ROC curve visualizations:
     1. Merged plot: All predictions pooled into a single ROC curve
     2. Averaged plot: Mean ROC curve with ±1 std. dev. confidence bands
-    3. Individual plots (optional): Separate ROC curve for each outersplit
+    3. Individual plots (optional): Separate ROC curve for each experiment
 
     Args:
-        study_path: Path to the study directory
-        task_id: Task ID to evaluate. If -1, uses the last task in workflow.
-        module: Module name to filter results (default: 'octo')
-        result_type: Result type to load (default: 'best')
+        predictor: OctoPredict object containing experiments with trained models
+            and test data. Must be for a classification task.
         figsize: Figure size as (width, height) in inches. Default is (8, 8).
         dpi: Dots per inch for the figure. Default is 100.
-        show_individual: If True, plots individual ROC curves for each outersplit
+        show_individual: If True, plots individual ROC curves for each experiment
             in addition to merged and averaged plots. Default is False.
 
     Raises:
-        ValueError: If the task is not for classification.
+        ValueError: If the predictor is not for a classification task.
 
     Example:
-        >>> from octopus.analysis.notebook_utils import plot_aucroc
-        >>> plot_aucroc("./studies/my_study/", task_id=0, show_individual=True)
+        >>> from octopus.predict import OctoPredict
+        >>> from octopus.predict.notebook_utils import plot_aucroc
+        >>> predictor = OctoPredict(study_directory="./studies/my_study/", task_id=0)
+        >>> plot_aucroc(predictor, show_individual=True)
     """
-    # Load modules
-    modules = load_task_modules(study_path, task_id=task_id, module=module, result_type=result_type)
-
     # Validate classification task
-    if next(iter(modules.values()))["ml_type"] != "classification":
+    if next(iter(predictor.experiments.values())).ml_type != "classification":
         raise ValueError("AUCROC plots are only available for classification tasks")
 
     # Calculate figure dimensions (80% of specified size)
     width_px, height_px = int(figsize[0] * 80), int(figsize[1] * 80)
 
-    # Collect predictions and compute ROC data for all outersplits
+    # Collect predictions and compute ROC data for all experiments
     predictions_list = []
-    roc_data = []  # Store (key, fpr, tpr, auc) for each outersplit
+    roc_data = []  # Store (key, fpr, tpr, auc) for each experiment
     mean_fpr = np.linspace(0, 1, 100)
 
-    for key, module_info in modules.items():
-        df_pred = _get_predictions_df(module_info)
+    for key, experiment in predictor.experiments.items():
+        df_pred = _get_predictions_df(experiment)
         predictions_list.append(df_pred)
 
         fpr, tpr, _ = roc_curve(df_pred["target"], df_pred["probabilities"], drop_intermediate=True)
@@ -825,30 +744,20 @@ def plot_aucroc(
         print("=" * 60)
 
         for key, fpr, tpr, auc_score, _ in roc_data:
-            print(f"\nOutersplit {key}: AUC = {auc_score:.3f}")
+            print(f"\nExperiment {key}: AUC = {auc_score:.3f}")
             _create_roc_figure(
-                fpr, tpr, auc_score, f"ROC Curve - Outersplit {key}", f"Outersplit {key}", width_px, height_px
+                fpr, tpr, auc_score, f"ROC Curve - Experiment {key}", f"Experiment {key}", width_px, height_px
             ).show()
 
 
-def show_confusionmatrix(
-    study_path: str,
-    task_id: int = -1,
-    module: str = "octo",
-    result_type: str = "best",
-    threshold: float = 0.5,
-    metrics: list[str] | None = None,
-) -> None:
-    """Display confusion matrices and performance metrics for all outersplits in a task.
+def show_confusionmatrix(predictor: "OctoPredict", threshold: float = 0.5, metrics: list[str] | None = None) -> None:
+    """Display confusion matrices and performance metrics for all experiments in a task predictor.
 
-    This function evaluates each module's model on the test dataset, plots confusion matrices
+    This function evaluates each experiment's model on the test dataset, plots confusion matrices
     (both absolute and relative/percentage), and displays performance metrics for specified metrics.
 
     Args:
-        study_path: Path to the study directory
-        task_id: Task ID to evaluate. If -1, uses the last task in workflow.
-        module: Module name to filter results (default: 'octo')
-        result_type: Result type to load (default: 'best')
+        predictor: OctoPredict object containing experiments with trained models.
         threshold: Probability threshold for binary classification (default: 0.5).
             Predictions above this value are classified as positive (class 1).
         metrics: List of metric names to evaluate (e.g., ['AUCROC', 'ACCBAL', 'ACC', 'F1']).
@@ -858,21 +767,20 @@ def show_confusionmatrix(
         ValueError: If the task is not a classification task.
 
     Example:
-        >>> from octopus.analysis.notebook_utils import show_confusionmatrix
-        >>> show_confusionmatrix("./studies/my_study/", task_id=0, threshold=0.5, metrics=['AUCROC', 'ACC', 'F1'])
+        >>> from octopus.predict.notebook_utils import show_confusionmatrix
+        >>> from octopus.predict import OctoPredict
+        >>> predictor = OctoPredict.from_study("./studies/my_study/", task_id=0)
+        >>> show_confusionmatrix(predictor, threshold=0.5, metrics=['AUCROC', 'ACC', 'F1'])
     """
     if metrics is None:
         metrics = ["AUCROC", "ACCBAL", "ACC", "F1", "AUCPR", "NEGBRIERSCORE"]
 
-    # Load modules
-    modules = load_task_modules(study_path, task_id=task_id, module=module, result_type=result_type)
-
     # Verify it's a classification task
-    if next(iter(modules.values()))["ml_type"] != "classification":
+    if predictor.config.get("ml_type") != "classification":
         raise ValueError("show_confusionmatrix() is only applicable for classification tasks")
 
     # Initialize results dataframe
-    df_results = pd.DataFrame(columns=["metric", "performance", "outersplit_id"])
+    df_results = pd.DataFrame(columns=["metric", "performance", "experiment_id"])
 
     print("=" * 80)
     print("CONFUSION MATRICES AND PERFORMANCE METRICS")
@@ -880,21 +788,22 @@ def show_confusionmatrix(
     print(f"Threshold: {threshold}")
     print(f"Metrics: {metrics}\n")
 
-    # Iterate through outersplits
-    for outersplit_id, module_info in modules.items():
+    # Iterate through experiments
+    for exp_id, experiment in predictor.experiments.items():
         print(f"\n{'=' * 60}")
-        print(f"OUTERSPLIT {outersplit_id}")
+        print(f"EXPERIMENT {exp_id}")
         print("=" * 60)
 
-        # Extract module data
-        loaded_module = module_info["module"]
-        data_test = module_info["data_test"]
-        target_col = list(module_info["target_assignments"].values())[0]
+        # Extract experiment data
+        data_test = experiment.data_test
+        feature_cols = experiment.feature_cols
+        target_col = list(experiment.target_assignments.values())[0]
         target = data_test[target_col]
+        model = experiment.model
 
         # Get predicted probabilities for the positive class
-        positive_class_idx = list(loaded_module.model_.classes_).index(module_info["positive_class"])
-        model_proba = loaded_module.predict_proba(data_test)
+        positive_class_idx = list(model.classes_).index(experiment.positive_class)  # type: ignore[attr-defined]
+        model_proba = model.predict_proba(data_test[feature_cols])
         if isinstance(model_proba, pd.DataFrame):
             probabilities = model_proba[positive_class_idx].values
         elif isinstance(model_proba, np.ndarray):
@@ -903,7 +812,7 @@ def show_confusionmatrix(
             raise ValueError("Model predictions must be a DataFrame or NumPy array")
 
         # Apply threshold to get predicted labels
-        predictions = (np.asarray(probabilities) > threshold).astype(int)
+        predictions = (probabilities > threshold).astype(int)
 
         # Compute confusion matrices
         cm_abs = confusion_matrix(target, predictions)
@@ -978,7 +887,7 @@ def show_confusionmatrix(
 
         # Update layout
         fig.update_layout(
-            title_text=f"Confusion Matrices - Outersplit {outersplit_id}",
+            title_text=f"Confusion Matrices - Experiment {exp_id}",
             width=900,
             height=420,
             showlegend=False,
@@ -992,22 +901,22 @@ def show_confusionmatrix(
         print("\nPerformance Metrics:")
         for metric in metrics:
             performance = get_performance_from_model(
-                loaded_module.model_,
+                model,
                 data_test,
-                loaded_module.selected_features_,
+                feature_cols,
                 metric,
-                module_info["target_assignments"],
-                positive_class=module_info["positive_class"],
+                experiment.target_assignments,
+                positive_class=experiment.positive_class,
                 threshold=threshold,
             )
             print(f"  {metric:<15}: {performance:.4f}")
             # Create new row explicitly
-            new_row_data = {"metric": metric, "performance": performance, "outersplit_id": outersplit_id}
+            new_row_data = {"metric": metric, "performance": performance, "experiment_id": exp_id}
             df_results = pd.concat([df_results, pd.DataFrame([new_row_data])], ignore_index=True)
 
     # Display overall performance summary
     print(f"\n{'=' * 80}")
-    print("OVERALL PERFORMANCE (Mean across all outersplits)")
+    print("OVERALL PERFORMANCE (Mean across all experiments)")
     print("=" * 80)
     performance_mean = df_results.groupby("metric").mean()["performance"]
     for metric_name, value in performance_mean.items():
@@ -1015,79 +924,71 @@ def show_confusionmatrix(
         print(f"  {metric_str:<15}: {value:.4f}")
 
 
-def show_overall_fi_table(
-    study_path: str,
-    task_id: int = -1,
-    module: str = "octo",
-    result_type: str = "best",
-    fi_method: str = "permutation",
-    fi_dataset: str = "dev",
-) -> pd.DataFrame:
-    """Calculate and display overall feature importance table across all outersplits.
+def show_overall_fi_table(predictor: "OctoPredict", fi_type: str = "group_permutation") -> pd.DataFrame:
+    """Calculate and display overall feature importance table across all experiments.
 
-    This function loads feature importance from saved files and aggregates values
-    across outersplits, averaging them and sorting by importance.
+    This function aggregates feature importance values from all experiments, averaging
+    them and sorting by importance. It handles feature groups by joining group names.
 
     Args:
-        study_path: Path to the study directory
-        task_id: Task ID to evaluate. If -1, uses the last task in workflow.
-        module: Module name to filter results (default: 'octo')
-        result_type: Result type to load (default: 'best')
-        fi_method: Feature importance computation method (e.g., "permutation", "shap", "internal").
-            Default: "permutation"
-        fi_dataset: Dataset partition for feature importance (e.g., "train", "dev", "test").
-            Default: "dev"
+        predictor: OctoPredict object containing experiments and results.
+        fi_type: Type of feature importance to extract. Options:
+            - "group_permutation": Permutation feature importance with feature groups
+            - "shap": SHAP feature importance
+            - "permutation": Standard permutation feature importance
+            Default: "group_permutation"
+
 
     Returns:
         DataFrame with columns ['feature', 'importance'] sorted by importance (descending).
 
     Raises:
-        ValueError: If no feature importance results are found for the specified fi_method/fi_dataset.
+        ValueError: If no feature importance results are found for the specified fi_type.
 
     Example:
-        >>> from octopus.analysis.notebook_utils import show_overall_fi_table
-        >>> fi_table = show_overall_fi_table("./studies/my_study/", task_id=0, fi_method="permutation", fi_dataset="dev")
+        >>> from octopus.predict import OctoPredict
+        >>> from octopus.predict.notebook_utils import show_overall_fi_table
+        >>> predictor = OctoPredict.from_study("./studies/my_study/", task_id=0)
+        >>> fi_table = show_overall_fi_table(predictor, fi_type="group_permutation")
     """
-    # Load modules to get study info
-    modules = load_task_modules(study_path, task_id=task_id, module=module, result_type=result_type)
-    study_loader = StudyLoader(study_path)
+    # Get matching result keys
+    matching_keys = [key for key in predictor.results if fi_type in key]
+    if not matching_keys:
+        raise ValueError(
+            f"No feature importance results found for fi_type='{fi_type}'. "
+            f"Available keys: {list(predictor.results.keys())}"
+        )
 
     # Collect and process feature importance dataframes
     df_lst = []
-    for outersplit_id, _module_info in modules.items():
-        try:
-            loader = study_loader.get_outersplit_loader(
-                outersplit_id=outersplit_id, task_id=task_id, module=module, result_type=result_type
-            )
-
-            # Load feature importance
-            fi_df = loader.load_feature_importance()
-
-            # Filter by fi_method and fi_dataset
-            if "fi_method" in fi_df.columns:
-                fi_df = fi_df[fi_df["fi_method"] == fi_method]
-            if "fi_dataset" in fi_df.columns:
-                fi_df = fi_df[fi_df["fi_dataset"] == fi_dataset]
-
-            if not fi_df.empty:
-                df_lst.append(fi_df)
-
-        except FileNotFoundError:
-            # FI not saved for this fold
+    for key in matching_keys:
+        # Extract experiment ID using regex
+        match = re.search(r"\d+", key)
+        if not match:
             continue
+        exp_id = int(match.group())
 
-    if not df_lst:
-        raise ValueError(
-            f"No feature importance results found for fi_method='{fi_method}', fi_dataset='{fi_dataset}'. "
-            f"Make sure feature importance has been calculated and saved."
-        )
+        # Get feature importance dataframe
+        df_fi = predictor.results[key].copy()
 
-    # Aggregate feature importance across outersplits
+        # Replace features with group names if feature groups exist
+        if exp_id in predictor.experiments and hasattr(predictor.experiments[exp_id], "feature_group_dict"):
+            feature_groups = predictor.experiments[exp_id].feature_group_dict
+            if feature_groups:
+
+                def replace_feature(f: str, groups: dict = feature_groups) -> str:
+                    return "_".join(groups[f]) if f in groups else f
+
+                df_fi["feature"] = df_fi["feature"].apply(replace_feature)
+
+        df_lst.append(df_fi)
+
+    # Aggregate feature importance across experiments
     df_all = pd.concat(df_lst, axis=0)
     df_aggregated: pd.DataFrame = (
         df_all.groupby("feature")["importance"]
         .sum()
-        .div(len(df_lst))
+        .div(len(matching_keys))
         .reset_index()
         .sort_values(by="importance", ascending=False)
     )
@@ -1096,47 +997,40 @@ def show_overall_fi_table(
 
 
 def show_overall_fi_plot(
-    study_path: str,
-    task_id: int = -1,
-    module: str = "octo",
-    result_type: str = "best",
-    fi_method: str = "permutation",
-    fi_dataset: str = "dev",
+    predictor: "OctoPredict",
+    fi_type: str = "group_permutation",
     top_n: int | None = None,
 ) -> None:
     """Create and display a bar plot of overall feature importance.
 
     This function creates an interactive plotly bar chart showing feature importance
-    averaged across all outersplits.
+    averaged across all experiments.
 
     Args:
-        study_path: Path to the study directory
-        task_id: Task ID to evaluate. If -1, uses the last task in workflow.
-        module: Module name to filter results (default: 'octo')
-        result_type: Result type to load (default: 'best')
-        fi_method: Feature importance computation method (e.g., "permutation", "shap", "internal").
-            Default: "permutation"
-        fi_dataset: Dataset partition for feature importance (e.g., "train", "dev", "test").
-            Default: "dev"
+        predictor: OctoPredict object containing experiments and results.
+        fi_type: Type of feature importance to plot. Options:
+            - "group_permutation": Permutation feature importance with feature groups
+            - "shap": SHAP feature importance
+            - "permutation": Standard permutation feature importance
+            Default: "group_permutation"
         top_n: Number of top features to display. If None, shows all features.
             Default: None (show all)
 
     Example:
-        >>> from octopus.analysis.notebook_utils import show_overall_fi_plot
-        >>> show_overall_fi_plot("./studies/my_study/", task_id=0, fi_method="permutation", fi_dataset="dev", top_n=20)
+        >>> from octopus.predict import OctoPredict
+        >>> from octopus.predict.notebook_utils import show_overall_fi_plot
+        >>> predictor = OctoPredict.from_study("./studies/my_study/", task_id=0)
+        >>> show_overall_fi_plot(predictor, fi_type="group_permutation", top_n=20)
     """
     # Get feature importance table
-    df = show_overall_fi_table(
-        study_path, task_id=task_id, module=module, result_type=result_type, fi_method=fi_method, fi_dataset=fi_dataset
-    )
+    df = show_overall_fi_table(predictor, fi_type=fi_type)
 
     # Filter to top N features if specified
-    fi_label = f"{fi_method}/{fi_dataset}"
     if top_n is not None:
         df = df.head(top_n)
-        title = f"Top {top_n} Feature Importances ({fi_label})"
+        title = f"Top {top_n} Feature Importances ({fi_type})"
     else:
-        title = f"Feature Importances ({fi_label})"
+        title = f"Feature Importances ({fi_type})"
 
     # Create and display plotly bar chart
     fig = go.Figure(

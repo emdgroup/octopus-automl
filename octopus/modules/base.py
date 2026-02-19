@@ -86,7 +86,15 @@ class ModuleExecution[T: Task](ABC):
         raise NotImplementedError("Subclasses must implement fit()")
 
     def save(self, path: UPath) -> None:
-        """Save fitted module to disk."""
+        """Save fitted module to disk.
+
+        Saves model, state, and feature metadata. Feature columns and groups
+        are read from ``_feature_cols`` and ``_feature_groups`` attributes
+        which are set during ``fit()``.
+
+        Args:
+            path: Directory to save module artifacts to.
+        """
         path.mkdir(parents=True, exist_ok=True)
 
         if hasattr(self, "model_") and self.model_ is not None:
@@ -106,6 +114,18 @@ class ModuleExecution[T: Task](ABC):
             }
             with (path / "predictor.json").open("w") as f:
                 json.dump(predictor_state, f, indent=2)
+
+        # Save feature columns (input features for this task)
+        feature_cols = getattr(self, "_feature_cols", None)
+        if feature_cols is not None:
+            with (path / "feature_cols.json").open("w") as f:
+                json.dump(feature_cols, f, indent=2)
+
+        # Save feature groups (correlation-based groups from training data)
+        feature_groups = getattr(self, "_feature_groups", None)
+        if feature_groups:
+            with (path / "feature_groups.json").open("w") as f:
+                json.dump(feature_groups, f, indent=2)
 
     def is_fitted(self) -> bool:
         """Check if module has been fitted."""

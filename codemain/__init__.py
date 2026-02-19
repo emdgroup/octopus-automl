@@ -1,15 +1,13 @@
-"""Prediction and analysis utilities for Octopus studies.
-
-This module provides functions for loading modules, making predictions,
-and analyzing results from completed studies.
-"""
+"""Predict module."""
 
 import matplotlib.pyplot as plt
 import shap
 from matplotlib.backends.backend_pdf import PdfPages
 
-from octopus.analysis.module_loader import ensemble_predict, ensemble_predict_proba, load_task_modules
-from octopus.analysis.notebook_utils import (
+from octopus.experiment import OctoExperiment
+from octopus.modules.utils import get_fi_permutation
+from octopus.predict.core import OctoPredict
+from octopus.predict.notebook_utils import (
     display_table,
     plot_aucroc,
     show_confusionmatrix,
@@ -20,15 +18,13 @@ from octopus.analysis.notebook_utils import (
     show_target_metric_performance,
     testset_performance_overview,
 )
-from octopus.modules.utils import get_fi_permutation
 
 __all__ = [
+    "OctoExperiment",
+    "OctoPredict",
     "PdfPages",
     "display_table",
-    "ensemble_predict",
-    "ensemble_predict_proba",
     "get_fi_permutation",
-    "load_task_modules",
     "plot_aucroc",
     "plt",
     "shap",

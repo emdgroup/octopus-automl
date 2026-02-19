@@ -1,8 +1,8 @@
 # TaskPredictor Concept — Overview & Design Principles
 
-**Status:** DRAFT — For Review  
-**Date:** 2025-02-18  
-**Branch:** `Refactor/pr308_anlysis_predict`  
+**Status:** DRAFT — For Review
+**Date:** 2025-02-18
+**Branch:** `Refactor/pr308_anlysis_predict`
 **Related:** PR#308 (task predictor concept lost), version stability requirements
 
 ---
@@ -61,8 +61,8 @@ Create a **`TaskPredictor`** class that:
 1. Is the **single entry point** for all prediction and analysis operations on a completed study task
 2. Has a **simple constructor**: `TaskPredictor(study_path, task_id, result_type)`
 3. Lives in `octopus/predict/` along with **all** its dependencies (data loading, feature importance)
-4. Has **zero imports** from `octopus/modules/`, `octopus/study/`, `octopus/manager/`, or any other study-execution code
-5. Is **long-term version stable** by design
+4. Follows **import isolation** as a development guideline — no imports from `octopus/modules/`, `octopus/study/`, `octopus/manager/`, or other study-execution code
+5. Is **long-term version stable** by design — achieved primarily through backward-compatible file reading, model class path stability, reference study tests, and dependency version pinning (see [`11_version_stability.md`](11_version_stability.md))
 
 ---
 
@@ -87,17 +87,17 @@ Phases (b) and (c) only need:
 
 ```
 octopus/predict/     →  ONLY: pandas, numpy, joblib, json, upath, sklearn, scipy, shap
-                     →  NEVER: octopus/metrics/, octopus/modules/, octopus/study/, octopus/manager/, octopus/models/
+                     →  SHOULD NOT: octopus/metrics/, octopus/modules/, octopus/study/, octopus/manager/, octopus/models/
                      →  Scoring functions are PRIVATE COPIES (see §2.3)
 
-octopus/modules/     →  NEVER imports from: octopus/predict/
+octopus/modules/     →  SHOULD NOT import from: octopus/predict/
                      →  Saves models via plain joblib.dump() + JSON writes (no shared class)
 
 octopus/analysis/    →  CAN import from: octopus/predict/
-                     →  NEVER: octopus/modules/, octopus/study/, octopus/manager/
+                     →  SHOULD NOT: octopus/modules/, octopus/study/, octopus/manager/
 ```
 
-> **⚠️ Why no `octopus.*` imports at all:** `octopus/__init__.py` eagerly imports `OctoClassification, OctoRegression, OctoTimeToEvent` from `octopus.study`. This triggers the entire codebase — 60+ modules loaded including the full execution stack. Private copies of the two needed scoring functions give `predict/` complete isolation. See `06_implementation.md` §10.0 for the full analysis and §10.0.1 for a future lazy-loading alternative.
+> **⚠️ Import isolation rationale:** `octopus/__init__.py` eagerly imports `OctoClassification, OctoRegression, OctoTimeToEvent` from `octopus.study`, which triggers 60+ modules. Import isolation prevents this accidental coupling and provides **development stability** (refactoring one package doesn't break another). However, import isolation alone does not guarantee **version stability** — that requires backward-compatible file reading, model deserialization safety, and reference study tests. See [`11_version_stability.md`](11_version_stability.md) for the full version stability analysis, including ONNX migration strategy.
 
 ### 2.3 Private Scoring Function Copies
 
