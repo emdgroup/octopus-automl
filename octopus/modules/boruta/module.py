@@ -1,18 +1,29 @@
-"""Boruta Module."""
+# type: ignore
 
-from typing import ClassVar
+"""Boruta module with fit/predict interface."""
+
+from __future__ import annotations
 
 from attrs import define, field, validators
 
-from octopus.task import Task
+from octopus.modules.base import Task
+
+from .core import BorutaModule
 
 
 @define
 class Boruta(Task):
-    """Boruta Config."""
+    """Boruta module for feature selection.
 
-    module: ClassVar[str] = "boruta"
-    """Module name."""
+    Uses the Boruta algorithm to identify all relevant features by comparing
+    importance scores with shadow features.
+
+    Configuration:
+        model: Model to use for Boruta (defaults based on ml_type)
+        cv: Number of CV folds
+        perc: Percentile threshold for shadow feature comparison
+        alpha: Significance level for p-values
+    """
 
     model: str = field(validator=[validators.instance_of(str)], default="")
     """Model used by Boruta."""
@@ -26,20 +37,6 @@ class Boruta(Task):
     alpha: float = field(validator=[validators.instance_of(float)], default=0.05)
     """Level at which the corrected p-values will get rejected."""
 
-    # two_step: bool = field(
-    #     validator=validators.instance_of(bool),
-    #     default=Factory(lambda: True),
-    # )
-    # """To use the original implementation of Boruta, set this to False"""
-
-    # max_iter: int = field(validator=[validators.instance_of(int)], default=100)
-    # """The number of maximum iterations to perform."""
-
-    # early_stopping: bool = field(
-    #     validator=validators.instance_of(bool),
-    #     default=Factory(lambda: False),
-    # )
-    # """To terminate the selection process before reaching `max_iter` iterations"""
-
-    # n_iter_no_change: int = field(validator=[validators.instance_of(int)], default=20)
-    # """Iterations without confirming a tentative feature."""
+    def create_module(self) -> BorutaModule:
+        """Create BorutaModule execution instance."""
+        return BorutaModule(config=self)

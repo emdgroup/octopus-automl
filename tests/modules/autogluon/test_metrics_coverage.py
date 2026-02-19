@@ -1,12 +1,9 @@
 """Test metrics coverage between octopus metrics and autogluon metrics inventory."""
 
-import importlib.util
-import sys
-from pathlib import Path
-
 import pytest
 
 from octopus.metrics import Metrics
+from octopus.modules.autogluon.core import metrics_inventory_autogluon
 
 
 class TestAutogluonMetricsCoverage:
@@ -14,19 +11,7 @@ class TestAutogluonMetricsCoverage:
 
     def setup_method(self):
         """Set up test fixtures."""
-        # Get autogluon metrics inventory from octopus autogluon module
-        autogluon_core_path = (
-            Path(__file__).parent.parent.parent.parent / "octopus" / "modules" / "autogluon" / "core.py"
-        )
-
-        # Load the module
-        spec = importlib.util.spec_from_file_location("autogluon_core", autogluon_core_path)
-        autogluon_core = importlib.util.module_from_spec(spec)
-        sys.modules["autogluon_core"] = autogluon_core
-        spec.loader.exec_module(autogluon_core)
-
-        # Get the metrics inventory from the module
-        self.autogluon_metrics_inventory = autogluon_core.metrics_inventory_autogluon
+        self.autogluon_metrics_inventory = metrics_inventory_autogluon
 
     def get_octopus_classification_metrics(self):
         """Get all octopus classification metrics."""

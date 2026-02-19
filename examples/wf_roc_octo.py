@@ -40,13 +40,13 @@ study = OctoClassification(
     datasplit_seed_outer=1234,
     ignore_data_health_warning=True,
     outer_parallelization=True,
-    run_single_experiment_num=0,  # Process only first outer loop experiment for quick testing
+    run_single_outersplit_num=0,  # Process only first outersplit for quick testing
     workflow=[
         # Step 0: ROC - Remove highly correlated features and apply statistical filtering
         Roc(
             description="step_0_roc",
             task_id=0,
-            depends_on_task=-1,  # First step, no input dependency
+            depends_on=None,  # First step, no input dependency
             load_task=False,
             threshold=0.85,  # Remove features with correlation > 0.85
             correlation_type="spearmanr",  # Use Spearman correlation
@@ -56,7 +56,7 @@ study = OctoClassification(
         Octo(
             description="step_1_octo",
             task_id=1,
-            depends_on_task=0,  # Use output from ROC step
+            depends_on=0,  # Use output from ROC step
             load_task=False,
             # Cross-validation settings
             n_folds_inner=5,

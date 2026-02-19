@@ -51,10 +51,44 @@ def create_mock_training(training_id, performance_dev, performance_test, n_sampl
     pred_dev = dev_df["target"] + np.full(len(dev_df), performance_dev)  # Exact MAE control
     pred_test = test_df["target"] + np.full(len(test_df), performance_test)  # Exact MAE control
 
+    # Parse training_id for metadata (format: "bagid_innersplit")
+    parts = training_id.rsplit("_", 1)
+    inner_split_id = parts[-1] if len(parts) > 1 else training_id
+
     predictions = {
-        "train": pd.DataFrame({"row_id": train_df["row_id"], "prediction": pred_train, "target": train_df["target"]}),
-        "dev": pd.DataFrame({"row_id": dev_df["row_id"], "prediction": pred_dev, "target": dev_df["target"]}),
-        "test": pd.DataFrame({"row_id": test_df["row_id"], "prediction": pred_test, "target": test_df["target"]}),
+        "train": pd.DataFrame(
+            {
+                "row_id": train_df["row_id"],
+                "prediction": pred_train,
+                "target": train_df["target"],
+                "outer_split_id": 0,
+                "inner_split_id": inner_split_id,
+                "partition": "train",
+                "task_id": 0,
+            }
+        ),
+        "dev": pd.DataFrame(
+            {
+                "row_id": dev_df["row_id"],
+                "prediction": pred_dev,
+                "target": dev_df["target"],
+                "outer_split_id": 0,
+                "inner_split_id": inner_split_id,
+                "partition": "dev",
+                "task_id": 0,
+            }
+        ),
+        "test": pd.DataFrame(
+            {
+                "row_id": test_df["row_id"],
+                "prediction": pred_test,
+                "target": test_df["target"],
+                "outer_split_id": 0,
+                "inner_split_id": inner_split_id,
+                "partition": "test",
+                "task_id": 0,
+            }
+        ),
     }
 
     training = Training(

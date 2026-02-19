@@ -1,89 +1,60 @@
 # type: ignore
 
-"""RFE2."""
+"""Rfe2 execution module."""
+
+from __future__ import annotations
 
 import copy
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from attrs import Factory, define, field, validators
+from attrs import Factory, define, field
 
+if TYPE_CHECKING:
+    from upath import UPath
+
+from octopus.modules.base import FIDataset, FIMethod, ResultType
 from octopus.modules.octo.bag import BagBase
-from octopus.modules.octo.core import OctoCoreGeneric
-from octopus.modules.rfe2.module import Rfe2
-from octopus.results import ModuleResults
-
-# TOBEDONE
-# - remove least important feature
-#   -- deal with group features, needs to be intelligent
-# - do we need the step input?
-# - jason output in results, see rfe
-# - how to override/disable OcoCore inputs hat are not needed?
-# - model retraining after n removal, or start use module several times
-# - autogluon: add 3-5 random feature and remove all feature below the lowest random
-# - show removed zero features
-# - pfi, set number of repeats to improve quality of pfi
-# - collect fi_df for all steps for deeper understanding
-# - set abs_on_fi default to False
-# - Explore RFE2
-#   -- retraining after n eliminations, several modules
-#   -- abs() or not
-#   -- use shap
+from octopus.modules.octo.core import OctoModule
+from octopus.study.context import StudyContext
+from octopus.utils import calculate_feature_groups
 
 
 @define
-class Rfe2Core(OctoCoreGeneric[Rfe2]):
-    """Rfe2 Core."""
+class Rfe2Module(OctoModule):
+    """Rfe2 execution module. Created by Rfe2.create_module()."""
 
-    # Optional attribute (with default value)
-    results: pd.DataFrame = field(
-        init=False,
-        default=Factory(pd.DataFrame),
-        validator=[validators.instance_of(pd.DataFrame)],
-    )
-    """RFE results dataframe."""
+    # Internal state for RFE
+    rfe_results_: pd.DataFrame = field(init=False, default=Factory(lambda: pd.DataFrame()))
+    """RFE results dataframe tracking performance at each step."""
 
-    @property
-    def config(self) -> Rfe2:
-        """Module configuration."""
-        return self.experiment.ml_config
+    def fit(
+        self,
+        data_traindev: pd.DataFrame,
+        data_test: pd.DataFrame,
+        feature_cols: list[str],
+        study: StudyContext,
+        outersplit_id: int,
+        output_dir: UPath,
+        num_assigned_cpus: int = 1,
+        feature_groups: dict | None = None,
+        prior_results: dict | None = None,
+    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """Fit Rfe2 module by running Octo optimization followed by RFE."""
+        # Store execution state temporarily (inherits Octo's pattern)
+        self._study = study
+        self._outersplit_id = outersplit_id
+        self._output_dir = output_dir
+        self._num_assigned_cpus = num_assigned_cpus
+        self._data_traindev = data_traindev
+        self._data_test = data_test
+        self._feature_cols = feature_cols
+        self._feature_groups = feature_groups or {}
+        self._prior_results = prior_results or {}
 
-    @property
-    def feature_groups(self) -> dict:
-        """Feature groups."""
-        return self.experiment.feature_groups
-
-    @property
-    def fi_method(self) -> str:
-        """Feature importance method."""
-        return self.config.fi_method_rfe
-
-    @property
-    def step(self) -> int:
-        """Number of features to be removed in RFE step."""
-        return self.config.step
-
-    @property
-    def min_features_to_select(self) -> int:
-        """Minimum number of features to select."""
-        return self.config.min_features_to_select
-
-    @property
-    def selection_method(self) -> str:
-        """Method for selection final solution (best/parsimonious)."""
-        return self.config.selection_method
-
-    @property
-    def abs_on_fi(self) -> bool:
-        """Convert all feature importances to positive values (abs())."""
-        return self.config.abs_on_fi
-
-    def __attrs_post_init__(self):
-        # run OctoCore post_init() to create directory, etc...
-        super().__attrs_post_init__()
-
-        # Initialize results DataFrame
-        self.results = pd.DataFrame(
+        # Initialize RFE results DataFrame
+        self.rfe_results_ = pd.DataFrame(
             columns=[
                 "step",
                 "performance_mean",
@@ -95,21 +66,27 @@ class Rfe2Core(OctoCoreGeneric[Rfe2]):
             ]
         )
 
-    def run_experiment(self):
-        """Run experiment."""
-        # (1) train and optimize model
-        self._optimize_splits(self.data_splits)
-        # create best bag
-        self._create_best_bag()
-        bag_results = copy.deepcopy(self.experiment.results["best"])
-        bag = bag_results.model
-        bag_scores = bag_results.scores
-        bag_selected_features = bag_results.selected_features
+        # Initialize Octo-specific setup
+        self._initialize_octo()
 
+        # (1) Run Octo optimization to get best bag
+        results = {}
+        self._run_globalhp_optimization(results)
+
+        # (2) Get best bag from Octo results
+        if "best" not in results:
+            raise ValueError("RFE2 requires 'best' results from Octo optimization")
+
+        # Get bag from module state (stored by OctoModule._run_globalhp_optimization)
+        bag = copy.deepcopy(self.model_)
+        bag_scores = results["best"]["scores"]
+        bag_selected_features = bag.get_selected_features(fi_methods=[self.config.fi_method_rfe])
+
+        # (3) Run RFE iterations
         # record baseline performance
         step = 0
         dev_lst = bag_scores["dev_lst"]
-        self.results.loc[len(self.results)] = {
+        self.rfe_results_.loc[len(self.rfe_results_)] = {
             "step": step,
             "performance_mean": bag_scores["dev_avg"],
             "performance_sem": np.std(dev_lst, ddof=1) / len(dev_lst),  # no np.sqrt
@@ -121,13 +98,13 @@ class Rfe2Core(OctoCoreGeneric[Rfe2]):
 
         self._print_step_information()
 
-        # (2) run RFE iterations
+        # Run RFE iterations
         while True:
             step = step + 1
             # calculate new features
             new_features = self._calculate_new_features(bag)
 
-            if len(new_features) < self.min_features_to_select:
+            if len(new_features) < self.config.min_features_to_select:
                 break
 
             # retrain bag and calculate feature importances
@@ -138,7 +115,7 @@ class Rfe2Core(OctoCoreGeneric[Rfe2]):
 
             # record performance
             dev_lst = bag_scores["dev_lst"]
-            self.results.loc[len(self.results)] = {
+            self.rfe_results_.loc[len(self.rfe_results_)] = {
                 "step": step,
                 "performance_mean": bag_scores["dev_avg"],
                 "performance_sem": np.std(dev_lst, ddof=1) / len(dev_lst),  # no np.sqrt
@@ -151,39 +128,28 @@ class Rfe2Core(OctoCoreGeneric[Rfe2]):
             # print step results
             self._print_step_information()
 
-        # (3) analyze results and select best model
-        #    - create and save results object
-        if self.selection_method == "best":
-            selected_row = self.results.loc[self.results["performance_mean"].idxmax()]
-        elif self.selection_method == "parsimonious":
+        # (4) Analyze results and select best model
+        if self.config.selection_method == "best":
+            selected_row = self.rfe_results_.loc[self.rfe_results_["performance_mean"].idxmax()]
+        elif self.config.selection_method == "parsimonious":
             # best performance mean and sem
-            best_performance_mean = self.results["performance_mean"].max()
-            best_performance_sem = self.results.loc[
-                self.results["performance_mean"] == best_performance_mean,
+            best_performance_mean = self.rfe_results_["performance_mean"].max()
+            best_performance_sem = self.rfe_results_.loc[
+                self.rfe_results_["performance_mean"] == best_performance_mean,
                 "performance_sem",
             ].values[0]
             # define threshold for accepting solution with less features
             threshold = best_performance_mean - best_performance_sem
-            filtered_df = self.results[self.results["performance_mean"] >= threshold]
+            filtered_df = self.rfe_results_[self.rfe_results_["performance_mean"] >= threshold]
             if not filtered_df.empty:
                 selected_row = filtered_df.loc[filtered_df["n_features"].idxmin()]
             else:
                 # take best value if no solution with less features can be found
-                selected_row = self.results.loc[self.results["performance_mean"].idxmax()]
+                selected_row = self.rfe_results_.loc[self.rfe_results_["performance_mean"].idxmax()]
 
-        # save results to experiment
+        # save results
         best_model = selected_row["model"]
-        self.experiment.results["Rfe2"] = ModuleResults(
-            id="rfe2",
-            experiment_id=self.experiment.experiment_id,
-            task_id=self.experiment.task_id,
-            model=best_model,
-            scores=best_model.get_performance(),
-            feature_importances={
-                "dev": selected_row["feature_importances"],
-            },
-            selected_features=best_model.get_selected_features(fi_methods=[self.fi_method]),
-        )
+        selected_features = best_model.get_selected_features(fi_methods=[self.config.fi_method_rfe])
 
         print("RFE solution:")
         print(
@@ -193,11 +159,41 @@ class Rfe2Core(OctoCoreGeneric[Rfe2]):
         )
         print("Selected features:", selected_row["features"])
 
-        return self.experiment
+        # Store fitted state
+        self.model_ = best_model
+        self.selected_features_ = selected_features
+        self.feature_importances_ = {"dev": selected_row["feature_importances"]}
+
+        # Build flat scores DataFrame from best_model
+        scores = best_model.get_performance_df(metric=self.target_metric)
+        scores["result_type"] = ResultType.BEST
+
+        # Build flat predictions DataFrame
+        predictions = best_model.get_predictions_df()
+        if not predictions.empty:
+            predictions["result_type"] = ResultType.BEST
+
+        # Build flat feature_importances DataFrame
+        fi_df = selected_row["feature_importances"]
+        feature_importances = fi_df[["feature", "importance"]].copy()
+        fi_method = self.config.fi_method_rfe
+        if fi_method == "permutation":
+            feature_importances["fi_method"] = FIMethod.PERMUTATION
+            feature_importances["fi_dataset"] = FIDataset.DEV
+        elif fi_method == "shap":
+            feature_importances["fi_method"] = FIMethod.SHAP
+            feature_importances["fi_dataset"] = FIDataset.DEV
+        else:
+            feature_importances["fi_method"] = fi_method
+            feature_importances["fi_dataset"] = FIDataset.DEV
+        feature_importances["training_id"] = "rfe2"
+        feature_importances["result_type"] = ResultType.BEST
+
+        return (selected_features, scores, predictions, feature_importances)
 
     def _print_step_information(self):
         """Print step performance."""
-        last_row = self.results.iloc[-1]
+        last_row = self.rfe_results_.iloc[-1]
         print(
             f"Step: {last_row['step']}, n_features: {last_row['n_features']}"
             f", Perf_mean: {last_row['performance_mean']:.4f}"
@@ -209,26 +205,24 @@ class Rfe2Core(OctoCoreGeneric[Rfe2]):
         bag = copy.deepcopy(bag)
 
         # update feature_cols and feature groups
-        feature_groups = self.experiment.calculate_feature_groups(new_features)
+        feature_groups = calculate_feature_groups(self._data_traindev, new_features)
         for training in bag.trainings:
             training.feature_cols = new_features
             training.feature_groups = feature_groups
-
-        # update feature groups??
 
         # retrain bag
         bag.fit()
 
         # calculate feature importances
-        bag.calculate_feature_importances([self.fi_method], partitions=["dev"])
+        bag.calculate_feature_importances([self.config.fi_method_rfe], partitions=["dev"])
 
         return bag
 
     def _get_fi(self, bag: BagBase) -> pd.DataFrame:
         """Get relevant feature importances."""
-        if self.fi_method == "permutation":
+        if self.config.fi_method_rfe == "permutation":
             fi_df = bag.feature_importances["permutation_dev_mean"]
-        elif self.fi_method == "shap":
+        elif self.config.fi_method_rfe == "shap":
             fi_df = bag.feature_importances["shap_dev_mean"]
 
         return fi_df
@@ -259,7 +253,7 @@ class Rfe2Core(OctoCoreGeneric[Rfe2]):
             fi_df.loc[fi_df["feature"].isin(group_members), "protected"] = True
 
         # define column for feature elimination
-        if self.abs_on_fi:
+        if self.config.abs_on_fi:
             selection_column = "importance_abs"
         else:
             selection_column = "importance"  # negative values may exist

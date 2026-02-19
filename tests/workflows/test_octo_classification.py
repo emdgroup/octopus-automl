@@ -82,7 +82,7 @@ class TestOctoIntroClassification:
         octo_task = Octo(
             description="step_1_octo",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             load_task=False,
             n_folds_inner=3,
             models=["ExtraTreesClassifier", "RandomForestClassifier"],
@@ -101,7 +101,7 @@ class TestOctoIntroClassification:
 
         assert isinstance(octo_task, Octo)
         assert octo_task.task_id == 0
-        assert octo_task.depends_on_task == -1
+        assert octo_task.depends_on is None
         assert octo_task.description == "step_1_octo"
         assert octo_task.n_folds_inner == 3
         assert set(octo_task.models) == {"ExtraTreesClassifier", "RandomForestClassifier"}
@@ -112,7 +112,7 @@ class TestOctoIntroClassification:
         octo_task = Octo(
             description="step_1_octo",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             models=[model],
             n_trials=3,
             n_folds_inner=3,
@@ -126,7 +126,7 @@ class TestOctoIntroClassification:
         octo_task = Octo(
             description="step_1_octo",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             models=models,
             n_trials=5,
             n_folds_inner=3,
@@ -140,7 +140,7 @@ class TestOctoIntroClassification:
         octo_task = Octo(
             description="step_1_octo",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             models=["ExtraTreesClassifier"],
             fi_methods_bestbag=fi_methods,
             n_trials=3,
@@ -153,7 +153,7 @@ class TestOctoIntroClassification:
         octo_task = Octo(
             description="step_1_octo",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             models=["ExtraTreesClassifier", "RandomForestClassifier"],
             ensemble_selection=True,
             ensel_n_save_trials=15,
@@ -168,7 +168,7 @@ class TestOctoIntroClassification:
         octo_task = Octo(
             description="step_1_octo",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             models=["ExtraTreesClassifier"],
             optuna_seed=42,
             n_optuna_startup_trials=5,
@@ -202,12 +202,12 @@ class TestOctoIntroClassification:
                 path=temp_dir,
                 ignore_data_health_warning=True,
                 outer_parallelization=False,
-                run_single_experiment_num=0,
+                run_single_outersplit_num=0,
                 workflow=[
                     Octo(
                         description="step_1_octo",
                         task_id=0,
-                        depends_on_task=-1,
+                        depends_on=None,
                         load_task=False,
                         n_folds_inner=3,
                         models=["ExtraTreesClassifier"],
@@ -244,20 +244,18 @@ class TestOctoIntroClassification:
             assert (study_path / "config.json").exists(), "Config JSON file should exist"
             assert (study_path / "outersplit0").exists(), "Outersplit directory should exist"
 
-            # Verify that the Octo step was executed by checking for workflow directories
+            # Verify that the Octo step was executed by checking for task directories
             experiment_path = study_path / "outersplit0"
-            workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("workflowtask")]
+            task_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("task")]
 
-            assert len(workflow_dirs) >= 1, (
-                f"Should have at least 1 workflow directory, found: {[d.name for d in workflow_dirs]}"
-            )
+            assert len(task_dirs) >= 1, f"Should have at least 1 task directory, found: {[d.name for d in task_dirs]}"
 
     def test_full_configuration_parameters(self):
         """Test that all configuration parameters from the original workflow are supported."""
         octo_task = Octo(
             description="step_1_octo",
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             load_task=False,
             n_folds_inner=5,
             models=["ExtraTreesClassifier", "RandomForestClassifier"],
@@ -280,7 +278,7 @@ class TestOctoIntroClassification:
         # Verify all parameters are set correctly
         assert octo_task.description == "step_1_octo"
         assert octo_task.task_id == 0
-        assert octo_task.depends_on_task == -1
+        assert octo_task.depends_on is None
         assert octo_task.load_task is False
         assert octo_task.n_folds_inner == 5
         assert set(octo_task.models) == {"ExtraTreesClassifier", "RandomForestClassifier"}

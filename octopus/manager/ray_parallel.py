@@ -2,22 +2,16 @@
 
 import os
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any
 
+import pandas as pd
 import ray
 import threadpoolctl
 from ray import ObjectRef
 from upath import UPath
 
+from octopus.datasplit import OuterSplits
 from octopus.logger import set_logger_filename
-
-if TYPE_CHECKING:
-    from octopus.experiment import OctoExperiment
-
-
-# =============================================================================
-# Ray Lifecycle
-# =============================================================================
 
 
 def init_ray(
@@ -118,11 +112,6 @@ def _check_parallelization_disabled() -> None:
             )
 
 
-# =============================================================================
-# Parallel Execution
-# =============================================================================
-
-
 def _setup_worker_logging(log_dir: UPath):
     """Setup logging for Ray worker processes."""
     # We could log to individual files, e.g. per task:
@@ -134,62 +123,71 @@ def _setup_worker_logging(log_dir: UPath):
 
 
 def run_parallel_outer_ray[T](
-    base_experiments: Iterable["OctoExperiment"],
-    create_execute_mlmodules: Callable[["OctoExperiment", int], T],
+    outersplit_data: OuterSplits,
+    run_fn: Callable[[int, pd.DataFrame, pd.DataFrame], T],
     log_dir: UPath,
     num_workers: int,
 ) -> list[T]:
-    """Execute create_execute_mlmodules(base_experiment, index) in parallel using Ray.
+    """Execute run_fn(outersplit_id, data_traindev, data_test) in parallel using Ray.
 
     Preserves input order and limits concurrency to num_workers. Outer tasks reserve
     0 CPUs so inner Ray work can use available CPUs.
 
     Args:
-        base_experiments: Items to process.
-        create_execute_mlmodules: Function called as create_execute_mlmodules(base_experiment, index).
-            If your function only accepts (base_experiment), wrap it (e.g., lambda be, i: f(be)).
+        outersplit_data: Dictionary mapping outersplit_id to OuterSplit(traindev, test).
+        run_fn: Function called as run_fn(outersplit_id, data_traindev, data_test).
         log_dir: Directory to store individual Ray worker logs.
         num_workers: Maximum number of concurrent outer tasks.
 
     Returns:
-        Results from create_execute_mlmodules in the same order as base_experiments.
+        Results from run_fn in the same order as outersplit_data keys.
     """
     # Ensure Ray is ready in the driver (connect or start local)
     init_ray(start_local_if_missing=True)
 
-    # If outer jobs do non-trivial CPU tasks - use a small fractional CPU for outers,
-    # e.g., num_cpus=0.1. This limits oversubscription.
     @ray.remote(num_cpus=0)
-    def outer_task(idx: int, experiment: "OctoExperiment", log_dir: UPath):
+    def outer_task(outersplit_id: int, data_train: pd.DataFrame, data_test: pd.DataFrame, log_dir: UPath):
         _setup_worker_logging(log_dir)
-        # Do not re-initialize Ray here; workers already have a Ray context.
-        return idx, create_execute_mlmodules(experiment, idx)
+        return outersplit_id, run_fn(outersplit_id, data_train, data_test)
 
-    items = list(base_experiments)
-    n = len(items)
+    outersplit_ids = list(outersplit_data.keys())
+    n = len(outersplit_ids)
     if n == 0:
         return []
 
     max_concurrent = max(1, min(num_workers, n))
-    results: list[T | None] = [None] * n
+    results: dict[int, T] = {}
     inflight: list[ObjectRef] = []
     next_i = 0
 
     # Prime up to max_concurrent tasks
     while next_i < n and len(inflight) < max_concurrent:
-        inflight.append(outer_task.remote(next_i, items[next_i], log_dir))
+        outersplit_id = outersplit_ids[next_i]
+        inflight.append(
+            outer_task.remote(
+                outersplit_id, outersplit_data[outersplit_id].traindev, outersplit_data[outersplit_id].test, log_dir
+            )
+        )
         next_i += 1
 
-    # Drain with backpressure; fill results by original index to preserve order
+    # Drain with backpressure
     while inflight:
         done, inflight = ray.wait(inflight, num_returns=1)
-        idx, res = ray.get(done[0])
-        results[idx] = res
+        outersplit_id, res = ray.get(done[0])
+        results[outersplit_id] = res
         if next_i < n:
-            inflight.append(outer_task.remote(next_i, items[next_i], log_dir))
+            outersplit_id = outersplit_ids[next_i]
+            inflight.append(
+                outer_task.remote(
+                    outersplit_id,
+                    outersplit_data[outersplit_id].traindev,
+                    outersplit_data[outersplit_id].test,
+                    log_dir,
+                )
+            )
             next_i += 1
 
-    return cast("list[T]", results)
+    return [results[fid] for fid in outersplit_ids]
 
 
 def run_parallel_inner(trainings: Iterable[Any], log_dir: UPath, num_cpus: int = 1) -> list[Any]:

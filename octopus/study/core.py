@@ -9,14 +9,13 @@ import pandas as pd
 from attrs import Factory, asdict, define, field, fields, has, validators
 from upath import UPath
 
-from octopus.experiment import OctoExperiment
+from octopus.datasplit import DataSplit, OuterSplits
 from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
-from octopus.modules import Octo
-from octopus.task import Task
-from octopus.utils import DataSplit
+from octopus.modules import Octo, Task
 
+from .context import StudyContext
 from .data_preparator import OctoDataPreparator
 from .data_validator import OctoDataValidator
 from .healthChecker import HealthCheckConfig, OctoDataHealthChecker
@@ -79,8 +78,8 @@ class OctoStudy(ABC):
     outer_parallelization: bool = field(default=Factory(lambda: True), validator=[validators.instance_of(bool)])
     """Indicates whether outer parallelization is enabled. Defaults to True."""
 
-    run_single_experiment_num: int = field(default=Factory(lambda: -1), validator=[validators.instance_of(int)])
-    """Select a single experiment to execute. Defaults to -1 to run all experiments"""
+    run_single_outersplit_num: int = field(default=Factory(lambda: -1), validator=[validators.instance_of(int)])
+    """Select a single outersplit to execute. Defaults to -1 to run all outersplits"""
 
     workflow: list[Task] = field(
         default=Factory(lambda: [Octo(task_id=0)]),
@@ -240,7 +239,7 @@ class OctoStudy(ABC):
 
         return prepared.data
 
-    def _create_datasplits(self, data: pd.DataFrame) -> dict:
+    def _create_datasplits(self, data: pd.DataFrame) -> OuterSplits:
         """Create datasplits for outer cross-validation."""
         relevant_cols = list(self.prepared.feature_cols) + [
             c
@@ -265,50 +264,15 @@ class OctoStudy(ABC):
         else:
             datasplit_col = self.datasplit_type.value
 
-        datasplits: dict = DataSplit(
+        outersplits = DataSplit(
             dataset=data_clean,
             datasplit_col=datasplit_col,
             seeds=[self.datasplit_seed_outer],
             num_folds=self.n_folds_outer,
             stratification_col=self.stratification_col,
-        ).get_datasplits()
+        ).get_outer_splits()
 
-        return datasplits
-
-    def _create_experiments(self, datasplits: dict) -> list[OctoExperiment]:
-        """Create experiments from datasplits."""
-        experiments = []
-
-        # Get datasplit column based on datasplit_type
-        if self.datasplit_type.value == "sample":
-            datasplit_col = self.sample_id_col
-        else:
-            datasplit_col = self.datasplit_type.value
-
-        for key, value in datasplits.items():
-            experiment: OctoExperiment = OctoExperiment(
-                id=str(key),
-                experiment_id=int(key),
-                task_id=None,  # indicating base experiment
-                depends_on_task=None,  # indicating base experiment
-                task_path=None,  # indicating base experiment
-                study_path=self.path,
-                study_name=self.name,
-                ml_type=self.ml_type.value,
-                target_metric=self.target_metric,
-                positive_class=getattr(self, "positive_class", None),
-                metrics=self.metrics,
-                imputation_method=self.imputation_method.value,
-                datasplit_column=datasplit_col,
-                row_id_col=self.prepared.row_id_col,
-                feature_cols=self.prepared.feature_cols,
-                target_assignments=self.target_assignments,
-                data_traindev=value["train"],
-                data_test=value["test"],
-            )
-            experiments.append(experiment)
-
-        return experiments
+        return outersplits
 
     def _run_health_check(self, data: pd.DataFrame, config: HealthCheckConfig | None) -> None:
         """Run data health check, save results, and check for issues."""
@@ -357,6 +321,23 @@ class OctoStudy(ABC):
 
         set_logger_filename(log_file=None)
 
+    def _create_study_context(self) -> StudyContext:
+        """Create a frozen StudyContext from the current study state."""
+        return StudyContext(
+            ml_type=self.ml_type.value,
+            target_metric=self.target_metric,
+            metrics=self.metrics,
+            target_assignments=self.target_assignments,
+            positive_class=getattr(self, "positive_class", None),
+            stratification_col=self.stratification_col,
+            datasplit_type=self.datasplit_type.value,
+            sample_id_col=self.sample_id_col,
+            feature_cols=self.prepared.feature_cols,
+            row_id_col=self.prepared.row_id_col,
+            output_path=self.output_path,
+            log_dir=self.log_dir,
+        )
+
     def fit(
         self,
         data: pd.DataFrame,
@@ -374,16 +355,16 @@ class OctoStudy(ABC):
         self._initialize_study_outputs(data)
         self._run_health_check(prepared_data, health_check_config)
 
-        datasplits = self._create_datasplits(prepared_data)
-        experiments = self._create_experiments(datasplits)
+        outersplit_data = self._create_datasplits(prepared_data)
+        study_context = self._create_study_context()
         manager = OctoManager(
-            base_experiments=experiments,
+            outersplit_data=outersplit_data,
+            study=study_context,
             workflow=self.workflow,
             outer_parallelization=self.outer_parallelization,
-            run_single_experiment_num=self.run_single_experiment_num,
-            log_dir=self.log_dir,
+            run_single_outersplit_num=self.run_single_outersplit_num,
         )
-        manager.run_outer_experiments()
+        manager.run_outersplits()
 
 
 @define

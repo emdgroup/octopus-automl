@@ -4,7 +4,7 @@ import heapq
 
 from upath import UPath
 
-from octopus.experiment import OctoExperiment
+from octopus.datasplit import InnerSplits
 from octopus.logger import LogGroup, get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
@@ -22,33 +22,57 @@ class ObjectiveOptuna:
 
     def __init__(
         self,
-        experiment: OctoExperiment,
-        data_splits,
+        outersplit_task_id: str,
+        outersplit_id: int,
+        ml_type: str,
+        target_assignments: dict,
+        feature_cols: list[str],
+        row_column: str,
+        data_test,
+        target_metric: str,
+        feature_groups: dict,
+        positive_class,
+        config,
+        path_study: UPath,
+        task_path: str,
+        data_splits: InnerSplits,
         study_name,
         top_trials,
         mrmr_features,
         log_dir: UPath,
     ):
-        self.experiment = experiment
+        self.outersplit_task_id = outersplit_task_id
+        self.outersplit_id = outersplit_id
+        self.ml_type = ml_type
+        self.target_assignments = target_assignments
+        self.feature_cols = feature_cols
+        self.row_id_col = row_column  # Store as row_id_col for compatibility with Training
+        self.data_test = data_test
+        self.target_metric = target_metric
+        self.feature_groups = feature_groups
+        self.positive_class = positive_class
+        self.config = config
+        self.path_study = path_study
+        self.task_path = task_path
         self.data_splits = data_splits
         self.study_name = study_name
         self.top_trials = top_trials
         self.mrmr_features = mrmr_features
         # saving trials
-        self.ensel = self.experiment.ml_config.ensemble_selection
-        self.n_save_trials = self.experiment.ml_config.ensel_n_save_trials
+        self.ensel = self.config.ensemble_selection
+        self.n_save_trials = self.config.ensel_n_save_trials
         # parameters potentially used for optimizations
-        self.ml_model_types = self.experiment.ml_config.models
-        self.max_outl = self.experiment.ml_config.max_outl
-        self.max_features = self.experiment.ml_config.max_features
-        self.penalty_factor = self.experiment.ml_config.penalty_factor
-        self.hyper_parameters = self.experiment.ml_config.hyperparameters
+        self.ml_model_types = self.config.models
+        self.max_outl = self.config.max_outl
+        self.max_features = self.config.max_features
+        self.penalty_factor = self.config.penalty_factor
+        self.hyper_parameters = self.config.hyperparameters
         # fixed parameters
-        self.ml_seed = self.experiment.ml_config.model_seed
-        self.ml_jobs = self.experiment.ml_config.n_jobs
+        self.ml_seed = self.config.model_seed
+        self.ml_jobs = self.config.n_jobs
         # training parameters
-        self.parallel_execution = self.experiment.ml_config.inner_parallelization
-        self.num_workers = self.experiment.ml_config.n_workers
+        self.parallel_execution = self.config.inner_parallelization
+        self.num_workers = self.config.n_workers
         self.log_dir = log_dir
 
     def __call__(self, trial):
@@ -81,7 +105,7 @@ class ObjectiveOptuna:
             feat_id = trial.suggest_categorical(name="n_mrmr_features", choices=list(self.mrmr_features.keys()))
             feature_cols = self.mrmr_features[feat_id]
         else:
-            feature_cols = self.experiment.feature_cols
+            feature_cols = self.feature_cols
 
         # get hyper parameter space for selected model
         model_params = Models.create_trial_parameters(
@@ -97,7 +121,7 @@ class ObjectiveOptuna:
             "n_input_features": len(feature_cols),
             "ml_model_type": ml_model_type,
             "ml_model_params": model_params,
-            "positive_class": self.experiment.positive_class,
+            "positive_class": self.positive_class,
         }
 
         # create trainings
@@ -105,31 +129,31 @@ class ObjectiveOptuna:
         for key, split in self.data_splits.items():
             trainings.append(
                 Training(
-                    training_id=self.experiment.id + "_" + str(key),
-                    ml_type=self.experiment.ml_type,
-                    target_assignments=self.experiment.target_assignments,
+                    training_id=self.outersplit_task_id + "_" + str(key),
+                    ml_type=self.ml_type,
+                    target_assignments=self.target_assignments,
                     feature_cols=feature_cols,
-                    row_id_col=self.experiment.row_id_col,
-                    data_train=split["train"],  # inner datasplit, train
-                    data_dev=split["test"],  # inner datasplit, dev
-                    data_test=self.experiment.data_test,
+                    row_id_col=self.row_id_col,
+                    data_train=split.train,  # inner datasplit, train
+                    data_dev=split.dev,  # inner datasplit, dev
+                    data_test=self.data_test,
                     config_training=config_training,
-                    target_metric=self.experiment.target_metric,
-                    max_features=self.experiment.ml_config.max_features,
-                    feature_groups=self.experiment.feature_groups,
+                    target_metric=self.target_metric,
+                    max_features=self.config.max_features,
+                    feature_groups=self.feature_groups,
                 )
             )
 
         # create bag with all provided trainings
         bag_trainings = Bag(
-            bag_id=self.experiment.id + "_" + str(trial.number),
+            bag_id=self.outersplit_task_id + "_" + str(trial.number),
             trainings=trainings,
-            target_assignments=self.experiment.target_assignments,
+            target_assignments=self.target_assignments,
             parallel_execution=self.parallel_execution,
             num_workers=self.num_workers,
-            target_metric=self.experiment.target_metric,
-            row_id_col=self.experiment.row_id_col,
-            ml_type=self.experiment.ml_type,
+            target_metric=self.target_metric,
+            row_id_col=self.row_id_col,
+            ml_type=self.ml_type,
             log_dir=self.log_dir,
             # path?
         )
@@ -152,16 +176,16 @@ class ObjectiveOptuna:
         trial.set_user_attr("config_training", config_training)
 
         # log results
-        self._log_trial_scores(self.experiment, bag_performance)
+        self._log_trial_scores(bag_performance)
 
         # define optuna target
-        if self.experiment.ml_config.optuna_return == "pool":
+        if self.config.optuna_return == "pool":
             optuna_target = bag_performance["dev_pool"]
         else:
             optuna_target = bag_performance["dev_avg"]
 
         # adjust direction, optuna in octofull always minimizes
-        target_metric = self.experiment.target_metric
+        target_metric = self.target_metric
         if Metrics.get_direction(target_metric) == "minimize":
             optuna_target = -optuna_target
 
@@ -170,7 +194,7 @@ class ObjectiveOptuna:
             diff_nfeatures = n_features_mean - self.max_features
             # only consider if n_features_mean > max_features
             diff_nfeatures = max(diff_nfeatures, 0)
-            n_features = len(self.experiment.feature_cols)
+            n_features = len(self.feature_cols)
             optuna_target = optuna_target - self.penalty_factor * diff_nfeatures / n_features
 
         # save bag if we plan to run ensemble selection
@@ -183,13 +207,8 @@ class ObjectiveOptuna:
         return optuna_target
 
     def _save_topn_trials(self, bag: BagClassifier | BagRegressor, target_value, n_trial):
-        max_n_trials = self.experiment.ml_config.ensel_n_save_trials
-        path_save = (
-            self.experiment.path_study
-            / self.experiment.task_path
-            / "trials"
-            / f"study{self.study_name}trial{n_trial}_bag.pkl"
-        )
+        max_n_trials = self.config.ensel_n_save_trials
+        path_save = self.path_study / self.task_path / "trials" / f"study{self.study_name}trial{n_trial}_bag.pkl"
 
         # saving top n_trials to disk
         # the optuna target_value will always be minimized. Heappop removes the lowest
@@ -204,10 +223,10 @@ class ObjectiveOptuna:
             else:
                 raise FileNotFoundError("Problem deleting trial-pkl file")
 
-    def _log_trial_scores(self, experiment, scores):
-        logger.set_log_group(LogGroup.SCORES, f"EXP {self.experiment.experiment_id} SQE TBD")
+    def _log_trial_scores(self, scores):
+        logger.set_log_group(LogGroup.SCORES, f"OUTER {self.outersplit_id} SQE TBD")
         # Log the target metric
-        logger.info(f"Trial scores for metric: {experiment.target_metric}")
+        logger.info(f"Trial scores for metric: {self.target_metric}")
 
         # Separate list and non-list values
         list_items = {}

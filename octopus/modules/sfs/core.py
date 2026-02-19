@@ -1,10 +1,13 @@
 # type: ignore
 
-"""SFS Core (sequential feature selection)."""
+"""SFS execution module."""
+
+from __future__ import annotations
 
 import copy
 import json
 import warnings
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from attrs import define
@@ -13,9 +16,13 @@ from sklearn.model_selection import BaseCrossValidator, GridSearchCV, Stratified
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.modules.base import ModuleBaseCore
-from octopus.modules.sfs.module import Sfs
-from octopus.results import ModuleResults
+from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ResultType
+
+if TYPE_CHECKING:
+    from upath import UPath
+
+    from octopus.modules.sfs.module import Sfs  # noqa: F401
+    from octopus.study.context import StudyContext
 
 # Ignore all Warnings
 warnings.filterwarnings("ignore")
@@ -39,8 +46,6 @@ def get_param_grid(model_type):
             "learning_rate": [0.001, 0.01, 0.1],
             "depth": [3, 6, 8, 10],
             "l2_leaf_reg": [2, 5, 7, 10],
-            #'random_strength': [2, 5, 7, 10],
-            #'rsm': [0.1, 0.5, 1],
             "iterations": [500],
         }
     elif model_type in ("XGBClassifier", "XGBRegressor"):
@@ -54,41 +59,47 @@ def get_param_grid(model_type):
     else:
         # RF and ExtraTrees
         param_grid = {
-            "max_depth": [3, 6, 10],  # [2, 10, 20, 32],
+            "max_depth": [3, 6, 10],
             "min_samples_split": [2, 25, 50, 100],
-            # "min_samples_leaf": [1, 15, 30, 50],
-            # "max_features": [0.1, 0.5, 1],
-            "n_estimators": [500],  # [100, 250, 500],
+            "n_estimators": [500],
         }
     return param_grid
 
 
-# TOBEDONE/IDEAS:
-# - (2) add scores to results
-# - it would be nice to stop after a certain feature reduction, then
-#   relearn the model parameters and the start again. k_features parameter!
-# - k_features = "parsemonious", check this out
-# - put scorer_string_inventory in central place
-# - try verbose = 1, useful?
-# - use cv object, stratifiedKfold
-
-
 @define
-class SfsCore(ModuleBaseCore[Sfs]):
-    """SFS Module."""
+class SfsModule(FeatureSelectionExecution["Sfs"]):
+    """SFS execution module. Created by Sfs.create_module()."""
 
-    def run_experiment(self):
-        """Run SFS module on experiment."""
+    def fit(
+        self,
+        data_traindev: pd.DataFrame,
+        data_test: pd.DataFrame,
+        feature_cols: list[str],
+        study: StudyContext,
+        outersplit_id: int,
+        output_dir: UPath,
+        num_assigned_cpus: int = 1,
+        feature_groups: dict | None = None,
+        prior_results: dict | None = None,
+    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """Fit SFS module for feature selection."""
+        # Extract data matrices (local variables)
+        x_traindev = data_traindev[feature_cols]
+        y_traindev = data_traindev[list(study.target_assignments.values())]
+
         from octopus._optional.sfs import SFS  # noqa: PLC0415
 
-        # run experiment and return updated experiment object
+        # Create results directory
+        path_results = output_dir / "results"
+        path_results.mkdir(parents=True, exist_ok=True)
+
         # Configuration, define default model
-        if self.experiment.ml_type == "classification":
+        if study.ml_type == "classification":
             default_model = "CatBoostClassifier"
-        elif self.experiment.ml_type == "regression":
+        elif study.ml_type == "regression":
             default_model = "CatBoostRegressor"
         else:
-            raise ValueError(f"{self.experiment.ml_type} not supported")
+            raise ValueError(f"{study.ml_type} not supported")
 
         model_type = self.config.model
         if model_type == "":
@@ -102,12 +113,11 @@ class SfsCore(ModuleBaseCore[Sfs]):
         model = Models.get_instance(model_type, {"random_state": 42})
 
         # Get scorer string from metrics inventory
-        metric = Metrics.get_instance(self.target_metric)
+        metric = Metrics.get_instance(study.target_metric)
         scoring_type = metric.scorer_string
 
         cv: int | BaseCrossValidator
-        stratification_col = self.experiment.stratification_col
-        if stratification_col:
+        if study.stratification_col:
             cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
         else:
             cv = self.config.cv
@@ -126,7 +136,7 @@ class SfsCore(ModuleBaseCore[Sfs]):
         )
         print("Optimize base model....")
         # Perform Grid Search and Cross-Validation
-        grid_search.fit(self.x_traindev, self.y_traindev.squeeze(axis=1))
+        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))
         best_model = grid_search.best_estimator_
         best_cv_score = grid_search.best_score_
         best_params = grid_search.best_params_
@@ -135,7 +145,7 @@ class SfsCore(ModuleBaseCore[Sfs]):
         print(f"Dev start performance: {best_cv_score:.3f}")
         print(f"Best params: {best_params}")
 
-        print(f"Number of features before SFS: {self.x_traindev.shape[1]}")
+        print(f"Number of features before SFS: {x_traindev.shape[1]}")
 
         # Select type of SFS
         if self.config.sfs_type == "forward":
@@ -164,85 +174,108 @@ class SfsCore(ModuleBaseCore[Sfs]):
             n_jobs=1,
         )
 
-        sfs.fit(self.x_traindev, self.y_traindev.squeeze(axis=1))
+        sfs.fit(x_traindev, y_traindev.squeeze(axis=1))
         n_optimal_features = len(sfs.k_feature_idx_)
-        self.experiment.selected_features = list(sfs.k_feature_names_)
+        selected_features = list(sfs.k_feature_names_)
 
         print("SFS completed")
-        # print(sfs.subsets_)
         print(f"Optimal number of features: {n_optimal_features}")
-        print(f"Selected features: {self.experiment.selected_features}")
+        print(f"Selected features: {selected_features}")
         print(f"Dev set performance: {sfs.k_score_:.3f}")
 
         # Report performance on test set
+        target_assignments = {col: col for col in list(study.target_assignments.values())}
+        positive_class = study.positive_class
+
         best_estimator = copy.deepcopy(best_model)
-        x_traindev_sfs = sfs.transform(self.x_traindev)
+        x_traindev_sfs = sfs.transform(x_traindev)
         # refit on selected features
-        best_estimator.fit(x_traindev_sfs, self.y_traindev.squeeze(axis=1))
+        best_estimator.fit(x_traindev_sfs, y_traindev.squeeze(axis=1))
         test_score_refit = get_score_from_model(
             best_estimator,
-            self.data_test,
-            self.experiment.selected_features,
-            self.target_metric,
-            self.target_assignments,
-            positive_class=self.experiment.positive_class,
+            data_test,
+            selected_features,
+            study.target_metric,
+            target_assignments,
+            positive_class=positive_class,
         )
         print(f"Test set (refit) performance: {test_score_refit:.3f}")
 
         # gridsearch + retrain best model on x_traindev
-        grid_search.fit(x_traindev_sfs, self.y_traindev.squeeze(axis=1))
+        grid_search.fit(x_traindev_sfs, y_traindev.squeeze(axis=1))
         best_gs_parameters = grid_search.best_params_
         best_gs_estimator = grid_search.best_estimator_
-        best_gs_estimator.fit(x_traindev_sfs, self.y_traindev.squeeze(axis=1))  # refit
+        best_gs_estimator.fit(x_traindev_sfs, y_traindev.squeeze(axis=1))  # refit
         test_score_gsrefit = get_score_from_model(
             best_gs_estimator,
-            self.data_test,
-            self.experiment.selected_features,
-            self.target_metric,
-            self.target_assignments,
-            positive_class=self.experiment.positive_class,
+            data_test,
+            selected_features,
+            study.target_metric,
+            target_assignments,
+            positive_class=positive_class,
         )
         print(f"Test set (gridsearch+refit) performance: {test_score_gsrefit:.3f}")
 
         # feature importances
         fi_df = pd.DataFrame(
             {
-                "feature": self.experiment.selected_features,
-                "importances": best_gs_estimator.feature_importances_,
+                "feature": selected_features,
+                "importance": best_gs_estimator.feature_importances_,
             }
-        ).sort_values(by="importances", ascending=False)
-        # print(fi_df)
+        ).sort_values(by="importance", ascending=False)
 
-        # scores
-        scores = {}
-        scores["dev_avg"] = sfs.k_score_
-        scores["test_refit"] = test_score_refit
-        scores["test_gsrefit"] = test_score_gsrefit
+        # Store fitted state
+        self.selected_features_ = selected_features
+        self.feature_importances_ = {"internal": fi_df}
 
-        # save results to experiment
-        self.experiment.results["Sfs"] = ModuleResults(
-            id="SFS",
-            experiment_id=self.experiment.experiment_id,
-            task_id=self.experiment.task_id,
-            model=best_gs_estimator,
-            scores=scores,
-            feature_importances={
-                "internal": fi_df,
-            },
-            selected_features=self.experiment.selected_features,
+        # Build standard scores DataFrame
+        scores = pd.DataFrame(
+            [
+                {
+                    "result_type": ResultType.BEST,
+                    "metric": study.target_metric,
+                    "partition": "dev",
+                    "aggregation": "avg",
+                    "fold": None,
+                    "value": sfs.k_score_,
+                },
+                {
+                    "result_type": ResultType.BEST,
+                    "metric": study.target_metric,
+                    "partition": "test",
+                    "aggregation": "refit",
+                    "fold": None,
+                    "value": test_score_refit,
+                },
+                {
+                    "result_type": ResultType.BEST,
+                    "metric": study.target_metric,
+                    "partition": "test",
+                    "aggregation": "gsrefit",
+                    "fold": None,
+                    "value": test_score_gsrefit,
+                },
+            ]
         )
+
+        # Build standard feature_importances DataFrame
+        feature_importances = fi_df[["feature", "importance"]].copy()
+        feature_importances["fi_method"] = FIMethod.INTERNAL
+        feature_importances["fi_dataset"] = FIDataset.TRAIN
+        feature_importances["training_id"] = "sfs"
+        feature_importances["result_type"] = ResultType.BEST
 
         # Save results to JSON
         results = {
             "Dev score start": best_cv_score,
             "best_params": best_gs_parameters,
             "optimal_features": int(n_optimal_features),
-            "selected_features": self.experiment.selected_features,
+            "selected_features": selected_features,
             "Dev set performance": sfs.k_score_,
             "Test set (refit) performance": test_score_refit,
             "Test set (gs+refit) performance": test_score_gsrefit,
         }
-        with (self.path_results / "results.json").open("w", encoding="utf-8") as f:
+        with (path_results / "results.json").open("w", encoding="utf-8") as f:
             json.dump(results, f, indent=4)
 
-        return self.experiment
+        return (selected_features, scores, pd.DataFrame(), feature_importances)

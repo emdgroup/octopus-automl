@@ -43,11 +43,11 @@ study = OctoClassification(
     datasplit_seed_outer=1234,
     ignore_data_health_warning=True,
     outer_parallelization=True,
-    run_single_experiment_num=0,  # only process first outer loop experiment, for quick testing
+    run_single_outersplit_num=0,  # only process first outersplit, for quick testing
     workflow=[
         Octo(
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             description="step_1_octo_multiclass",
             load_task=False,
             n_folds_inner=5,
