@@ -159,9 +159,7 @@ def run_parallel_outer_ray(
     # Prime up to max_concurrent tasks
     while next_i < n and len(inflight) < max_concurrent:
         outersplit_id = outersplit_ids[next_i]
-        inflight.append(
-            outer_task.remote(outersplit_id, outersplit_data[outersplit_id], log_dir)
-        )
+        inflight.append(outer_task.remote(outersplit_id, outersplit_data[outersplit_id], log_dir))
         next_i += 1
 
     # Drain with backpressure
@@ -170,9 +168,7 @@ def run_parallel_outer_ray(
         ray.get(done[0])
         if next_i < n:
             outersplit_id = outersplit_ids[next_i]
-            inflight.append(
-                outer_task.remote(outersplit_id, outersplit_data[outersplit_id], log_dir)
-            )
+            inflight.append(outer_task.remote(outersplit_id, outersplit_data[outersplit_id], log_dir))
             next_i += 1
 
 

@@ -176,9 +176,7 @@ class WorkflowTaskRunner:
                 results[rt] = ModuleResult.load(rt_dir, result_type=rt, module=task.module)
 
         if not results:
-            raise FileNotFoundError(
-                f"Cannot load task {task.task_id}: no result directories found at {input_dir}"
-            )
+            raise FileNotFoundError(f"Cannot load task {task.task_id}: no result directories found at {input_dir}")
 
         total_features = sum(len(r.selected_features) for r in results.values())
         logger.info(f"Loaded task {task.task_id}: {len(results)} result types, {total_features} total features")

@@ -3,7 +3,6 @@
 import json
 
 import pandas as pd
-import pytest
 from sklearn.ensemble import RandomForestClassifier
 from upath import UPath
 
