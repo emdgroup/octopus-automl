@@ -11,7 +11,7 @@ from upath import UPath
 
 from octopus.datasplit import OuterSplit
 from octopus.logger import get_logger
-from octopus.modules.base import Task
+from octopus.modules.base import ModuleResult, ResultType, Task
 from octopus.study.context import StudyContext
 from octopus.utils import calculate_feature_groups
 
@@ -61,9 +61,8 @@ class WorkflowTaskRunner:
         test_path = fold_dir / "data_test.parquet"
         outersplit.test.to_parquet(str(test_path), storage_options=test_path.storage_options, engine="pyarrow")
 
-        # task_results: dict[task_id -> (selected_features, prior_results_dict)]
-        # prior_results_dict has keys: "scores", "predictions", "feature_importances" (DataFrames)
-        task_results: dict[int, tuple[list[str], dict[str, pd.DataFrame]]] = {}
+        # task_results: dict[task_id -> dict[ResultType, ModuleResult]]
+        task_results: dict[int, dict[ResultType, ModuleResult]] = {}
 
         for task in self.workflow:
             self._log_task_info(task)
@@ -82,8 +81,8 @@ class WorkflowTaskRunner:
         outersplit_id: int,
         outersplit: OuterSplit,
         task: Task,
-        task_results: dict[int, tuple[list[str], dict[str, pd.DataFrame]]],
-    ) -> tuple[list[str], dict[str, pd.DataFrame]]:
+        task_results: dict[int, dict[ResultType, ModuleResult]],
+    ) -> dict[ResultType, ModuleResult]:
         """Run a single workflow task.
 
         Args:
@@ -93,8 +92,7 @@ class WorkflowTaskRunner:
             task_results: Dictionary of results from previous tasks
 
         Returns:
-            Tuple of (selected_features, results_dict) where results_dict
-            has keys "scores", "predictions", "feature_importances" as DataFrames.
+            Dict mapping ResultType to ModuleResult.
 
         Raises:
             ValueError: If task depends on a task that has not run yet
@@ -103,7 +101,19 @@ class WorkflowTaskRunner:
         if task.depends_on is not None:
             if task.depends_on not in task_results:
                 raise ValueError(f"Task {task.task_id} depends on task {task.depends_on} which has not run yet")
-            feature_cols, prior_results = task_results[task.depends_on]
+            upstream_results = task_results[task.depends_on]
+            feature_cols = upstream_results[ResultType.BEST].selected_features
+            # Build prior_results by concatenating DataFrames from all upstream ModuleResult values
+            prior_results: dict[str, pd.DataFrame] = {}
+            for df_name in ["scores", "predictions", "feature_importances"]:
+                dfs = []
+                for module_result in upstream_results.values():
+                    df = getattr(module_result, df_name)
+                    if isinstance(df, pd.DataFrame) and not df.empty:
+                        out = df.copy()
+                        out["module"] = module_result.module
+                        dfs.append(out)
+                prior_results[df_name] = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
             logger.info(f"Prior results keys: {prior_results.keys()}")
         else:
             feature_cols = self.study_context.feature_cols
@@ -120,7 +130,7 @@ class WorkflowTaskRunner:
 
         # Create execution module from config and run fit()
         module = task.create_module()
-        selected_features, scores, predictions, feature_importances = module.fit(
+        results = module.fit(
             data_traindev=outersplit.traindev,
             data_test=outersplit.test,
             feature_cols=feature_cols,
@@ -132,80 +142,49 @@ class WorkflowTaskRunner:
             prior_results=prior_results,
         )
 
-        # Stamp module column on all result DataFrames
-        module_name = task.module
-        for df in [scores, predictions, feature_importances]:
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                df["module"] = module_name
-
-        # Save module state (model, config, fitted state)
-        module.save(output_dir / "module")
-
-        # Save task configuration and results
+        # Save task configuration
         self._save_task_config(task, output_dir)
-        self._save_task_results(selected_features, scores, predictions, feature_importances, output_dir)
 
-        results = {
-            "scores": scores,
-            "predictions": predictions,
-            "feature_importances": feature_importances,
-        }
-        return (selected_features, results)
+        # Save each ModuleResult to its own subdirectory
+        for result_type, module_result in results.items():
+            module_result.save(output_dir / result_type.value)
+
+        return results
 
     def _load_task(
         self,
         outersplit_id: int,
         task: Task,
-    ) -> tuple[list[str], dict[str, pd.DataFrame]]:
+    ) -> dict[ResultType, ModuleResult]:
         """Load a pre-existing task from disk.
 
-        Reads selected_features.json and loads DataFrames from parquet files.
+        Scans for ResultType subdirectories and loads ModuleResult from each.
 
         Args:
             outersplit_id: Current fold ID
             task: Task config for the task to load
 
         Returns:
-            Tuple of (selected_features, results_dict)
+            Dict mapping ResultType to ModuleResult.
 
         Raises:
-            FileNotFoundError: If the task directory or required files don't exist
+            FileNotFoundError: If no result directories are found
         """
         output_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
 
-        # Load selected features
-        sf_path = output_dir / "selected_features.json"
-        if not sf_path.exists():
+        results: dict[ResultType, ModuleResult] = {}
+        for rt in ResultType:
+            rt_dir = output_dir / rt.value
+            if rt_dir.exists():
+                results[rt] = ModuleResult.load(rt_dir, result_type=rt, module=task.module)
+
+        if not results:
             raise FileNotFoundError(
-                f"Cannot load task {task.task_id}: selected_features.json not found at {output_dir}"
+                f"Cannot load task {task.task_id}: no result directories found at {output_dir}"
             )
-        with sf_path.open() as f:
-            selected_features = json.load(f)
 
-        results = self._load_task_results(output_dir)
-
-        logger.info(f"Loaded task {task.task_id}: {len(selected_features)} features")
-
-        return (selected_features, results)
-
-    def _load_task_results(self, output_dir: UPath) -> dict[str, pd.DataFrame]:
-        """Load task results from saved parquet files.
-
-        Args:
-            output_dir: Task output directory
-
-        Returns:
-            Dict with keys "scores", "predictions", "feature_importances",
-            each a DataFrame (or empty DataFrame if not found).
-        """
-        results: dict[str, pd.DataFrame] = {}
-
-        for name in ["scores", "predictions", "feature_importances"]:
-            path = output_dir / f"{name}.parquet"
-            if path.exists():
-                results[name] = pd.read_parquet(str(path), storage_options=path.storage_options, engine="pyarrow")
-            else:
-                results[name] = pd.DataFrame()
+        total_features = sum(len(r.selected_features) for r in results.values())
+        logger.info(f"Loaded task {task.task_id}: {len(results)} result types, {total_features} total features")
 
         return results
 
@@ -226,37 +205,6 @@ class WorkflowTaskRunner:
 
         with config_path.open("w") as f:
             json.dump(config_dict, f, indent=2)
-
-    def _save_task_results(
-        self,
-        selected_features: list[str],
-        scores: pd.DataFrame,
-        predictions: pd.DataFrame,
-        feature_importances: pd.DataFrame,
-        output_dir: UPath,
-    ) -> None:
-        """Save task results to parquet files.
-
-        Args:
-            selected_features: List of selected features
-            scores: Scores DataFrame
-            predictions: Predictions DataFrame
-            feature_importances: Feature importances DataFrame
-            output_dir: Directory to save results in
-        """
-        # Save selected features to JSON
-        with (output_dir / "selected_features.json").open("w") as f:
-            json.dump(selected_features, f)
-
-        # Save each non-empty DataFrame as parquet
-        for name, df in [
-            ("scores", scores),
-            ("predictions", predictions),
-            ("feature_importances", feature_importances),
-        ]:
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                path = output_dir / f"{name}.parquet"
-                df.to_parquet(str(path), storage_options=path.storage_options, engine="pyarrow")
 
     def _log_task_info(self, task: Task) -> None:
         """Log information about a workflow task.

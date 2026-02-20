@@ -28,7 +28,7 @@ from octopus._optional.autogluon import (
 )
 from octopus.logger import LogGroup, get_logger
 from octopus.manager.ray_parallel import setup_ray_for_external_library
-from octopus.modules.base import FIDataset, FIMethod, MLModuleExecution, ResultType
+from octopus.modules.base import FIDataset, FIMethod, MLModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import get_score_from_model
 from octopus.study.context import StudyContext
 
@@ -259,7 +259,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         num_assigned_cpus: int = 1,
         feature_groups: dict | None = None,
         prior_results: dict | None = None,
-    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ) -> dict[ResultType, ModuleResult]:
         """Fit AutoGluon TabularPredictor."""
         # Store temporary execution state (available during fit)
         self._study_context = study_context
@@ -401,7 +401,17 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
                 fi_dfs.append(temp)
         feature_importances = pd.concat(fi_dfs, ignore_index=True) if fi_dfs else pd.DataFrame()
 
-        return (selected_features, scores, predictions, feature_importances)
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+                scores=scores,
+                predictions=predictions,
+                feature_importances=feature_importances,
+                model=self.model_,
+            )
+        }
 
     def _get_sklearn_model(self):
         """Get sklearn-compatible wrapper for the AutoGluon model."""

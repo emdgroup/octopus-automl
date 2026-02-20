@@ -12,7 +12,7 @@ from attrs import define
 from sklearn.feature_selection import f_classif, f_regression
 
 from octopus.logger import LogGroup, get_logger
-from octopus.modules.base import FeatureSelectionExecution, FIMethod
+from octopus.modules.base import FeatureSelectionExecution, FIMethod, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
 
 if TYPE_CHECKING:
@@ -39,7 +39,7 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
         num_assigned_cpus: int = 1,
         feature_groups: dict | None = None,
         prior_results: dict | None = None,
-    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ) -> dict[ResultType, ModuleResult]:
         """Fit MRMR module by selecting features with maximum relevance and minimum redundancy."""
         prior_results = prior_results or {}
 
@@ -79,7 +79,13 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
         self.selected_features_ = selected_features
         self.feature_importances_ = {}
 
-        return (selected_features, pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+            )
+        }
 
     def _get_fi_method(self) -> FIMethod:
         """Get FIMethod enum from configuration."""

@@ -17,7 +17,7 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_sco
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ResultType
+from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ModuleResult, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -76,7 +76,7 @@ class BorutaModule(FeatureSelectionExecution["Boruta"]):
         num_assigned_cpus: int = 1,
         feature_groups: dict | None = None,
         prior_results: dict | None = None,
-    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ) -> dict[ResultType, ModuleResult]:
         """Fit Boruta module for feature selection."""
         from octopus._optional.burota import BorutaPy  # noqa: PLC0415
 
@@ -263,4 +263,12 @@ class BorutaModule(FeatureSelectionExecution["Boruta"]):
             with (path_results / "results.json").open("w", encoding="utf-8") as f:
                 json.dump(results, f, indent=4)
 
-        return (selected_features, scores, pd.DataFrame(), feature_importances)
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+                scores=scores,
+                feature_importances=feature_importances,
+            )
+        }

@@ -171,9 +171,7 @@ class Predictor:
     def load(cls, path: UPath) -> Predictor:
         """Load a predictor from disk.
 
-        Reads model.joblib and predictor.json. Falls back to
-        module_state.json for compatibility with existing saved studies
-        that predate the Predictor class.
+        Reads model.joblib and predictor.json.
 
         Args:
             path: Directory containing saved model files
@@ -182,7 +180,7 @@ class Predictor:
             Predictor instance
 
         Raises:
-            FileNotFoundError: If model.joblib is not found
+            FileNotFoundError: If model.joblib or predictor.json is not found
         """
         model_path = path / "model.joblib"
         if not model_path.exists():
@@ -190,17 +188,11 @@ class Predictor:
         with model_path.open("rb") as f:
             model = joblib.load(f)
 
-        # Try predictor.json first, fall back to module_state.json
         predictor_path = path / "predictor.json"
-        if predictor_path.exists():
-            with predictor_path.open() as f:
-                state = json.load(f)
-        else:
-            state_path = path / "module_state.json"
-            if not state_path.exists():
-                raise FileNotFoundError(f"Neither predictor.json nor module_state.json found in: {path}")
-            with state_path.open() as f:
-                state = json.load(f)
+        if not predictor_path.exists():
+            raise FileNotFoundError(f"predictor.json not found in: {path}")
+        with predictor_path.open() as f:
+            state = json.load(f)
 
         selected_features = state.get("selected_features", [])
         return cls(model_=model, selected_features_=selected_features)

@@ -17,7 +17,7 @@ from upath import UPath
 
 from octopus.datasplit import DataSplit, InnerSplits
 from octopus.logger import LogGroup, get_logger
-from octopus.modules.base import MLModuleExecution, ResultType
+from octopus.modules.base import MLModuleExecution, ModuleResult, ResultType
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
@@ -89,7 +89,7 @@ class OctoModule(MLModuleExecution["Octo"]):
         num_assigned_cpus: int = 1,
         feature_groups: dict | None = None,
         prior_results: dict | None = None,
-    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ) -> dict[ResultType, ModuleResult]:
         """Fit Octo module by running hyperparameter optimization with Optuna."""
         # Store execution state temporarily for internal methods
         self._study_context = study_context
@@ -107,54 +107,50 @@ class OctoModule(MLModuleExecution["Octo"]):
 
         # Initialize local results collection
         results = {}
-        selected_features = []
 
         # (1) model training and optimization
         best_selected_features = self._run_globalhp_optimization(results)
-        selected_features = best_selected_features
+
+        # Store fitted state (permanent)
+        self.selected_features_ = best_selected_features
+        self.feature_importances_ = results["best"]["feature_importances"]
+
+        # Build best ModuleResult
+        best_bag = results["best"]["_bag"]
+        best_result = ModuleResult(
+            result_type=ResultType.BEST,
+            module=self.config.module,
+            selected_features=best_selected_features,
+            scores=best_bag.get_performance_df(metric=self.target_metric),
+            predictions=best_bag.get_predictions_df(),
+            feature_importances=best_bag.get_feature_importances_df(),
+            model=best_bag,
+        )
+
+        module_results: dict[ResultType, ModuleResult] = {ResultType.BEST: best_result}
 
         # (2) ensemble selection
         if self.config.ensemble_selection:
             ensel_selected_features = self._run_ensemble_selection(results)
             if ensel_selected_features:
-                selected_features = ensel_selected_features
+                self.selected_features_ = ensel_selected_features
+                self.feature_importances_ = results["ensel"]["feature_importances"]
 
-        # Store fitted state (permanent)
-        self.selected_features_ = selected_features
-        primary_key = "ensel" if "ensel" in results else "best"
-        self.feature_importances_ = results[primary_key]["feature_importances"]
+            # Always save ensemble result if it was produced
+            if "ensel" in results:
+                ensel_bag = results["ensel"]["_bag"]
+                ensel_result = ModuleResult(
+                    result_type=ResultType.ENSEMBLE_SELECTION,
+                    module=self.config.module,
+                    selected_features=ensel_selected_features or best_selected_features,
+                    scores=ensel_bag.get_performance_df(metric=self.target_metric),
+                    predictions=ensel_bag.get_predictions_df(),
+                    feature_importances=ensel_bag.get_feature_importances_df(),
+                    model=ensel_bag,
+                )
+                module_results[ResultType.ENSEMBLE_SELECTION] = ensel_result
 
-        # Build flat DataFrames from results
-        best_bag = results["best"]["_bag"]
-        scores_best = best_bag.get_performance_df(metric=self.target_metric)
-        scores_best["result_type"] = ResultType.BEST
-
-        predictions_best = best_bag.get_predictions_df()
-        predictions_best["result_type"] = ResultType.BEST
-
-        fi_best = best_bag.get_feature_importances_df()
-        fi_best["result_type"] = ResultType.BEST
-
-        if self.config.ensemble_selection and "ensel" in results:
-            ensel_bag = results["ensel"]["_bag"]
-            scores_ensel = ensel_bag.get_performance_df(metric=self.target_metric)
-            scores_ensel["result_type"] = ResultType.ENSEMBLE_SELECTION
-
-            predictions_ensel = ensel_bag.get_predictions_df()
-            predictions_ensel["result_type"] = ResultType.ENSEMBLE_SELECTION
-
-            fi_ensel = ensel_bag.get_feature_importances_df()
-            fi_ensel["result_type"] = ResultType.ENSEMBLE_SELECTION
-
-            scores = pd.concat([scores_best, scores_ensel], ignore_index=True)
-            predictions = pd.concat([predictions_best, predictions_ensel], ignore_index=True)
-            feature_importances = pd.concat([fi_best, fi_ensel], ignore_index=True)
-        else:
-            scores = scores_best
-            predictions = predictions_best
-            feature_importances = fi_best
-
-        return (selected_features, scores, predictions, feature_importances)
+        return module_results
 
     @property
     def path_module(self) -> UPath:

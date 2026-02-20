@@ -12,6 +12,7 @@ from octopus.datasplit import OuterSplit
 from octopus.manager import OctoManager
 from octopus.manager.core import ResourceConfig
 from octopus.manager.workflow_runner import WorkflowTaskRunner
+from octopus.modules.base import ResultType
 from octopus.study.context import StudyContext
 
 # =============================================================================
@@ -387,141 +388,6 @@ class TestOctoManager:
 # =============================================================================
 
 
-class TestLoadTaskResults:
-    """Tests for WorkflowTaskRunner._load_task_results()."""
-
-    @pytest.fixture
-    def runner(self):
-        """Create a WorkflowTaskRunner with a StudyContext."""
-        ctx = StudyContext(
-            ml_type="classification",
-            target_metric="AUCROC",
-            metrics=["AUCROC"],
-            target_assignments={"default": "target"},
-            positive_class=1,
-            stratification_col=None,
-            datasplit_type="sample",
-            sample_id_col="sample_id",
-            feature_cols=["feature1", "feature2"],
-            row_id_col="row_id",
-            output_path=UPath("/tmp/test_study"),
-            log_dir=UPath("/tmp/test_study"),
-        )
-        return WorkflowTaskRunner(study_context=ctx, workflow=[], cpus_per_outersplit=1)
-
-    def test_no_parquet_files(self, runner, tmp_path):
-        """Test that missing parquet files returns dict of empty DataFrames."""
-        output_dir = UPath(tmp_path / "task0")
-        output_dir.mkdir()
-
-        result = runner._load_task_results(output_dir)
-        assert "scores" in result
-        assert "predictions" in result
-        assert "feature_importances" in result
-        assert result["scores"].empty
-        assert result["predictions"].empty
-        assert result["feature_importances"].empty
-
-    def test_load_results_with_scores(self, runner, tmp_path):
-        """Test loading results with scores parquet."""
-        output_dir = UPath(tmp_path / "task0")
-        output_dir.mkdir()
-
-        scores_df = pd.DataFrame(
-            {
-                "result_type": ["best"],
-                "module": ["octo"],
-                "metric": ["MAE"],
-                "partition": ["dev"],
-                "aggregation": ["avg"],
-                "fold": [None],
-                "value": [0.85],
-            }
-        )
-        scores_df.to_parquet(output_dir / "scores.parquet", engine="pyarrow")
-
-        result = runner._load_task_results(output_dir)
-
-        assert not result["scores"].empty
-        assert result["scores"].iloc[0]["result_type"] == "best"
-        assert result["scores"].iloc[0]["module"] == "octo"
-        assert result["predictions"].empty
-        assert result["feature_importances"].empty
-
-    def test_load_results_with_fi(self, runner, tmp_path):
-        """Test loading results with feature importance parquet."""
-        output_dir = UPath(tmp_path / "task0")
-        output_dir.mkdir()
-
-        fi_df = pd.DataFrame(
-            {
-                "feature": ["f1", "f2"],
-                "importance": [0.7, 0.3],
-                "fi_method": ["internal"] * 2,
-                "fi_dataset": ["train"] * 2,
-                "training_id": ["rfe"] * 2,
-                "result_type": ["best"] * 2,
-                "module": ["rfe"] * 2,
-            }
-        )
-        fi_df.to_parquet(output_dir / "feature_importances.parquet", engine="pyarrow")
-
-        result = runner._load_task_results(output_dir)
-
-        assert not result["feature_importances"].empty
-        assert len(result["feature_importances"]) == 2
-        assert result["scores"].empty
-
-    def test_load_all_result_types(self, runner, tmp_path):
-        """Test loading results with all three parquet files."""
-        output_dir = UPath(tmp_path / "task0")
-        output_dir.mkdir()
-
-        scores_df = pd.DataFrame(
-            {
-                "result_type": ["best"],
-                "module": ["octo"],
-                "metric": ["MAE"],
-                "partition": ["dev"],
-                "aggregation": ["avg"],
-                "fold": [None],
-                "value": [0.9],
-            }
-        )
-        scores_df.to_parquet(output_dir / "scores.parquet", engine="pyarrow")
-
-        predictions_df = pd.DataFrame(
-            {
-                "result_type": ["best"],
-                "module": ["octo"],
-                "row_id": [1],
-                "prediction": [0.5],
-                "target": [0.6],
-                "partition": ["dev"],
-            }
-        )
-        predictions_df.to_parquet(output_dir / "predictions.parquet", engine="pyarrow")
-
-        fi_df = pd.DataFrame(
-            {
-                "feature": ["f1"],
-                "importance": [0.7],
-                "fi_method": ["internal"],
-                "fi_dataset": ["train"],
-                "training_id": ["t0"],
-                "result_type": ["best"],
-                "module": ["octo"],
-            }
-        )
-        fi_df.to_parquet(output_dir / "feature_importances.parquet", engine="pyarrow")
-
-        result = runner._load_task_results(output_dir)
-
-        assert not result["scores"].empty
-        assert not result["predictions"].empty
-        assert not result["feature_importances"].empty
-
-
 class TestLoadTask:
     """Tests for WorkflowTaskRunner._load_task()."""
 
@@ -544,40 +410,38 @@ class TestLoadTask:
         )
         return WorkflowTaskRunner(study_context=ctx, workflow=[], cpus_per_outersplit=1)
 
-    def test_load_task_reads_selected_features_from_json(self, runner, tmp_path):
-        """Test that _load_task reads selected_features from selected_features.json."""
-        task_dir = tmp_path / "outersplit0" / "task0"
-        task_dir.mkdir(parents=True)
+    def test_load_task_reads_from_result_subdirectory(self, runner, tmp_path):
+        """Test that _load_task reads ModuleResult from best/ subdirectory."""
+        best_dir = tmp_path / "outersplit0" / "task0" / "best"
+        best_dir.mkdir(parents=True)
 
-        # Write selected_features.json (new format)
-        with open(task_dir / "selected_features.json", "w") as f:
+        # Write selected_features.json in best/ dir
+        with open(best_dir / "selected_features.json", "w") as f:
             json.dump(["f1", "f2", "f3"], f)
 
-        task = Mock(task_id=0)
-        selected_features, results = runner._load_task(outersplit_id=0, task=task)
+        task = Mock(task_id=0, module="test_module")
+        results = runner._load_task(outersplit_id=0, task=task)
 
-        assert selected_features == ["f1", "f2", "f3"]
-        assert isinstance(results, dict)
-        assert "scores" in results
-        assert "predictions" in results
-        assert "feature_importances" in results
+        assert ResultType.BEST in results
+        assert results[ResultType.BEST].selected_features == ["f1", "f2", "f3"]
+        assert results[ResultType.BEST].module == "test_module"
 
-    def test_load_task_missing_selected_features_raises(self, runner, tmp_path):
-        """Test that _load_task raises FileNotFoundError if selected_features.json missing."""
+    def test_load_task_no_result_dirs_raises(self, runner, tmp_path):
+        """Test that _load_task raises FileNotFoundError if no result directories found."""
         task_dir = tmp_path / "outersplit0" / "task0"
         task_dir.mkdir(parents=True)
 
-        task = Mock(task_id=0)
-        with pytest.raises(FileNotFoundError, match=r"selected_features\.json not found"):
+        task = Mock(task_id=0, module="test_module")
+        with pytest.raises(FileNotFoundError, match=r"no result directories found"):
             runner._load_task(outersplit_id=0, task=task)
 
-    def test_load_task_with_results(self, runner, tmp_path):
-        """Test that _load_task loads results from parquet files."""
-        task_dir = tmp_path / "outersplit0" / "task0"
-        task_dir.mkdir(parents=True)
+    def test_load_task_with_parquet_results(self, runner, tmp_path):
+        """Test that _load_task loads parquet results from best/ subdirectory."""
+        best_dir = tmp_path / "outersplit0" / "task0" / "best"
+        best_dir.mkdir(parents=True)
 
         # Write selected_features.json
-        with open(task_dir / "selected_features.json", "w") as f:
+        with open(best_dir / "selected_features.json", "w") as f:
             json.dump(["f1", "f2"], f)
 
         # Write feature importances parquet
@@ -592,10 +456,34 @@ class TestLoadTask:
                 "module": ["rfe"] * 2,
             }
         )
-        fi_df.to_parquet(task_dir / "feature_importances.parquet", engine="pyarrow")
+        fi_df.to_parquet(best_dir / "feature_importances.parquet", engine="pyarrow")
 
-        task = Mock(task_id=0)
-        selected_features, results = runner._load_task(outersplit_id=0, task=task)
+        task = Mock(task_id=0, module="rfe")
+        results = runner._load_task(outersplit_id=0, task=task)
 
-        assert selected_features == ["f1", "f2"]
-        assert not results["feature_importances"].empty
+        assert results[ResultType.BEST].selected_features == ["f1", "f2"]
+        assert not results[ResultType.BEST].feature_importances.empty
+
+    def test_load_task_multiple_result_types(self, runner, tmp_path):
+        """Test that _load_task loads both best and ensemble_selection if present."""
+        task_dir = tmp_path / "outersplit0" / "task0"
+
+        # Create best/ directory
+        best_dir = task_dir / "best"
+        best_dir.mkdir(parents=True)
+        with open(best_dir / "selected_features.json", "w") as f:
+            json.dump(["f1", "f2"], f)
+
+        # Create ensemble_selection/ directory
+        ensel_dir = task_dir / "ensemble_selection"
+        ensel_dir.mkdir(parents=True)
+        with open(ensel_dir / "selected_features.json", "w") as f:
+            json.dump(["f1"], f)
+
+        task = Mock(task_id=0, module="octo")
+        results = runner._load_task(outersplit_id=0, task=task)
+
+        assert ResultType.BEST in results
+        assert ResultType.ENSEMBLE_SELECTION in results
+        assert results[ResultType.BEST].selected_features == ["f1", "f2"]
+        assert results[ResultType.ENSEMBLE_SELECTION].selected_features == ["f1"]

@@ -16,7 +16,7 @@ from sklearn.model_selection import BaseCrossValidator, GridSearchCV, Stratified
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ResultType
+from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ModuleResult, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -81,7 +81,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         num_assigned_cpus: int = 1,
         feature_groups: dict | None = None,
         prior_results: dict | None = None,
-    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ) -> dict[ResultType, ModuleResult]:
         """Fit SFS module for feature selection."""
         # Extract data matrices (local variables)
         x_traindev = data_traindev[feature_cols]
@@ -278,4 +278,12 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         with (path_results / "results.json").open("w", encoding="utf-8") as f:
             json.dump(results, f, indent=4)
 
-        return (selected_features, scores, pd.DataFrame(), feature_importances)
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+                scores=scores,
+                feature_importances=feature_importances,
+            )
+        }

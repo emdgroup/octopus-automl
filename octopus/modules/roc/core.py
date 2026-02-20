@@ -20,7 +20,7 @@ from sklearn.feature_selection import (
 )
 
 from octopus.logger import get_logger
-from octopus.modules.base import FeatureSelectionExecution
+from octopus.modules.base import FeatureSelectionExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
 
 if TYPE_CHECKING:
@@ -62,7 +62,7 @@ class RocModule(FeatureSelectionExecution["Roc"]):
         num_assigned_cpus: int = 1,
         feature_groups: dict | None = None,
         prior_results: dict | None = None,
-    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ) -> dict[ResultType, ModuleResult]:
         """Fit ROC module by identifying and filtering correlated features."""
         # Set seeds for reproducibility
         random.seed(0)
@@ -156,4 +156,10 @@ class RocModule(FeatureSelectionExecution["Roc"]):
         # Store fitted state
         self.feature_importances_ = {}
 
-        return (selected_features, pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+            )
+        }

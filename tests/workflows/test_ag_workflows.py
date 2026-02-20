@@ -94,8 +94,8 @@ class TestAutogluonWorkflows:
         # Verify AutoGluon task artifacts
         task_dir = task_dirs[0]
         assert (task_dir / "task_config.json").exists(), "Task config should exist"
-        assert (task_dir / "module").exists(), "Module directory should exist"
-        assert (task_dir / "module" / "module_state.json").exists(), "Module state should exist"
+        assert (task_dir / "best").exists(), "Best result directory should exist"
+        assert (task_dir / "best" / "model").exists(), "Model directory should exist"
 
     def test_full_regression_workflow(self):
         """Test the complete regression workflow execution."""
@@ -160,8 +160,8 @@ class TestAutogluonWorkflows:
         # Verify AutoGluon task artifacts
         task_dir = task_dirs[0]
         assert (task_dir / "task_config.json").exists(), "Task config should exist"
-        assert (task_dir / "module").exists(), "Module directory should exist"
-        assert (task_dir / "module" / "module_state.json").exists(), "Module state should exist"
+        assert (task_dir / "best").exists(), "Best result directory should exist"
+        assert (task_dir / "best" / "model").exists(), "Model directory should exist"
 
 
 if __name__ == "__main__":

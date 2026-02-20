@@ -18,7 +18,7 @@ from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, cross_
 
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ResultType
+from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ModuleResult, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -144,7 +144,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         num_assigned_cpus: int = 1,
         feature_groups: dict | None = None,
         prior_results: dict | None = None,
-    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ) -> dict[ResultType, ModuleResult]:
         """Fit EFS module by creating and optimizing an ensemble of models."""
         # Store execution state temporarily for internal methods
         self._study_context = study_context
@@ -209,7 +209,14 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
                 fi_dfs.append(temp)
         feature_importances = pd.concat(fi_dfs, ignore_index=True) if fi_dfs else pd.DataFrame()
 
-        return (selected_features, pd.DataFrame(), pd.DataFrame(), feature_importances)
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+                feature_importances=feature_importances,
+            )
+        }
 
     def _create_modeltable(self):
         """Create model table."""

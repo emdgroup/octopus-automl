@@ -14,7 +14,7 @@ from attrs import Factory, define, field
 if TYPE_CHECKING:
     from upath import UPath
 
-from octopus.modules.base import FIDataset, FIMethod, ResultType
+from octopus.modules.base import FIDataset, FIMethod, ModuleResult, ResultType
 from octopus.modules.octo.bag import BagBase
 from octopus.modules.octo.core import OctoModule
 from octopus.study.context import StudyContext
@@ -40,7 +40,7 @@ class Rfe2Module(OctoModule):
         num_assigned_cpus: int = 1,
         feature_groups: dict | None = None,
         prior_results: dict | None = None,
-    ) -> tuple[list[str], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ) -> dict[ResultType, ModuleResult]:
         """Fit Rfe2 module by running Octo optimization followed by RFE."""
         # Store execution state temporarily (inherits Octo's pattern)
         self._study_context = study_context
@@ -189,7 +189,17 @@ class Rfe2Module(OctoModule):
         feature_importances["training_id"] = "rfe2"
         feature_importances["result_type"] = ResultType.BEST
 
-        return (selected_features, scores, predictions, feature_importances)
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+                scores=scores,
+                predictions=predictions,
+                feature_importances=feature_importances,
+                model=best_model,
+            )
+        }
 
     def _print_step_information(self):
         """Print step performance."""
