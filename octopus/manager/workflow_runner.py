@@ -68,13 +68,10 @@ class WorkflowTaskRunner:
             self._log_task_info(task)
 
             if task.load_task:
-                # Load pre-existing task results
                 result = self._load_task(outersplit_id, task)
-                task_results[task.task_id] = result
             else:
-                # Run and save task
                 result = self._run_task(outersplit_id, outersplit, task, task_results)
-                task_results[task.task_id] = result
+            task_results[task.task_id] = result
 
     def _run_task(
         self,
@@ -170,17 +167,17 @@ class WorkflowTaskRunner:
         Raises:
             FileNotFoundError: If no result directories are found
         """
-        output_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
+        input_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
 
         results: dict[ResultType, ModuleResult] = {}
         for rt in ResultType:
-            rt_dir = output_dir / rt.value
+            rt_dir = input_dir / rt.value
             if rt_dir.exists():
                 results[rt] = ModuleResult.load(rt_dir, result_type=rt, module=task.module)
 
         if not results:
             raise FileNotFoundError(
-                f"Cannot load task {task.task_id}: no result directories found at {output_dir}"
+                f"Cannot load task {task.task_id}: no result directories found at {input_dir}"
             )
 
         total_features = sum(len(r.selected_features) for r in results.values())
@@ -197,11 +194,9 @@ class WorkflowTaskRunner:
         """
         config_path = output_dir / "task_config.json"
 
-        # Convert task to dict for JSON serialization
         from attrs import asdict  # noqa: PLC0415
 
-        # Exclude temporary state fields (start with _) and non-init fields to avoid circular refs
-        config_dict = asdict(task, recurse=True, filter=lambda attr, value: attr.init and not attr.name.startswith("_"))
+        config_dict = asdict(task)
 
         with config_path.open("w") as f:
             json.dump(config_dict, f, indent=2)

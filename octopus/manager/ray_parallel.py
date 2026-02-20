@@ -121,12 +121,12 @@ def _setup_worker_logging(log_dir: UPath):
     set_logger_filename(log_file=worker_log_file)
 
 
-def run_parallel_outer_ray[T](
+def run_parallel_outer_ray(
     outersplit_data: OuterSplits,
-    run_fn: Callable[[int, OuterSplit], T],
+    run_fn: Callable[[int, OuterSplit], None],
     log_dir: UPath,
     num_workers: int,
-) -> list[T]:
+) -> None:
     """Execute run_fn(outersplit_id, outersplit) in parallel using Ray.
 
     Preserves input order and limits concurrency to num_workers. Outer tasks reserve
@@ -137,25 +137,22 @@ def run_parallel_outer_ray[T](
         run_fn: Function called as run_fn(outersplit_id, outersplit).
         log_dir: Directory to store individual Ray worker logs.
         num_workers: Maximum number of concurrent outer tasks.
-
-    Returns:
-        Results from run_fn in the same order as outersplit_data keys.
     """
     # Ensure Ray is ready in the driver (connect or start local)
     init_ray(start_local_if_missing=True)
 
     @ray.remote(num_cpus=0)
-    def outer_task(outersplit_id: int, outersplit: OuterSplit, log_dir: UPath):
+    def outer_task(outersplit_id: int, outersplit: OuterSplit, log_dir: UPath) -> int:
         _setup_worker_logging(log_dir)
-        return outersplit_id, run_fn(outersplit_id, outersplit)
+        run_fn(outersplit_id, outersplit)
+        return outersplit_id
 
     outersplit_ids = list(outersplit_data.keys())
     n = len(outersplit_ids)
     if n == 0:
-        return []
+        return
 
     max_concurrent = max(1, min(num_workers, n))
-    results: dict[int, T] = {}
     inflight: list[ObjectRef] = []
     next_i = 0
 
@@ -170,16 +167,13 @@ def run_parallel_outer_ray[T](
     # Drain with backpressure
     while inflight:
         done, inflight = ray.wait(inflight, num_returns=1)
-        outersplit_id, res = ray.get(done[0])
-        results[outersplit_id] = res
+        ray.get(done[0])
         if next_i < n:
             outersplit_id = outersplit_ids[next_i]
             inflight.append(
                 outer_task.remote(outersplit_id, outersplit_data[outersplit_id], log_dir)
             )
             next_i += 1
-
-    return [results[fid] for fid in outersplit_ids]
 
 
 def run_parallel_inner(trainings: Iterable[Any], log_dir: UPath, num_cpus: int = 1) -> list[Any]:

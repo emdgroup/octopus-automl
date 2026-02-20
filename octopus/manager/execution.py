@@ -75,17 +75,15 @@ class ParallelRayStrategy:
     ) -> None:
         """Execute all outersplits in parallel using Ray."""
 
-        def wrapped_run(outersplit_id: int, outersplit: OuterSplit):
+        def wrapped_run(outersplit_id: int, outersplit: OuterSplit) -> None:
             logger.set_log_group(LogGroup.PROCESSING, f"OUTER {outersplit_id}")
             logger.info("Starting execution")
             try:
                 run_fn(outersplit_id, outersplit)
                 logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"OUTER {outersplit_id}")
                 logger.info("Completed successfully")
-                return True
             except Exception as e:
                 logger.exception(f"Exception in task {outersplit_id}: {e!s}")
-                return None
 
         run_parallel_outer_ray(
             outersplit_data=outersplit_data,
