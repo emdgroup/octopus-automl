@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+__all__ = ["calculate_fi_permutation", "calculate_fi_shap"]
+
 import numpy as np
 import pandas as pd
 

@@ -1,18 +1,12 @@
 """Utility functions for Jupyter notebooks — predict package version.
 
-Preserves all outputs from the main branch octopus.analysis.notebook_utils:
-- show_study_details, show_target_metric_performance, show_selected_features
-  are unchanged (study-level functions using StudyLoader)
-- testset_performance_overview, plot_aucroc, show_confusionmatrix take a
-  TaskPredictor instead of (study_path, task_id, module, result_type)
-- show_overall_fi_table, show_overall_fi_plot compute FI fresh via TaskPredictor
+Provides high-level analysis functions for Jupyter notebooks:
+- Study-level functions delegate data loading to StudyLoader
+- Task-level functions use TaskPredictorTest for test-data analysis
 """
 
 from __future__ import annotations
 
-import json
-import re
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -20,6 +14,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.metrics import auc, confusion_matrix, roc_curve
+from upath import UPath
 
 from octopus.predict.study_io import StudyLoader
 
@@ -31,7 +26,7 @@ except ImportError:
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from octopus.predict.task_predictor import TaskPredictor
+    from octopus.predict.task_predictor_test import TaskPredictorTest
 
 
 def display_table(data: Any) -> None:
@@ -53,15 +48,84 @@ def display_table(data: Any) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════
-# STUDY-LEVEL FUNCTIONS (unchanged from main branch)
+# STUDY-LEVEL FUNCTIONS (delegate to StudyLoader)
 # ═══════════════════════════════════════════════════════════════
 
 
-def show_study_details(study_directory: str | Path, verbose: bool = True) -> dict:
+def _validate_study_structure(study_path: UPath, config: dict) -> dict:
+    """Validate the study directory structure against the configuration.
+
+    Checks that expected outersplit directories and workflow task directories
+    exist.  Returns a dict of validation results without printing.
+
+    Args:
+        study_path: UPath to the study directory.
+        config: Study configuration dictionary (from ``StudyLoader.load_config()``).
+
+    Returns:
+        Dictionary containing validation results with keys:
+            - 'outersplit_dirs': List of found outersplit directory paths
+            - 'expected_task_ids': List of expected task IDs
+            - 'octo_workflow_tasks': List of task IDs for octo modules
+            - 'missing_outersplits': List of missing outersplit IDs
+            - 'missing_workflow_dirs': List of missing workflow directories
+
+    Raises:
+        ValueError: If no outersplit directories or workflow results are found.
+    """
+    n_folds_outer = config["n_folds_outer"]
+    workflow_tasks = config["workflow"]
+
+    outersplit = sorted(
+        [d for d in study_path.glob("outersplit*") if d.is_dir()],
+        key=lambda x: int(x.name.replace("outersplit", "")),
+    )
+
+    if not outersplit:
+        raise ValueError(
+            f"No outersplit directories found in study path.\n"
+            f"Study path: {study_path}\nThe study may not have been run yet."
+        )
+
+    expected_outersplit_ids = list(range(n_folds_outer))
+    missing_outersplits = [
+        split_id for split_id in expected_outersplit_ids if not (study_path / f"outersplit{split_id}").exists()
+    ]
+
+    expected_task_ids = [task["task_id"] for task in workflow_tasks]
+
+    has_results = False
+    missing_workflow_dirs: list[str] = []
+
+    for split_dir in outersplit:
+        workflow_dirs = list(split_dir.glob("task*"))
+        if workflow_dirs:
+            has_results = True
+        for task_id in expected_task_ids:
+            expected_dir = split_dir / f"task{task_id}"
+            if not expected_dir.exists():
+                missing_workflow_dirs.append(f"{split_dir.name}/task{task_id}")
+
+    if not has_results:
+        raise ValueError("No workflow results found in outersplits.\nThe study may not have completed successfully.")
+
+    octo_workflow_lst = [item["task_id"] for item in workflow_tasks if item["module"] == "octo"]
+
+    return {
+        "outersplit_dirs": outersplit,
+        "expected_task_ids": expected_task_ids,
+        "octo_workflow_tasks": octo_workflow_lst,
+        "missing_outersplits": missing_outersplits,
+        "missing_workflow_dirs": missing_workflow_dirs,
+    }
+
+
+def show_study_details(study_directory: str | UPath, verbose: bool = True) -> dict:
     """Display and validate study details including configuration and structure.
 
-    This function reads the study configuration, validates the study structure,
-    and displays information about the workflow tasks and outersplit directories.
+    This function reads the study configuration via ``StudyLoader``, validates
+    the study structure, and displays information about the workflow tasks
+    and outersplit directories.
 
     Args:
         study_directory: Path to the study directory.
@@ -69,7 +133,7 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
 
     Returns:
         Dictionary containing study information with keys:
-            - 'path': Path object of the study directory
+            - 'path': UPath object of the study directory
             - 'config': Study configuration dictionary
             - 'ml_type': Machine learning type
             - 'n_folds_outer': Number of outer folds
@@ -88,7 +152,7 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
         >>> from octopus.predict.notebook_utils import show_study_details
         >>> study_info = show_study_details("./studies/my_study/")
     """
-    path_study = Path(study_directory)
+    path_study = UPath(study_directory)
 
     if not path_study.exists():
         raise FileNotFoundError(f"Study path does not exist: {path_study}")
@@ -96,9 +160,9 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
     if verbose:
         print(f"Selected study path: {path_study}\n")
 
-    config_path = path_study / "config.json"
-    with open(config_path) as f:
-        config = json.load(f)
+    # Delegate config loading to I/O layer
+    loader = StudyLoader(path_study)
+    config = loader.load_config()
 
     ml_type = config["ml_type"]
     n_folds_outer = config["n_folds_outer"]
@@ -108,75 +172,42 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
         print("Validate study....")
         print(f"ML Type: {ml_type}")
 
-    outersplit = sorted(
-        [d for d in path_study.glob("outersplit*") if d.is_dir()],
-        key=lambda x: int(x.name.replace("outersplit", "")),
-    )
+    # Delegate structure validation
+    validation = _validate_study_structure(path_study, config)
+    outersplit = validation["outersplit_dirs"]
+    missing_outersplits = validation["missing_outersplits"]
+    missing_workflow_dirs = validation["missing_workflow_dirs"]
+    expected_task_ids = validation["expected_task_ids"]
+    octo_workflow_lst = validation["octo_workflow_tasks"]
 
-    if not outersplit:
-        raise ValueError(
-            f"No outersplit directories found in study path.\n"
-            f"Study path: {path_study}\nThe study may not have been run yet."
-        )
     if verbose:
         print(f"Found {len(outersplit)} outersplit directory/directories")
-
-    expected_outersplit_ids = list(range(n_folds_outer))
-    if verbose:
+        expected_outersplit_ids = list(range(n_folds_outer))
         print(f"Expected outersplit IDs: {expected_outersplit_ids}")
 
-    missing_outersplits = []
-    for split_id in expected_outersplit_ids:
-        expected_split_dir = path_study / f"outersplit{split_id}"
-        if not expected_split_dir.exists():
-            if verbose:
+        if missing_outersplits:
+            for split_id in missing_outersplits:
                 print(f"  WARNING: Missing directory 'outersplit{split_id}'")
-            missing_outersplits.append(split_id)
-
-    if missing_outersplits:
-        if verbose:
             print(f"  {len(missing_outersplits)} outersplit directory/directories missing")
-    elif verbose:
-        print("All expected outersplit directories found")
+        else:
+            print("All expected outersplit directories found")
 
-    expected_task_ids = [task["task_id"] for task in workflow_tasks]
-    if verbose:
         print(f"Expected workflow task IDs: {expected_task_ids}")
 
-    has_results = False
-    missing_workflow_dirs: list[str] = []
-
-    for split_dir in outersplit:
-        workflow_dirs = list(split_dir.glob("task*"))
-        if workflow_dirs:
-            has_results = True
-        for task_id in expected_task_ids:
-            expected_dir = split_dir / f"task{task_id}"
-            if not expected_dir.exists():
-                if verbose:
-                    print(f"  WARNING: Missing directory 'task{task_id}' in {split_dir.name}")
-                missing_workflow_dirs.append(f"{split_dir.name}/task{task_id}")
-
-    if not has_results:
-        raise ValueError("No workflow results found in outersplits.\nThe study may not have completed successfully.")
-    elif missing_workflow_dirs:
-        if verbose:
+        if missing_workflow_dirs:
+            for missing_dir in missing_workflow_dirs:
+                split_name, task_name = missing_dir.split("/")
+                print(f"  WARNING: Missing directory '{task_name}' in {split_name}")
             print("Study has completed workflow tasks, but some directories are missing (see warnings above)")
-    elif verbose:
-        print("Study has completed workflow tasks - all expected directories found")
+        else:
+            print("Study has completed workflow tasks - all expected directories found")
 
-    if verbose:
         print("\nInformation on workflow tasks in this study")
         print(f"Number of workflow tasks: {len(workflow_tasks)}")
 
-    octo_workflow_lst = []
-    for _item in workflow_tasks:
-        if verbose:
+        for _item in workflow_tasks:
             print(f"Task {_item['task_id']}: {_item['module']}")
-        if _item["module"] == "octo":
-            octo_workflow_lst.append(_item["task_id"])
 
-    if verbose:
         print(f"Octo workflow tasks: {octo_workflow_lst}")
 
     return {
@@ -193,112 +224,10 @@ def show_study_details(study_directory: str | Path, verbose: bool = True) -> dic
     }
 
 
-def _build_performance_dataframe(study_info: dict) -> pd.DataFrame:
-    """Build performance dataframe from study outersplits.
-
-    Args:
-        study_info: Dictionary returned by show_study_details().
-
-    Returns:
-        DataFrame containing performance metrics with columns:
-            OuterSplit, Task, Task_name, Module, Results_key,
-            Performance_dict, n_features, Selected_features.
-    """
-    rows_list: list[dict[str, Any]] = []
-
-    study_loader = StudyLoader(study_info["path"])
-
-    for path_split in study_info["outersplit_dirs"]:
-        split_name = path_split.name
-        match = re.search(r"\d+$", split_name)
-        if not match:
-            continue
-        split_num = int(match.group())
-
-        task_dirs = study_loader.get_task_directories(split_num)
-
-        for workflow_num, path_workflow in task_dirs:
-            workflow_name = str(path_workflow.name)
-
-            try:
-                loader = study_loader.get_outersplit_loader(outersplit_id=split_num, task_id=workflow_num)
-                try:
-                    selected_features = loader.load_selected_features()
-                except FileNotFoundError:
-                    selected_features = []
-
-                perf_df = loader.load_scores()
-
-                # Filter out per_fold rows — only keep avg and pool aggregations
-                if not perf_df.empty and "aggregation" in perf_df.columns:
-                    perf_df = perf_df[perf_df["aggregation"] != "per_fold"]
-
-                if not perf_df.empty and "result_type" in perf_df.columns:
-                    group_cols = ["result_type"]
-                    if "module" in perf_df.columns:
-                        group_cols = ["module", "result_type"]
-
-                    unique_combos = perf_df[group_cols].drop_duplicates()
-                    for _, combo in unique_combos.iterrows():
-                        mask = pd.Series(True, index=perf_df.index)
-                        for col in group_cols:
-                            mask &= perf_df[col] == combo[col]
-                        combo_perf = perf_df[mask]
-                        performance_dict = {}
-                        for _, row in combo_perf.iterrows():
-                            perf_key = f"{row['partition']}_{row['aggregation']}"
-                            performance_dict[perf_key] = row["value"]
-
-                        module_name = combo.get("module", "") if "module" in group_cols else ""
-                        rows_list.append(
-                            {
-                                "OuterSplit": split_num,
-                                "Task": workflow_num,
-                                "Task_name": workflow_name,
-                                "Module": module_name,
-                                "Results_key": str(combo["result_type"]),
-                                "Performance_dict": performance_dict,
-                                "n_features": len(selected_features),
-                                "Selected_features": sorted(selected_features),
-                            }
-                        )
-                else:
-                    rows_list.append(
-                        {
-                            "OuterSplit": split_num,
-                            "Task": workflow_num,
-                            "Task_name": workflow_name,
-                            "Module": "",
-                            "Results_key": "",
-                            "Performance_dict": {},
-                            "n_features": len(selected_features),
-                            "Selected_features": sorted(selected_features),
-                        }
-                    )
-
-            except (FileNotFoundError, KeyError) as e:
-                print(f"Warning: Could not load data for {workflow_name} in {split_name}: {e}")
-                continue
-
-    df = pd.DataFrame(
-        rows_list,
-        columns=[
-            "OuterSplit",
-            "Task",
-            "Task_name",
-            "Module",
-            "Results_key",
-            "Performance_dict",
-            "n_features",
-            "Selected_features",
-        ],
-    )
-    df = df.sort_values(by=["Task", "OuterSplit"], ignore_index=True)
-    return df
-
-
 def show_target_metric_performance(study_info: dict, details: bool = False) -> list[pd.DataFrame]:
     """Display performance metrics for all workflow tasks in a study.
+
+    Delegates data loading to ``StudyLoader.build_performance_summary()``.
 
     Args:
         study_info: Dictionary returned by show_study_details().
@@ -311,7 +240,8 @@ def show_target_metric_performance(study_info: dict, details: bool = False) -> l
         >>> study_info = show_study_details("./studies/my_study/")
         >>> tables = show_target_metric_performance(study_info, details=False)
     """
-    df = _build_performance_dataframe(study_info)
+    loader = StudyLoader(study_info["path"])
+    df = loader.build_performance_summary()
     performance_tables = []
 
     for _item in study_info["workflow_tasks"]:
@@ -351,6 +281,9 @@ def show_selected_features(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Display the number of selected features across outer splits, tasks, and result keys.
 
+    Delegates data loading to ``StudyLoader.build_feature_summary()``
+    and ``StudyLoader.build_performance_summary()``.
+
     Args:
         study_info: Dictionary returned by show_study_details().
         sort_task: Task ID to use for sorting the frequency table.
@@ -366,62 +299,15 @@ def show_selected_features(
         >>> study_info = show_study_details("./studies/my_study/")
         >>> feat_table, freq_table, raw_table = show_selected_features(study_info)
     """
-    raw_feature_table = _build_performance_dataframe(study_info)
-
-    feature_table = raw_feature_table.pivot_table(
-        index="OuterSplit", columns=["Task", "Results_key"], values="n_features", aggfunc="first"
-    )
-    mean_row = feature_table.mean(axis=0)
-    feature_table.loc["Mean"] = mean_row
-    feature_table = feature_table.astype(int)
-    feature_table.index.name = "OuterSplit"
+    loader = StudyLoader(study_info["path"])
+    raw_feature_table = loader.build_performance_summary()
+    feature_table, frequency_table = loader.build_feature_summary(sort_task=sort_task, sort_key=sort_key)
 
     print("\n" + "=" * 40)
     print("NUMBER OF SELECTED FEATURES")
     print("=" * 40)
     print("Rows: OuterSplit | Columns: (Task, Key) | Values: Number of Features")
     display_table(feature_table)
-
-    task_key_combinations = (
-        raw_feature_table[["Task", "Results_key"]].drop_duplicates().sort_values(["Task", "Results_key"])
-    )
-
-    if sort_task is None:
-        sort_task = int(task_key_combinations.iloc[0]["Task"])
-        sort_key = str(task_key_combinations.iloc[0]["Results_key"])
-    elif sort_key is None:
-        task_keys = raw_feature_table[raw_feature_table["Task"] == sort_task]["Results_key"].unique()
-        sort_key = str(task_keys[0]) if len(task_keys) > 0 else None
-
-    frequency_data: dict[tuple[int, str], dict[str, int]] = {}
-
-    for _, row in task_key_combinations.iterrows():
-        task = int(row["Task"])
-        key = str(row["Results_key"])
-        task_key = (task, key)
-        frequency_data[task_key] = {}
-
-        task_key_data = raw_feature_table[
-            (raw_feature_table["Task"] == task) & (raw_feature_table["Results_key"] == key)
-        ]
-        for _, data_row in task_key_data.iterrows():
-            for feature in data_row["Selected_features"]:
-                if feature not in frequency_data[task_key]:
-                    frequency_data[task_key][feature] = 0
-                frequency_data[task_key][feature] += 1
-
-    frequency_table = pd.DataFrame(frequency_data)
-    frequency_table = frequency_table.fillna(0).astype(int)
-
-    if sort_key is not None:
-        sort_col = (sort_task, sort_key)
-        if sort_col in frequency_table.columns:
-            frequency_table = frequency_table.sort_values(
-                by=[sort_col],  # type: ignore[list-item]
-                ascending=False,
-            )
-
-    frequency_table.index.name = "Feature"
 
     print("\n" + "=" * 40)
     print("FEATURE FREQUENCY ACROSS OUTER SPLITS")
@@ -435,18 +321,18 @@ def show_selected_features(
 
 
 # ═══════════════════════════════════════════════════════════════
-# TASK-LEVEL FUNCTIONS (take TaskPredictor)
+# TASK-LEVEL FUNCTIONS (take TaskPredictorTest)
 # ═══════════════════════════════════════════════════════════════
 
 
 def testset_performance_overview(
-    predictor: TaskPredictor,
+    predictor: TaskPredictorTest,
     metrics: list[str] | None = None,
 ) -> pd.DataFrame:
     """Display test performance metrics across all outersplits for a task.
 
     Args:
-        predictor: TaskPredictor instance for the task to evaluate.
+        predictor: TaskPredictorTest instance for the task to evaluate.
         metrics: List of metric names to evaluate. If None, uses defaults
             based on ML type.
 
@@ -454,8 +340,8 @@ def testset_performance_overview(
         DataFrame with outersplits as rows (plus a 'Mean' row), metrics as columns.
 
     Example:
-        >>> from octopus.predict import TaskPredictor
-        >>> tp = TaskPredictor("./studies/my_study/", task_id=0)
+        >>> from octopus.predict import TaskPredictorTest
+        >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
         >>> df = testset_performance_overview(tp, metrics=["AUCROC", "ACCBAL", "ACC"])
     """
     if metrics is None:
@@ -468,7 +354,7 @@ def testset_performance_overview(
 
     print("Performance on test dataset (pooling)")
 
-    performance_long = predictor.performance_test(metrics=metrics)
+    performance_long = predictor.performance(metrics=metrics)
     df = performance_long.pivot(index="outersplit", columns="metric", values="score")
 
     # Reorder columns to match metrics order
@@ -482,11 +368,11 @@ def testset_performance_overview(
     return df
 
 
-def _get_predictions_from_predictor(predictor: TaskPredictor, outersplit_id: int) -> pd.DataFrame:
-    """Extract predictions and probabilities from a TaskPredictor for one outersplit.
+def _get_predictions_from_predictor(predictor: TaskPredictorTest, outersplit_id: int) -> pd.DataFrame:
+    """Extract predictions and probabilities from a TaskPredictorTest for one outersplit.
 
     Args:
-        predictor: TaskPredictor instance.
+        predictor: TaskPredictorTest instance.
         outersplit_id: Outer split index.
 
     Returns:
@@ -500,13 +386,7 @@ def _get_predictions_from_predictor(predictor: TaskPredictor, outersplit_id: int
         list(predictor.target_assignments.values())[0] if predictor.target_assignments else predictor.target_col
     )
 
-    pred_proba = model.predict_proba(data_test[features])
-    positive_class_idx = list(model.classes_).index(predictor.positive_class)
-
-    if isinstance(pred_proba, pd.DataFrame):
-        probabilities = pred_proba.iloc[:, positive_class_idx].values
-    else:
-        probabilities = pred_proba[:, positive_class_idx]
+    probabilities = _get_positive_class_proba(model, data_test, features, predictor.positive_class)
 
     # Row IDs
     row_id_col = predictor.row_id_col
@@ -524,6 +404,26 @@ def _get_predictions_from_predictor(predictor: TaskPredictor, outersplit_id: int
             "target": data_test[target_col],
         }
     )
+
+
+def _get_positive_class_proba(model: Any, data: pd.DataFrame, features: list[str], positive_class: Any) -> np.ndarray:
+    """Extract positive-class probabilities from a model.
+
+    Args:
+        model: Fitted model with ``predict_proba`` and ``classes_`` attributes.
+        data: DataFrame containing feature columns.
+        features: List of feature column names to use.
+        positive_class: The positive class label.
+
+    Returns:
+        1-D array of probabilities for the positive class.
+    """
+    positive_class_idx = list(model.classes_).index(positive_class)
+    model_proba = model.predict_proba(data[features])
+    if isinstance(model_proba, pd.DataFrame):
+        result: np.ndarray = np.asarray(model_proba.iloc[:, positive_class_idx].values)
+        return result
+    return np.asarray(model_proba[:, positive_class_idx])
 
 
 def _create_roc_figure(
@@ -567,9 +467,8 @@ def _create_roc_figure(
 
 
 def plot_aucroc(
-    predictor: TaskPredictor,
+    predictor: TaskPredictorTest,
     figsize: tuple[int, int] = (8, 8),
-    dpi: int = 100,
     show_individual: bool = False,
 ) -> None:
     """Plot ROC curves: merged, averaged with confidence bands, and optionally individual.
@@ -580,16 +479,15 @@ def plot_aucroc(
     3. Individual ROC curves per outersplit (if show_individual=True)
 
     Args:
-        predictor: TaskPredictor instance for a classification task.
+        predictor: TaskPredictorTest instance for a classification task.
         figsize: Figure size as (width, height) in inches.
-        dpi: Dots per inch (unused, kept for API compatibility).
         show_individual: If True, also plot individual ROC curves per outersplit.
 
     Raises:
         ValueError: If the task is not for classification.
 
     Example:
-        >>> tp = TaskPredictor("./studies/my_study/", task_id=0)
+        >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
         >>> plot_aucroc(tp, show_individual=True)
     """
     if predictor.ml_type != "classification":
@@ -700,8 +598,117 @@ def plot_aucroc(
             ).show()
 
 
+def _compute_confusion_matrices(
+    target: np.ndarray | pd.Series,
+    probabilities: np.ndarray,
+    threshold: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute absolute and relative confusion matrices.
+
+    Args:
+        target: True labels.
+        probabilities: Predicted probabilities for the positive class.
+        threshold: Classification threshold.
+
+    Returns:
+        Tuple of (absolute confusion matrix, relative confusion matrix).
+    """
+    predictions = (np.asarray(probabilities) > threshold).astype(int)
+    cm_abs = confusion_matrix(target, predictions)
+    cm_rel = confusion_matrix(target, predictions, normalize="true")
+    return cm_abs, cm_rel
+
+
+def _create_confusion_figure(
+    cm_abs: np.ndarray,
+    cm_rel: np.ndarray,
+    class_names: list[str],
+    title: str,
+) -> go.Figure:
+    """Create a Plotly figure with absolute and relative confusion matrices side-by-side.
+
+    Args:
+        cm_abs: Absolute confusion matrix.
+        cm_rel: Relative (normalized) confusion matrix.
+        class_names: List of class label strings.
+        title: Figure title.
+
+    Returns:
+        Plotly Figure with two heatmap subplots.
+    """
+    fig = make_subplots(
+        rows=1,
+        cols=2,
+        subplot_titles=["Confusion Matrix (Absolute)", "Confusion Matrix (Relative %)"],
+        horizontal_spacing=0.25,
+    )
+
+    cm_rel_text = [[f"{val:.1f}%" for val in row] for row in cm_rel * 100]
+    cm_abs_max = float(cm_abs.max())
+
+    fig.add_trace(
+        go.Heatmap(
+            z=cm_abs,
+            x=class_names,  # type: ignore[arg-type]
+            y=class_names,  # type: ignore[arg-type]
+            text=cm_abs,
+            texttemplate="%{text}",
+            textfont={"size": 12},
+            colorscale="Blues",
+            showscale=True,
+            zmin=0,
+            zmax=cm_abs_max,
+            colorbar={
+                "x": 0.42,
+                "len": 0.75,
+                "thickness": 15,
+                "showticklabels": True,
+            },
+        ),
+        row=1,
+        col=1,
+    )
+
+    fig.add_trace(
+        go.Heatmap(
+            z=cm_rel * 100,
+            x=class_names,  # type: ignore[arg-type]
+            y=class_names,  # type: ignore[arg-type]
+            text=cm_rel_text,  # type: ignore[arg-type]
+            texttemplate="%{text}",
+            textfont={"size": 12},
+            colorscale="Blues",
+            showscale=True,
+            zmin=0,
+            zmax=100,
+            colorbar={
+                "x": 1.05,
+                "len": 0.75,
+                "thickness": 15,
+                "showticklabels": True,
+            },
+        ),
+        row=1,
+        col=2,
+    )
+
+    fig.update_xaxes(title_text="Predicted Label", row=1, col=1, side="bottom")
+    fig.update_yaxes(title_text="True Label", row=1, col=1, autorange="reversed")
+    fig.update_xaxes(title_text="Predicted Label", row=1, col=2, side="bottom")
+    fig.update_yaxes(title_text="True Label", row=1, col=2, autorange="reversed")
+
+    fig.update_layout(
+        title_text=title,
+        width=900,
+        height=420,
+        showlegend=False,
+    )
+
+    return fig
+
+
 def show_confusionmatrix(
-    predictor: TaskPredictor,
+    predictor: TaskPredictorTest,
     threshold: float = 0.5,
     metrics: list[str] | None = None,
 ) -> None:
@@ -711,7 +718,7 @@ def show_confusionmatrix(
     plus performance metrics for each outersplit and overall mean.
 
     Args:
-        predictor: TaskPredictor instance for a classification task.
+        predictor: TaskPredictorTest instance for a classification task.
         threshold: Probability threshold for binary classification.
         metrics: List of metric names to evaluate. If None, uses defaults.
 
@@ -719,7 +726,7 @@ def show_confusionmatrix(
         ValueError: If the task is not a classification task.
 
     Example:
-        >>> tp = TaskPredictor("./studies/my_study/", task_id=0)
+        >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
         >>> show_confusionmatrix(tp, threshold=0.5, metrics=["AUCROC", "ACC", "F1"])
     """
     if metrics is None:
@@ -750,97 +757,22 @@ def show_confusionmatrix(
         data_test = predictor.get_test_data(outersplit_id)
         target = data_test[target_col]
 
-        positive_class_idx = list(model.classes_).index(predictor.positive_class)
-        model_proba = model.predict_proba(data_test[features])
-        if isinstance(model_proba, pd.DataFrame):
-            probabilities = model_proba.iloc[:, positive_class_idx].values
-        elif isinstance(model_proba, np.ndarray):
-            probabilities = model_proba[:, positive_class_idx]
-        else:
-            raise ValueError("Model predictions must be a DataFrame or NumPy array")
+        probabilities = _get_positive_class_proba(model, data_test, features, predictor.positive_class)
 
-        predictions = (np.asarray(probabilities) > threshold).astype(int)
-
-        cm_abs = confusion_matrix(target, predictions)
-        cm_rel = confusion_matrix(target, predictions, normalize="true")
+        cm_abs, cm_rel = _compute_confusion_matrices(target, probabilities, threshold)
 
         class_names = ["0", "1"]
 
-        fig = make_subplots(
-            rows=1,
-            cols=2,
-            subplot_titles=["Confusion Matrix (Absolute)", "Confusion Matrix (Relative %)"],
-            horizontal_spacing=0.25,
-        )
-
-        cm_rel_text = [[f"{val:.1f}%" for val in row] for row in cm_rel * 100]
-        cm_abs_max = float(cm_abs.max())
-        fig.add_trace(
-            go.Heatmap(
-                z=cm_abs,
-                x=class_names,  # type: ignore[arg-type]
-                y=class_names,  # type: ignore[arg-type]
-                text=cm_abs,
-                texttemplate="%{text}",
-                textfont={"size": 12},
-                colorscale="Blues",
-                showscale=True,
-                zmin=0,
-                zmax=cm_abs_max,
-                colorbar={
-                    "x": 0.42,
-                    "len": 0.75,
-                    "thickness": 15,
-                    "showticklabels": True,
-                },
-            ),
-            row=1,
-            col=1,
-        )
-
-        fig.add_trace(
-            go.Heatmap(
-                z=cm_rel * 100,
-                x=class_names,  # type: ignore[arg-type]
-                y=class_names,  # type: ignore[arg-type]
-                text=cm_rel_text,  # type: ignore[arg-type]
-                texttemplate="%{text}",
-                textfont={"size": 12},
-                colorscale="Blues",
-                showscale=True,
-                zmin=0,
-                zmax=100,
-                colorbar={
-                    "x": 1.05,
-                    "len": 0.75,
-                    "thickness": 15,
-                    "showticklabels": True,
-                },
-            ),
-            row=1,
-            col=2,
-        )
-
-        fig.update_xaxes(title_text="Predicted Label", row=1, col=1, side="bottom")
-        fig.update_yaxes(title_text="True Label", row=1, col=1, autorange="reversed")
-        fig.update_xaxes(title_text="Predicted Label", row=1, col=2, side="bottom")
-        fig.update_yaxes(title_text="True Label", row=1, col=2, autorange="reversed")
-
-        fig.update_layout(
-            title_text=f"Confusion Matrices - Outersplit {outersplit_id}",
-            width=900,
-            height=420,
-            showlegend=False,
-        )
+        fig = _create_confusion_figure(cm_abs, cm_rel, class_names, f"Confusion Matrices - Outersplit {outersplit_id}")
 
         print("\nConfusion Matrices:")
         fig.show()
 
-        # Score this outersplit using predictor.performance_test() for consistency
-        # with testset_performance_overview(). Threshold is passed through to
+        # Score this outersplit using predictor.performance() for consistency
+        # with testset_performance_overview().  Threshold is passed through to
         # get_performance_from_model() so that prediction-type metrics (ACC, F1)
         # use the same threshold as the confusion matrix.
-        split_scores = predictor.performance_test(metrics=metrics, threshold=threshold)
+        split_scores = predictor.performance(metrics=metrics, threshold=threshold)
         split_scores = split_scores[split_scores["outersplit"] == outersplit_id]
 
         print("\nPerformance Metrics:")
@@ -865,18 +797,18 @@ def show_confusionmatrix(
 
 
 def show_overall_fi_table(
-    predictor: TaskPredictor,
+    predictor: TaskPredictorTest,
     fi_type: str = "group_permutation",
     n_repeats: int = 10,
 ) -> pd.DataFrame:
     """Display feature importance table.
 
-    Computes FI fresh using TaskPredictor.calculate_fi() if not cached.
-    Typically called after task_predictor.calculate_fi() has already been
-    called to populate the cached results.
+    Computes FI fresh using TaskPredictorTest.calculate_fi() if not cached.
+    Typically called after predictor.calculate_fi() has already been called
+    to populate the cached results.
 
     Args:
-        predictor: TaskPredictor instance.
+        predictor: TaskPredictorTest instance.
         fi_type: Feature importance type. Options:
             - 'group_permutation': Permutation FI with feature groups
             - 'permutation': Standard permutation FI
@@ -887,7 +819,7 @@ def show_overall_fi_table(
         DataFrame with feature importance results sorted by importance (descending).
 
     Example:
-        >>> tp = TaskPredictor("./studies/my_study/", task_id=0)
+        >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
         >>> tp.calculate_fi(fi_type="group_permutation", n_repeats=3)
         >>> fi_table = show_overall_fi_table(tp, fi_type="group_permutation")
     """
@@ -899,7 +831,7 @@ def show_overall_fi_table(
 
 
 def show_overall_fi_plot(
-    predictor: TaskPredictor,
+    predictor: TaskPredictorTest,
     fi_type: str = "group_permutation",
     n_repeats: int = 10,
     top_n: int | None = None,
@@ -907,11 +839,11 @@ def show_overall_fi_plot(
     """Display bar chart of feature importance.
 
     Uses cached FI results if available, otherwise computes fresh.
-    Typically called after task_predictor.calculate_fi() has already been
-    called to populate the cached results.
+    Typically called after predictor.calculate_fi() has already been called
+    to populate the cached results.
 
     Args:
-        predictor: TaskPredictor instance.
+        predictor: TaskPredictorTest instance.
         fi_type: Feature importance type. Options:
             - 'group_permutation': Permutation FI with feature groups
             - 'permutation': Standard permutation FI
@@ -920,7 +852,7 @@ def show_overall_fi_plot(
         top_n: Number of top features to display. None shows all.
 
     Example:
-        >>> tp = TaskPredictor("./studies/my_study/", task_id=0)
+        >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
         >>> tp.calculate_fi(fi_type="group_permutation", n_repeats=3)
         >>> show_overall_fi_plot(tp, fi_type="group_permutation", top_n=20)
     """
