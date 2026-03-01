@@ -28,8 +28,8 @@ from octopus._optional.autogluon import (
 )
 from octopus.logger import LogGroup, get_logger
 from octopus.manager.ray_parallel import setup_ray_for_external_library
+from octopus.metrics.utils import get_score_from_model
 from octopus.modules.base import FIDataset, FIMethod, MLModuleExecution, ModuleResult, ResultType
-from octopus.modules.utils import get_score_from_model
 from octopus.study.context import StudyContext
 
 if TYPE_CHECKING:
