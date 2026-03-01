@@ -15,7 +15,7 @@ from attrs import define, field
 from upath import UPath
 
 from octopus.metrics.utils import get_performance_from_model
-from octopus.predict.study_io import TaskOutersplitLoader
+from octopus.predict.study_io import StudyLoader
 from octopus.predict.task_predictor import TaskPredictor
 
 
@@ -54,40 +54,16 @@ class TaskPredictorTest(TaskPredictor):
         # Call parent __attrs_post_init__ to load config, validate, and load models
         super().__attrs_post_init__()
 
-        # Additionally load test and train data per split — strict validation
+        # Additionally load test and train data per split via StudyLoader factory
+        loader = StudyLoader(self._study_path)
         for split_id in self._outersplits:
-            split_loader = TaskOutersplitLoader(
-                self._study_path,
-                split_id,
-                self._task_id,
-                self._result_type,
+            split_loader = loader.get_outersplit_loader(
+                outersplit_id=split_id,
+                task_id=self._task_id,
+                result_type=self._result_type,
             )
             self._test_data[split_id] = split_loader.load_test_data()
             self._train_data[split_id] = split_loader.load_train_data()
-
-    # ── Data access (TaskPredictorTest only) ────────────────────
-
-    def get_test_data(self, outersplit_id: int) -> pd.DataFrame:
-        """Get test data for an outersplit.
-
-        Args:
-            outersplit_id: Outer split index.
-
-        Returns:
-            Test data DataFrame.
-        """
-        return self._test_data[outersplit_id]
-
-    def get_train_data(self, outersplit_id: int) -> pd.DataFrame:
-        """Get train data for an outersplit.
-
-        Args:
-            outersplit_id: Outer split index.
-
-        Returns:
-            Train data DataFrame.
-        """
-        return self._train_data[outersplit_id]
 
     # ── Prediction (per-split on own test data) ─────────────────
 
@@ -132,7 +108,7 @@ class TaskPredictorTest(TaskPredictor):
         return np.concatenate(all_preds)
 
     def predict_proba(self, df: bool = False) -> np.ndarray | pd.DataFrame:  # type: ignore[override]
-        """Predict probabilities on stored test data (classification only).
+        """Predict probabilities on stored test data (classification/multiclass only).
 
         Each model predicts only on its own test data.  No averaging.
 
@@ -143,7 +119,15 @@ class TaskPredictorTest(TaskPredictor):
 
         Returns:
             Per-split probabilities as ndarray or DataFrame.
+
+        Raises:
+            TypeError: If ml_type is not classification or multiclass.
         """
+        if self.ml_type not in ("classification", "multiclass"):
+            raise TypeError(
+                f"predict_proba() is only available for classification and multiclass tasks, "
+                f"but this study has ml_type='{self.ml_type}'."
+            )
         target_col = self._resolve_target_col()
         row_id_col = self.row_id_col
         class_labels = self.classes_
@@ -228,19 +212,33 @@ class TaskPredictorTest(TaskPredictor):
         feature_groups: dict[str, list[str]] | None = None,
         random_state: int = 42,
         **kwargs: Any,
-    ) -> None:
+    ) -> pd.DataFrame:
         """Calculate feature importance using stored test data and models.
 
         Each split's model permutes features only in its own test data.
-        Results are cached in ``fi_results[fi_type]``.
 
         Args:
-            fi_type: Type of feature importance. One of 'permutation',
-                'group_permutation', or 'shap'.
+            fi_type: Type of feature importance. One of:
+                - ``'permutation'`` — Per-feature permutation importance.
+                - ``'group_permutation'`` — Per-feature + per-group permutation
+                  importance.  Uses ``feature_groups`` (from study config or
+                  explicitly provided) to also compute group-level importance.
+                - ``'shap'`` — SHAP-based importance.  Pass ``shap_type`` as a
+                  kwarg to select the explainer: ``'kernel'`` (default),
+                  ``'permutation'``, or ``'exact'``.
             n_repeats: Number of permutation repeats.
             feature_groups: Dict mapping group names to feature lists.
+                If None and fi_type is ``'group_permutation'``, groups are
+                loaded from the study.
             random_state: Random seed.
             **kwargs: Additional keyword arguments passed to the FI function.
+                For ``fi_type='shap'``, supported kwargs include:
+                ``shap_type`` (``'kernel'``, ``'permutation'``, ``'exact'``),
+                ``max_samples``, ``background_size``.
+
+        Returns:
+            DataFrame with feature importance results including a ``fi_type``
+            column and per-split + ensemble rows.
 
         Raises:
             ValueError: If fi_type is unknown.
@@ -283,12 +281,16 @@ class TaskPredictorTest(TaskPredictor):
         else:
             raise ValueError(f"Unknown fi_type '{fi_type}'. Use 'permutation', 'group_permutation', or 'shap'.")
 
-        self._fi_results[fi_type] = result
+        result.insert(0, "fi_type", fi_type)
+        return result
 
     # ── Serialization — not supported ───────────────────────────
 
     def save(self, path: str | UPath) -> None:
         """Not supported for TaskPredictorTest.
+
+        Args:
+            path: Ignored — not used.
 
         Raises:
             NotImplementedError: Always. The study directory is the
@@ -303,6 +305,12 @@ class TaskPredictorTest(TaskPredictor):
     @classmethod
     def load(cls, path: str | UPath) -> TaskPredictorTest:
         """Not supported for TaskPredictorTest.
+
+        Args:
+            path: Ignored — not used.
+
+        Returns:
+            Never returns — always raises.
 
         Raises:
             NotImplementedError: Always. Use TaskPredictor.load() for

@@ -23,7 +23,7 @@ __all__ = [
     "StudyLoader",
     "StudyMetadata",
     "TaskArtifacts",
-    "TaskOutersplitLoader",
+    "_to_upath",
 ]
 
 
@@ -226,14 +226,6 @@ class TaskOutersplitLoader:
             raise FileNotFoundError(f"Model file not found: {path}. Has the study completed successfully?")
         return joblib.load(path)
 
-    def has_model(self) -> bool:
-        """Check if this task has a fitted model.
-
-        Returns:
-            True if model.joblib exists in the model directory.
-        """
-        return bool((self.model_dir / "model.joblib").exists())
-
     def load_selected_features(self) -> list[str]:
         """Load selected_features.json from result_dir.
 
@@ -292,39 +284,6 @@ class TaskOutersplitLoader:
         """
         path = self.result_dir / "scores.parquet"
         return pd.read_parquet(path) if path.exists() else pd.DataFrame()
-
-    def load_predictions(self) -> pd.DataFrame:
-        """Load predictions.parquet from result_dir.
-
-        Returns:
-            DataFrame with predictions.
-        """
-        path = self.result_dir / "predictions.parquet"
-        if not path.exists():
-            return pd.DataFrame()
-        return pd.read_parquet(path)
-
-    def load_feature_importance(self) -> pd.DataFrame:
-        """Load feature_importances.parquet from result_dir.
-
-        Returns:
-            DataFrame with feature importance data.
-        """
-        path = self.result_dir / "feature_importances.parquet"
-        if not path.exists():
-            return pd.DataFrame()
-        return pd.read_parquet(path)
-
-    def load_task_config(self) -> dict[str, Any]:
-        """Load task_config.json from task directory.
-
-        Returns:
-            Task configuration dictionary.
-        """
-        path = self.task_dir / "task_config.json"
-        with path.open() as f:
-            result: dict[str, Any] = json.load(f)
-            return result
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -574,7 +533,12 @@ class StudyLoader:
                         )
 
                 except (FileNotFoundError, KeyError) as e:
-                    print(f"Warning: Could not load data for {workflow_name} in outersplit{split_num}: {e}")
+                    import warnings  # noqa: PLC0415
+
+                    warnings.warn(
+                        f"Could not load data for {workflow_name} in outersplit{split_num}: {e}",
+                        stacklevel=2,
+                    )
                     continue
 
         df = pd.DataFrame(

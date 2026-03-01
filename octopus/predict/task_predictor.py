@@ -16,7 +16,7 @@ from attrs import define, field
 from upath import UPath
 
 from octopus.metrics.utils import get_performance_from_model
-from octopus.predict.study_io import StudyLoader, StudyMetadata
+from octopus.predict.study_io import StudyLoader, StudyMetadata, _to_upath
 
 
 def _get_octopus_version() -> str:
@@ -27,11 +27,6 @@ def _get_octopus_version() -> str:
         return version("octopus-automl")
     except Exception:
         return "unknown"
-
-
-def _to_upath(value: str | UPath) -> UPath:
-    """Convert a string or UPath to UPath."""
-    return UPath(value)
 
 
 @define(slots=False)
@@ -71,9 +66,7 @@ class TaskPredictor:
     _feature_cols_per_split: dict[int, list[str]] = field(init=False, factory=dict, repr=False)
     _feature_groups_per_split: dict[int, dict[str, list[str]]] = field(init=False, factory=dict, repr=False)
     _feature_cols: list[str] = field(init=False, factory=list, repr=False)
-
-    # FI results cache
-    _fi_results: dict[str, pd.DataFrame] = field(init=False, factory=dict, repr=False)
+    _target_col_resolved: str = field(init=False, default="")
 
     def __attrs_post_init__(self) -> None:
         """Load config, validate, and load artifacts from the study directory."""
@@ -112,6 +105,9 @@ class TaskPredictor:
             self._feature_cols = sorted(all_feature_cols)
         else:
             self._feature_cols = self._metadata.feature_cols
+
+        # Cache resolved target column name
+        self._target_col_resolved = self._resolve_target_col()
 
     # ── Properties ──────────────────────────────────────────────
 
@@ -162,7 +158,13 @@ class TaskPredictor:
 
     @property
     def config(self) -> dict[str, Any]:
-        """Full study configuration dictionary."""
+        """Full study configuration dictionary.
+
+        Note:
+            After ``TaskPredictor.load()``, this returns an empty dict
+            because the full config is not serialized — only the metadata
+            fields needed for prediction are saved.
+        """
         return self._config
 
     @property
@@ -187,11 +189,6 @@ class TaskPredictor:
     def feature_groups_per_split(self) -> dict[int, dict[str, list[str]]]:
         """Feature groups per outersplit (loaded from disk)."""
         return self._feature_groups_per_split
-
-    @property
-    def fi_results(self) -> dict[str, pd.DataFrame]:
-        """Cached feature importance results keyed by fi_type."""
-        return self._fi_results
 
     # ── Per-outersplit access ───────────────────────────────────
 
@@ -220,54 +217,106 @@ class TaskPredictor:
     # ── Prediction ──────────────────────────────────────────────
 
     def predict(self, data: pd.DataFrame, df: bool = False) -> np.ndarray | pd.DataFrame:
-        """Predict on new data by averaging predictions across all outer-split models.
+        """Predict on new data using all outer-split models.
 
         Args:
             data: DataFrame containing feature columns.
-            df: If True, return a DataFrame with a ``prediction`` column.
-                If False (default), return an ndarray.
+            df: If True, return a DataFrame with per-outersplit predictions
+                and ensemble (averaged) predictions, with columns
+                ``outersplit``, ``row_id``, ``prediction``.
+                If False (default), return ensemble-averaged ndarray.
 
         Returns:
-            Ensemble-averaged predictions as ndarray or DataFrame.
+            Ensemble-averaged predictions as ndarray, or a DataFrame with
+            per-split and ensemble rows when ``df=True``.
         """
-        preds = []
+        per_split_preds: list[np.ndarray] = []
+        all_rows: list[pd.DataFrame] = []
+
         for split_id in self._outersplits:
             features = self._selected_features[split_id]
-            preds.append(self._models[split_id].predict(data[features]))
-        result: np.ndarray = np.mean(preds, axis=0)
+            preds = self._models[split_id].predict(data[features])
+            per_split_preds.append(preds)
+
+            if df:
+                split_df = pd.DataFrame(
+                    {
+                        "outersplit": split_id,
+                        "row_id": data.index,
+                        "prediction": preds,
+                    }
+                )
+                all_rows.append(split_df)
+
+        ensemble: np.ndarray = np.mean(per_split_preds, axis=0)
 
         if df:
-            return pd.DataFrame({"prediction": result}, index=data.index)
-        return result
+            ensemble_df = pd.DataFrame(
+                {
+                    "outersplit": "ensemble",
+                    "row_id": data.index,
+                    "prediction": ensemble,
+                }
+            )
+            all_rows.append(ensemble_df)
+            return pd.concat(all_rows, ignore_index=True)
+        return ensemble
 
     def predict_proba(self, data: pd.DataFrame, df: bool = False) -> np.ndarray | pd.DataFrame:
-        """Predict probabilities on new data (classification only).
-
-        Ensemble average across all outer-split models.
+        """Predict probabilities on new data (classification/multiclass only).
 
         Args:
             data: DataFrame containing feature columns.
-            df: If True, return a DataFrame with class-name columns.
-                If False (default), return an ndarray.
+            df: If True, return a DataFrame with per-outersplit probabilities
+                and ensemble (averaged) probabilities, with columns
+                ``outersplit``, ``row_id``, plus one column per class label.
+                If False (default), return ensemble-averaged ndarray.
 
         Returns:
-            Ensemble-averaged probabilities as ndarray or DataFrame.
+            Ensemble-averaged probabilities as ndarray, or a DataFrame with
+            per-split and ensemble rows when ``df=True``.
+
+        Raises:
+            TypeError: If ml_type is not classification or multiclass.
         """
-        probas = []
+        if self.ml_type not in ("classification", "multiclass"):
+            raise TypeError(
+                f"predict_proba() is only available for classification and multiclass tasks, "
+                f"but this study has ml_type='{self.ml_type}'."
+            )
+        per_split_probas: list[np.ndarray] = []
+        all_rows: list[pd.DataFrame] = []
+        class_labels = self.classes_
+
         for split_id in self._outersplits:
             features = self._selected_features[split_id]
-            probas.append(self._models[split_id].predict_proba(data[features]))
-        result: np.ndarray = np.mean(probas, axis=0)
+            probas = self._models[split_id].predict_proba(data[features])
+            if isinstance(probas, pd.DataFrame):
+                probas = probas.values
+            per_split_probas.append(probas)
+
+            if df:
+                split_df = pd.DataFrame(probas, columns=class_labels)
+                split_df.insert(0, "outersplit", split_id)
+                split_df.insert(1, "row_id", data.index.values)
+                all_rows.append(split_df)
+
+        ensemble: np.ndarray = np.mean(per_split_probas, axis=0)
 
         if df:
-            class_labels = self.classes_
-            return pd.DataFrame(result, columns=class_labels, index=data.index)
-        return result
+            ensemble_df = pd.DataFrame(ensemble, columns=class_labels)
+            ensemble_df.insert(0, "outersplit", "ensemble")
+            ensemble_df.insert(1, "row_id", data.index.values)
+            all_rows.append(ensemble_df)
+            return pd.concat(all_rows, ignore_index=True)
+        return ensemble
 
     # ── Scoring ─────────────────────────────────────────────────
 
     def _resolve_target_col(self) -> str:
         """Resolve the actual target column name from assignments or config.
+
+        Called once during init/load and cached in ``_target_col_resolved``.
 
         Returns:
             The target column name to use for scoring.
@@ -299,7 +348,7 @@ class TaskPredictor:
         if metrics is None:
             metrics = [self.target_metric]
 
-        target_col = self._resolve_target_col()
+        target_col = self._target_col_resolved
 
         rows = []
         for split_id in self._outersplits:
@@ -332,23 +381,35 @@ class TaskPredictor:
         feature_groups: dict[str, list[str]] | None = None,
         random_state: int = 42,
         **kwargs: Any,
-    ) -> None:
+    ) -> pd.DataFrame:
         """Calculate feature importance on provided data across all outer splits.
 
         Computes FI fresh from loaded models, providing p-values,
-        confidence intervals, and group permutation support.  Results are
-        stored in the ``fi_results`` cache (keyed by *fi_type*) and can be
-        retrieved via ``self.fi_results[fi_type]``.
+        confidence intervals, and group permutation support.
 
         Args:
             data: Data to compute FI on (must contain features + target).
-            fi_type: Type of feature importance. One of 'permutation',
-                'group_permutation', or 'shap'.
+            fi_type: Type of feature importance. One of:
+                - ``'permutation'`` — Per-feature permutation importance.
+                - ``'group_permutation'`` — Per-feature + per-group permutation
+                  importance.  Uses ``feature_groups`` (from study config or
+                  explicitly provided) to also compute group-level importance.
+                - ``'shap'`` — SHAP-based importance.  Pass ``shap_type`` as a
+                  kwarg to select the explainer: ``'kernel'`` (default),
+                  ``'permutation'``, or ``'exact'``.
             n_repeats: Number of permutation repeats (for permutation FI).
             feature_groups: Dict mapping group names to feature lists
-                (for group_permutation).
+                (for group_permutation).  If None and fi_type is
+                ``'group_permutation'``, groups are loaded from the study.
             random_state: Random seed.
             **kwargs: Additional keyword arguments passed to the FI function.
+                For ``fi_type='shap'``, supported kwargs include:
+                ``shap_type`` (``'kernel'``, ``'permutation'``, ``'exact'``),
+                ``max_samples``, ``background_size``.
+
+        Returns:
+            DataFrame with feature importance results including a ``fi_type``
+            column and per-split + ensemble rows.
 
         Raises:
             ValueError: If fi_type is unknown.
@@ -358,7 +419,7 @@ class TaskPredictor:
             calculate_fi_shap,
         )
 
-        target_col = self._resolve_target_col()
+        target_col = self._target_col_resolved
 
         # Build per-split data dicts (same data for all splits)
         test_data = dict.fromkeys(self._outersplits, data)
@@ -395,7 +456,8 @@ class TaskPredictor:
         else:
             raise ValueError(f"Unknown fi_type '{fi_type}'. Use 'permutation', 'group_permutation', or 'shap'.")
 
-        self._fi_results[fi_type] = result
+        result.insert(0, "fi_type", fi_type)
+        return result
 
     def _compute_feature_groups(self) -> dict[str, list[str]]:
         """Compute merged feature groups from all outersplits.
@@ -528,8 +590,6 @@ class TaskPredictor:
         )
         instance._feature_cols = metadata_dict.get("feature_cols", [])
         instance._outersplits = metadata_dict.get("outersplits", [])
-        instance._fi_results = {}
-
         # Restore per-split data
         instance._feature_cols_per_split = {
             int(k): v for k, v in metadata_dict.get("feature_cols_per_split", {}).items()
@@ -550,5 +610,8 @@ class TaskPredictor:
         for split_id in instance._outersplits:
             with (features_dir / f"split_{split_id:03d}.json").open() as f:
                 instance._selected_features[split_id] = json.load(f)
+
+        # Cache resolved target column name
+        instance._target_col_resolved = instance._resolve_target_col()
 
         return instance

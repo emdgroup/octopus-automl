@@ -18,6 +18,18 @@ from upath import UPath
 
 from octopus.predict.study_io import StudyLoader
 
+__all__ = [
+    "display_table",
+    "show_aucroc_plots",
+    "show_confusionmatrix",
+    "show_overall_fi_plot",
+    "show_overall_fi_table",
+    "show_selected_features",
+    "show_study_details",
+    "show_target_metric_performance",
+    "testset_performance_overview",
+]
+
 try:
     from IPython.display import display as ipython_display
 except ImportError:
@@ -368,64 +380,6 @@ def testset_performance_overview(
     return df
 
 
-def _get_predictions_from_predictor(predictor: TaskPredictorTest, outersplit_id: int) -> pd.DataFrame:
-    """Extract predictions and probabilities from a TaskPredictorTest for one outersplit.
-
-    Args:
-        predictor: TaskPredictorTest instance.
-        outersplit_id: Outer split index.
-
-    Returns:
-        DataFrame with row_id, prediction, probabilities, and target columns.
-    """
-    model = predictor.get_model(outersplit_id)
-    features = predictor.get_selected_features(outersplit_id)
-    data_test = predictor.get_test_data(outersplit_id)
-
-    target_col = (
-        list(predictor.target_assignments.values())[0] if predictor.target_assignments else predictor.target_col
-    )
-
-    probabilities = _get_positive_class_proba(model, data_test, features, predictor.positive_class)
-
-    # Row IDs
-    row_id_col = predictor.row_id_col
-    row_ids: pd.Series | pd.RangeIndex
-    if row_id_col and row_id_col in data_test.columns:
-        row_ids = data_test[row_id_col]
-    else:
-        row_ids = pd.RangeIndex(len(data_test))
-
-    return pd.DataFrame(
-        {
-            "row_id": row_ids,
-            "prediction": model.predict(data_test[features]),
-            "probabilities": probabilities,
-            "target": data_test[target_col],
-        }
-    )
-
-
-def _get_positive_class_proba(model: Any, data: pd.DataFrame, features: list[str], positive_class: Any) -> np.ndarray:
-    """Extract positive-class probabilities from a model.
-
-    Args:
-        model: Fitted model with ``predict_proba`` and ``classes_`` attributes.
-        data: DataFrame containing feature columns.
-        features: List of feature column names to use.
-        positive_class: The positive class label.
-
-    Returns:
-        1-D array of probabilities for the positive class.
-    """
-    positive_class_idx = list(model.classes_).index(positive_class)
-    model_proba = model.predict_proba(data[features])
-    if isinstance(model_proba, pd.DataFrame):
-        result: np.ndarray = np.asarray(model_proba.iloc[:, positive_class_idx].values)
-        return result
-    return np.asarray(model_proba[:, positive_class_idx])
-
-
 def _create_roc_figure(
     fpr: np.ndarray, tpr: np.ndarray, auc_score: float, title: str, label: str, width: int, height: int
 ) -> go.Figure:
@@ -466,14 +420,16 @@ def _create_roc_figure(
     return fig
 
 
-def plot_aucroc(
+def show_aucroc_plots(
     predictor: TaskPredictorTest,
     figsize: tuple[int, int] = (8, 8),
     show_individual: bool = False,
 ) -> None:
     """Plot ROC curves: merged, averaged with confidence bands, and optionally individual.
 
-    Produces identical output to main branch:
+    Uses ``predictor.predict_proba(df=True)`` to get per-split probabilities
+    and targets in a single call, avoiding manual access to models/data.
+
     1. Merged ROC curve (all predictions pooled)
     2. Averaged ROC curve (mean +/- 1 std dev)
     3. Individual ROC curves per outersplit (if show_individual=True)
@@ -488,22 +444,26 @@ def plot_aucroc(
 
     Example:
         >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
-        >>> plot_aucroc(tp, show_individual=True)
+        >>> show_aucroc_plots(tp, show_individual=True)
     """
     if predictor.ml_type != "classification":
         raise ValueError("AUCROC plots are only available for classification tasks")
 
     width_px, height_px = int(figsize[0] * 80), int(figsize[1] * 80)
 
-    predictions_list = []
+    # Get all per-split probabilities + targets in one call
+    proba_df = predictor.predict_proba(df=True)
+    positive_class = predictor.positive_class
+
     roc_data = []
     mean_fpr = np.linspace(0, 1, 100)
 
     for split_id in predictor.outersplits:
-        df_pred = _get_predictions_from_predictor(predictor, split_id)
-        predictions_list.append(df_pred)
+        split_df = proba_df[proba_df["outersplit"] == split_id]
+        probabilities = np.asarray(split_df[positive_class])
+        target = np.asarray(split_df["target"])
 
-        fpr, tpr, _ = roc_curve(df_pred["target"], df_pred["probabilities"], drop_intermediate=True)
+        fpr, tpr, _ = roc_curve(target, probabilities, drop_intermediate=True)
         auc_score = float(auc(fpr, tpr))
         interp_tpr = np.interp(mean_fpr, fpr, tpr)
         interp_tpr[0] = 0.0
@@ -514,8 +474,9 @@ def plot_aucroc(
     print("1. MERGED ROC CURVE (All Predictions Pooled)")
     print("=" * 60)
 
-    merged_df = pd.concat(predictions_list, axis=0)
-    fpr_merged, tpr_merged, _ = roc_curve(merged_df["target"], merged_df["probabilities"], drop_intermediate=True)
+    all_probabilities = np.asarray(proba_df[positive_class])
+    all_targets = np.asarray(proba_df["target"])
+    fpr_merged, tpr_merged, _ = roc_curve(all_targets, all_probabilities, drop_intermediate=True)
     auc_merged = float(auc(fpr_merged, tpr_merged))
     print(f"Merged AUC-ROC: {auc_merged:.3f}\n")
 
@@ -714,6 +675,9 @@ def show_confusionmatrix(
 ) -> None:
     """Display confusion matrices and performance metrics for all outersplits.
 
+    Uses ``predictor.predict_proba(df=True)`` to get per-split probabilities
+    and targets, avoiding manual access to models/data/features.
+
     Shows absolute and relative confusion matrices side-by-side (plotly subplots)
     plus performance metrics for each outersplit and overall mean.
 
@@ -735,11 +699,15 @@ def show_confusionmatrix(
     if predictor.ml_type != "classification":
         raise ValueError("show_confusionmatrix() is only applicable for classification tasks")
 
-    target_col = (
-        list(predictor.target_assignments.values())[0] if predictor.target_assignments else predictor.target_col
-    )
+    # Get all per-split probabilities + targets in one call
+    proba_df = predictor.predict_proba(df=True)
+    positive_class = predictor.positive_class
 
     result_rows: list[dict[str, Any]] = []
+
+    # Compute all scores once (covers all outersplits) instead of calling
+    # predictor.performance() inside the loop for each outersplit.
+    all_scores = predictor.performance(metrics=metrics, threshold=threshold)
 
     print("=" * 80)
     print("CONFUSION MATRICES AND PERFORMANCE METRICS")
@@ -752,28 +720,23 @@ def show_confusionmatrix(
         print(f"OUTERSPLIT {outersplit_id}")
         print("=" * 60)
 
-        model = predictor.get_model(outersplit_id)
-        features = predictor.get_selected_features(outersplit_id)
-        data_test = predictor.get_test_data(outersplit_id)
-        target = data_test[target_col]
-
-        probabilities = _get_positive_class_proba(model, data_test, features, predictor.positive_class)
+        split_df = proba_df[proba_df["outersplit"] == outersplit_id]
+        probabilities = np.asarray(split_df[positive_class])
+        target = np.asarray(split_df["target"])
 
         cm_abs, cm_rel = _compute_confusion_matrices(target, probabilities, threshold)
 
-        class_names = ["0", "1"]
+        class_names = [str(c) for c in predictor.classes_]
 
         fig = _create_confusion_figure(cm_abs, cm_rel, class_names, f"Confusion Matrices - Outersplit {outersplit_id}")
 
         print("\nConfusion Matrices:")
         fig.show()
 
-        # Score this outersplit using predictor.performance() for consistency
-        # with testset_performance_overview().  Threshold is passed through to
-        # get_performance_from_model() so that prediction-type metrics (ACC, F1)
-        # use the same threshold as the confusion matrix.
-        split_scores = predictor.performance(metrics=metrics, threshold=threshold)
-        split_scores = split_scores[split_scores["outersplit"] == outersplit_id]
+        # Filter pre-computed scores to this outersplit.  Threshold was passed
+        # through to get_performance_from_model() so that prediction-type
+        # metrics (ACC, F1) use the same threshold as the confusion matrix.
+        split_scores = all_scores[all_scores["outersplit"] == outersplit_id]
 
         print("\nPerformance Metrics:")
         for _, row in split_scores.iterrows():
@@ -797,70 +760,59 @@ def show_confusionmatrix(
 
 
 def show_overall_fi_table(
-    predictor: TaskPredictorTest,
-    fi_type: str = "group_permutation",
-    n_repeats: int = 10,
+    fi_table: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Display feature importance table.
+    """Display ensemble feature importance table.
 
-    Computes FI fresh using TaskPredictorTest.calculate_fi() if not cached.
-    Typically called after predictor.calculate_fi() has already been called
-    to populate the cached results.
+    Filters to ensemble rows (``fi_source == "ensemble"``) for the overview.
 
     Args:
-        predictor: TaskPredictorTest instance.
-        fi_type: Feature importance type. Options:
-            - 'group_permutation': Permutation FI with feature groups
-            - 'permutation': Standard permutation FI
-            - 'shap': SHAP feature importance
-        n_repeats: Number of permutation repeats (only used if computing fresh).
+        fi_table: DataFrame returned by ``calculate_fi()``, containing
+            per-split and ensemble rows with a ``fi_source`` column.
 
     Returns:
-        DataFrame with feature importance results sorted by importance (descending).
+        DataFrame with ensemble feature importance results sorted by importance
+        (descending).
 
     Example:
         >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
-        >>> tp.calculate_fi(fi_type="group_permutation", n_repeats=3)
-        >>> fi_table = show_overall_fi_table(tp, fi_type="group_permutation")
+        >>> fi_perm = tp.calculate_fi(fi_type="group_permutation", n_repeats=3)
+        >>> fi_ensemble = show_overall_fi_table(fi_perm)
     """
-    if fi_type not in predictor.fi_results:
-        predictor.calculate_fi(fi_type, n_repeats=n_repeats)
-
-    fi_df = predictor.fi_results[fi_type]
-    return fi_df
+    # Filter to ensemble rows for the overview
+    if "fi_source" in fi_table.columns:
+        ensemble_df = fi_table[fi_table["fi_source"] == "ensemble"].copy()
+        ensemble_df = ensemble_df.sort_values("importance_mean", ascending=False)
+        return ensemble_df.reset_index(drop=True)
+    return fi_table
 
 
 def show_overall_fi_plot(
-    predictor: TaskPredictorTest,
-    fi_type: str = "group_permutation",
-    n_repeats: int = 10,
+    fi_table: pd.DataFrame,
     top_n: int | None = None,
 ) -> None:
-    """Display bar chart of feature importance.
+    """Display bar chart of ensemble feature importance.
 
-    Uses cached FI results if available, otherwise computes fresh.
-    Typically called after predictor.calculate_fi() has already been called
-    to populate the cached results.
+    Filters to ensemble rows (``fi_source == "ensemble"``) for the plot.
 
     Args:
-        predictor: TaskPredictorTest instance.
-        fi_type: Feature importance type. Options:
-            - 'group_permutation': Permutation FI with feature groups
-            - 'permutation': Standard permutation FI
-            - 'shap': SHAP feature importance
-        n_repeats: Number of permutation repeats (only used if computing fresh).
+        fi_table: DataFrame returned by ``calculate_fi()``, containing
+            per-split and ensemble rows with a ``fi_source`` column.
         top_n: Number of top features to display. None shows all.
 
     Example:
         >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
-        >>> tp.calculate_fi(fi_type="group_permutation", n_repeats=3)
-        >>> show_overall_fi_plot(tp, fi_type="group_permutation", top_n=20)
+        >>> fi_perm = tp.calculate_fi(fi_type="group_permutation", n_repeats=3)
+        >>> show_overall_fi_plot(fi_perm, top_n=20)
     """
-    # Get or compute FI
-    if fi_type not in predictor.fi_results:
-        predictor.calculate_fi(fi_type, n_repeats=n_repeats)
+    fi_df = fi_table.copy()
 
-    fi_df = predictor.fi_results[fi_type].copy()
+    # Filter to ensemble rows for the overview plot
+    if "fi_source" in fi_df.columns:
+        fi_df = fi_df[fi_df["fi_source"] == "ensemble"].copy()
+
+    # Determine fi_type from the DataFrame for the title
+    fi_type = str(fi_df["fi_type"].iloc[0]) if "fi_type" in fi_df.columns and not fi_df.empty else "unknown"
 
     if top_n is not None:
         fi_df = fi_df.head(top_n)
@@ -878,15 +830,19 @@ def show_overall_fi_plot(
             f"FI DataFrame has no 'importance_mean' or 'importance' column. Columns: {list(fi_df.columns)}"
         )
 
-    # Build error bars if CI columns are available
+    # Build error bars if CI columns are available (skip for ensemble rows
+    # where CI values are NaN)
     error_y_config = None
     if "ci_lower" in fi_df.columns and "ci_upper" in fi_df.columns:
-        error_y_config = {
-            "type": "data",
-            "symmetric": False,
-            "array": (fi_df["ci_upper"] - fi_df[importance_col]).values,
-            "arrayminus": (fi_df[importance_col] - fi_df["ci_lower"]).values,
-        }
+        ci_lower_vals = fi_df["ci_lower"]
+        ci_upper_vals = fi_df["ci_upper"]
+        if not ci_lower_vals.isna().all():
+            error_y_config = {
+                "type": "data",
+                "symmetric": False,
+                "array": (ci_upper_vals - fi_df[importance_col]).values,
+                "arrayminus": (fi_df[importance_col] - ci_lower_vals).values,
+            }
 
     fig = go.Figure(
         data=go.Bar(
