@@ -27,7 +27,7 @@ __all__ = [
     "show_selected_features",
     "show_study_details",
     "show_target_metric_performance",
-    "testset_performance_overview",
+    "show_testset_performance",
 ]
 
 try:
@@ -337,7 +337,7 @@ def show_selected_features(
 # ═══════════════════════════════════════════════════════════════
 
 
-def testset_performance_overview(
+def show_testset_performance(
     predictor: TaskPredictorTest,
     metrics: list[str] | None = None,
 ) -> pd.DataFrame:
@@ -354,7 +354,7 @@ def testset_performance_overview(
     Example:
         >>> from octopus.predict import TaskPredictorTest
         >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
-        >>> df = testset_performance_overview(tp, metrics=["AUCROC", "ACCBAL", "ACC"])
+        >>> df = show_testset_performance(tp, metrics=["AUCROC", "ACCBAL", "ACC"])
     """
     if metrics is None:
         if predictor.ml_type == "classification":
