@@ -10,27 +10,6 @@ if TYPE_CHECKING:
     from octopus.study.core import OctoStudy
 
 
-def validate_start_with_empty_study(instance: "OctoStudy", attribute: Attribute, value: bool) -> None:
-    """Validate if start_with_empty_study is consistent with workflow tasks.
-
-    Args:
-        instance: The OctoStudy instance being validated.
-        attribute: The attribute being validated.
-        value: The value of start_with_empty_study.
-
-    Raises:
-        ValueError: If start_with_empty_study=True but workflow contains tasks with load_task=True.
-    """
-    if value:  # start_with_empty_study=True
-        for task in instance.workflow:
-            if task.load_task:
-                raise ValueError(
-                    f"Cannot set start_with_empty_study=True when workflow contains tasks with load_task=True. "
-                    f"Task {task.task_id} (module='{task.module}', description='{task.description}') has load_task=True. "
-                    f"Either set start_with_empty_study=False or remove load_task from all workflow tasks."
-                )
-
-
 def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: list[Task]) -> None:
     """Validate the `workflow` attribute.
 

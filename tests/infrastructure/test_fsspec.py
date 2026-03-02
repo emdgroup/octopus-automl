@@ -158,7 +158,6 @@ class TestFSSpecIntegration:
                             description="step_1_octo",
                             task_id=0,
                             depends_on=None,
-                            load_task=False,
                             n_folds_inner=3,
                             models=["ExtraTreesClassifier"],
                             model_seed=0,

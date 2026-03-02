@@ -47,7 +47,6 @@ study = OctoClassification(
             description="step_0_roc",
             task_id=0,
             depends_on=None,  # First step, no input dependency
-            load_task=False,
             threshold=0.85,  # Remove features with correlation > 0.85
             correlation_type="spearmanr",  # Use Spearman correlation
             filter_type="f_statistics",  # Apply F-statistics filtering
@@ -57,7 +56,6 @@ study = OctoClassification(
             description="step_1_octo",
             task_id=1,
             depends_on=0,  # Use output from ROC step
-            load_task=False,
             # Cross-validation settings
             n_folds_inner=5,
             # Model selection

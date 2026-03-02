@@ -21,7 +21,7 @@ from .data_validator import OctoDataValidator
 from .healthChecker import HealthCheckConfig, OctoDataHealthChecker
 from .prepared_data import PreparedData
 from .types import DatasplitType, ImputationMethod, MLType
-from .validation import validate_start_with_empty_study, validate_workflow
+from .validation import validate_workflow
 
 logger = get_logger()
 
@@ -86,11 +86,6 @@ class OctoStudy(ABC):
         validator=[validators.instance_of(list), validate_workflow],
     )
     """A list of tasks that defines the processing workflow. Each item in the list is an instance of `Task`."""
-
-    start_with_empty_study: bool = field(
-        default=True, validator=[validators.instance_of(bool), validate_start_with_empty_study]
-    )
-    """If True, starts the study with an empty output directory. Defaults to True."""
 
     silently_overwrite_study: bool = field(default=Factory(lambda: False), validator=[validators.instance_of(bool)])
     """If False, prompts user for confirmation when overwriting existing study. Defaults to False."""
@@ -159,11 +154,8 @@ class OctoStudy(ABC):
                     sys.exit()
                 print("Continuing...")
 
-            if self.start_with_empty_study:
-                print("Overwriting existing study....")
-                self.output_path.rmdir(recursive=True)
-            else:
-                print("Resume existing study....")
+            print("Overwriting existing study....")
+            self.output_path.rmdir(recursive=True)
 
         self.output_path.mkdir(parents=True, exist_ok=True)
 
