@@ -1,22 +1,22 @@
-"""OctoManager for managing Octopus experiments."""
+"""OctoManager."""
 
 import math
 import os
 
 from attrs import define, field, validators
-from upath import UPath
 
-from octopus.experiment import OctoExperiment
+from octopus.datasplit import OuterSplits
 from octopus.logger import get_logger
 from octopus.manager.execution import (
     ExecutionStrategy,
     ParallelRayStrategy,
     SequentialStrategy,
-    SingleExperimentStrategy,
+    SingleOutersplitStrategy,
 )
 from octopus.manager.ray_parallel import init_ray, shutdown_ray
 from octopus.manager.workflow_runner import WorkflowTaskRunner
-from octopus.task import Task
+from octopus.modules.base import Task
+from octopus.study.context import StudyContext
 
 logger = get_logger()
 
@@ -31,38 +31,40 @@ def get_available_cpus() -> int:
 
 @define(frozen=True)
 class ResourceConfig:
-    """Immutable configuration for CPU resources.
+    """Immutable configuration for CPU resources."""
 
-    Attributes:
-        num_cpus: Total available CPUs on the system.
-        num_workers: Number of parallel outer workers.
-        cpus_per_experiment: CPUs allocated to each experiment for inner parallelization.
-        outer_parallelization: Whether outer parallelization is enabled.
-        run_single_experiment_num: Index of single experiment to run (-1 for all).
-        num_experiments: Total number of experiments in the study.
-    """
+    num_cpus: int = field(validator=validators.instance_of(int))
+    """Total available CPUs on the system."""
 
-    num_cpus: int
-    num_workers: int
-    cpus_per_experiment: int
-    outer_parallelization: bool
-    run_single_experiment_num: int
-    num_experiments: int
+    num_workers: int = field(validator=validators.instance_of(int))
+    """Number of parallel outer workers."""
+
+    cpus_per_outersplit: int = field(validator=validators.instance_of(int))
+    """CPUs allocated to each outersplit for inner parallelization."""
+
+    outer_parallelization: bool = field(validator=validators.instance_of(bool))
+    """Whether outer parallelization is enabled."""
+
+    run_single_outersplit_num: int = field(validator=validators.instance_of(int))
+    """Index of single outersplit to run (-1 for all). This is mainly used for testing and debugging."""
+
+    num_outersplits: int = field(validator=validators.instance_of(int))
+    """Total number of outersplits in the study."""
 
     @classmethod
     def create(
         cls,
-        num_experiments: int,
+        num_outersplits: int,
         outer_parallelization: bool,
-        run_single_experiment_num: int,
+        run_single_outersplit_num: int,
         num_cpus: int | None = None,
     ) -> "ResourceConfig":
         """Create ResourceConfig with computed values.
 
         Args:
-            num_experiments: Total number of experiments in the study.
-            outer_parallelization: Whether to run experiments in parallel.
-            run_single_experiment_num: Index of single experiment to run (-1 for all).
+            num_outersplits: Total number of outersplits in the study.
+            outer_parallelization: Whether to run outersplits in parallel.
+            run_single_outersplit_num: Index of single outersplit to run (-1 for all).
             num_cpus: Total CPUs available (auto-detected if None).
 
         Returns:
@@ -71,18 +73,18 @@ class ResourceConfig:
         Raises:
             ValueError: If any input parameter is invalid.
         """
-        if num_experiments <= 0:
-            raise ValueError(f"num_experiments must be positive, got {num_experiments}")
+        if num_outersplits <= 0:
+            raise ValueError(f"num_outersplits must be positive, got {num_outersplits}")
 
-        if run_single_experiment_num < -1:
+        if run_single_outersplit_num < -1:
             raise ValueError(
-                f"run_single_experiment_num must be -1 (all experiments) or a valid index >= 0, "
-                f"got {run_single_experiment_num}"
+                f"run_single_outersplit_num must be -1 (all outersplits) or a valid index >= 0, "
+                f"got {run_single_outersplit_num}"
             )
-        if run_single_experiment_num >= num_experiments:
+        if run_single_outersplit_num >= num_outersplits:
             raise ValueError(
-                f"run_single_experiment_num ({run_single_experiment_num}) must be less than "
-                f"num_experiments ({num_experiments})"
+                f"run_single_outersplit_num ({run_single_outersplit_num}) must be less than "
+                f"num_outersplits ({num_outersplits})"
             )
 
         # Get or validate num_cpus
@@ -91,57 +93,63 @@ class ResourceConfig:
         elif num_cpus <= 0:
             raise ValueError(f"num_cpus must be positive, got {num_cpus}")
 
-        # Calculate effective number of experiments for resource allocation
-        effective_num_experiments = 1 if run_single_experiment_num != -1 else num_experiments
+        # Calculate effective number of outersplits for resource allocation
+        effective_num_outersplits = 1 if run_single_outersplit_num != -1 else num_outersplits
 
         # Calculate resource allocation
-        num_workers = min(effective_num_experiments, num_cpus)
+        num_workers = min(effective_num_outersplits, num_cpus)
         if num_workers == 0:
             raise ValueError(
                 f"Cannot allocate resources: num_workers computed as 0 "
-                f"(effective_num_experiments={effective_num_experiments}, num_cpus={num_cpus})"
+                f"(effective_num_outersplits={effective_num_outersplits}, num_cpus={num_cpus})"
             )
 
-        cpus_per_experiment = max(1, math.floor(num_cpus / num_workers)) if outer_parallelization else num_cpus
+        cpus_per_outersplit = max(1, math.floor(num_cpus / num_workers)) if outer_parallelization else num_cpus
 
         return cls(
             num_cpus=num_cpus,
             num_workers=num_workers,
-            cpus_per_experiment=cpus_per_experiment,
+            cpus_per_outersplit=cpus_per_outersplit,
             outer_parallelization=outer_parallelization,
-            run_single_experiment_num=run_single_experiment_num,
-            num_experiments=num_experiments,
+            run_single_outersplit_num=run_single_outersplit_num,
+            num_outersplits=num_outersplits,
         )
 
     def __str__(self) -> str:
         """Return string representation of resource configuration."""
         return (
             f"Parallelization: {self.outer_parallelization} | "
-            f"Single exp: {self.run_single_experiment_num} | "
-            f"Outer folds: {self.num_experiments} | "
+            f"Single outersplit: {self.run_single_outersplit_num} | "
+            f"Outersplits: {self.num_outersplits} | "
             f"CPUs: {self.num_cpus} | "
             f"Workers: {self.num_workers} | "
-            f"CPUs/exp: {self.cpus_per_experiment}"
+            f"CPUs/outersplit: {self.cpus_per_outersplit}"
         )
 
 
 @define
 class OctoManager:
-    """Orchestrates the execution of Octopus experiments."""
+    """Orchestrates the execution of outersplits."""
 
-    base_experiments: list[OctoExperiment] = field(validator=[validators.instance_of(list)])
+    outersplit_data: OuterSplits = field(validator=[validators.instance_of(dict)])
+    """Preprocessed data for each outersplit, keyed by outersplit identifier."""
+
+    study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
+    """Frozen runtime context containing study configuration."""
+
     workflow: list[Task] = field(validator=[validators.instance_of(list)])
-    log_dir: UPath = field(
-        validator=[validators.instance_of(UPath)],
-    )
-    outer_parallelization: bool = field(default=True, validator=[validators.instance_of(bool)])
-    run_single_experiment_num: int = field(default=-1, validator=[validators.instance_of(int)])
+    """List of workflow tasks to execute."""
 
-    def run_outer_experiments(self) -> None:
-        """Run outer experiments."""
-        if not self.base_experiments:
-            logger.error("No experiments defined")
-            raise ValueError("No experiments defined")
+    outer_parallelization: bool = field(validator=[validators.instance_of(bool)])
+    """Whether to run outersplits in parallel."""
+
+    run_single_outersplit_num: int = field(validator=[validators.instance_of(int)])
+    """Index of single outersplit to run (-1 for all)."""
+
+    def run_outersplits(self) -> None:
+        """Run all outersplits."""
+        if not self.outersplit_data:
+            raise ValueError("No outersplit data defined")
 
         # Initialize Ray upfront to ensure worker setup hooks are registered before any workflows execute.
         # This is critical for:
@@ -154,16 +162,20 @@ class OctoManager:
         init_ray(start_local_if_missing=True)
 
         resources = ResourceConfig.create(
-            num_experiments=len(self.base_experiments),
+            num_outersplits=len(self.outersplit_data),
             outer_parallelization=self.outer_parallelization,
-            run_single_experiment_num=self.run_single_experiment_num,
+            run_single_outersplit_num=self.run_single_outersplit_num,
         )
         logger.info(f"Preparing execution | {resources}")
 
         try:
-            runner = WorkflowTaskRunner(self.workflow, resources.cpus_per_experiment, self.log_dir)
+            runner = WorkflowTaskRunner(
+                study_context=self.study_context,
+                workflow=self.workflow,
+                cpus_per_outersplit=resources.cpus_per_outersplit,
+            )
             strategy = self._select_strategy(resources.num_workers)
-            strategy.execute(self.base_experiments, runner.run)
+            strategy.execute(self.outersplit_data, runner.run)
         finally:
             shutdown_ray()
 
@@ -176,8 +188,8 @@ class OctoManager:
         Returns:
             Appropriate execution strategy based on configuration.
         """
-        if self.run_single_experiment_num != -1:
-            return SingleExperimentStrategy(self.run_single_experiment_num)
+        if self.run_single_outersplit_num != -1:
+            return SingleOutersplitStrategy(self.run_single_outersplit_num)
         if self.outer_parallelization:
-            return ParallelRayStrategy(num_workers, self.log_dir)
+            return ParallelRayStrategy(num_workers, self.study_context.log_dir)
         return SequentialStrategy()

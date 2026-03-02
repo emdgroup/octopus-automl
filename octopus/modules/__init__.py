@@ -6,53 +6,34 @@ import platform
 import threadpoolctl
 
 try:
-    from .autogluon import AGCore, AutoGluon
+    from .autogluon import AutoGluon
 except ImportError:
-    AGCore = None  # type: ignore[assignment,misc]
     AutoGluon = None  # type: ignore[assignment,misc]
+from .base import FIDataset, FIMethod, ResultType, Task
+from .boruta import Boruta
+from .efs import Efs
+from .mrmr import Mrmr
+from .octo import Octo
+from .rfe import Rfe
+from .rfe2 import Rfe2
+from .roc import Roc
+from .sfs import Sfs
 
-try:
-    from .boruta import Boruta, BorutaCore
-except ImportError:
-    BorutaCore = None
-    Boruta = None  # type: ignore[assignment,misc]
-
-from .efs import Efs, EfsCore
-from .mrmr import Mrmr, MrmrCore
-from .octo import Octo, OctoCore
-from .rfe import Rfe, RfeCore
-from .rfe2 import Rfe2, Rfe2Core
-from .roc import Roc, RocCore
-
-try:
-    from .sfs import Sfs, SfsCore
-except ImportError:
-    SfsCore = None
-    Sfs = None  # type: ignore[assignment,misc]
-
-# Define the __all__ variable to specify what is available to import from this package
-__all__ = ["AutoGluon", "Boruta", "Efs", "Mrmr", "Octo", "Rfe", "Rfe2", "Roc", "Sfs"]
-
-# Type for the modules inventory dictionary
-ModulesInventoryType = dict[str, type]
-
-# Inventory for all available modules
-modules_inventory: ModulesInventoryType = {
-    "octo": OctoCore,
-    "mrmr": MrmrCore,
-    "rfe": RfeCore,
-    "rfe2": Rfe2Core,
-    "roc": RocCore,
-    "efs": EfsCore,
-}
-
-# Add optional modules if available
-if AGCore is not None:
-    modules_inventory["autogluon"] = AGCore
-if BorutaCore is not None:
-    modules_inventory["boruta"] = BorutaCore
-if SfsCore is not None:
-    modules_inventory["sfs"] = SfsCore
+__all__ = [
+    "AutoGluon",
+    "Boruta",
+    "Efs",
+    "FIDataset",
+    "FIMethod",
+    "Mrmr",
+    "Octo",
+    "ResultType",
+    "Rfe",
+    "Rfe2",
+    "Roc",
+    "Sfs",
+    "Task",
+]
 
 _PARALLELIZATION_ENV_VARS = (
     "OMP_NUM_THREADS",

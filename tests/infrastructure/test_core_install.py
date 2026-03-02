@@ -11,13 +11,11 @@ import pytest
 def test_core_imports() -> None:
     """Test all core package imports work without optional dependencies."""
     import octopus  # noqa: F401, PLC0415
-    from octopus.experiment import OctoExperiment  # noqa: F401, PLC0415
     from octopus.manager import OctoManager  # noqa: F401, PLC0415
     from octopus.metrics import Metrics  # noqa: F401, PLC0415
     from octopus.models import Models  # noqa: F401, PLC0415
-    from octopus.predict import OctoPredict  # noqa: F401, PLC0415
+    from octopus.modules import Task  # noqa: F401, PLC0415
     from octopus.study import OctoStudy  # noqa: F401, PLC0415
-    from octopus.task import Task  # noqa: F401, PLC0415
 
 
 @pytest.mark.windows

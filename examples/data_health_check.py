@@ -216,7 +216,7 @@ study = OctoClassification(
     workflow=[
         Octo(
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             description="step_1_octo",
             models=["RandomForestClassifier"],
             n_trials=3,

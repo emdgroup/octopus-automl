@@ -92,7 +92,7 @@ class TestOctoTimeToEvent:
         """Test that Octo task can be properly configured for time-to-event."""
         octo_task = Octo(
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             description="step_1",
             models=["ExtraTreesSurv"],
             n_trials=12,
@@ -103,7 +103,7 @@ class TestOctoTimeToEvent:
 
         assert isinstance(octo_task, Octo)
         assert octo_task.task_id == 0
-        assert octo_task.depends_on_task == -1
+        assert octo_task.depends_on is None
         assert octo_task.description == "step_1"
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
@@ -115,7 +115,7 @@ class TestOctoTimeToEvent:
         """Test configuration with ExtraTreesSurv model."""
         octo_task = Octo(
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             description="step_1",
             models=["ExtraTreesSurv"],
             n_trials=12,
@@ -134,7 +134,7 @@ class TestOctoTimeToEvent:
         """Test ensemble selection configuration."""
         octo_task = Octo(
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             description="step_1",
             models=["ExtraTreesSurv"],
             n_trials=12,
@@ -150,7 +150,7 @@ class TestOctoTimeToEvent:
         """Test hyperparameter optimization configuration."""
         octo_task = Octo(
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             description="step_1",
             models=["ExtraTreesSurv"],
             n_trials=12,
@@ -190,11 +190,11 @@ class TestOctoTimeToEvent:
                 path=temp_dir,
                 ignore_data_health_warning=True,
                 outer_parallelization=False,
-                run_single_experiment_num=0,
+                run_single_outersplit_num=0,
                 workflow=[
                     Octo(
                         task_id=0,
-                        depends_on_task=-1,
+                        depends_on=None,
                         description="step_1",
                         models=["ExtraTreesSurv"],
                         n_trials=12,
@@ -230,7 +230,7 @@ class TestOctoTimeToEvent:
 
             # Verify that the Octo step was executed by checking for workflow directories
             experiment_path = study_path / "outersplit0"
-            workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("workflowtask")]
+            workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("task")]
 
             assert len(workflow_dirs) >= 1, (
                 f"Should have at least 1 workflow directory, found: {[d.name for d in workflow_dirs]}"
@@ -240,7 +240,7 @@ class TestOctoTimeToEvent:
         """Test that all configuration parameters are supported."""
         octo_task = Octo(
             task_id=0,
-            depends_on_task=-1,
+            depends_on=None,
             description="step_1",
             models=["ExtraTreesSurv"],
             n_trials=12,
@@ -261,7 +261,7 @@ class TestOctoTimeToEvent:
         )
 
         assert octo_task.task_id == 0
-        assert octo_task.depends_on_task == -1
+        assert octo_task.depends_on is None
         assert octo_task.description == "step_1"
         assert octo_task.models == ["ExtraTreesSurv"]
         assert octo_task.model_seed == 0

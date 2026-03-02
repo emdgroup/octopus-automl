@@ -75,13 +75,13 @@ study = OctoClassification(
     n_folds_outer=5,  # 5-fold outer cross-validation
     ignore_data_health_warning=True,
     outer_parallelization=True,
-    run_single_experiment_num=-1,  # process all outersplits
+    run_single_outersplit_num=-1,  # process all outersplits
     workflow=[
         # Step 0: octo
         Octo(
             description="step_0_octo",
             task_id=0,
-            depends_on_task=-1,  # -1 = base input (parallel with AutoGluon)
+            depends_on=None,  # No dependency (parallel with AutoGluon)
             # Cross-validation settings
             n_folds_inner=5,
             # Model selection - using tree-based models for feature importance
@@ -101,7 +101,7 @@ study = OctoClassification(
         AutoGluon(
             description="step_1_autogluon",
             task_id=1,
-            depends_on_task=-1,  # -1 = base input (parallel with Octo)
+            depends_on=None,  # No dependency (parallel with Octo)
             verbosity=3,  # Standard logging
             time_limit=600,
             presets=["medium_quality"],  # Balance between speed and accuracy

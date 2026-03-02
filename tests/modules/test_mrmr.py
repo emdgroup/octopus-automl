@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_regression
 
-from octopus.modules.mrmr.core import maxrminr
+from octopus.modules.mrmr import maxrminr
 
 
 def generate_sample_data(n_samples, n_features, random_state):

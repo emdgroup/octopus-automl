@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from attrs import Attribute
 
-from octopus.task import Task
+from octopus.modules import Task
 
 if TYPE_CHECKING:
     from octopus.study.core import OctoStudy
@@ -26,7 +26,7 @@ def validate_start_with_empty_study(instance: "OctoStudy", attribute: Attribute,
             if task.load_task:
                 raise ValueError(
                     f"Cannot set start_with_empty_study=True when workflow contains tasks with load_task=True. "
-                    f"Task '{task.description}' (task_id={task.task_id}) has load_task=True. "
+                    f"Task {task.task_id} (module='{task.module}', description='{task.description}') has load_task=True. "
                     f"Either set start_with_empty_study=False or remove load_task from all workflow tasks."
                 )
 
@@ -40,10 +40,10 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: list[
 
     Conditions:
     - The first task must have `task_id=0`.
-    - All items with `depends_on_task=-1` must be at the start of the list,
-      before any other items with `depends_on_task >= 0`.
+    - All items with `depends_on=None` must be at the start of the list,
+      before any items with `depends_on` set.
     - All elements in the list must be in increasing order of `task_id`.
-    - For elements with `depends_on_task >= 0`, their `depends_on_task` must
+    - For elements with `depends_on` set, the value must
       refer to a `task_id` that comes before them in the list.
     - All `task_id`s should form a complete integer sequence with no
       missing values between the minimum and maximum `task_id`.
@@ -110,35 +110,35 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: list[
             message += f" Unexpected task_ids: {sorted(extra_ids)}."
         raise ValueError(message)
 
-    # Condition 4: All items with depends_on_task=-1 must be at the start of the list
-    reached_non_negative_depends_on_task = False
+    # Condition 4: All items with depends_on=None must be at the start of the list
+    reached_dependent = False
     for idx, item in enumerate(value):
-        if item.depends_on_task == -1:
-            if reached_non_negative_depends_on_task:
+        if item.depends_on is None:
+            if reached_dependent:
                 raise ValueError(
-                    f"Item at position {idx + 1} has 'depends_on_task=-1' but"
-                    " appears after items with 'depends_on_task>=0'. All items with "
-                    "'depends_on_task=-1' must be at the start of the list."
+                    f"Item at position {idx + 1} has 'depends_on=None' but"
+                    " appears after items with 'depends_on' set. All items with "
+                    "'depends_on=None' must be at the start of the list."
                 )
         else:
-            reached_non_negative_depends_on_task = True
+            reached_dependent = True
 
-    # Condition 6: For elements with depends_on_task >= 0, depends_on_task must
+    # Condition 6: For elements with depends_on set, it must
     # refer to an item that comes before them
     for idx, item in enumerate(value):
-        depends_on_task = item.depends_on_task
-        if depends_on_task >= 0:
-            if depends_on_task not in task_id_to_index:
+        depends_on = item.depends_on
+        if depends_on is not None:
+            if depends_on not in task_id_to_index:
                 raise ValueError(
                     f"Item '{item.description}' (position {idx + 1}) has "
-                    f"'depends_on_task={depends_on_task}', which does not"
+                    f"'depends_on={depends_on}', which does not"
                     " correspond to any 'task_id' in the workflow."
                 )
-            depends_on_taskx = task_id_to_index[depends_on_task]
-            if depends_on_taskx >= idx:
+            depends_on_idx = task_id_to_index[depends_on]
+            if depends_on_idx >= idx:
                 raise ValueError(
                     f"Item '{item.description}' (position {idx + 1}) has "
-                    f"'depends_on_task={depends_on_task}', which refers to an item"
-                    " that comes after it in the workflow. 'depends_on_task' must"
+                    f"'depends_on={depends_on}', which refers to an item"
+                    " that comes after it in the workflow. 'depends_on' must"
                     " refer to a preceding 'task_id'."
                 )

@@ -1,9 +1,12 @@
 # type: ignore
 
-"""Rfe core."""
+"""RFE execution module."""
+
+from __future__ import annotations
 
 import copy
 import json
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from attrs import define
@@ -13,10 +16,15 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.modules.base import ModuleBaseCore
-from octopus.modules.rfe.module import Rfe
-from octopus.results import ModuleResults
+from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ModuleResult, ResultType
 
+if TYPE_CHECKING:
+    from upath import UPath
+
+    from octopus.modules.rfe.module import Rfe  # noqa: F401
+    from octopus.study.context import StudyContext
+
+# Supported models for RFE
 supported_models = {
     "CatBoostClassifier",
     "CatBoostRegressor",
@@ -28,35 +36,25 @@ supported_models = {
     "XGBRegressor",
 }
 
-# for quick result
-# param_grid = {
-#    'iterations': [100, 200],
-#    'depth': [4, 6],
-#    'learning_rate': [0.01, 0.1],
-#    'l2_leaf_reg': [1, 3]
-# }
-
 
 def get_feature_importances(estimator):
-    """Set feature importance based on mode."""
+    """Get feature importances from estimator or GridSearchCV."""
     if hasattr(estimator, "best_estimator_"):
         return estimator.best_estimator_.feature_importances_
     return estimator.feature_importances_
 
 
-def get_param_grid(model_type):
-    """Hyperparameter grid initialization."""
+def get_param_grid(model_type: str) -> dict:
+    """Get hyperparameter grid for model type."""
     if model_type in ("CatBoostClassifier", "CatBoostRegressor"):
-        param_grid = {
+        return {
             "learning_rate": [0.001, 0.01, 0.1],
             "depth": [3, 6, 8, 10],
             "l2_leaf_reg": [2, 5, 7, 10],
-            #'random_strength': [2, 5, 7, 10],
-            #'rsm': [0.1, 0.5, 1],
             "iterations": [500],
         }
     elif model_type in ("XGBClassifier", "XGBRegressor"):
-        param_grid = {
+        return {
             "learning_rate": [0.0001, 0.001, 0.01, 0.3],
             "min_child_weight": [2, 5, 10, 15],
             "subsample": [0.15, 0.3, 0.7, 1],
@@ -65,83 +63,69 @@ def get_param_grid(model_type):
         }
     else:
         # RF and ExtraTrees
-        param_grid = {
-            "max_depth": [3, 6, 10],  # [2, 10, 20, 32],
+        return {
+            "max_depth": [3, 6, 10],
             "min_samples_split": [2, 25, 50, 100],
-            # "min_samples_leaf": [1, 15, 30, 50],
-            # "max_features": [0.1, 0.5, 1],
-            "n_estimators": [500],  # [100, 250, 500],
+            "n_estimators": [500],
         }
-    return param_grid
-
-
-# TOBEDONE/IDEAS:
-# - Notes:
-#   + For RFE it is important to have uncorrelated features (ROC, MRMR module)
-#   + Advantage RFE over SFS - fewer retrainings, less overfitting
-#   + Disadvantage RFE over SFS - need to rely on feature importances
-# - General topics:
-#   + (0) add scores to results
-#   + (1) put scorer_string_inventory in central place
-# - Question:  RFE - better test results than octo (datasplit difference?)
-# - Next Steps (Improvements)
-#   + separate second RFE module!
-#   + better datasplit (stratification + groups)
-#   + based on bag (inherits datasplit + feature importances)?
-#   + model retraining after n removals
-#   + find best model using stats test, smallest number of features with
-#     no significant difference to max performance!!
-#   + replace gridsearch with optuna or randomsearch
-#   + Performance: permutation fi on dev! requires ROC, MRMR
-#   + PFI: use large number of repeats, adjustable
-#   + automatically remove not used features (fi == 0)
-#   + Write own RFE code to have more options
-#   + intelligent feature removal considering groups
-#   + Efficiency option: new approach on how many features to eliminate.
-#     See autogluon issue. Add random features (3-5) and remove all features below worst
-#     random feature. See autogluon
-#   + mode2: only one training per reduction and not for every experiment??
 
 
 @define
-class RfeCore(ModuleBaseCore[Rfe]):
-    """RFE Module."""
+class RfeModule(FeatureSelectionExecution["Rfe"]):
+    """RFE execution module. Created by Rfe.create_module()."""
 
-    def run_experiment(self):
-        """Run RFE module on experiment."""
-        # run experiment and return updated experiment object
+    def fit(
+        self,
+        data_traindev: pd.DataFrame,
+        data_test: pd.DataFrame,
+        feature_cols: list[str],
+        study_context: StudyContext,
+        outersplit_id: int,
+        output_dir: UPath,
+        num_assigned_cpus: int = 1,
+        feature_groups: dict | None = None,
+        prior_results: dict | None = None,
+    ) -> dict[ResultType, ModuleResult]:
+        """Fit RFE module by recursively eliminating features."""
+        # Extract data matrices (local variables)
+        x_traindev = data_traindev[feature_cols]
+        y_traindev = data_traindev[list(study_context.target_assignments.values())]
 
-        # Configuration, define default model
-        if self.experiment.ml_type == "classification":
+        # Create results directory
+        path_results = output_dir / "results"
+        path_results.mkdir(parents=True, exist_ok=True)
+
+        # Determine default model based on ml_type
+        if study_context.ml_type == "classification":
             default_model = "CatBoostClassifier"
-        elif self.experiment.ml_type == "regression":
+        elif study_context.ml_type == "regression":
             default_model = "CatBoostRegressor"
         else:
-            raise ValueError(f"{self.experiment.ml_type} not supported")
+            raise ValueError(f"{study_context.ml_type} not supported")
 
-        model_type = self.config.model
-        if model_type == "":
-            model_type = default_model
+        model_type = self.config.model if self.config.model else default_model
 
         if model_type not in supported_models:
             raise ValueError(f"{model_type} not supported")
         print("Model used:", model_type)
 
-        # set up model and scoring type
+        # Set up model and scoring
         model = Models.get_instance(model_type, {"random_state": 42})
-        # Get scorer string from metrics inventory
-        metric = Metrics.get_instance(self.target_metric)
+        metric = Metrics.get_instance(study_context.target_metric)
         scoring_type = metric.scorer_string
 
+        # Configure cross-validation
+        target_assignments = {col: col for col in list(study_context.target_assignments.values())}
+        positive_class = study_context.positive_class
+
         cv: int | StratifiedKFold
-        stratification_col = self.experiment.stratification_col
-        if stratification_col:
+        if study_context.stratification_col:
             cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
         else:
             cv = self.config.cv
 
         # Silence catboost output
-        if model_type == default_model:
+        if model_type in ("CatBoostClassifier", "CatBoostRegressor"):
             model.set_params(verbose=False, allow_writing_files=False)
 
         # Hyperparameter optimization
@@ -153,17 +137,15 @@ class RfeCore(ModuleBaseCore[Rfe]):
             n_jobs=1,
         )
         print("Optimize base model....")
-        # Perform Grid Search and Cross-Validation
-        grid_search.fit(self.x_traindev, self.y_traindev.squeeze(axis=1))
+        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))
         best_model = grid_search.best_estimator_
         best_cv_score = grid_search.best_score_
         best_params = grid_search.best_params_
 
-        # Report performance
         print(f"Dev start performance: {best_cv_score:.3f}")
         print(f"Best params: {best_params}")
 
-        # Mode selection
+        # Select estimator based on mode
         if self.config.mode == "Mode1":
             # RFE with the trained model
             estimator = best_model
@@ -173,8 +155,9 @@ class RfeCore(ModuleBaseCore[Rfe]):
         else:
             raise ValueError(f"Unsupported Mode: {self.config.mode}")
 
-        print(f"Number of features before RFE: {self.x_traindev.shape[1]}")
+        print(f"Number of features before RFE: {x_traindev.shape[1]}")
 
+        # Run RFECV
         rfecv = RFECV(
             estimator=estimator,
             step=self.config.step,
@@ -186,93 +169,114 @@ class RfeCore(ModuleBaseCore[Rfe]):
             importance_getter=get_feature_importances,
         )
 
-        rfecv.fit(self.x_traindev, self.y_traindev.squeeze(axis=1))
+        rfecv.fit(x_traindev, y_traindev.squeeze(axis=1))
         optimal_features = rfecv.n_features_
-        selected_features = [self.feature_cols[i] for i in range(len(rfecv.support_)) if rfecv.support_[i]]
-        self.experiment.selected_features = sorted(selected_features, key=lambda x: (len(x), sorted(x)))
+        selected_features = [feature_cols[i] for i in range(len(rfecv.support_)) if rfecv.support_[i]]
+        selected_features = sorted(selected_features, key=lambda x: (len(x), sorted(x)))
 
         print("RFE completed")
-        # print(f"CV Results: {rfecv.cv_results_}")
         print(f"Optimal number of features: {optimal_features}")
-        print(f"Selected features: {self.experiment.selected_features}")
+        print(f"Selected features: {selected_features}")
         dev_score_cv = rfecv.cv_results_["mean_test_score"].max()
         print(f"Dev set performance: {dev_score_cv:.3f}")
 
-        # Report performance on test set
-        # test_score_cv = rfecv.score(self.x_test, self.y_test)
-        # print(f"Test set (cv) performance: {test_score_cv:.3f}")
-
-        # retrain best model on x_traindev
+        # Retrain best model on traindev with selected features
         best_estimator = copy.deepcopy(estimator)
-        x_traindev_rfe = self.x_traindev[self.experiment.selected_features]
-        # refit on selected features
-        best_estimator.fit(x_traindev_rfe, self.y_traindev.squeeze(axis=1))
+        x_traindev_rfe = x_traindev[selected_features]
+        best_estimator.fit(x_traindev_rfe, y_traindev.squeeze(axis=1))
         test_score_refit = get_score_from_model(
             best_estimator,
-            self.data_test,
-            self.experiment.selected_features,
-            self.target_metric,
-            self.target_assignments,
-            positive_class=self.experiment.positive_class,
+            data_test,
+            selected_features,
+            study_context.target_metric,
+            target_assignments,
+            positive_class=positive_class,
         )
         print(f"Test set (refit) performance: {test_score_refit:.3f}")
 
-        # gridsearch + retrain best model on x_traindev
-        grid_search.fit(x_traindev_rfe, self.y_traindev.squeeze(axis=1))
+        # GridSearch + retrain on selected features
+        grid_search.fit(x_traindev_rfe, y_traindev.squeeze(axis=1))
         best_gs_parameters = grid_search.best_params_
         best_gs_estimator = grid_search.best_estimator_
-        best_gs_estimator.fit(x_traindev_rfe, self.y_traindev.squeeze(axis=1))  # refit
+        best_gs_estimator.fit(x_traindev_rfe, y_traindev.squeeze(axis=1))
         test_score_gsrefit = get_score_from_model(
             best_gs_estimator,
-            self.data_test,
-            self.experiment.selected_features,
-            self.target_metric,
-            self.target_assignments,
-            positive_class=self.experiment.positive_class,
+            data_test,
+            selected_features,
+            study_context.target_metric,
+            target_assignments,
+            positive_class=positive_class,
         )
         print(f"Test set (gridsearch+refit) performance: {test_score_gsrefit:.3f}")
 
-        # feature importances
+        # Feature importances
         fi_df = pd.DataFrame(
             {
-                "feature": self.experiment.selected_features,
-                "importances": best_gs_estimator.feature_importances_,
+                "feature": selected_features,
+                "importance": best_gs_estimator.feature_importances_,
             }
-        ).sort_values(by="importances", ascending=False)
-        # print(fi_df)
+        ).sort_values(by="importance", ascending=False)
 
-        # scores
-        scores = {}
-        scores["dev_avg"] = rfecv.cv_results_["mean_test_score"].max()
-        # scores["test_avg"] = test_score_cv
-        scores["test_refit"] = test_score_refit
-        scores["test_gsrefit"] = test_score_gsrefit
+        # Store fitted state
+        self.selected_features_ = selected_features
+        self.feature_importances_ = {"internal": fi_df}
 
-        # save results to experiment
-        self.experiment.results["Rfe"] = ModuleResults(
-            id="rfe",
-            experiment_id=self.experiment.experiment_id,
-            task_id=self.experiment.task_id,
-            model=best_gs_estimator,
-            scores=scores,
-            feature_importances={
-                "internal": fi_df,
-            },
-            selected_features=self.experiment.selected_features,
+        # Build standard scores DataFrame
+        scores = pd.DataFrame(
+            [
+                {
+                    "result_type": ResultType.BEST,
+                    "metric": study_context.target_metric,
+                    "partition": "dev",
+                    "aggregation": "avg",
+                    "fold": None,
+                    "value": dev_score_cv,
+                },
+                {
+                    "result_type": ResultType.BEST,
+                    "metric": study_context.target_metric,
+                    "partition": "test",
+                    "aggregation": "refit",
+                    "fold": None,
+                    "value": test_score_refit,
+                },
+                {
+                    "result_type": ResultType.BEST,
+                    "metric": study_context.target_metric,
+                    "partition": "test",
+                    "aggregation": "gsrefit",
+                    "fold": None,
+                    "value": test_score_gsrefit,
+                },
+            ]
         )
 
+        # Build standard feature_importances DataFrame
+        feature_importances = fi_df[["feature", "importance"]].copy()
+        feature_importances["fi_method"] = FIMethod.INTERNAL
+        feature_importances["fi_dataset"] = FIDataset.TRAIN
+        feature_importances["training_id"] = "rfe"
+        feature_importances["result_type"] = ResultType.BEST
+
         # Save results to JSON
-        results = {
+        results_data = {
             "Dev score start": best_cv_score,
             "best_params": best_gs_parameters,
             "optimal_features": int(optimal_features),
-            "selected_features": self.experiment.selected_features,
+            "selected_features": selected_features,
             "Dev set performance": dev_score_cv,
-            # "Test set (cv) performance": test_score_cv,
             "Test set (refit) performance": test_score_refit,
             "Test set (gs+refit) performance": test_score_gsrefit,
         }
-        with (self.path_results / "results.json").open("w", encoding="utf-8") as f:
-            json.dump(results, f, indent=4)
+        with (path_results / "results.json").open("w", encoding="utf-8") as f:
+            json.dump(results_data, f, indent=4)
 
-        return self.experiment
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+                scores=scores,
+                feature_importances=feature_importances,
+            )
+        }

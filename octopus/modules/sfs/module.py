@@ -1,40 +1,41 @@
-"""SFS Module (sequential feature selection)."""
+# type: ignore
 
-from typing import ClassVar
+"""SFS module (sequential feature selection) with fit/predict interface."""
+
+from __future__ import annotations
 
 from attrs import define, field, validators
 
-from octopus.task import Task
+from octopus.modules.base import Task
+
+from .core import SfsModule
 
 
 @define
 class Sfs(Task):
-    """SFS Config."""
+    """SFS module for sequential feature selection.
 
-    module: ClassVar[str] = "sfs"
-    """Module name."""
+    Uses sequential feature selection (forward, backward, or floating variants)
+    to find the optimal feature subset.
+
+    Configuration:
+        model: Model to use for SFS (defaults based on ml_type)
+        cv: Number of CV folds
+        sfs_type: Type of SFS (forward, backward, floating_forward, floating_backward)
+    """
 
     model: str = field(validator=[validators.instance_of(str)], default="")
     """Model used by SFS."""
 
     cv: int = field(validator=[validators.instance_of(int)], default=5)
-    """Number of CV folds for RFE_CV."""
+    """Number of CV folds for SFS."""
 
     sfs_type: str = field(
         validator=[validators.in_(["forward", "backward", "floating_forward", "floating_backward"])],
         default="backward",
     )
-    """Sfs type used."""
+    """SFS type used."""
 
-    # k_features: int or tuple or str (default: 1)
-    # Number of features to select, where k_features < the full feature set.
-    # New in 0.4.2: A tuple containing a min and max value can be provided,
-    # and the SFS will consider return any feature combination between min and max
-    # that scored highest in cross-validation.
-
-    # fixed_features: tuple (default: None)
-    # If not None, the feature indices provided as a tuple will be regarded as fixed by
-    # the feature selector
-
-    # feature_groups : list or None (default: None)
-    # Optional argument for treating certain features as a group.
+    def create_module(self) -> SfsModule:
+        """Create SfsModule execution instance."""
+        return SfsModule(config=self)

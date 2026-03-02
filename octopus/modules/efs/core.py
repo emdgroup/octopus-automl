@@ -1,28 +1,30 @@
 # type: ignore
 
-"""Efs core."""
+"""EFS execution module."""
+
+from __future__ import annotations
 
 import copy
 import itertools
 import json
 import random
 from collections import Counter
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-from attrs import Factory, define, field, validators
-from sklearn.model_selection import (
-    GridSearchCV,
-    KFold,
-    StratifiedKFold,
-    cross_val_predict,
-)
+from attrs import Factory, define, field
+from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, cross_val_predict
 
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.modules.base import ModuleBaseCore
-from octopus.modules.efs.module import Efs
-from octopus.results import ModuleResults
+from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ModuleResult, ResultType
+
+if TYPE_CHECKING:
+    from upath import UPath
+
+    from octopus.modules.efs.module import Efs  # noqa: F401
+    from octopus.study.context import StudyContext
 
 supported_models = {
     "CatBoostClassifier",
@@ -41,11 +43,6 @@ def get_param_grid(model_type):
     if model_type in ("CatBoostClassifier", "CatBoostRegressor"):
         param_grid = {
             "learning_rate": [0.03],
-            # "learning_rate": [0.001, 0.03, 0.1],
-            # "depth": [3, 6, 8, 10],
-            # "l2_leaf_reg": [2, 5, 7, 10],
-            # 'random_strength': [2, 5, 7, 10],
-            # 'rsm': [0.1, 0.5, 1],
             "iterations": [500],
         }
     elif model_type in ("XGBClassifier", "XGBRegressor"):
@@ -60,106 +57,166 @@ def get_param_grid(model_type):
         # RF and ExtraTrees
         param_grid = {
             "max_depth": [3, 6],
-            # "min_samples_split": [2, 25, 50, 100],
-            # "min_samples_leaf": [1, 15, 30, 50],
-            # "max_features": [0.1, 0.5, 1],
-            # "n_estimators": [100, 250, 500],
         }
     return param_grid
 
 
-# TOBEDONE:
-# - (0) RFE(maybe EFS) - better test results than octo (datasplit difference?)
-# - provide:
-#   + random features 5
-#   + best parameters based on traindev-size
-# - results:
-#   + define selected features - how exactly? random features?
-# - issue: ACC and BALACC need integer pooling values! - better solution needed
-# - should be done with a proper datasplit (see octo, stratification + groups)
-# - should be done with optuna
-# - make it work with timetoevent
-
-
 @define
-class EfsCore(ModuleBaseCore[Efs]):
-    """EFS Module."""
+class EfsModule(FeatureSelectionExecution["Efs"]):
+    """EFS execution module. Created by Efs.create_module()."""
 
-    # Module-specific attributes
-    model_table: pd.DataFrame = field(
-        init=False,
-        default=pd.DataFrame(),
-        validator=[validators.instance_of(pd.DataFrame)],
-    )
-    scan_table: pd.DataFrame = field(
-        init=False,
-        default=pd.DataFrame(),
-        validator=[validators.instance_of(pd.DataFrame)],
-    )
-    optimized_ensemble: dict = field(default=Factory(dict), validator=[validators.instance_of(dict)])
+    # Internal state (set during fit)
+    model_table_: pd.DataFrame = field(init=False, default=Factory(lambda: pd.DataFrame()))
+    """Table of models trained on different feature subsets."""
 
-    @property
-    def row_ids_traindev(self) -> pd.Series:
-        """Row IDs for traindev."""
-        return self.experiment.row_traindev
+    scan_table_: pd.DataFrame = field(init=False, default=Factory(lambda: pd.DataFrame()))
+    """Table of ensemble scan results."""
 
-    @property
-    def max_n_iterations(self) -> int:
-        """Maximum iterations for ensemble optimization."""
-        return self.config.max_n_iterations
+    optimized_ensemble_: dict = field(init=False, default=Factory(dict))
+    """Optimized ensemble of models."""
 
-    @property
-    def max_n_models(self) -> int:
-        """Maximum number of models using during optimization."""
-        return self.config.max_n_models
+    # Temporary execution state (available during fit)
+    _study_context: StudyContext | None = field(init=False, default=None)
+    """StudyContext (temporary state during fit)."""
+
+    _data_traindev: Any = field(init=False, default=None)
+    """Training/development data (temporary state during fit)."""
+
+    _data_test: Any = field(init=False, default=None)
+    """Test data (temporary state during fit)."""
+
+    _feature_cols: list[str] | None = field(init=False, default=None)
+    """Feature columns (temporary state during fit)."""
+
+    _feature_groups: dict = field(init=False, default=Factory(dict))
+    """Feature groups (temporary state during fit)."""
 
     @property
     def metric_input(self) -> str:
         """Metric input type."""
-        if self.target_metric in ["AUCROC", "LOGLOSS"]:
+        if self._study_context.target_metric in ["AUCROC", "LOGLOSS"]:
             return "probabilities"
-        else:
-            return "predictions"
+        return "predictions"
 
     @property
     def direction(self) -> str:
         """Optuna direction."""
-        return Metrics.get_direction(self.target_metric)
+        return Metrics.get_direction(self._study_context.target_metric)
 
-    def run_experiment(self):
-        """Run EFS module on experiment."""
+    @property
+    def x_traindev(self) -> pd.DataFrame:
+        """Feature matrix."""
+        return self._data_traindev[self._feature_cols]
+
+    @property
+    def y_traindev(self) -> pd.DataFrame:
+        """Target values."""
+        return self._data_traindev[list(self._study_context.target_assignments.values())]
+
+    @property
+    def ml_type(self) -> str:
+        """ML type."""
+        return self._study_context.ml_type
+
+    @property
+    def stratification_col(self) -> str | None:
+        """Stratification column."""
+        return self._study_context.stratification_col
+
+    @property
+    def row_column(self) -> str:
+        """Row ID column."""
+        return self._study_context.row_id_col
+
+    @property
+    def row_traindev(self) -> pd.Series:
+        """Row IDs for traindev."""
+        return self._data_traindev[self._study_context.row_id_col]
+
+    def fit(
+        self,
+        data_traindev: pd.DataFrame,
+        data_test: pd.DataFrame,
+        feature_cols: list[str],
+        study_context: StudyContext,
+        outersplit_id: int,
+        output_dir: UPath,
+        num_assigned_cpus: int = 1,
+        feature_groups: dict | None = None,
+        prior_results: dict | None = None,
+    ) -> dict[ResultType, ModuleResult]:
+        """Fit EFS module by creating and optimizing an ensemble of models."""
+        # Store execution state temporarily for internal methods
+        self._study_context = study_context
+        self._outersplit_id = outersplit_id
+        self._output_dir = output_dir
+        self._num_assigned_cpus = num_assigned_cpus
+        self._data_traindev = data_traindev
+        self._data_test = data_test
+        self._feature_cols = feature_cols
+
+        # Create results directory
+        path_results = self._output_dir / "results" if self._output_dir else None
+        if path_results:
+            path_results.mkdir(parents=True, exist_ok=True)
+        self.path_results = path_results
+
         self._create_modeltable()
-        print(self.model_table)
+        print(self.model_table_)
 
         self._create_scantable()
 
         self._ensemble_optimization()
-        print(self.optimized_ensemble)
+        print(self.optimized_ensemble_)
 
-        self._generate_results()
+        module_result = self._generate_results()
 
         print("EFS completed")
 
-        # update selected features in experiment
-
-        # Report performance on test set
-
         # Save results to JSON
         with (self.path_results / "results.json").open("w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    # "best_cv_score": best_cv_score,
-                    # "best_params": best_params,
-                    # "optimal_features": int(optimal_features),
-                    # "selected_features": self.experiment.selected_features,
-                    # "Best Mean CV Score": max(rfecv.cv_results_["mean_test_score"]),
-                    # "Dev set performance": test_score,
-                },
-                f,
-                indent=4,
-            )
+            json.dump({}, f, indent=4)
 
-        return self.experiment
+        # Extract selected features (computed in _generate_results)
+        selected_features = sorted(
+            pd.concat([self.model_table_.iloc[i]["used_features"] for i in self.optimized_ensemble_])
+            .value_counts()
+            .index.tolist()
+        )
+
+        # Store fitted state
+        self.selected_features_ = selected_features
+        self.feature_importances_ = module_result["feature_importances"]
+
+        # Build flat feature_importances DataFrame
+        fi_dfs = []
+        raw_fi = module_result["feature_importances"]
+        for fi_key, fi_df in raw_fi.items():
+            if isinstance(fi_df, pd.DataFrame) and not fi_df.empty:
+                temp = fi_df.copy()
+                # Rename 'counts' to 'importance' for standard schema
+                if "counts" in temp.columns and "importance" not in temp.columns:
+                    temp = temp.rename(columns={"counts": "importance"})
+                temp = temp[["feature", "importance"]].copy()
+                if fi_key == "Efs_counts":
+                    temp["fi_method"] = FIMethod.COUNTS
+                    temp["fi_dataset"] = FIDataset.TRAIN
+                elif fi_key == "Efs_counts_relative":
+                    temp["fi_method"] = FIMethod.COUNTS_RELATIVE
+                    temp["fi_dataset"] = FIDataset.TRAIN
+                temp["training_id"] = "efs"
+                temp["result_type"] = ResultType.BEST
+                fi_dfs.append(temp)
+        feature_importances = pd.concat(fi_dfs, ignore_index=True) if fi_dfs else pd.DataFrame()
+
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+                feature_importances=feature_importances,
+            )
+        }
 
     def _create_modeltable(self):
         """Create model table."""
@@ -168,16 +225,13 @@ class EfsCore(ModuleBaseCore[Efs]):
         np.random.seed(0)
         random.seed(0)
 
-        # print()
-        # print("features: ", self.feature_cols)
-
         # Configuration, define default model
-        if self.ml_type == "classification":
+        if self._study_context.ml_type == "classification":
             default_model = "CatBoostClassifier"
-        elif self.ml_type == "regression":
+        elif self._study_context.ml_type == "regression":
             default_model = "CatBoostRegressor"
         else:
-            raise ValueError(f"{self.experiment.ml_type} not supported")
+            raise ValueError(f"{self._study_context.ml_type} not supported")
 
         model_type = self.config.model
         if model_type == "":
@@ -190,13 +244,12 @@ class EfsCore(ModuleBaseCore[Efs]):
         # set up model and scoring type
         model = Models.get_instance(model_type, {"random_state": 42})
         # Get scorer string from metrics inventory
-        metric = Metrics.get_instance(self.target_metric)
+        metric = Metrics.get_instance(self._study_context.target_metric)
         scoring_type = metric.scorer_string
 
         # needs general improvements (consider groups and stratification column)
         cv: KFold | StratifiedKFold
-        stratification_col = self.experiment.stratification_col
-        if stratification_col:
+        if self.stratification_col:
             cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
         else:
             cv = KFold(n_splits=self.config.cv, shuffle=True, random_state=42)
@@ -216,10 +269,9 @@ class EfsCore(ModuleBaseCore[Efs]):
         )
 
         # Create features subsets
-
         subsets = []
         for _ in range(self.config.n_subsets):
-            subset = random.sample(self.feature_cols, self.config.subset_size)
+            subset = random.sample(self._feature_cols, self.config.subset_size)
             subsets.append(subset)
 
         # (A) create model table
@@ -227,28 +279,25 @@ class EfsCore(ModuleBaseCore[Efs]):
         df_lst = []
         for i, subset in enumerate(subsets):
             # Perform Grid Search and Cross-Validation
-            # print("subset:", subset)
             x = self.x_traindev[subset]
             y = self.y_traindev.squeeze(axis=1)
-            row_ids = self.row_ids_traindev
+            row_ids = self.row_traindev
             grid_search.fit(x, y)
             best_model = grid_search.best_estimator_
-            # best_params = grid_search.best_params_
             best_cv_score = grid_search.best_score_
             print(f"Subset {i}, best_cv_score: {best_cv_score:.4f}")
-            # cv_score = cross_val_score(best_model, x, y, cv=cv, scoring=scoring_type)
 
             # predictions
-            if self.ml_type == "classification":
+            if self._study_context.ml_type == "classification":
                 cv_preds_df = pd.DataFrame()
-                cv_preds_df[self.row_id_col] = row_ids
+                cv_preds_df[self.row_column] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")
                 cv_preds_df["probabilities"] = cross_val_predict(best_model, x, y, cv=cv, method="predict_proba")[
                     :, 1
                 ]  # binary only
-            elif self.ml_type == "regression":
+            elif self._study_context.ml_type == "regression":
                 cv_preds_df = pd.DataFrame()
-                cv_preds_df[self.row_id_col] = row_ids
+                cv_preds_df[self.row_column] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")
                 cv_preds_df["probabilities"] = np.nan
 
@@ -257,7 +306,7 @@ class EfsCore(ModuleBaseCore[Efs]):
             feature_importance_df = pd.DataFrame({"feature": subset, "importance": feature_importances})
 
             # ensemble metric
-            metric = Metrics.get_instance(self.target_metric)
+            metric = Metrics.get_instance(self._study_context.target_metric)
             if self.metric_input == "probabilities":
                 best_ensel_performance = metric.calculate(y, cv_preds_df["probabilities"])
             else:
@@ -280,41 +329,35 @@ class EfsCore(ModuleBaseCore[Efs]):
             s["predict_df"] = cv_preds_df
             df_lst.append(s)
 
-        self.model_table = pd.concat(df_lst, axis=1).T
-        self.model_table["id"] = self.model_table["id"].astype(int)
+        self.model_table_ = pd.concat(df_lst, axis=1).T
+        self.model_table_["id"] = self.model_table_["id"].astype(int)
 
         # order of table is important, depending on metric,
         # (a) direction (b) dev_pool_soft or dev_pool_hard
         ascending = self.direction != "maximize"
 
-        self.model_table = self.model_table.sort_values(by="performance", ascending=ascending).reset_index(drop=True)
+        self.model_table_ = self.model_table_.sort_values(by="performance", ascending=ascending).reset_index(drop=True)
 
     def _ensemble_models(self, model_ids) -> float:
         """Ensemble predictions of models in model_table."""
         # Filter the model_table to include only the specified IDs
-        filtered_df = self.model_table[self.model_table["id"].isin(model_ids)]
+        filtered_df = self.model_table_[self.model_table_["id"].isin(model_ids)]
         # Extract the DataFrames from the "predict_df" column
         df_lst = filtered_df["predict_df"].tolist()
         # Concatenate all the extracted DataFrames into a single DataFrame
-        groupby_df = pd.concat(df_lst, ignore_index=True).groupby(by=self.row_id_col).mean()
-
-        # print("-----------------------------------")
-        # print("groupby_df", groupby_df.head(20)["predictions"])
+        groupby_df = pd.concat(df_lst, ignore_index=True).groupby(by=self.row_column).mean()
 
         # calculate ensemble performance
-
         y = self.y_traindev.squeeze(axis=1)
-        # print("y", y)
-        # print("-----------------------------------")
 
         # TODO: needs improvement!!
         model_predictions = (
             groupby_df["predictions"].round().astype(int)
-            if self.target_metric in ["ACC", "ACCBAL"]
+            if self._study_context.target_metric in ["ACC", "ACCBAL"]
             else groupby_df["predictions"]
         )
 
-        metric = Metrics.get_instance(self.target_metric)
+        metric = Metrics.get_instance(self._study_context.target_metric)
         ensel_performance = (
             metric.calculate(y, model_predictions)
             if self.metric_input == "predictions"
@@ -326,53 +369,52 @@ class EfsCore(ModuleBaseCore[Efs]):
     def _create_scantable(self):
         """Perform ensemble scan."""
         # (B) perform ensemble scan, hillclimb
-        self.scan_table = pd.DataFrame(
+        self.scan_table_ = pd.DataFrame(
             columns=[
                 "#models",
                 "performance",
             ]
         )
 
-        for i in range(len(self.model_table)):
-            model_ids = self.model_table.iloc[: (i + 1)]["id"].tolist()
-            # print("model_ids:", model_ids)
-            self.scan_table.loc[i] = [
+        for i in range(len(self.model_table_)):
+            model_ids = self.model_table_.iloc[: (i + 1)]["id"].tolist()
+            self.scan_table_.loc[i] = [
                 i,
                 self._ensemble_models(model_ids),
             ]
 
         if self.direction == "maximize":
-            n_best_models = self.scan_table.loc[self.scan_table["performance"].idxmax()]["#models"]
-            best_performance = self.scan_table.loc[self.scan_table["performance"].idxmax()]["performance"]
+            n_best_models = self.scan_table_.loc[self.scan_table_["performance"].idxmax()]["#models"]
+            best_performance = self.scan_table_.loc[self.scan_table_["performance"].idxmax()]["performance"]
         else:  # minimize
-            n_best_models = self.scan_table.loc[self.scan_table["performance"].idxmin()]["#models"]
-            best_performance = self.scan_table.loc[self.scan_table["performance"].idxmin()]["performance"]
-        self.scan_table["#models"] = self.scan_table["#models"].astype(int)
-        print("Scan table:", self.scan_table)
+            n_best_models = self.scan_table_.loc[self.scan_table_["performance"].idxmin()]["#models"]
+            best_performance = self.scan_table_.loc[self.scan_table_["performance"].idxmin()]["performance"]
+        self.scan_table_["#models"] = self.scan_table_["#models"].astype(int)
+        print("Scan table:", self.scan_table_)
         print(f"Best performance: {best_performance} with base model and {n_best_models} additional models")
         print()
 
     def _ensemble_optimization(self):
         """Ensembling optimization with replacement."""
-        # we start with an best N models example derived from self.scan_table,
+        # we start with an best N models example derived from self.scan_table_,
         # assuming that is sorted correctly
         best_performance = (
-            self.scan_table["performance"].max()
+            self.scan_table_["performance"].max()
             if self.direction == "maximize"
-            else self.scan_table["performance"].min()
+            else self.scan_table_["performance"].min()
         )
         # get the last index with best performance
-        best_rows = self.scan_table[self.scan_table["performance"] == best_performance]
+        best_rows = self.scan_table_[self.scan_table_["performance"] == best_performance]
         last_best_index = best_rows.index[-1]
         start_n = int(last_best_index) + 1
         print("Ensemble scan, number of included best models: ", start_n)
 
         # startn_bags dict with path as key and repeats=1 as value
         escan_ensemble = {}
-        for _, row in self.model_table.head(start_n).iterrows():
+        for _, row in self.model_table_.head(start_n).iterrows():
             escan_ensemble[row["id"]] = 1
 
-        # ensemble_optimmization, reference score
+        # ensemble_optimization, reference score
         # we start with the bags found in ensemble scan
         results_df = pd.DataFrame(columns=["model", "performance", "models_lst"])
         start_model_ids = list(escan_ensemble.keys())
@@ -394,9 +436,9 @@ class EfsCore(ModuleBaseCore[Efs]):
         best_global = copy.deepcopy(start_perf)
 
         # optimization limited to best max_n_models
-        best_n_models = self.model_table["id"].tolist()[: self.max_n_models]
+        best_n_models = self.model_table_["id"].tolist()[: self.config.max_n_models]
 
-        for i in range(self.max_n_iterations):
+        for i in range(self.config.max_n_iterations):
             df = pd.DataFrame(columns=["model", "performance"])
             # test if any additional model improves performance
             for model in best_n_models:
@@ -438,14 +480,14 @@ class EfsCore(ModuleBaseCore[Efs]):
             ]
 
         # store optimization results
-        self.optimized_ensemble = dict(Counter(results_df.iloc[-1]["models_lst"]))
+        self.optimized_ensemble_ = dict(Counter(results_df.iloc[-1]["models_lst"]))
         print("Ensemble selection completed.")
 
-    def _generate_results(self):
+    def _generate_results(self) -> dict:
         """Generate results."""
         feature_lst = []
-        for key, value in self.optimized_ensemble.items():
-            row = self.model_table[self.model_table["id"] == key]
+        for key, value in self.optimized_ensemble_.items():
+            row = self.model_table_[self.model_table_["id"] == key]
             model_features = row["used_features"].tolist()
             model_features = list(itertools.chain.from_iterable(model_features))  # flatten list
             # replicate model features with model count
@@ -458,23 +500,19 @@ class EfsCore(ModuleBaseCore[Efs]):
         feature_counts_df = feature_counts_df.sort_values(by="counts", ascending=False)
 
         # relative feature counts
-        n_models_used = sum(self.optimized_ensemble.values())
+        n_models_used = sum(self.optimized_ensemble_.values())
         feature_counts_relative_df = feature_counts_df.copy()
         feature_counts_relative_df["counts"] = feature_counts_relative_df["counts"] / n_models_used
 
         print(feature_counts_df.head(50))
         print(feature_counts_relative_df.head(50))
 
-        # save results to experiment
-        self.experiment.results["Efs"] = ModuleResults(
-            id="efs",
-            experiment_id=self.experiment.experiment_id,
-            task_id=self.experiment.task_id,
-            # model=None,
-            # scores=scores,
-            feature_importances={
+        # Create and return module results
+        return {
+            "scores": {},
+            "predictions": {},
+            "feature_importances": {
                 "Efs_counts": feature_counts_df,
                 "Efs_counts_relative": feature_counts_relative_df,
             },
-            # selected_features=selected_features,
-        )
+        }

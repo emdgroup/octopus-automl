@@ -105,15 +105,41 @@ def create_fake_training(trained_model, model_name, feature_indices, fold_data, 
     pred_val = trained_model.predict(X_fold_val)
     pred_test = trained_model.predict(X_test)
 
-    # Create prediction dataframes in octopus format
+    # Create prediction dataframes in octopus format (with required metadata columns)
     predictions = {
         "train": pd.DataFrame(
-            {"row_id": fold_data["fold_train_row_ids"], "prediction": pred_train, "target": fold_data["y_fold_train"]}
+            {
+                "row_id": fold_data["fold_train_row_ids"],
+                "prediction": pred_train,
+                "target": fold_data["y_fold_train"],
+                "outer_split_id": 0,
+                "inner_split_id": training_id,
+                "partition": "train",
+                "task_id": 0,
+            }
         ),
         "dev": pd.DataFrame(
-            {"row_id": fold_data["fold_val_row_ids"], "prediction": pred_val, "target": fold_data["y_fold_val"]}
+            {
+                "row_id": fold_data["fold_val_row_ids"],
+                "prediction": pred_val,
+                "target": fold_data["y_fold_val"],
+                "outer_split_id": 0,
+                "inner_split_id": training_id,
+                "partition": "dev",
+                "task_id": 0,
+            }
         ),
-        "test": pd.DataFrame({"row_id": splits["test_row_ids"], "prediction": pred_test, "target": splits["y_test"]}),
+        "test": pd.DataFrame(
+            {
+                "row_id": splits["test_row_ids"],
+                "prediction": pred_test,
+                "target": splits["y_test"],
+                "outer_split_id": 0,
+                "inner_split_id": training_id,
+                "partition": "test",
+                "task_id": 0,
+            }
+        ),
     }
 
     # Create proper dataframes for Training object
@@ -252,7 +278,12 @@ def test_ensemble_selection_ensembled_data(tmp_path):
             bag_pool.append(training.predictions["dev"])
 
         # Pool predictions the same way as in Bag.get_scores()
-        pooled_dev = pd.concat(bag_pool, axis=0).groupby("row_id").mean().reset_index()
+        combined = pd.concat(bag_pool, axis=0)
+        numeric_cols = combined.select_dtypes(include=["number"]).columns.tolist()
+        for col in ["row_id", "outer_split_id", "task_id"]:
+            if col in numeric_cols:
+                numeric_cols.remove(col)
+        pooled_dev = combined.groupby("row_id")[numeric_cols].mean().reset_index()
         bag_dev_predictions.append(pooled_dev)
 
     # Get common row IDs and targets

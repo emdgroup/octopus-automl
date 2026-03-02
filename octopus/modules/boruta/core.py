@@ -1,10 +1,13 @@
 # type: ignore
 
-"""Boruta Core."""
+"""Boruta execution module."""
+
+from __future__ import annotations
 
 import copy
 import json
 import warnings
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -14,9 +17,13 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_sco
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.modules.base import ModuleBaseCore
-from octopus.modules.boruta.module import Boruta
-from octopus.results import ModuleResults
+from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ModuleResult, ResultType
+
+if TYPE_CHECKING:
+    from upath import UPath
+
+    from octopus.modules.boruta.module import Boruta  # noqa: F401
+    from octopus.study.context import StudyContext
 
 # Ignore all Warnings
 warnings.filterwarnings("ignore")
@@ -45,36 +52,50 @@ def get_param_grid(model_type):
     else:
         # RF and ExtraTrees
         param_grid = {
-            "max_depth": [3, 6, 10],  # [2, 10, 20, 32],
+            "max_depth": [3, 6, 10],
             "min_samples_split": [2, 25, 50, 100],
             "min_samples_leaf": [1, 15, 30, 50],
             "max_features": [0.1, 0.5, 1],
-            "n_estimators": [500],  # [100, 250, 500],
+            "n_estimators": [500],
         }
     return param_grid
 
 
-# TOBEDONE:
-# - implement Boruta using https://github.com/scikit-learn-contrib/boruta_py
-# - gridsearch with estimator=boruta with params (perc,alpha,max_iter etc) optimiz ?
-
-
 @define
-class BorutaCore(ModuleBaseCore[Boruta]):
-    """Boruta Module."""
+class BorutaModule(FeatureSelectionExecution["Boruta"]):
+    """Boruta execution module. Created by Boruta.create_module()."""
 
-    def run_experiment(self):
-        """Run Boruta module on experiment."""
+    def fit(
+        self,
+        data_traindev: pd.DataFrame,
+        data_test: pd.DataFrame,
+        feature_cols: list[str],
+        study_context: StudyContext,
+        outersplit_id: int,
+        output_dir: UPath,
+        num_assigned_cpus: int = 1,
+        feature_groups: dict | None = None,
+        prior_results: dict | None = None,
+    ) -> dict[ResultType, ModuleResult]:
+        """Fit Boruta module for feature selection."""
         from octopus._optional.burota import BorutaPy  # noqa: PLC0415
 
-        # run experiment and return updated experiment object
+        # Extract data matrices (local variables)
+        x_traindev = data_traindev[feature_cols]
+        y_traindev = data_traindev[list(study_context.target_assignments.values())]
+
+        # Create results directory
+        path_results = output_dir / "results" if output_dir else None
+        if path_results:
+            path_results.mkdir(parents=True, exist_ok=True)
+
         # Configuration, define default model
-        if self.experiment.ml_type == "classification":
+        if study_context.ml_type == "classification":
             default_model = "RandomForestClassifier"
-        elif self.experiment.ml_type == "regression":
+        elif study_context.ml_type == "regression":
             default_model = "RandomForestRegressor"
         else:
-            raise ValueError(f"{self.experiment.ml_type} not supported")
+            raise ValueError(f"{study_context.ml_type} not supported")
 
         model_type = self.config.model
         if model_type == "":
@@ -87,12 +108,14 @@ class BorutaCore(ModuleBaseCore[Boruta]):
         # set up model and scoring type
         model = Models.get_instance(model_type, {"random_state": 42, "verbose": False})
         # Get scorer string from metrics
-        metric = Metrics.get_instance(self.target_metric)
+        metric = Metrics.get_instance(study_context.target_metric)
         scoring_type = metric.scorer_string
 
+        # Setup CV strategy
+        target_assignments = {col: col for col in list(study_context.target_assignments.values())}
+
         cv: int | StratifiedKFold
-        stratification_col = self.experiment.stratification_col
-        if stratification_col:
+        if study_context.stratification_col:
             cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
         else:
             cv = self.config.cv
@@ -107,7 +130,7 @@ class BorutaCore(ModuleBaseCore[Boruta]):
         )
         print("Optimize base model....")
         # Perform Grid Search and Cross-Validation
-        grid_search.fit(self.x_traindev, self.y_traindev.squeeze(axis=1))
+        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))
         best_model = grid_search.best_estimator_
         best_cv_score = grid_search.best_score_
         best_params = grid_search.best_params_
@@ -116,7 +139,7 @@ class BorutaCore(ModuleBaseCore[Boruta]):
         print(f"Dev start performance: {best_cv_score:.3f}")
         print(f"Best params: {best_params}")
 
-        print(f"Initial number of features: {self.x_traindev.shape[1]}")
+        print(f"Initial number of features: {x_traindev.shape[1]}")
 
         boruta = BorutaPy(
             estimator=model,
@@ -127,27 +150,22 @@ class BorutaCore(ModuleBaseCore[Boruta]):
             verbose=0,
         )
 
-        boruta.fit(self.x_traindev, self.y_traindev.squeeze(axis=1))
+        boruta.fit(x_traindev, y_traindev.squeeze(axis=1))
 
         print("Feature Selection completed")
-        self.experiment.selected_features = [
-            self.feature_cols[i] for i in range(len(boruta.support_)) if boruta.support_[i]
-        ]
-        n_optimal_features = len(self.experiment.selected_features)
+        selected_features = [feature_cols[i] for i in range(len(boruta.support_)) if boruta.support_[i]]
+        n_optimal_features = len(selected_features)
 
         print(f"Optimal number of features: {n_optimal_features}")
-        print(f"Selected features: {self.experiment.selected_features}")
-        # print(boruta.ranking_)
+        print(f"Selected features: {selected_features}")
 
         # Report performance on dev and test set
         best_estimator = copy.deepcopy(best_model)
-        # x_traindev_filtered = boruta.transform(self.x_traindev, return_df=True)
-        # incompatible with boruta_py version 0.3
-        x_traindev_filtered = boruta.transform(self.x_traindev)
+        x_traindev_filtered = boruta.transform(x_traindev)
         cv_score_dev = cross_val_score(
             best_model,
             x_traindev_filtered,
-            self.y_traindev,
+            y_traindev,
             scoring=scoring_type,
             cv=cv,
         )
@@ -155,72 +173,102 @@ class BorutaCore(ModuleBaseCore[Boruta]):
         print(f"Dev set (cv) performance : {dev_score_cv:.3f}")
 
         # refit on selected features
-        best_estimator.fit(x_traindev_filtered, self.y_traindev.squeeze(axis=1))
+        best_estimator.fit(x_traindev_filtered, y_traindev.squeeze(axis=1))
         test_score_refit = get_score_from_model(
             best_estimator,
-            self.data_test,
-            self.experiment.selected_features,
-            self.target_metric,
-            self.target_assignments,
-            positive_class=self.experiment.positive_class,
+            data_test,
+            selected_features,
+            study_context.target_metric,
+            target_assignments,
+            positive_class=study_context.positive_class,
         )
         print(f"Test set (refit) performance: {test_score_refit:.3f}")
 
         # gridsearch + retrain best model on x_traindev
-        grid_search.fit(x_traindev_filtered, self.y_traindev.squeeze(axis=1))
+        grid_search.fit(x_traindev_filtered, y_traindev.squeeze(axis=1))
         best_gs_parameters = grid_search.best_params_
         best_gs_estimator = grid_search.best_estimator_
         # refit
-        best_gs_estimator.fit(x_traindev_filtered, self.y_traindev.squeeze(axis=1))
+        best_gs_estimator.fit(x_traindev_filtered, y_traindev.squeeze(axis=1))
         test_score_gsrefit = get_score_from_model(
             best_gs_estimator,
-            self.data_test,
-            self.experiment.selected_features,
-            self.target_metric,
-            self.target_assignments,
-            positive_class=self.experiment.positive_class,
+            data_test,
+            selected_features,
+            study_context.target_metric,
+            target_assignments,
+            positive_class=study_context.positive_class,
         )
         print(f"Test set (gridsearch+refit) performance: {test_score_gsrefit:.3f}")
 
         # feature importances
         fi_df = pd.DataFrame(
             {
-                "feature": self.experiment.selected_features,
-                "importances": best_gs_estimator.feature_importances_,
+                "feature": selected_features,
+                "importance": best_gs_estimator.feature_importances_,
             }
-        ).sort_values(by="importances", ascending=False)
-        # print(fi_df)
+        ).sort_values(by="importance", ascending=False)
 
-        # scores
-        scores = {}
-        scores["dev_avg"] = dev_score_cv
-        scores["test_refit"] = test_score_refit
-        scores["test_gsrefit"] = test_score_gsrefit
+        # Store fitted state
+        self.selected_features_ = selected_features
+        self.feature_importances_ = {"internal": fi_df}
 
-        # save results to experiment
-        self.experiment.results["Boruta"] = ModuleResults(
-            id="boruta",
-            experiment_id=self.experiment.experiment_id,
-            task_id=self.experiment.task_id,
-            model=best_gs_estimator,
-            scores=scores,
-            feature_importances={
-                "internal": fi_df,
-            },
-            selected_features=self.experiment.selected_features,
+        # Build standard scores DataFrame
+        scores = pd.DataFrame(
+            [
+                {
+                    "result_type": ResultType.BEST,
+                    "metric": study_context.target_metric,
+                    "partition": "dev",
+                    "aggregation": "avg",
+                    "fold": None,
+                    "value": dev_score_cv,
+                },
+                {
+                    "result_type": ResultType.BEST,
+                    "metric": study_context.target_metric,
+                    "partition": "test",
+                    "aggregation": "refit",
+                    "fold": None,
+                    "value": test_score_refit,
+                },
+                {
+                    "result_type": ResultType.BEST,
+                    "metric": study_context.target_metric,
+                    "partition": "test",
+                    "aggregation": "gsrefit",
+                    "fold": None,
+                    "value": test_score_gsrefit,
+                },
+            ]
         )
+
+        # Build standard feature_importances DataFrame
+        feature_importances = fi_df[["feature", "importance"]].copy()
+        feature_importances["fi_method"] = FIMethod.INTERNAL
+        feature_importances["fi_dataset"] = FIDataset.TRAIN
+        feature_importances["training_id"] = "boruta"
+        feature_importances["result_type"] = ResultType.BEST
 
         # Save results to JSON
         results = {
             "Dev score start": best_cv_score,
             "best_params": best_gs_parameters,
             "optimal_features": int(n_optimal_features),
-            "selected_features": self.experiment.selected_features,
+            "selected_features": selected_features,
             "Dev set performance": dev_score_cv,
             "Test set (refit) performance": test_score_refit,
             "Test set (gs+refit) performance": test_score_gsrefit,
         }
-        with (self.path_results / "results.json").open("w", encoding="utf-8") as f:
-            json.dump(results, f, indent=4)
+        if path_results:
+            with (path_results / "results.json").open("w", encoding="utf-8") as f:
+                json.dump(results, f, indent=4)
 
-        return self.experiment
+        return {
+            ResultType.BEST: ModuleResult(
+                result_type=ResultType.BEST,
+                module=self.config.module,
+                selected_features=selected_features,
+                scores=scores,
+                feature_importances=feature_importances,
+            )
+        }

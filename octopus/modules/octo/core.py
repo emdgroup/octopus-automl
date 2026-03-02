@@ -1,107 +1,242 @@
 # type: ignore
 
-"""OctoFull core function."""
+"""Octo execution module."""
+
+from __future__ import annotations
 
 import copy
 import json
+from typing import TYPE_CHECKING, Any
 
 import optuna
 import optuna.storages.journal
 import pandas as pd
-from attrs import Factory, define, field, validators
+from attrs import Factory, define, field
 from optuna.trial import TrialState
 from upath import UPath
 
+from octopus.datasplit import DataSplit, InnerSplits
 from octopus.logger import LogGroup, get_logger
-from octopus.modules.base import ModuleBaseCore
-from octopus.modules.mrmr.core import maxrminr, relevance_fstats
+from octopus.modules.base import MLModuleExecution, ModuleResult, ResultType
+from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
-from octopus.modules.octo.module import Octo
 from octopus.modules.octo.objective_optuna import ObjectiveOptuna
 from octopus.modules.octo.training import Training
-from octopus.results import ModuleResults
-from octopus.utils import DataSplit
 
 from .optuna_storage_backend import JournalFsspecFileBackend
+
+if TYPE_CHECKING:
+    from octopus.modules.octo.module import Octo  # noqa: F401
+    from octopus.study.context import StudyContext
 
 logger = get_logger()
 
 
 @define
-class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
-    """Manages and executes machine learning experiments.
+class OctoModule(MLModuleExecution["Octo"]):
+    """Octo execution module. Created by Octo.create_module()."""
 
-    This class integrates all components necessary for conducting
-    experiments using OctoExperiment configurations.
-    It supports operations such as data splitting, path management,
-    model optimization with Optuna, and results handling.
-    The class is designed to work seamlessly with the defined experiment
-    configurations and ensures robust handling of experiment resources,
-    directories, and optimization processes.
+    # Internal state (set during fit)
+    data_splits_: InnerSplits = field(init=False, default=Factory(dict))
+    """Data splits for inner CV."""
 
-    Attributes:
-        data_splits: Stores training and validation data splits.
-        paths_optuna_db: File paths to Optuna databases for each experiment.
-        top_trials: Keeps track of the best performing trials.
-        mrmr_features: Feature lists created by MRMR for different feature counts.
+    paths_optuna_db_: dict[str, UPath] = field(init=False, default=Factory(dict))
+    """Paths to Optuna databases."""
 
-    Inherits from ModuleBaseCore:
-        experiment: The OctoExperiment instance (from ModuleBaseCore).
-        log_dir: Directory for individual worker logs (from ModuleBaseCore).
-        All common properties from ModuleBaseCore (paths, data, metadata).
+    top_trials_: list = field(init=False, default=Factory(list))
+    """Top performing trials."""
 
-    Raises:
-        ValueError: When encountering invalid operations or unsupported
-            configurations during experiment execution.
+    mrmr_features_: dict = field(init=False, default=Factory(dict))
+    """MRMR feature sets for different feature counts."""
 
-    Usage:
-        Initialize with an OctoExperiment object and call run_experiment()
-        to conduct comprehensive machine learning optimization with Optuna.
-    """
+    # Temporary execution state (available during fit)
+    _study_context: StudyContext | None = field(init=False, default=None)
+    """StudyContext (temporary state during fit)."""
 
-    # model = field(default=None)
-    data_splits: dict = field(default=Factory(dict), validator=[validators.instance_of(dict)])
+    _output_dir: Any = field(init=False, default=None)
+    """Output directory (temporary state during fit)."""
 
-    paths_optuna_db: dict[str, UPath] = field(default=Factory(dict), validator=[validators.instance_of(dict)])
+    _feature_groups: dict = field(init=False, default=Factory(dict))
+    """Feature groups (temporary state during fit)."""
 
-    top_trials: list = field(default=Factory(list), validator=[validators.instance_of(list)])
+    _data_traindev: Any = field(init=False, default=None)
+    """Training/development data (temporary state during fit)."""
 
-    mrmr_features: dict = field(default=Factory(dict), validator=[validators.instance_of(dict)])
+    _data_test: Any = field(init=False, default=None)
+    """Test data (temporary state during fit)."""
+
+    _feature_cols: list[str] | None = field(init=False, default=None)
+    """Feature columns (temporary state during fit)."""
+
+    _outersplit_id: int | None = field(init=False, default=None)
+    """Fold ID (temporary state during fit)."""
+
+    _num_assigned_cpus: int = field(init=False, default=1)
+    """Number of assigned CPUs (temporary state during fit)."""
+
+    _prior_results: dict = field(init=False, default=Factory(dict))
+    """Prior results (temporary state during fit)."""
+
+    def fit(
+        self,
+        data_traindev: pd.DataFrame,
+        data_test: pd.DataFrame,
+        feature_cols: list[str],
+        study_context: StudyContext,
+        outersplit_id: int,
+        output_dir: UPath,
+        num_assigned_cpus: int = 1,
+        feature_groups: dict | None = None,
+        prior_results: dict | None = None,
+    ) -> dict[ResultType, ModuleResult]:
+        """Fit Octo module by running hyperparameter optimization with Optuna."""
+        # Store execution state temporarily for internal methods
+        self._study_context = study_context
+        self._outersplit_id = outersplit_id
+        self._output_dir = output_dir
+        self._num_assigned_cpus = num_assigned_cpus
+        self._data_traindev = data_traindev
+        self._data_test = data_test
+        self._feature_cols = feature_cols
+        self._feature_groups = feature_groups or {}
+        self._prior_results = prior_results or {}
+
+        # Initialize Octo-specific setup
+        self._initialize_octo()
+
+        # Initialize local results collection
+        results = {}
+
+        # (1) model training and optimization
+        best_selected_features = self._run_globalhp_optimization(results)
+
+        # Store fitted state (permanent)
+        self.selected_features_ = best_selected_features
+        self.feature_importances_ = results["best"]["feature_importances"]
+
+        # Build best ModuleResult
+        best_bag = results["best"]["_bag"]
+        best_result = ModuleResult(
+            result_type=ResultType.BEST,
+            module=self.config.module,
+            selected_features=best_selected_features,
+            scores=best_bag.get_performance_df(metric=self.target_metric),
+            predictions=best_bag.get_predictions_df(),
+            feature_importances=best_bag.get_feature_importances_df(),
+            model=best_bag,
+        )
+
+        module_results: dict[ResultType, ModuleResult] = {ResultType.BEST: best_result}
+
+        # (2) ensemble selection
+        if self.config.ensemble_selection:
+            ensel_selected_features = self._run_ensemble_selection(results)
+            if ensel_selected_features:
+                self.selected_features_ = ensel_selected_features
+                self.feature_importances_ = results["ensel"]["feature_importances"]
+
+            # Always save ensemble result if it was produced
+            if "ensel" in results:
+                ensel_bag = results["ensel"]["_bag"]
+                ensel_result = ModuleResult(
+                    result_type=ResultType.ENSEMBLE_SELECTION,
+                    module=self.config.module,
+                    selected_features=ensel_selected_features or best_selected_features,
+                    scores=ensel_bag.get_performance_df(metric=self.target_metric),
+                    predictions=ensel_bag.get_predictions_df(),
+                    feature_importances=ensel_bag.get_feature_importances_df(),
+                    model=ensel_bag,
+                )
+                module_results[ResultType.ENSEMBLE_SELECTION] = ensel_result
+
+        return module_results
+
+    @property
+    def path_module(self) -> UPath:
+        """Module directory path (available during fit)."""
+        return self._output_dir
 
     @property
     def path_trials(self) -> UPath:
-        """Trials path."""
+        """Trials path (available during fit)."""
         return self.path_module / "trials"
 
-    def __attrs_post_init__(self):
-        """Initialize OctoCoreGeneric with data splits and configuration.
+    @property
+    def path_results(self) -> UPath:
+        """Results path (available during fit)."""
+        return self.path_module / "results"
 
-        Note: Does NOT call super().__attrs_post_init__() because this has
-        custom directory management (handles path_trials) that differs from
-        the base class.
-        """
+    @property
+    def datasplit_column(self) -> str:
+        """Column used for data splitting (available during fit)."""
+        if self._study_context.datasplit_type == "sample":
+            return self._study_context.sample_id_col
+        return self._study_context.datasplit_type
+
+    @property
+    def stratification_col(self) -> str | None:
+        """Stratification column (available during fit)."""
+        return self._study_context.stratification_col
+
+    @property
+    def ml_type(self) -> str:
+        """ML type (available during fit)."""
+        return self._study_context.ml_type
+
+    @property
+    def target_metric(self) -> str:
+        """Target metric (available during fit)."""
+        return self._study_context.target_metric
+
+    @property
+    def target_assignments(self) -> dict:
+        """Target column assignments (available during fit)."""
+        return self._study_context.target_assignments
+
+    @property
+    def row_column(self) -> str:
+        """Row ID column (available during fit)."""
+        return self._study_context.row_id_col
+
+    @property
+    def positive_class(self):
+        """Positive class (available during fit). None for regression."""
+        return self._study_context.positive_class
+
+    @property
+    def x_traindev(self) -> pd.DataFrame:
+        """Feature matrix (available during fit)."""
+        return self._data_traindev[self._feature_cols]
+
+    @property
+    def y_traindev(self) -> pd.DataFrame:
+        """Target values (available during fit)."""
+        return self._data_traindev[list(self._study_context.target_assignments.values())]
+
+    def _initialize_octo(self):
+        """Initialize Octo-specific data structures and directories."""
         # create datasplit during init
-        self.data_splits = DataSplit(
-            dataset=self.experiment.data_traindev,
-            datasplit_col=self.experiment.datasplit_column,
-            seeds=self.experiment.ml_config.datasplit_seeds_inner,
-            num_folds=self.experiment.ml_config.n_folds_inner,
-            stratification_col=self.experiment.stratification_col,
-            process_id=f"EXP {self.experiment.experiment_id} SEQ TBD",
-        ).get_datasplits()
+        self.data_splits_ = DataSplit(
+            dataset=self._data_traindev,
+            datasplit_col=self.datasplit_column,
+            seeds=self.config.datasplit_seeds_inner,
+            num_folds=self.config.n_folds_inner,
+            stratification_col=self.stratification_col,
+            process_id=f"OUTER {self._outersplit_id} SEQ TBD",
+        ).get_inner_splits()
+
         # if we don't want to resume optimization:
-        # delete directories /trials /optuna /results to ensure clean state
+        # delete directories /trials /results to ensure clean state
         # of module when restarted, required for parallel optuna runs
         # as optuna.create(...,load_if_exists=True)
-        # create directory if it does not exist
         for directory in [self.path_trials, self.path_results]:
-            if not self.experiment.ml_config.resume_optimization and directory.exists():
+            if not self.config.resume_optimization and directory.exists():
                 directory.rmdir(recursive=True)
             directory.mkdir(parents=True, exist_ok=True)
 
         # check if there is a mismatch between configured resources
-        # and resources assigned to the experiment
+        # and resources assigned to the outersplit
         self._check_resources()
 
         # Create MRMR feature lists
@@ -111,121 +246,109 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
         """Calculate feature lists for all provided features numbers."""
         logger.info("Calculating MRMR feature sets...")
         # remove duplicates and cap max number
-        feature_numbers = list(set(self.experiment.ml_config.mrmr_feature_numbers))
-        feature_numbers = [x for x in feature_numbers if isinstance(x, int) and x <= len(self.experiment.feature_cols)]
+        feature_numbers = list(set(self.config.mrmr_feature_numbers))
+        feature_numbers = [x for x in feature_numbers if isinstance(x, int) and x <= len(self._feature_cols)]
         # if no mrmr features are requested, only add original features
         if not feature_numbers:
             # add original features
-            self.mrmr_features[len(self.experiment.feature_cols)] = self.experiment.feature_cols
+            self.mrmr_features_[len(self._feature_cols)] = self._feature_cols
             return
 
         # prepare inputs
-        feature_cols = self.experiment.feature_cols
-        features = self.experiment.x_traindev
-        target = self.experiment.y_traindev
+        feature_cols = self._feature_cols
+        features = self.x_traindev
+        target = self.y_traindev
 
         # create relevance information
-        re_df = relevance_fstats(
+        re_df = _relevance_fstats(
             features=features,
             target=target,
             feature_cols=feature_cols,
-            ml_type=self.experiment.ml_type,
+            ml_type=self.ml_type,
         )
 
         # calculate MRMR features for all feature_numbers
-        self.mrmr_features = maxrminr(
+        self.mrmr_features_ = _maxrminr(
             features=features,
             relevance=re_df,
             requested_feature_counts=feature_numbers,
             correlation_type="spearman",
         )
         # add original features
-        self.mrmr_features[len(self.experiment.feature_cols)] = self.experiment.feature_cols
+        self.mrmr_features_[len(self._feature_cols)] = self._feature_cols
 
     def _check_resources(self):
         """Check resources, assigned vs requested."""
-        logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"EXP {self.experiment.experiment_id} SQE TBD")
+        logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"OUTER {self._outersplit_id} SQE TBD")
 
-        if self.experiment.ml_config.inner_parallelization is True:
-            num_requested_cpus = self.experiment.ml_config.n_workers * self.experiment.ml_config.n_jobs
+        if self.config.inner_parallelization is True:
+            num_requested_cpus = self.config.n_workers * self.config.n_jobs
         else:
-            num_requested_cpus = self.experiment.ml_config.n_jobs
+            num_requested_cpus = self.config.n_jobs
         logger.info(
             f"""CPU Resources | \
-        Available: {self.experiment.num_assigned_cpus} | \
+        Available: {self._num_assigned_cpus} | \
         Requested: {num_requested_cpus} | """
         )
 
-    def run_experiment(self):
-        """Run experiment."""
-        # (1) model training and optimization
-        self._run_globalhp_optimization()
-
-        # (2) ensemble selection
-        if self.experiment.ml_config.ensemble_selection:
-            self._run_ensemble_selection()
-
-        return self.experiment
-
-    def _run_ensemble_selection(self):
+    def _run_ensemble_selection(self, results: dict) -> list[str]:
         """Run ensemble selection."""
         ensel = EnSel(
-            target_metric=self.experiment.target_metric,
+            target_metric=self.target_metric,
             path_trials=self.path_trials,
             max_n_iterations=100,
-            row_id_col=self.experiment.row_id_col,
-            target_assignments=self.experiment.target_assignments,
-            positive_class=self.experiment.positive_class,
+            row_id_col=self.row_column,
+            target_assignments=self.target_assignments,
+            positive_class=self.positive_class,
         )
         ensemble_paths_dict = ensel.start_ensemble
-        # ensemble_paths_dict = ensel.optimized_ensemble
-        self._create_ensemble_bag(ensemble_paths_dict)
+        return self._create_ensemble_bag(ensemble_paths_dict, results)
 
-    def _create_ensemble_bag(self, ensemble_paths_dict):
+    def _create_ensemble_bag(self, ensemble_paths_dict: dict, results: dict) -> list[str]:
         """Create ensemble bag from a ensemble path dict."""
         if len(ensemble_paths_dict) == 0:
             raise ValueError("Valid ensemble information need to be provided")
 
+        # Compute outersplit_task_id from outersplit_id and task_id
+        training_id = f"{self._outersplit_id}_{self.config.task_id}"
+
         # extract trainings
-        # here, we don't use the weight info
-        # this requires more work for scores and feature importances
         trainings = []
         train_id = 0
         for path, weight in ensemble_paths_dict.items():
             bag = Bag.from_pickle(path)
             for training in bag.trainings:
-                # training.training_weight - tobedone
                 for _ in range(int(weight)):
                     train_cp = copy.deepcopy(training)
-                    train_cp.training_id = self.experiment.id + "_" + str(train_id)
+                    train_cp.training_id = training_id + "_" + str(train_id)
                     train_cp.training_weight = 1
                     train_id += 1
                     trainings.append(train_cp)
 
         # create ensemble bag
         ensel_bag = Bag(
-            bag_id=self.experiment.id + "_ensel",
+            bag_id=training_id + "_ensel",
             trainings=trainings,
             train_status=True,
-            target_assignments=self.experiment.target_assignments,
-            parallel_execution=self.experiment.ml_config.inner_parallelization,
-            num_workers=self.experiment.ml_config.n_workers,
-            target_metric=self.experiment.target_metric,
-            row_id_col=self.experiment.row_id_col,
-            ml_type=self.experiment.ml_type,
-            log_dir=self.log_dir,
+            target_assignments=self.target_assignments,
+            parallel_execution=self.config.inner_parallelization,
+            num_workers=self.config.n_workers,
+            target_metric=self.target_metric,
+            row_id_col=self.row_column,
+            ml_type=self.ml_type,
+            log_dir=self._study_context.log_dir,
         )
         # save ensel bag
         ensel_bag.to_pickle(self.path_results / "ensel_bag.pkl")
 
         # save performance values of best bag
         ensel_scores = ensel_bag.get_performance()
-        target_metric = self.experiment.target_metric
+        target_metric = self.target_metric
         # show and save test results
         logger.set_log_group(LogGroup.RESULTS)
         logger.info("Ensemble selection performance")
         logger.info(
-            f"Experiment: {self.experiment.id} "
+            f"Training: {training_id} "
             f"{target_metric} "
             f"(ensemble selection): "
             f"Dev {ensel_scores['dev_pool']:.3f}, "
@@ -236,41 +359,52 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
             json.dump(ensel_scores, f)
 
         # calculate feature importances of best bag
-        # fi_methods = self.experiment.ml_config.fi_methods_bestbag
         fi_methods = []  # disable calculation of pfi for ensel_bag
         ensel_bag_fi = ensel_bag.calculate_feature_importances(fi_methods, partitions=["dev"])
 
         # calculate selected features
         selected_features = ensel_bag.get_selected_features(fi_methods)
 
-        # save best bag and results to experiment
-        self.experiment.results["ensel"] = ModuleResults(
-            id="ensel",
-            experiment_id=self.experiment.experiment_id,
-            task_id=self.experiment.task_id,
-            model=ensel_bag,
-            scores=ensel_scores,
-            feature_importances=ensel_bag_fi,
-            predictions=ensel_bag.get_predictions(),
-            selected_features=selected_features,
-        )
+        # save best bag and results to local dict
+        results["ensel"] = {
+            "scores": ensel_scores,
+            "predictions": ensel_bag.get_predictions(),
+            "feature_importances": ensel_bag_fi,
+            "_bag": ensel_bag,
+        }
 
-    def _run_globalhp_optimization(self):
+        return selected_features
+
+    def _run_globalhp_optimization(self, results: dict) -> list[str]:
         """Optimization run with a global HP set over all inner folds."""
         logger.info("Running Optuna Optimization with a global HP set")
 
         # Optimize splits.
-        splits = self.data_splits
-        study_name = f"optuna_{self.experiment.experiment_id}_{self.experiment.task_id}"
+        splits = self.data_splits_
+        study_name = f"optuna_{self._outersplit_id}_{self.config.task_id}"
+        outersplit_task_id = f"{self._outersplit_id}_{self.config.task_id}"
+        task_path = f"outersplit{self._outersplit_id}/task{self.config.task_id}"
 
         # set up Optuna study
         objective = ObjectiveOptuna(
-            experiment=self.experiment,
+            outersplit_task_id=outersplit_task_id,
+            outersplit_id=self._outersplit_id,
+            ml_type=self.ml_type,
+            target_assignments=self.target_assignments,
+            feature_cols=self._feature_cols,
+            row_column=self.row_column,
+            data_test=self._data_test,
+            target_metric=self.target_metric,
+            feature_groups=self._feature_groups,
+            positive_class=self.positive_class,
+            config=self.config,
+            path_study=self._study_context.output_path,
+            task_path=task_path,
             data_splits=splits,
             study_name=study_name,
-            top_trials=self.top_trials,
-            mrmr_features=self.mrmr_features,
-            log_dir=self.log_dir,
+            top_trials=self.top_trials_,
+            mrmr_features=self.mrmr_features_,
+            log_dir=self._study_context.log_dir,
         )
 
         # multivariate sampler with group option
@@ -278,8 +412,8 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
             multivariate=True,
             group=True,
             constant_liar=True,
-            seed=self.experiment.ml_config.optuna_seed,
-            n_startup_trials=self.experiment.ml_config.n_optuna_startup_trials,
+            seed=self.config.optuna_seed,
+            n_startup_trials=self.config.n_optuna_startup_trials,
         )
 
         # create study with unique name and database
@@ -293,7 +427,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
             load_if_exists=True,
         )
         # store optuna db path
-        self.paths_optuna_db[study_name] = db_path
+        self.paths_optuna_db_[study_name] = db_path
 
         def logging_callback(study, trial):
             logger.set_log_group(LogGroup.OPTUNA)
@@ -307,7 +441,7 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
         study.optimize(
             objective,
             n_jobs=1,
-            n_trials=self.experiment.ml_config.n_trials,
+            n_trials=self.config.n_trials,
             callbacks=[logging_callback],
         )
 
@@ -324,8 +458,8 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
 
                 dict_optuna.append(
                     {
-                        "experiment_id": self.experiment.experiment_id,
-                        "task_id": self.experiment.task_id,
+                        "outersplit_id": self._outersplit_id,
+                        "task_id": self.config.task_id,
                         "trial": trial.number,
                         "value": trial.value,
                         "model_type": model_type,
@@ -341,9 +475,8 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
         )
 
         # display results
-        logger.set_log_group(LogGroup.SCORES, f"EXP {self.experiment.experiment_id} SQE TBD")
+        logger.set_log_group(LogGroup.SCORES, f"OUTER {self._outersplit_id} SQE TBD")
         logger.info("Optimization results: ")
-        # print("Best trial:", study.best_trial) #full info
         logger.info(
             f"Best trial number {study.best_trial.number}",
         )
@@ -355,39 +488,41 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
 
         logger.info("Create best bag.....")
         n_input_features = user_attrs["config_training"]["n_input_features"]
-        best_bag_feature_cols = self.mrmr_features[n_input_features]
+        best_bag_feature_cols = self.mrmr_features_[n_input_features]
+
+        # Compute outersplit_task_id from outersplit_id and task_id
+        training_id = f"{self._outersplit_id}_{self.config.task_id}"
 
         # create best bag from optuna info
         best_trainings = []
         for key, split in splits.items():
             best_trainings.append(
                 Training(
-                    training_id=self.experiment.id + "_" + str(key),
-                    ml_type=self.experiment.ml_type,
-                    target_assignments=self.experiment.target_assignments,
+                    training_id=training_id + "_" + str(key),
+                    ml_type=self.ml_type,
+                    target_assignments=self.target_assignments,
                     feature_cols=best_bag_feature_cols,
-                    row_id_col=self.experiment.row_id_col,
-                    data_train=split["train"],  # inner datasplit, train
-                    data_dev=split["test"],  # inner datasplit, dev
-                    data_test=self.experiment.data_test,
+                    row_id_col=self.row_column,
+                    data_train=split.train,  # inner datasplit, train
+                    data_dev=split.dev,  # inner datasplit, dev
+                    data_test=self._data_test,
                     config_training=user_attrs["config_training"],
-                    target_metric=self.experiment.target_metric,
-                    max_features=self.experiment.ml_config.max_features,
-                    feature_groups=self.experiment.feature_groups,
+                    target_metric=self.target_metric,
+                    max_features=self.config.max_features,
+                    feature_groups=self._feature_groups,
                 )
             )
         # create bag with all provided trainings
         best_bag = Bag(
-            bag_id=self.experiment.id + "_best",
+            bag_id=training_id + "_best",
             trainings=best_trainings,
-            target_assignments=self.experiment.target_assignments,
-            parallel_execution=self.experiment.ml_config.inner_parallelization,
-            num_workers=self.experiment.ml_config.n_workers,
-            target_metric=self.experiment.target_metric,
-            row_id_col=self.experiment.row_id_col,
-            ml_type=self.experiment.ml_type,
-            log_dir=self.log_dir,
-            # path?
+            target_assignments=self.target_assignments,
+            parallel_execution=self.config.inner_parallelization,
+            num_workers=self.config.n_workers,
+            target_metric=self.target_metric,
+            row_id_col=self.row_column,
+            ml_type=self.ml_type,
+            log_dir=self._study_context.log_dir,
         )
 
         # train all models in best_bag
@@ -399,12 +534,12 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
         # save performance values of best bag
         best_bag_performance = best_bag.get_performance()
         logger.info(f"Best bag performance {best_bag_performance}")
-        target_metric = self.experiment.target_metric
+        target_metric = self.target_metric
 
         # show and save test results
         logger.set_log_group(LogGroup.RESULTS)
         logger.info(
-            f"Experiment: {self.experiment.id} "
+            f"Training: {training_id} "
             f"{target_metric} "
             f"(best bag - ensembled): "
             f"Dev {best_bag_performance['dev_pool']:.3f}, "
@@ -416,37 +551,29 @@ class OctoCoreGeneric[TaskConfigType: Octo](ModuleBaseCore[TaskConfigType]):
             json.dump(best_bag_performance, f)
 
         # calculate feature importances of best bag
-        fi_methods = self.experiment.ml_config.fi_methods_bestbag
+        fi_methods = self.config.fi_methods_bestbag
         best_bag_fi = best_bag.calculate_feature_importances(fi_methods, partitions=["dev"])
 
         # calculate selected features
         selected_features = best_bag.get_selected_features(fi_methods)
 
-        # save best bag and results to experiment
-        self.experiment.results["best"] = ModuleResults(
-            id="best",
-            experiment_id=self.experiment.experiment_id,
-            task_id=self.experiment.task_id,
-            model=best_bag,
-            scores=best_bag_performance,
-            feature_importances=best_bag_fi,
-            selected_features=selected_features,
-            predictions=best_bag.get_predictions(),
-        )
+        # save best bag and results to local dict
+        results["best"] = {
+            "scores": best_bag_performance,
+            "predictions": best_bag.get_predictions(),
+            "feature_importances": best_bag_fi,
+            "_bag": best_bag,
+        }
 
-        # save selected features to experiment
+        # Store the best bag as the module's fitted model
+        self.model_ = best_bag
+
+        # log selected features info
         logger.set_log_group(LogGroup.RESULTS)
         logger.info("---")
-        logger.info(f"Number of original features: {len(self.experiment.feature_cols)}")
-        self.experiment.selected_features = selected_features
-        logger.info(f"Number of selected features: {len(self.experiment.selected_features)}")
-        if len(self.experiment.selected_features) == 0:
+        logger.info(f"Number of original features: {len(self._feature_cols)}")
+        logger.info(f"Number of selected features: {len(selected_features)}")
+        if len(selected_features) == 0:
             logger.warning("Best bag - all feature importances values are zero. This hints at a model related problem.")
 
-        return True
-
-
-class OctoCore(OctoCoreGeneric[Octo]):
-    """Octo Core."""
-
-    pass
+        return selected_features

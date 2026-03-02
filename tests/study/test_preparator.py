@@ -152,13 +152,12 @@ def test_prepare_full_process(octo_preparator):
     """Test preparation function."""
     prepared = octo_preparator.prepare()
 
-    assert "row_id" in prepared.data.columns
+    assert prepared.row_id_col in prepared.data.columns
     assert "group_features" in prepared.data.columns
     assert "group_sample_and_features" in prepared.data.columns
     assert prepared.data["bool_col"].dtype == int
-    assert prepared.data["null_col"].isna().all()
     assert np.isinf(prepared.data["inf_col"].iloc[0])
-    assert "single_value" not in prepared.feature_cols
+    assert "null_col" not in prepared.feature_cols
 
 
 def test_add_group_features_with_categorical_and_nan():

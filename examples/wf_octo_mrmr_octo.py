@@ -69,7 +69,7 @@ study = OctoClassification(
         Octo(
             description="step1_octo_full",
             task_id=0,
-            depends_on_task=-1,  # First task, depends on input
+            depends_on=None,  # First task, depends on input
             models=["ExtraTreesClassifier"],
             n_trials=100,  # 100 trials for hyperparameter optimization
             n_folds_inner=5,  # 5 inner folds
@@ -79,7 +79,7 @@ study = OctoClassification(
         Mrmr(
             description="step2_mrmr",
             task_id=1,
-            depends_on_task=0,
+            depends_on=0,
             n_features=15,  # Select top 15 features
             correlation_type="spearman",
         ),
@@ -87,7 +87,7 @@ study = OctoClassification(
         Octo(
             description="step3_octo_reduced",
             task_id=2,
-            depends_on_task=1,
+            depends_on=1,
             models=["ExtraTreesClassifier"],
             n_trials=100,
             n_folds_inner=5,

@@ -7,11 +7,10 @@ import pandas as pd
 import pytest
 from upath import UPath
 
-from octopus.modules import Octo
+from octopus.modules import Octo, Roc
 from octopus.study import OctoClassification, OctoRegression
 from octopus.study.core import _RUNNING_IN_TESTSUITE
 from octopus.study.types import DatasplitType, ImputationMethod, MLType
-from octopus.task import Task
 
 
 @pytest.fixture
@@ -162,7 +161,7 @@ def test_default_values():
         assert study.imputation_method == ImputationMethod.MEDIAN
         assert study.ignore_data_health_warning is False
         assert study.outer_parallelization is True
-        assert study.run_single_experiment_num == -1
+        assert study.run_single_outersplit_num == -1
 
 
 def test_ml_type_values():
@@ -195,7 +194,7 @@ def test_start_with_empty_study_valid():
             sample_id_col="id",
             path=temp_dir,
             start_with_empty_study=True,
-            workflow=[Octo(task_id=0), Task(task_id=1, depends_on_task=0, load_task=False)],
+            workflow=[Octo(task_id=0), Roc(task_id=1, depends_on=0, load_task=False)],
         )
         assert study.start_with_empty_study is True
 
@@ -216,7 +215,7 @@ def test_start_with_empty_study_invalid():
             sample_id_col="id",
             path=temp_dir,
             start_with_empty_study=True,
-            workflow=[Octo(task_id=0), Task(task_id=1, depends_on_task=0, load_task=True)],
+            workflow=[Octo(task_id=0), Roc(task_id=1, depends_on=0, load_task=True)],
         )
 
 
@@ -231,6 +230,6 @@ def test_start_with_empty_study_false_with_load_task():
             sample_id_col="id",
             path=temp_dir,
             start_with_empty_study=False,
-            workflow=[Octo(task_id=0), Task(task_id=1, depends_on_task=0, load_task=True)],
+            workflow=[Octo(task_id=0), Roc(task_id=1, depends_on=0, load_task=True)],
         )
         assert study.start_with_empty_study is False

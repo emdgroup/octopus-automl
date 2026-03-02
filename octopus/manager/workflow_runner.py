@@ -1,190 +1,247 @@
-"""Workflow task runner for processing experiments."""
+"""Workflow task runner for processing tasks."""
 
-import copy
+from __future__ import annotations
 
+import json
+
+import pandas as pd
 import ray
 from attrs import define, field, validators
 from upath import UPath
 
-from octopus.experiment import OctoExperiment
+from octopus.datasplit import OuterSplit
 from octopus.logger import get_logger
-from octopus.modules import modules_inventory
-from octopus.task import Task
+from octopus.modules.base import ModuleResult, ResultType, Task
+from octopus.study.context import StudyContext
+from octopus.utils import calculate_feature_groups
 
 logger = get_logger()
 
 
 @define
 class WorkflowTaskRunner:
-    """Runs workflow tasks for a single base experiment.
+    """Runs workflow tasks for a single fold.
 
     Handles the lifecycle of processing workflow tasks:
-    - Creating new experiments from templates
-    - Loading existing experiments
-    - Running ML modules and saving results
+    - Saving fold data
+    - Running tasks with dependencies
+    - Saving task results
 
     Attributes:
-        workflow: List of workflow tasks to process.
-        cpus_per_experiment: Number of CPUs allocated to each experiment for inner parallelization.
-        log_dir: Directory for individual worker logs.
+        study_context: Frozen runtime context containing study configuration.
+        workflow: List of workflow tasks to execute.
+        cpus_per_outersplit: Number of CPUs allocated to each task.
     """
 
+    study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     workflow: list[Task] = field(validator=[validators.instance_of(list)])
-    cpus_per_experiment: int = field(validator=[validators.instance_of(int)])
-    log_dir: UPath = field(validator=[validators.instance_of(UPath)])
+    cpus_per_outersplit: int = field(validator=[validators.instance_of(int)])
 
-    def run(self, base_experiment: OctoExperiment) -> None:
-        """Process all workflow tasks for a base experiment.
+    def run(self, outersplit_id: int, outersplit: OuterSplit) -> None:
+        """Process all workflow tasks for a single fold.
 
         Args:
-            base_experiment: The base experiment to process.
+            outersplit_id: Current fold ID
+            outersplit: OuterSplit containing traindev and test DataFrames
 
         Raises:
-            RuntimeError: If Ray is not initialized. Ray must be initialized by
-                OctoManager.run_outer_experiments() before calling this method.
+            RuntimeError: If Ray is not initialized.
         """
         if not ray.is_initialized():
             raise RuntimeError(
                 "Ray is not initialized. WorkflowTaskRunner.run() must be called "
-                "after Ray initialization by OctoManager.run_outer_experiments()."
+                "after Ray initialization by OctoManager.run_outersplits()."
             )
 
-        exp_path_dict: dict[int, UPath] = {}
+        # Save fold data
+        fold_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
+        fold_dir.mkdir(parents=True, exist_ok=True)
+        train_path = fold_dir / "data_train.parquet"
+        outersplit.traindev.to_parquet(str(train_path), storage_options=train_path.storage_options, engine="pyarrow")
+        test_path = fold_dir / "data_test.parquet"
+        outersplit.test.to_parquet(str(test_path), storage_options=test_path.storage_options, engine="pyarrow")
+
+        # task_results: dict[task_id -> dict[ResultType, ModuleResult]]
+        task_results: dict[int, dict[ResultType, ModuleResult]] = {}
 
         for task in self.workflow:
             self._log_task_info(task)
 
             if task.load_task:
-                self._load_experiment(base_experiment, task)
+                result = self._load_task(outersplit_id, task)
             else:
-                self._run_task(base_experiment, task, exp_path_dict)
+                result = self._run_task(outersplit_id, outersplit, task, task_results)
+            task_results[task.task_id] = result
 
     def _run_task(
         self,
-        base_experiment: OctoExperiment,
+        outersplit_id: int,
+        outersplit: OuterSplit,
         task: Task,
-        exp_path_dict: dict[int, UPath],
-    ) -> None:
-        """Run a single workflow task."""
-        experiment = self._create_experiment(base_experiment, task)
-        workflow_dir = self._ensure_workflow_dir(experiment)
-        save_path = workflow_dir / f"exp{experiment.experiment_id}_{experiment.task_id}.pkl"
-        assert experiment.task_id is not None  # Set in _create_experiment
-        exp_path_dict[experiment.task_id] = save_path
-
-        self._apply_dependencies(experiment, exp_path_dict)
-        self._execute_and_save(experiment, workflow_dir, save_path)
-
-    def _create_experiment(self, base_experiment: OctoExperiment, task: Task) -> OctoExperiment:
-        """Create a new experiment from base experiment and task."""
-        experiment = copy.deepcopy(base_experiment)
-        experiment.ml_module = task.module  # type: ignore[attr-defined]  # ClassVar in Task subclasses
-        experiment.ml_config = task
-        experiment.id = f"{experiment.id}_{task.task_id}"
-        experiment.task_id = task.task_id
-        experiment.depends_on_task = task.depends_on_task
-        experiment._task_path = UPath(
-            f"outersplit{experiment.experiment_id}",
-            f"workflowtask{task.task_id}",
-        )
-        experiment.num_assigned_cpus = self.cpus_per_experiment
-        return experiment
-
-    def _ensure_workflow_dir(self, experiment: OctoExperiment) -> UPath:
-        """Create and return the workflow directory for an experiment."""
-        workflow_dir = experiment.path_study / experiment.task_path
-        workflow_dir.mkdir(parents=True, exist_ok=True)
-        return workflow_dir
-
-    def _apply_dependencies(self, experiment: OctoExperiment, exp_path_dict: dict[int, UPath]) -> None:
-        """Apply dependencies from previous workflow tasks."""
-        if experiment.depends_on_task is not None and experiment.depends_on_task >= 0:
-            input_path = exp_path_dict[experiment.depends_on_task]
-            if not input_path.exists():
-                raise FileNotFoundError("Workflow task to be loaded does not exist")
-
-            input_experiment = OctoExperiment.from_pickle(input_path)
-            experiment.feature_cols = input_experiment.selected_features
-            experiment.prior_results = input_experiment.results
-            logger.info(f"Prior results keys: {experiment.prior_results.keys()}")
-
-        experiment.feature_groups = experiment.calculate_feature_groups(experiment.feature_cols)
-
-    def _execute_and_save(
-        self,
-        experiment: OctoExperiment,
-        workflow_dir: UPath,
-        save_path: UPath,
-    ) -> None:
-        """Execute the ML module and save results."""
-        logger.info(f"Running experiment: {experiment.id}")
-        experiment.to_pickle(save_path)
-
-        module = self._get_module(experiment)
-        experiment = module.run_experiment()
-
-        self._save_results(experiment, workflow_dir)
-        experiment.to_pickle(save_path)
-
-    def _get_module(self, experiment: OctoExperiment):
-        """Get the ML module for an experiment."""
-        if experiment.ml_module not in modules_inventory:
-            raise ValueError(f"ml_module {experiment.ml_module} not supported")
-        return modules_inventory[experiment.ml_module](experiment=experiment, log_dir=self.log_dir)
-
-    def _save_results(self, experiment: OctoExperiment, workflow_dir: UPath) -> None:
-        """Save experiment results (predictions and feature importance)."""
-        if not experiment.results:
-            return
-
-        for key in experiment.results:
-            result = experiment.results[key]
-
-            # Save predictions
-            predictions_path = (
-                workflow_dir / f"predictions_{experiment.experiment_id}_{experiment.task_id}_{key}.parquet"
-            )
-            result.create_prediction_df().to_parquet(
-                str(predictions_path),
-                storage_options=predictions_path.storage_options,
-                engine="pyarrow",
-            )
-
-            # Save feature importance
-            fi_path = workflow_dir / f"feature-importance_{experiment.experiment_id}_{experiment.task_id}_{key}.parquet"
-            result.create_feature_importance_df().to_parquet(
-                str(fi_path),
-                storage_options=fi_path.storage_options,
-                engine="pyarrow",
-            )
-
-    def _load_experiment(self, base_experiment: OctoExperiment, task: Task) -> None:
-        """Validate that an existing experiment exists on disk.
+        task_results: dict[int, dict[ResultType, ModuleResult]],
+    ) -> dict[ResultType, ModuleResult]:
+        """Run a single workflow task.
 
         Args:
-            base_experiment: The base experiment to determine the path.
-            task: The workflow task to load.
+            outersplit_id: Current fold ID
+            outersplit: OuterSplit containing traindev and test DataFrames
+            task: Task to run
+            task_results: Dictionary of results from previous tasks
+
+        Returns:
+            Dict mapping ResultType to ModuleResult.
 
         Raises:
-            FileNotFoundError: If the experiment file does not exist.
+            ValueError: If task depends on a task that has not run yet
         """
-        workflow_dir = (
-            base_experiment.path_study / f"outersplit{base_experiment.experiment_id}" / f"workflowtask{task.task_id}"
+        # Resolve upstream dependencies
+        if task.depends_on is not None:
+            if task.depends_on not in task_results:
+                raise ValueError(f"Task {task.task_id} depends on task {task.depends_on} which has not run yet")
+            upstream_results = task_results[task.depends_on]
+            feature_cols = upstream_results[ResultType.BEST].selected_features
+            # Build prior_results by concatenating DataFrames from all upstream ModuleResult values
+            prior_results: dict[str, pd.DataFrame] = {}
+            for df_name in ["scores", "predictions", "feature_importances"]:
+                dfs = []
+                for module_result in upstream_results.values():
+                    df = getattr(module_result, df_name)
+                    if isinstance(df, pd.DataFrame) and not df.empty:
+                        out = df.copy()
+                        out["module"] = module_result.module
+                        dfs.append(out)
+                prior_results[df_name] = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+            logger.info(f"Prior results keys: {prior_results.keys()}")
+        else:
+            feature_cols = self.study_context.feature_cols
+            prior_results = {}
+
+        # Calculate feature groups
+        feature_groups = calculate_feature_groups(outersplit.traindev, feature_cols)
+
+        # Create output directory
+        output_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Running task {task.task_id} for fold {outersplit_id}")
+
+        # Create execution module from config and run fit()
+        module = task.create_module()
+        results = module.fit(
+            data_traindev=outersplit.traindev,
+            data_test=outersplit.test,
+            feature_cols=feature_cols,
+            study_context=self.study_context,
+            outersplit_id=outersplit_id,
+            output_dir=output_dir,
+            num_assigned_cpus=self.cpus_per_outersplit,
+            feature_groups=feature_groups,
+            prior_results=prior_results,
         )
-        load_path = workflow_dir / f"exp{base_experiment.experiment_id}_{task.task_id}.pkl"
 
-        if not load_path.exists():
-            raise FileNotFoundError("Workflow task to be loaded does not exist")
+        # Save task configuration
+        self._save_task_config(task, output_dir)
 
-        OctoExperiment.from_pickle(load_path)
-        logger.info(f"Validated existing experiment at: {load_path}")
+        # Save task runtime context (feature_cols, feature_groups)
+        self._save_task_context(output_dir, feature_cols, feature_groups)
+
+        # Save each ModuleResult to its own subdirectory
+        for result_type, module_result in results.items():
+            module_result.save(output_dir / result_type.value)
+
+        return results
+
+    def _load_task(
+        self,
+        outersplit_id: int,
+        task: Task,
+    ) -> dict[ResultType, ModuleResult]:
+        """Load a pre-existing task from disk.
+
+        Scans for ResultType subdirectories and loads ModuleResult from each.
+
+        Args:
+            outersplit_id: Current fold ID
+            task: Task config for the task to load
+
+        Returns:
+            Dict mapping ResultType to ModuleResult.
+
+        Raises:
+            FileNotFoundError: If no result directories are found
+        """
+        input_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
+
+        results: dict[ResultType, ModuleResult] = {}
+        for rt in ResultType:
+            rt_dir = input_dir / rt.value
+            if rt_dir.exists():
+                results[rt] = ModuleResult.load(rt_dir, result_type=rt, module=task.module)
+
+        if not results:
+            raise FileNotFoundError(f"Cannot load task {task.task_id}: no result directories found at {input_dir}")
+
+        total_features = sum(len(r.selected_features) for r in results.values())
+        logger.info(f"Loaded task {task.task_id}: {len(results)} result types, {total_features} total features")
+
+        return results
+
+    def _save_task_config(self, task: Task, output_dir: UPath) -> None:
+        """Save task configuration to JSON.
+
+        Args:
+            task: Task to save configuration for
+            output_dir: Directory to save configuration in
+        """
+        config_path = output_dir / "task_config.json"
+
+        from attrs import asdict  # noqa: PLC0415
+
+        config_dict = asdict(task)
+
+        with config_path.open("w") as f:
+            json.dump(config_dict, f, indent=2)
+
+    def _save_task_context(
+        self,
+        output_dir: UPath,
+        feature_cols: list[str],
+        feature_groups: dict | None,
+    ) -> None:
+        """Save task runtime context to disk.
+
+        Saves the input feature columns and correlation-based feature groups
+        that were used when running this task. These are needed by
+        ``TaskPredictor`` for prediction and feature importance computation.
+
+        Files are written to a ``module/`` subdirectory to match the path
+        expected by ``OuterSplitLoader``.
+
+        Args:
+            output_dir: Task output directory (e.g. outersplit0/task0/).
+            feature_cols: Input feature columns used by this task.
+            feature_groups: Correlation-based feature groups, or None.
+        """
+        module_dir = output_dir / "module"
+        module_dir.mkdir(parents=True, exist_ok=True)
+
+        with (module_dir / "feature_cols.json").open("w") as f:
+            json.dump(feature_cols, f, indent=2)
+
+        if feature_groups:
+            with (module_dir / "feature_groups.json").open("w") as f:
+                json.dump(feature_groups, f, indent=2)
 
     def _log_task_info(self, task: Task) -> None:
-        """Log information about a workflow task."""
+        """Log information about a workflow task.
+
+        Args:
+            task: Task to log information about
+        """
         logger.info(
             f"Processing workflow task: {task.task_id} | "
-            f"Input item: {task.depends_on_task} | "
-            f"Module: {task.module} | "  # type: ignore[attr-defined]
+            f"Input task: {task.depends_on} | "
+            f"Module: {task.module} | "
             f"Description: {task.description} | "
-            f"Load existing workflow task: {task.load_task}"
+            f"Load existing: {task.load_task}"
         )

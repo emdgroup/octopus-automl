@@ -310,17 +310,40 @@ class Training:
             raise RuntimeError(f"Model training failed for {self.ml_model_type}: {e}") from e
 
         # (4) Model prediction
+        # Parse training_id to get split metadata: "outersplit_task_innersplit" (e.g., "1_0_2")
+        parts = self.training_id.split("_")
+        try:
+            outer_split_id = int(parts[0])
+            task_id = int(parts[1])
+            inner_split_id = str(int(parts[2]))
+        except (ValueError, IndexError):
+            outer_split_id = 0
+            task_id = 0
+            inner_split_id = self.training_id
+
         self.predictions["train"] = pd.DataFrame()
         self.predictions["train"][self.row_id_col] = data_train[self.row_id_col]
         self.predictions["train"]["prediction"] = self.model.predict(self.x_train_processed)
+        self.predictions["train"]["outer_split_id"] = outer_split_id
+        self.predictions["train"]["inner_split_id"] = inner_split_id
+        self.predictions["train"]["partition"] = "train"
+        self.predictions["train"]["task_id"] = task_id
 
         self.predictions["dev"] = pd.DataFrame()
         self.predictions["dev"][self.row_id_col] = self.data_dev[self.row_id_col]
         self.predictions["dev"]["prediction"] = self.model.predict(self.x_dev_processed)
+        self.predictions["dev"]["outer_split_id"] = outer_split_id
+        self.predictions["dev"]["inner_split_id"] = inner_split_id
+        self.predictions["dev"]["partition"] = "dev"
+        self.predictions["dev"]["task_id"] = task_id
 
         self.predictions["test"] = pd.DataFrame()
         self.predictions["test"][self.row_id_col] = self.data_test[self.row_id_col]
         self.predictions["test"]["prediction"] = self.model.predict(self.x_test_processed)
+        self.predictions["test"]["outer_split_id"] = outer_split_id
+        self.predictions["test"]["inner_split_id"] = inner_split_id
+        self.predictions["test"]["partition"] = "test"
+        self.predictions["test"]["task_id"] = task_id
 
         # special treatment of targets due to sklearn
         if len(self.target_assignments) == 1:

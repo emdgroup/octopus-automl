@@ -197,6 +197,21 @@ ignore_missing_imports = true
 module = "catboost.*"
 ignore_missing_imports = true
 
+# Ignore attr-defined errors in module __init__ files
+# This is a known limitation with mypy not recognizing attrs @define decorator
+[[tool.mypy.overrides]]
+module = [
+    "octopus.modules.sfs",
+    "octopus.modules.roc",
+    "octopus.modules.rfe2",
+    "octopus.modules.rfe",
+    "octopus.modules.octo",
+    "octopus.modules.mrmr",
+    "octopus.modules.efs",
+    "octopus.modules.boruta",
+]
+disable_error_code = ["attr-defined"]
+
 [tool.pytest]
 testpaths = ["tests"]
 markers = ["slow: mark test as slow.", "windows: mark test to run in windows."]
