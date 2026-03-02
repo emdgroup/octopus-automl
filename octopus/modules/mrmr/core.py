@@ -16,8 +16,6 @@ from octopus.modules.base import FeatureSelectionExecution, FIMethod, ModuleResu
 from octopus.modules.utils import rdc_correlation_matrix
 
 if TYPE_CHECKING:
-    from upath import UPath
-
     from octopus.modules.mrmr.module import Mrmr  # noqa: F401
     from octopus.study.context import StudyContext
 
@@ -30,15 +28,13 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
-        data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
-        output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        prior_results: dict | None,
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit MRMR module by selecting features with maximum relevance and minimum redundancy."""
         prior_results = prior_results or {}
@@ -115,8 +111,7 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
             if subset.empty:
                 available_types = fi_df[["module", "fi_method"]].drop_duplicates().to_dict("records")
                 raise ValueError(
-                    f"No feature importances for module={self.config.results_module}, fi_method={fi_method}. "
-                    f"Available: {available_types}"
+                    f"No feature importances for module={self.config.results_module}, fi_method={fi_method}. Available: {available_types}"
                 )
 
     def _log_outersplit_info(self, outersplit_id: int, prior_results: dict) -> None:

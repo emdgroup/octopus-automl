@@ -80,15 +80,17 @@ class OctoModule(MLModuleExecution["Octo"]):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        num_assigned_cpus: int,
+        feature_groups: dict | None,
+        prior_results: dict | None,
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit Octo module by running hyperparameter optimization with Optuna."""
         # Store execution state temporarily for internal methods
@@ -348,11 +350,7 @@ class OctoModule(MLModuleExecution["Octo"]):
         logger.set_log_group(LogGroup.RESULTS)
         logger.info("Ensemble selection performance")
         logger.info(
-            f"Training: {training_id} "
-            f"{target_metric} "
-            f"(ensemble selection): "
-            f"Dev {ensel_scores['dev_pool']:.3f}, "
-            f"Test {ensel_scores['test_pool']:.3f}"
+            f"Training: {training_id} {target_metric} (ensemble selection): Dev {ensel_scores['dev_pool']:.3f}, Test {ensel_scores['test_pool']:.3f}"
         )
 
         with (self.path_results / "ensel_scores_scores.json").open("w", encoding="utf-8") as f:

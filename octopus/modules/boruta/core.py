@@ -67,15 +67,13 @@ class BorutaModule(FeatureSelectionExecution["Boruta"]):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        outersplit_id: int,
         output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit Boruta module for feature selection."""
         from octopus._optional.burota import BorutaPy  # noqa: PLC0415

@@ -24,8 +24,6 @@ from octopus.modules.base import FeatureSelectionExecution, ModuleResult, Result
 from octopus.modules.utils import rdc_correlation_matrix
 
 if TYPE_CHECKING:
-    from upath import UPath
-
     from octopus.modules.roc.module import Roc  # noqa: F401
     from octopus.study.context import StudyContext
 
@@ -53,15 +51,11 @@ class RocModule(FeatureSelectionExecution["Roc"]):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
-        data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        outersplit_id: int,
-        output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit ROC module by identifying and filtering correlated features."""
         # Set seeds for reproducibility

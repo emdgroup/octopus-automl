@@ -250,15 +250,16 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        num_assigned_cpus: int,
+        feature_groups: dict | None,
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit AutoGluon TabularPredictor."""
         # Store temporary execution state (available during fit)
@@ -288,9 +289,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
             self._num_cpus_allocated = min(num_assigned_cpus, self.config.num_cpus)
 
         logger.info(
-            f"CPU Resources | Available: {num_assigned_cpus} | "
-            f"Requested: {self.config.num_cpus} | "
-            f"Allocated: {self._num_cpus_allocated}"
+            f"CPU Resources | Available: {num_assigned_cpus} | Requested: {self.config.num_cpus} | Allocated: {self._num_cpus_allocated}"
         )
 
         # Ensure AutoGluon uses existing Ray instance if available

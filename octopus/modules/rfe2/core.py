@@ -31,15 +31,17 @@ class Rfe2Module(OctoModule):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        num_assigned_cpus: int,
+        feature_groups: dict | None,
+        prior_results: dict | None,
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit Rfe2 module by running Octo optimization followed by RFE."""
         # Store execution state temporarily (inherits Octo's pattern)

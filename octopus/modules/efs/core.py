@@ -135,15 +135,15 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
         output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        num_assigned_cpus: int,
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit EFS module by creating and optimizing an ensemble of models."""
         # Store execution state temporarily for internal methods
