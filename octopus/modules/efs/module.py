@@ -1,5 +1,3 @@
-# type: ignore
-
 """Efs module (Ensemble Feature Selection) with fit/predict interface."""
 
 from __future__ import annotations
