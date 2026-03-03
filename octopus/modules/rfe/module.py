@@ -6,7 +6,7 @@ from attrs import define, field, validators
 
 from octopus.modules.base import Task
 
-from . import RfeModule
+from .core import RfeModule
 
 
 @define

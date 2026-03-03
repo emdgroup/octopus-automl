@@ -10,7 +10,7 @@ from octopus.logger import get_logger
 from octopus.models import Models
 from octopus.modules.base import Task
 
-from . import OctoModule
+from .core import OctoModule  # type: ignore[attr-defined]
 
 logger = get_logger()
 

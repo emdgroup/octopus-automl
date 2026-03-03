@@ -1,6 +1,5 @@
 """Init."""
 
-from .core import EfsModule
 from .module import Efs
 
-__all__ = ["Efs", "EfsModule"]
+__all__ = ["Efs"]

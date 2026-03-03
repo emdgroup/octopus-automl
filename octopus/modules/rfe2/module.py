@@ -6,7 +6,7 @@ from attrs import define, field, validators
 
 from octopus.modules.octo.module import Octo
 
-from . import Rfe2Module
+from .core import Rfe2Module  # type: ignore[attr-defined]
 
 
 @define
