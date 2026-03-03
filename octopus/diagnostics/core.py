@@ -57,7 +57,7 @@ class StudyDiagnostics:
         study_path: Path to the study directory.
 
     Raises:
-        FileNotFoundError: If the study directory or config.json does not exist.
+        FileNotFoundError: If the study directory or study_config.json does not exist.
 
     Example::
 
@@ -74,7 +74,7 @@ class StudyDiagnostics:
             raise FileNotFoundError(f"Study path does not exist: {self._study_path}")
 
         # Load config
-        config_path = self._study_path / "config.json"
+        config_path = self._study_path / "study_config.json"
         if config_path.exists():
             with open(config_path) as f:
                 self._config: dict[str, Any] = json.load(f)

@@ -220,12 +220,13 @@ class TestOctoTimeToEvent:
             study_path = Path(temp_dir) / "test_octo_t2e_execution"
             assert study_path.exists(), "Study directory should be created"
 
-            assert (study_path / "octo_manager.log").exists(), "Octo Manager log file should exist"
+            assert (study_path / "study.log").exists(), "Study log file should exist"
 
             # Check for expected files (new architecture uses files, not directories)
-            assert (study_path / "data.parquet").exists(), "Data parquet file should exist"
+            assert (study_path / "data_raw.parquet").exists(), "Data parquet file should exist"
             assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet file should exist"
-            assert (study_path / "config.json").exists(), "Config JSON file should exist"
+            assert (study_path / "study_config.json").exists(), "Config JSON file should exist"
+            assert (study_path / "study_meta.json").exists(), "Study meta JSON file should exist"
             assert (study_path / "outersplit0").exists(), "Outersplit directory should exist"
 
             # Verify that the Octo step was executed by checking for workflow directories

@@ -17,16 +17,7 @@ from upath import UPath
 
 from octopus.metrics.utils import get_performance_from_model
 from octopus.predict.study_io import StudyLoader, StudyMetadata, _to_upath
-
-
-def _get_octopus_version() -> str:
-    """Get the current octopus package version, or 'unknown' if unavailable."""
-    try:
-        from importlib.metadata import version  # noqa: PLC0415
-
-        return version("octopus-automl")
-    except Exception:
-        return "unknown"
+from octopus.utils import get_version, joblib_load, joblib_save
 
 
 @define(slots=False)
@@ -493,8 +484,6 @@ class TaskPredictor:
         Args:
             path: Directory path to save to. Created if it doesn't exist.
         """
-        import joblib  # noqa: PLC0415
-
         save_dir = UPath(path)
         save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -520,7 +509,7 @@ class TaskPredictor:
         models_dir = save_dir / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
         for split_id in self._outersplits:
-            joblib.dump(self._models[split_id], models_dir / f"model_{split_id:03d}.joblib")
+            joblib_save(self._models[split_id], models_dir / f"model_{split_id:03d}.joblib")
 
         # Save selected features
         features_dir = save_dir / "selected_features"
@@ -530,9 +519,8 @@ class TaskPredictor:
                 json.dump(self._selected_features[split_id], f)
 
         # Save version info
-        version = _get_octopus_version()
         with (save_dir / "version.json").open("w") as f:
-            json.dump({"octopus_version": version}, f, indent=2)
+            json.dump({"octopus_version": get_version()}, f, indent=2)
 
     @classmethod
     def load(cls, path: str | UPath) -> TaskPredictor:
@@ -545,8 +533,6 @@ class TaskPredictor:
             A new TaskPredictor instance that can predict without the
             original study directory.
         """
-        import joblib  # noqa: PLC0415
-
         load_dir = UPath(path)
 
         # Load metadata
@@ -559,7 +545,7 @@ class TaskPredictor:
             with version_path.open() as f:
                 version_info = json.load(f)
             saved_version = version_info.get("octopus_version", "unknown")
-            current_version = _get_octopus_version()
+            current_version = get_version()
             if saved_version not in ("unknown", current_version):
                 import warnings  # noqa: PLC0415
 
@@ -602,7 +588,7 @@ class TaskPredictor:
         instance._models = {}
         models_dir = load_dir / "models"
         for split_id in instance._outersplits:
-            instance._models[split_id] = joblib.load(models_dir / f"model_{split_id:03d}.joblib")
+            instance._models[split_id] = joblib_load(models_dir / f"model_{split_id:03d}.joblib")
 
         # Load selected features
         instance._selected_features = {}

@@ -5,11 +5,9 @@
 from __future__ import annotations
 
 import copy
-import json
 from typing import TYPE_CHECKING, Any
 
 import optuna
-import optuna.storages.journal
 import pandas as pd
 from attrs import Factory, define, field
 from optuna.trial import TrialState
@@ -23,8 +21,7 @@ from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.objective_optuna import ObjectiveOptuna
 from octopus.modules.octo.training import Training
-
-from .optuna_storage_backend import JournalFsspecFileBackend
+from octopus.utils import joblib_load
 
 if TYPE_CHECKING:
     from octopus.modules.octo.module import Octo  # noqa: F401
@@ -40,9 +37,6 @@ class OctoModule(MLModuleExecution["Octo"]):
     # Internal state (set during fit)
     data_splits_: InnerSplits = field(init=False, default=Factory(dict))
     """Data splits for inner CV."""
-
-    paths_optuna_db_: dict[str, UPath] = field(init=False, default=Factory(dict))
-    """Paths to Optuna databases."""
 
     top_trials_: list = field(init=False, default=Factory(list))
     """Top performing trials."""
@@ -158,16 +152,6 @@ class OctoModule(MLModuleExecution["Octo"]):
         return self._output_dir
 
     @property
-    def path_trials(self) -> UPath:
-        """Trials path (available during fit)."""
-        return self.path_module / "trials"
-
-    @property
-    def path_results(self) -> UPath:
-        """Results path (available during fit)."""
-        return self.path_module / "results"
-
-    @property
     def datasplit_column(self) -> str:
         """Column used for data splitting (available during fit)."""
         if self._study_context.datasplit_type == "sample":
@@ -226,12 +210,9 @@ class OctoModule(MLModuleExecution["Octo"]):
             process_id=f"OUTER {self._outersplit_id} SEQ TBD",
         ).get_inner_splits()
 
-        # if we don't want to resume optimization:
-        # delete directories /trials /results to ensure clean state
-        # of module when restarted, required for parallel optuna runs
-        # as optuna.create(...,load_if_exists=True)
-        for directory in [self.path_trials, self.path_results]:
-            if not self.config.resume_optimization and directory.exists():
+        # delete directories /scratch /results to ensure clean state
+        for directory in [self.path_module / "scratch", self.path_module / "results"]:
+            if directory.exists():
                 directory.rmdir(recursive=True)
             directory.mkdir(parents=True, exist_ok=True)
 
@@ -295,7 +276,7 @@ class OctoModule(MLModuleExecution["Octo"]):
         """Run ensemble selection."""
         ensel = EnSel(
             target_metric=self.target_metric,
-            path_trials=self.path_trials,
+            path_trials=self.path_module / "scratch",
             max_n_iterations=100,
             row_id_col=self.row_column,
             target_assignments=self.target_assignments,
@@ -316,7 +297,7 @@ class OctoModule(MLModuleExecution["Octo"]):
         trainings = []
         train_id = 0
         for path, weight in ensemble_paths_dict.items():
-            bag = Bag.from_pickle(path)
+            bag = joblib_load(path)
             for training in bag.trainings:
                 for _ in range(int(weight)):
                     train_cp = copy.deepcopy(training)
@@ -338,9 +319,6 @@ class OctoModule(MLModuleExecution["Octo"]):
             ml_type=self.ml_type,
             log_dir=self._study_context.log_dir,
         )
-        # save ensel bag
-        ensel_bag.to_pickle(self.path_results / "ensel_bag.pkl")
-
         # save performance values of best bag
         ensel_scores = ensel_bag.get_performance()
         target_metric = self.target_metric
@@ -354,9 +332,6 @@ class OctoModule(MLModuleExecution["Octo"]):
             f"Dev {ensel_scores['dev_pool']:.3f}, "
             f"Test {ensel_scores['test_pool']:.3f}"
         )
-
-        with (self.path_results / "ensel_scores_scores.json").open("w", encoding="utf-8") as f:
-            json.dump(ensel_scores, f)
 
         # calculate feature importances of best bag
         fi_methods = []  # disable calculation of pfi for ensel_bag
@@ -416,18 +391,12 @@ class OctoModule(MLModuleExecution["Octo"]):
             n_startup_trials=self.config.n_optuna_startup_trials,
         )
 
-        # create study with unique name and database
-        db_path = self.path_module / (study_name + "_optuna.log")
-        storage = optuna.storages.JournalStorage(JournalFsspecFileBackend(db_path))
+        # create study with in-memory storage
         study = optuna.create_study(
             study_name=study_name,
             direction="maximize",  # metric adjustment in optuna objective
             sampler=sampler,
-            storage=storage,
-            load_if_exists=True,
         )
-        # store optuna db path
-        self.paths_optuna_db_[study_name] = db_path
 
         def logging_callback(study, trial):
             logger.set_log_group(LogGroup.OPTUNA)
@@ -467,7 +436,7 @@ class OctoModule(MLModuleExecution["Octo"]):
                         "param_value": str(trial.params[name]),
                     }
                 )
-        dict_optuna_path = self.path_module / f"{study_name}_optuna_results.parquet"
+        dict_optuna_path = self.path_module / "results" / "optuna_results.parquet"
         pd.DataFrame(dict_optuna).to_parquet(
             str(dict_optuna_path),
             storage_options=dict_optuna_path.storage_options,
@@ -528,9 +497,6 @@ class OctoModule(MLModuleExecution["Octo"]):
         # train all models in best_bag
         best_bag.fit()
 
-        # save best bag
-        best_bag.to_pickle(self.path_results / "best_bag.pkl")
-
         # save performance values of best bag
         best_bag_performance = best_bag.get_performance()
         logger.info(f"Best bag performance {best_bag_performance}")
@@ -545,10 +511,6 @@ class OctoModule(MLModuleExecution["Octo"]):
             f"Dev {best_bag_performance['dev_pool']:.3f}, "
             f"Test {best_bag_performance['test_pool']:.3f}"
         )
-
-        # save best bag performance
-        with (self.path_results / "best_bag_performance.json").open("w", encoding="utf-8") as f:
-            json.dump(best_bag_performance, f)
 
         # calculate feature importances of best bag
         fi_methods = self.config.fi_methods_bestbag

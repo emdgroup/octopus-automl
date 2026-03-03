@@ -117,7 +117,7 @@ def _setup_worker_logging(log_dir: UPath):
     # task_id = ray.get_runtime_context().get_task_id()
     # worker_log_file = log_dir / f"octo_worker.{task_id}.log"
     # but for now every worker just logs into the same file
-    worker_log_file = log_dir / "octo_manager.log"
+    worker_log_file = log_dir / "study.log"
     set_logger_filename(log_file=worker_log_file)
 
 

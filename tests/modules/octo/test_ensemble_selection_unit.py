@@ -10,6 +10,7 @@ from upath import UPath
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.training import Training
+from octopus.utils import joblib_save
 
 # Utility functions for creating mock data and bags
 
@@ -162,8 +163,8 @@ def create_mock_trial_directory(
 
     for i, (bag_id, dev_mae, test_mae) in enumerate(bag_performances):
         bag = create_mock_bag(trials_path, bag_id, dev_mae, test_mae, exact_performance=exact_performance)
-        bag_file = trials_path / f"trial{i}_bag.pkl"
-        bag.to_pickle(bag_file)
+        bag_file = trials_path / f"trial_{i}_bag.joblib"
+        joblib_save(bag, bag_file)
 
     return trials_path
 
