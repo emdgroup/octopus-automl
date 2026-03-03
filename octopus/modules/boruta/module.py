@@ -1,5 +1,3 @@
-# type: ignore
-
 """Boruta module with fit/predict interface."""
 
 from __future__ import annotations
