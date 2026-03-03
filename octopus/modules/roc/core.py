@@ -1,5 +1,3 @@
-# type: ignore
-
 """ROC execution module."""
 
 from __future__ import annotations
@@ -24,13 +22,15 @@ from octopus.modules.base import FeatureSelectionExecution, ModuleResult, Result
 from octopus.modules.utils import rdc_correlation_matrix
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from octopus.modules.roc.module import Roc  # noqa: F401
     from octopus.study.context import StudyContext
 
 logger = get_logger()
 
 # Filter functions for feature selection
-filter_inventory = {
+filter_inventory: dict[str, dict[str, Callable]] = {
     "mutual_info": {
         "classification": mutual_info_classif,
         "regression": mutual_info_regression,
@@ -74,7 +74,6 @@ class RocModule(FeatureSelectionExecution["Roc"]):
         logger.info("Calculating dependency to target")
         if study_context.ml_type == "timetoevent":
             logger.info("Time2Event: Note, that the first group element is selected.")
-            dependency = None  # Not used for timetoevent
         elif self.config.filter_type == "mutual_info":
             # Set random state
             values = filter_inventory[self.config.filter_type][study_context.ml_type](
@@ -99,7 +98,7 @@ class RocModule(FeatureSelectionExecution["Roc"]):
             raise ValueError(f"Correlation type {self.config.correlation_type} not supported")
 
         # Build graph of correlated features
-        g = nx.Graph()
+        g: nx.Graph = nx.Graph()
         for i in range(len(feature_cols)):
             for j in range(i + 1, len(feature_cols)):
                 if pos_corr_matrix[i, j] > self.config.threshold:
