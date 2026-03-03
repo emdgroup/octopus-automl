@@ -1,6 +1,5 @@
 """Test ResourceConfig, OctoManager, and WorkflowTaskRunner from octopus.manager."""
 
-import json
 from unittest.mock import Mock, patch
 
 import attrs
@@ -12,7 +11,6 @@ from octopus.datasplit import OuterSplit
 from octopus.manager import OctoManager
 from octopus.manager.core import ResourceConfig
 from octopus.manager.workflow_runner import WorkflowTaskRunner
-from octopus.modules.base import ResultType
 from octopus.study.context import StudyContext
 
 # =============================================================================
@@ -29,14 +27,12 @@ def mock_workflow():
             depends_on=0,
             module="test_module",
             description="Test",
-            load_task=False,
         ),
         Mock(
             task_id=2,
             depends_on=1,
             module="test_module",
             description="Test",
-            load_task=False,
         ),
     ]
 
@@ -386,104 +382,3 @@ class TestOctoManager:
 # =============================================================================
 # WorkflowTaskRunner Tests
 # =============================================================================
-
-
-class TestLoadTask:
-    """Tests for WorkflowTaskRunner._load_task()."""
-
-    @pytest.fixture
-    def runner(self, tmp_path):
-        """Create a WorkflowTaskRunner with output_path pointing to tmp_path."""
-        ctx = StudyContext(
-            ml_type="classification",
-            target_metric="AUCROC",
-            metrics=["AUCROC"],
-            target_assignments={"default": "target"},
-            positive_class=1,
-            stratification_col=None,
-            datasplit_type="sample",
-            sample_id_col="sample_id",
-            feature_cols=["feature1", "feature2"],
-            row_id_col="row_id",
-            output_path=UPath(tmp_path),
-            log_dir=UPath(tmp_path),
-        )
-        return WorkflowTaskRunner(study_context=ctx, workflow=[], cpus_per_outersplit=1)
-
-    def test_load_task_reads_from_result_subdirectory(self, runner, tmp_path):
-        """Test that _load_task reads ModuleResult from best/ subdirectory."""
-        best_dir = tmp_path / "outersplit0" / "task0" / "best"
-        best_dir.mkdir(parents=True)
-
-        # Write selected_features.json in best/ dir
-        with open(best_dir / "selected_features.json", "w") as f:
-            json.dump(["f1", "f2", "f3"], f)
-
-        task = Mock(task_id=0, module="test_module")
-        results = runner._load_task(outersplit_id=0, task=task)
-
-        assert ResultType.BEST in results
-        assert results[ResultType.BEST].selected_features == ["f1", "f2", "f3"]
-        assert results[ResultType.BEST].module == "test_module"
-
-    def test_load_task_no_result_dirs_raises(self, runner, tmp_path):
-        """Test that _load_task raises FileNotFoundError if no result directories found."""
-        task_dir = tmp_path / "outersplit0" / "task0"
-        task_dir.mkdir(parents=True)
-
-        task = Mock(task_id=0, module="test_module")
-        with pytest.raises(FileNotFoundError, match=r"no result directories found"):
-            runner._load_task(outersplit_id=0, task=task)
-
-    def test_load_task_with_parquet_results(self, runner, tmp_path):
-        """Test that _load_task loads parquet results from best/ subdirectory."""
-        best_dir = tmp_path / "outersplit0" / "task0" / "best"
-        best_dir.mkdir(parents=True)
-
-        # Write selected_features.json
-        with open(best_dir / "selected_features.json", "w") as f:
-            json.dump(["f1", "f2"], f)
-
-        # Write feature importances parquet
-        fi_df = pd.DataFrame(
-            {
-                "feature": ["f1", "f2"],
-                "importance": [0.6, 0.4],
-                "fi_method": ["internal"] * 2,
-                "fi_dataset": ["train"] * 2,
-                "training_id": ["rfe"] * 2,
-                "result_type": ["best"] * 2,
-                "module": ["rfe"] * 2,
-            }
-        )
-        fi_df.to_parquet(best_dir / "feature_importances.parquet", engine="pyarrow")
-
-        task = Mock(task_id=0, module="rfe")
-        results = runner._load_task(outersplit_id=0, task=task)
-
-        assert results[ResultType.BEST].selected_features == ["f1", "f2"]
-        assert not results[ResultType.BEST].feature_importances.empty
-
-    def test_load_task_multiple_result_types(self, runner, tmp_path):
-        """Test that _load_task loads both best and ensemble_selection if present."""
-        task_dir = tmp_path / "outersplit0" / "task0"
-
-        # Create best/ directory
-        best_dir = task_dir / "best"
-        best_dir.mkdir(parents=True)
-        with open(best_dir / "selected_features.json", "w") as f:
-            json.dump(["f1", "f2"], f)
-
-        # Create ensemble_selection/ directory
-        ensel_dir = task_dir / "ensemble_selection"
-        ensel_dir.mkdir(parents=True)
-        with open(ensel_dir / "selected_features.json", "w") as f:
-            json.dump(["f1"], f)
-
-        task = Mock(task_id=0, module="octo")
-        results = runner._load_task(outersplit_id=0, task=task)
-
-        assert ResultType.BEST in results
-        assert ResultType.ENSEMBLE_SELECTION in results
-        assert results[ResultType.BEST].selected_features == ["f1", "f2"]
-        assert results[ResultType.ENSEMBLE_SELECTION].selected_features == ["f1"]

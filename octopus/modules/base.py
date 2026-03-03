@@ -159,7 +159,6 @@ class Task(ABC):
     task_id: int = field(validator=[validators.instance_of(int), validators.ge(0)])
     depends_on: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
     description: str = field(default="", validator=[validators.instance_of(str)])
-    load_task: bool = field(default=False, validator=[validators.instance_of(bool)])
     categorical_encoding: bool = field(default=False, validator=[validators.instance_of(bool)])
 
     @property

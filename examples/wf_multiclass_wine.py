@@ -49,7 +49,6 @@ study = OctoClassification(
             task_id=0,
             depends_on=None,
             description="step_1_octo_multiclass",
-            load_task=False,
             n_folds_inner=5,
             models=[
                 "ExtraTreesClassifier",

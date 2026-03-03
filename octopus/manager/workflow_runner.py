@@ -67,10 +67,7 @@ class WorkflowTaskRunner:
         for task in self.workflow:
             self._log_task_info(task)
 
-            if task.load_task:
-                result = self._load_task(outersplit_id, task)
-            else:
-                result = self._run_task(outersplit_id, outersplit, task, task_results)
+            result = self._run_task(outersplit_id, outersplit, task, task_results)
             task_results[task.task_id] = result
 
     def _run_task(
@@ -151,41 +148,6 @@ class WorkflowTaskRunner:
 
         return results
 
-    def _load_task(
-        self,
-        outersplit_id: int,
-        task: Task,
-    ) -> dict[ResultType, ModuleResult]:
-        """Load a pre-existing task from disk.
-
-        Scans for ResultType subdirectories and loads ModuleResult from each.
-
-        Args:
-            outersplit_id: Current fold ID
-            task: Task config for the task to load
-
-        Returns:
-            Dict mapping ResultType to ModuleResult.
-
-        Raises:
-            FileNotFoundError: If no result directories are found
-        """
-        input_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
-
-        results: dict[ResultType, ModuleResult] = {}
-        for rt in ResultType:
-            rt_dir = input_dir / rt.value
-            if rt_dir.exists():
-                results[rt] = ModuleResult.load(rt_dir, result_type=rt, module=task.module)
-
-        if not results:
-            raise FileNotFoundError(f"Cannot load task {task.task_id}: no result directories found at {input_dir}")
-
-        total_features = sum(len(r.selected_features) for r in results.values())
-        logger.info(f"Loaded task {task.task_id}: {len(results)} result types, {total_features} total features")
-
-        return results
-
     def _save_task_config(self, task: Task, output_dir: UPath) -> None:
         """Save task configuration to JSON.
 
@@ -242,6 +204,5 @@ class WorkflowTaskRunner:
             f"Processing workflow task: {task.task_id} | "
             f"Input task: {task.depends_on} | "
             f"Module: {task.module} | "
-            f"Description: {task.description} | "
-            f"Load existing: {task.load_task}"
+            f"Description: {task.description}"
         )

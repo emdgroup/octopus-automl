@@ -93,7 +93,6 @@ class TestOctoMulticlass:
             description="step_1_octo_multiclass",
             task_id=0,
             depends_on=None,
-            load_task=False,
             n_folds_inner=5,
             models=[
                 "ExtraTreesClassifier",
@@ -224,7 +223,6 @@ class TestOctoMulticlass:
                         description="step_1_octo_multiclass",
                         task_id=0,
                         depends_on=None,
-                        load_task=False,
                         n_folds_inner=3,
                         models=["ExtraTreesClassifier"],
                         model_seed=0,
@@ -266,7 +264,6 @@ class TestOctoMulticlass:
             description="step_1_octo_multiclass",
             task_id=0,
             depends_on=None,
-            load_task=False,
             n_folds_inner=5,
             models=[
                 "ExtraTreesClassifier",
@@ -287,7 +284,7 @@ class TestOctoMulticlass:
         assert octo_task.description == "step_1_octo_multiclass"
         assert octo_task.task_id == 0
         assert octo_task.depends_on is None
-        assert octo_task.load_task is False
+
         assert octo_task.n_folds_inner == 5
         assert set(octo_task.models) == {
             "ExtraTreesClassifier",
