@@ -1,5 +1,3 @@
-# type: ignore
-
 """SFS module (sequential feature selection) with fit/predict interface."""
 
 from __future__ import annotations
