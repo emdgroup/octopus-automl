@@ -1,5 +1,3 @@
-# type: ignore
-
 """ROC module (removal of correlated features)."""
 
 from __future__ import annotations
@@ -8,7 +6,7 @@ from attrs import define, field, validators
 
 from octopus.modules.base import Task
 
-from .core import RocModule
+from . import RocModule
 
 
 @define
