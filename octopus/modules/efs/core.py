@@ -229,7 +229,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
             x = x_traindev[subset]
             y = y_traindev.squeeze(axis=1)
             row_ids = row_traindev
-            grid_search.fit(x, y)  # type: ignore
+            grid_search.fit(x, y)  # type: ignore[arg-type]
             best_model = grid_search.best_estimator_
             best_cv_score = grid_search.best_score_
             print(f"Subset {i}, best_cv_score: {best_cv_score:.4f}")
@@ -238,12 +238,12 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
             if study_context.ml_type == "classification":
                 cv_preds_df = pd.DataFrame()
                 cv_preds_df[study_context.row_id_col] = row_ids
-                cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")  # type: ignore
-                cv_preds_df["probabilities"] = cross_val_predict(best_model, x, y, cv=cv, method="predict_proba")[:, 1]  # type: ignore # binary only
+                cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")  # type: ignore[arg-type]
+                cv_preds_df["probabilities"] = cross_val_predict(best_model, x, y, cv=cv, method="predict_proba")[:, 1]  # type: ignore[arg-type] # binary only
             elif study_context.ml_type == "regression":
                 cv_preds_df = pd.DataFrame()
                 cv_preds_df[study_context.row_id_col] = row_ids
-                cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")  # type: ignore
+                cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")  # type: ignore[arg-type]
                 cv_preds_df["probabilities"] = np.nan
 
             # actual used features
@@ -253,9 +253,9 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
             # ensemble metric
             metric = Metrics.get_instance(study_context.target_metric)
             if metric_input == "probabilities":
-                best_ensel_performance = metric.calculate(y, cv_preds_df["probabilities"])  # type: ignore
+                best_ensel_performance = metric.calculate(y, cv_preds_df["probabilities"])  # type: ignore[arg-type]
             else:
-                best_ensel_performance = metric.calculate(y, cv_preds_df["predictions"])  # type: ignore
+                best_ensel_performance = metric.calculate(y, cv_preds_df["predictions"])  # type: ignore[arg-type]
             print(f"Subset {i}, best ensemble performance: {best_ensel_performance:.4f}")
 
             # Select features with non-zero importance
@@ -309,9 +309,9 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         metric = Metrics.get_instance(study_context.target_metric)
         y = y_traindev.squeeze(axis=1)
         ensel_performance = (
-            metric.calculate(y, model_predictions)  # type: ignore
+            metric.calculate(y, model_predictions)  # type: ignore[arg-type]
             if metric_input == "predictions"
-            else metric.calculate(y, groupby_df["probabilities"])  # type: ignore
+            else metric.calculate(y, groupby_df["probabilities"])  # type: ignore[arg-type]
         )
 
         return ensel_performance

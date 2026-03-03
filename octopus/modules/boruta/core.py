@@ -126,7 +126,7 @@ class BorutaModule(FeatureSelectionExecution["Boruta"]):
         )
         print("Optimize base model....")
         # Perform Grid Search and Cross-Validation
-        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))  # type: ignore
+        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))  # type: ignore[arg-type]
         best_model = grid_search.best_estimator_
         best_cv_score = grid_search.best_score_
         best_params = grid_search.best_params_
@@ -181,7 +181,7 @@ class BorutaModule(FeatureSelectionExecution["Boruta"]):
         print(f"Test set (refit) performance: {test_score_refit:.3f}")
 
         # gridsearch + retrain best model on x_traindev
-        grid_search.fit(x_traindev_filtered, y_traindev.squeeze(axis=1))  # type: ignore
+        grid_search.fit(x_traindev_filtered, y_traindev.squeeze(axis=1))  # type: ignore[arg-type]
         best_gs_parameters = grid_search.best_params_
         best_gs_estimator = grid_search.best_estimator_
         # refit

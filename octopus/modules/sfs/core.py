@@ -132,7 +132,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         )
         print("Optimize base model....")
         # Perform Grid Search and Cross-Validation
-        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))  # type: ignore
+        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))  # type: ignore[arg-type]
         best_model = grid_search.best_estimator_
         best_cv_score = grid_search.best_score_
         best_params = grid_search.best_params_
