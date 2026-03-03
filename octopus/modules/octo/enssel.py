@@ -1,5 +1,3 @@
-# type: ignore
-
 """Ensemble selection."""
 
 # TOBEDONE
@@ -13,6 +11,7 @@
 
 import copy
 from collections import Counter
+from typing import Any
 
 import pandas as pd
 from attrs import define, field, validators
@@ -21,7 +20,7 @@ from upath import UPath
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_performance_from_predictions
-from octopus.modules.octo.bag import Bag
+from octopus.modules.octo.bag import Bag  # type: ignore[attr-defined]
 
 logger = get_logger()
 
@@ -32,7 +31,7 @@ class EnSel:
 
     target_metric: str = field(validator=[validators.instance_of(str)])
     target_assignments: dict = field(validator=[validators.instance_of(dict)])
-    path_trials: UPath = field(validator=[validators.instance_of(UPath)], converter=UPath)
+    path_trials: UPath = field(validator=[validators.instance_of(UPath)], converter=lambda x: UPath(x))
     max_n_iterations: int = field(validator=[validators.instance_of(int)])
     row_id_col: str = field(validator=[validators.instance_of(str)])
     positive_class = field(default=None)
@@ -48,7 +47,7 @@ class EnSel:
     )
     start_ensemble: dict = field(init=False, validator=[validators.instance_of(dict)])
     optimized_ensemble: dict = field(init=False, validator=[validators.instance_of(dict)])
-    bags: dict = field(init=False, validator=[validators.instance_of(dict)])
+    bags: dict[UPath, dict[str, Any]] = field(init=False, validator=[validators.instance_of(dict)])
 
     @property
     def direction(self) -> str:
@@ -109,9 +108,9 @@ class EnSel:
     def _ensemble_models(self, bag_keys):
         """Esemble using all bags and their corresponding models provided by input."""
         # collect all predictions over inner folds and bags
-        predictions = {}
+        predictions: dict[str, dict[str, pd.DataFrame]] = {}
         performance_output = {}
-        pool = {key: [] for key in ["dev", "test"]}
+        pool: dict[str, list[pd.DataFrame]] = {key: [] for key in ["dev", "test"]}
 
         for key in bag_keys:
             bag_predictions = self.bags[key]["predictions"]
@@ -200,23 +199,19 @@ class EnSel:
         logger.info(f"Ensemble scan, test_pool value: {self.scan_table.loc[best_idx, 'test_pool']}")
 
         # startn_bags dict with path as key and repeats=1 as value
-        escan_ensemble = {}
+        escan_ensemble: dict[UPath, int] = {}
         for _, row in self.model_table.head(start_n).iterrows():
             escan_ensemble[row["path"]] = 1
 
         # ensemble_optimmization, reference score
         # we start with the bags found in ensemble scan
-        results_df = pd.DataFrame(columns=["model", "performance", "bags_lst"])
+        results: list[tuple[str | UPath, float, list[UPath]]] = []
         start_bags = list(escan_ensemble.keys())
         start_perf = self._ensemble_models(start_bags)["dev_pool"]
         logger.info("Ensemble optimization")
         logger.info(f"Start performance: {start_perf}")
         # record start performance
-        results_df.loc[len(results_df)] = [
-            ["ensemble scan"],
-            start_perf,
-            copy.deepcopy(start_bags),
-        ]
+        results.append(("ensemble scan", start_perf, copy.deepcopy(start_bags)))
 
         # optimization
         bags_ensemble = copy.deepcopy(start_bags)
@@ -232,9 +227,10 @@ class EnSel:
                 df.loc[len(df)] = [model, perf["dev_pool"], perf["test_pool"]]
 
             if self.direction == "maximize":
-                best_model = df.loc[df["performance_dev"].idxmax()]["model"]
-                best_performance = df.loc[df["performance_dev"].idxmax()]["performance_dev"]
-                performance_test = df.loc[df["performance_dev"].idxmax()]["performance_test"]
+                idx_best = df["performance_dev"].idxmax()
+                best_model: UPath = df.loc[idx_best]["model"]
+                best_performance: float = df.loc[idx_best]["performance_dev"]  # type: ignore[assignment]
+                performance_test: float = df.loc[idx_best]["performance_test"]  # type: ignore[assignment]
                 if best_performance < best_global:  # stop if performance worsens
                     break  # stop ensembling
                 else:
@@ -243,9 +239,10 @@ class EnSel:
                         f"iteration: {i}, performance_dev: {best_performance}, performance_test {performance_test}"
                     )
             else:  # minimize
-                best_model = df.loc[df["performance_dev"].idxmin()]["model"]
-                best_performance = df.loc[df["performance_dev"].idxmin()]["performance_dev"]
-                performance_test = df.loc[df["performance_dev"].idxmin()]["performance_test"]
+                idx_best = df["performance_dev"].idxmin()
+                best_model = df.loc[idx_best]["model"]
+                best_performance = df.loc[idx_best]["performance_dev"]  # type: ignore[assignment]
+                performance_test = df.loc[idx_best]["performance_test"]  # type: ignore[assignment]
                 if best_performance > best_global:  # stop if performance worsens
                     break
                 else:
@@ -258,16 +255,13 @@ class EnSel:
             bags_ensemble.append(best_model)
 
             # record results
-            results_df.loc[len(results_df)] = [
-                best_model,
-                best_performance,
-                copy.deepcopy(bags_ensemble),
-            ]
+            results.append((best_model, best_performance, copy.deepcopy(bags_ensemble)))
 
         # store start bargs from ensemble scan
         self.start_ensemble = dict(Counter(start_bags))
 
         # store optimization results
+        results_df = pd.DataFrame(results, columns=["model", "performance", "bags_lst"])
         self.optimized_ensemble = dict(Counter(results_df.iloc[-1]["bags_lst"]))
         logger.info("Ensemble selection completed.")
 
