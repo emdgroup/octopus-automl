@@ -186,7 +186,7 @@ def test_validate_reserved_column_conflicts(validator_factory, sample_data):
     validator_factory(feature_cols=["feature1"])._validate_reserved_column_conflicts()
 
     data_with_reserved = sample_data.copy()
-    data_with_reserved["group_features"] = 0
+    data_with_reserved["datasplit_group"] = 0
     with pytest.raises(ValueError, match="Reserved column names found in data"):
         validator_factory(data=data_with_reserved, feature_cols=["feature1"])._validate_reserved_column_conflicts()
 
@@ -194,7 +194,7 @@ def test_validate_reserved_column_conflicts(validator_factory, sample_data):
 def test_validate_error_accumulation(validator_factory, sample_data):
     """Test that validate() accumulates multiple errors."""
     data_with_issues = sample_data.copy()
-    data_with_issues["group_features"] = 0
+    data_with_issues["datasplit_group"] = 0
     data_with_issues.loc[0, "feature1"] = "invalid_string"  # This will fail dtype validation
 
     validator = validator_factory(

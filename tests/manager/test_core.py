@@ -59,7 +59,6 @@ def study():
         target_assignments={"default": "target"},
         positive_class=1,
         stratification_col=None,
-        datasplit_type="sample",
         sample_id_col="sample_id",
         feature_cols=["feature1", "feature2"],
         row_id_col="row_id",

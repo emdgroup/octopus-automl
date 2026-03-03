@@ -10,7 +10,7 @@ from upath import UPath
 from octopus.modules import Octo
 from octopus.study import OctoClassification, OctoRegression
 from octopus.study.core import _RUNNING_IN_TESTSUITE
-from octopus.study.types import DatasplitType, ImputationMethod
+from octopus.study.types import ImputationMethod
 from octopus.types import MLType
 
 
@@ -58,13 +58,6 @@ def test_initialization(basic_study):
     "study_class,param_name,param_value,expected_enum,kwargs",
     [
         (OctoRegression, "ml_type", "regression", MLType.REGRESSION, {"target_metric": "R2", "target_col": "target"}),
-        (
-            OctoClassification,
-            "datasplit_type",
-            "group_features",
-            DatasplitType.GROUP_FEATURES,
-            {"target_metric": "AUCROC", "datasplit_type": "group_features", "target_col": "target"},
-        ),
         (
             OctoClassification,
             "imputation_method",
@@ -153,7 +146,6 @@ def test_default_values():
             sample_id_col="id",
             path=temp_dir,
         )
-        assert study.datasplit_type == DatasplitType.SAMPLE
         assert study.row_id_col is None
         assert study.stratification_col is None
         assert study.positive_class is None  # positive_class is determined during data validation

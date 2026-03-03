@@ -209,7 +209,6 @@ study = OctoClassification(
     feature_cols=df_warnings.columns.drop("target").drop("id").drop("sample_id_col").drop("stratification").tolist(),
     target_col="target",
     sample_id_col="sample_id_col",
-    datasplit_type="group_sample_and_features",
     stratification_col="target",
     ignore_data_health_warning=False,  # Will stop if health check finds issues
     outer_parallelization=True,
