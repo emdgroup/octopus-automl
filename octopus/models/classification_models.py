@@ -1,5 +1,3 @@
-# type: ignore
-
 """Classification models."""
 
 from catboost import CatBoostClassifier
@@ -22,7 +20,7 @@ from .wrapper_models.GaussianProcessClassifier import GPClassifierWrapper
 def extra_trees_classifier() -> ModelConfig:
     """ExtraTrees classification model config."""
     return ModelConfig(
-        model_class=ExtraTreesClassifier,
+        model_class=ExtraTreesClassifier,  # type: ignore[arg-type]
         ml_type="classification",
         feature_method="internal",
         chpo_compatible=True,
@@ -48,7 +46,7 @@ def extra_trees_classifier() -> ModelConfig:
 def hist_gradient_boosting_classifier() -> ModelConfig:
     """Histogram-based gradient boosting classification model config (scikit-learn 1.6.1)."""
     return ModelConfig(
-        model_class=HistGradientBoostingClassifier,
+        model_class=HistGradientBoostingClassifier,  # type: ignore[arg-type]
         ml_type="classification",
         feature_method="internal",
         chpo_compatible=True,
@@ -74,7 +72,7 @@ def hist_gradient_boosting_classifier() -> ModelConfig:
 def gradient_boosting_classifier() -> ModelConfig:
     """Gradient boosting classification model config."""
     return ModelConfig(
-        model_class=GradientBoostingClassifier,
+        model_class=GradientBoostingClassifier,  # type: ignore[arg-type]
         ml_type="classification",
         feature_method="internal",
         chpo_compatible=True,
@@ -99,7 +97,7 @@ def gradient_boosting_classifier() -> ModelConfig:
 def random_forest_classifier() -> ModelConfig:
     """Random forest classification model config."""
     return ModelConfig(
-        model_class=RandomForestClassifier,
+        model_class=RandomForestClassifier,  # type: ignore[arg-type]
         ml_type="classification",
         feature_method="internal",
         chpo_compatible=True,
@@ -176,7 +174,7 @@ def catboost_classifier() -> ModelConfig:
 def logistic_regression_classifier() -> ModelConfig:
     """Logistic regression classification model config."""
     return ModelConfig(
-        model_class=LogisticRegression,
+        model_class=LogisticRegression,  # type: ignore[arg-type]
         ml_type="classification",
         feature_method="permutation",
         n_repeats=2,
@@ -202,7 +200,7 @@ def logistic_regression_classifier() -> ModelConfig:
 def gaussian_process_classifier() -> ModelConfig:
     """Gaussian process classification model config."""
     return ModelConfig(
-        model_class=GPClassifierWrapper,
+        model_class=GPClassifierWrapper,  # type: ignore[arg-type]
         ml_type="classification",
         feature_method="permutation",
         n_repeats=2,
