@@ -1,5 +1,3 @@
-# type: ignore
-
 """MRMR module (Minimum Redundancy Maximum Relevance feature selection)."""
 
 from __future__ import annotations

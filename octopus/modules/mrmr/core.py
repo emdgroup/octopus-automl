@@ -157,7 +157,7 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
         re_df = re_df[re_df["importance"] > 0].reset_index(drop=True)
         logger.info(f"Number features with positive importance: {len(re_df)}")
 
-        return re_df  # type: ignore[no-any-return]
+        return re_df
 
     def _get_fstats_relevance(
         self, x_traindev: pd.DataFrame, y_traindev: pd.DataFrame, feature_cols: list[str], ml_type: str
