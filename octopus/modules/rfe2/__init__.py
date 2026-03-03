@@ -1,8 +1,6 @@
 """Init."""
 
+from .core import Rfe2Module
 from .module import Rfe2
 
-# Legacy Core class (deprecated - use Rfe2 directly)
-# from .core import Rfe2Core
-
-__all__ = ["Rfe2"]
+__all__ = ["Rfe2", "Rfe2Module"]

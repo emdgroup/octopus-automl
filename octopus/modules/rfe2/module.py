@@ -1,5 +1,3 @@
-# type: ignore
-
 """Rfe2 module (RFE with Octo optimization) with fit/predict interface."""
 
 from __future__ import annotations
@@ -8,7 +6,7 @@ from attrs import define, field, validators
 
 from octopus.modules.octo.module import Octo
 
-from .core import Rfe2Module
+from . import Rfe2Module
 
 
 @define
