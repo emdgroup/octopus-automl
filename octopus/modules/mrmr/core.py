@@ -1,5 +1,3 @@
-# type: ignore
-
 """MRMR execution module."""
 
 from __future__ import annotations
@@ -16,7 +14,7 @@ from octopus.modules.base import FeatureSelectionExecution, FIMethod, ModuleResu
 from octopus.modules.utils import rdc_correlation_matrix
 
 if TYPE_CHECKING:
-    from octopus.modules.mrmr.module import Mrmr  # noqa: F401
+    from octopus.modules.mrmr import Mrmr  # noqa: F401
     from octopus.study.context import StudyContext
 
 logger = get_logger()
@@ -33,7 +31,7 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
-        prior_results: dict | None,
+        prior_results: dict[str, pd.DataFrame] | None,
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit MRMR module by selecting features with maximum relevance and minimum redundancy."""
@@ -140,7 +138,9 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
         else:
             raise ValueError(f"Relevance type {self.config.relevance_type} not supported for MRMR.")
 
-    def _get_permutation_relevance(self, feature_cols: list[str], prior_results: dict) -> pd.DataFrame:
+    def _get_permutation_relevance(
+        self, feature_cols: list[str], prior_results: dict[str, pd.DataFrame]
+    ) -> pd.DataFrame:
         """Get permutation relevance from prior module results (flat DataFrame)."""
         fi_df = prior_results.get("feature_importances", pd.DataFrame())
         fi_method = self._get_fi_method()
@@ -157,7 +157,7 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
         re_df = re_df[re_df["importance"] > 0].reset_index(drop=True)
         logger.info(f"Number features with positive importance: {len(re_df)}")
 
-        return re_df
+        return re_df  # type: ignore[no-any-return]
 
     def _get_fstats_relevance(
         self, x_traindev: pd.DataFrame, y_traindev: pd.DataFrame, feature_cols: list[str], ml_type: str
@@ -293,7 +293,7 @@ def _maxrminr(
         candidates["score"] = candidates["score"].fillna(-np.finfo(float).max / 10)
 
         best = candidates.loc[candidates["score"].idxmax(), "feature"]
-        selected.append(best)
+        selected.append(best)  # type: ignore[arg-type]
         not_selected.remove(best)
 
         if i in cleaned_counts:

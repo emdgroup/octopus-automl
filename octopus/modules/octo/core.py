@@ -89,7 +89,7 @@ class OctoModule(MLModuleExecution["Octo"]):
         output_dir: UPath,
         num_assigned_cpus: int,
         feature_groups: dict | None,
-        prior_results: dict | None,
+        prior_results: dict[str, pd.DataFrame] | None,
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit Octo module by running hyperparameter optimization with Optuna."""

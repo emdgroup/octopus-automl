@@ -1,8 +1,6 @@
 """Init."""
 
+from .core import RfeModule
 from .module import Rfe
 
-# Legacy Core class (deprecated - use Rfe directly)
-# from .core import RfeCore
-
-__all__ = ["Rfe"]
+__all__ = ["Rfe", "RfeModule"]

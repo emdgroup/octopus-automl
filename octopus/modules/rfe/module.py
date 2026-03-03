@@ -1,5 +1,3 @@
-# type: ignore
-
 """RFE module (Recursive Feature Elimination)."""
 
 from __future__ import annotations
@@ -8,7 +6,7 @@ from attrs import define, field, validators
 
 from octopus.modules.base import Task
 
-from .core import RfeModule
+from . import RfeModule
 
 
 @define

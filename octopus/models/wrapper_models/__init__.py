@@ -1,5 +1,3 @@
-# type: ignore
-
 """Init."""
 
 # Note: Imports are intentionally not performed at package level to avoid
