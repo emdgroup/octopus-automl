@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 from octopus.exceptions import UnknownMetricError
 
@@ -87,8 +87,7 @@ class Metrics:
         if factory is None:
             available = ", ".join(sorted(cls._config_factories.keys()))
             raise UnknownMetricError(
-                f"Unknown metric '{name}'. Available metrics are: {available}. "
-                "Please check the metric name and try again."
+                f"Unknown metric '{name}'. Available metrics are: {available}. Please check the metric name and try again."
             )
 
         # Build config via factory and enforce name consistency
@@ -98,7 +97,7 @@ class Metrics:
         return config
 
     @classmethod
-    def get_direction(cls, name: str) -> str:
+    def get_direction(cls, name: str) -> Literal["maximize", "minimize"]:
         """Get the optuna direction by name.
 
         Args:
