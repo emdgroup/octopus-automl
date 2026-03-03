@@ -1,5 +1,3 @@
-# type: ignore
-
 """Octo module with fit/predict interface."""
 
 from __future__ import annotations
@@ -12,7 +10,7 @@ from octopus.logger import get_logger
 from octopus.models import Models
 from octopus.modules.base import Task
 
-from .core import OctoModule
+from . import OctoModule
 
 logger = get_logger()
 

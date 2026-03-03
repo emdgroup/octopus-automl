@@ -1,8 +1,6 @@
 """Init."""
 
+from .core import OctoModule
 from .module import Octo
 
-# Legacy Core class (deprecated - use Octo directly)
-# from .core import OctoCore
-
-__all__ = ["Octo"]
+__all__ = ["Octo", "OctoModule"]
