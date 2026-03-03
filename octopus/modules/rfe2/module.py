@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from attrs import define, field, validators
 
+from octopus.modules.base import ModuleExecution
 from octopus.modules.octo.module import Octo
-
-from .core import Rfe2Module  # type: ignore[attr-defined]
 
 
 @define
@@ -43,6 +42,9 @@ class Rfe2(Octo):
         # overwrite fi_methods_bestbag for Octo
         self.fi_methods_bestbag = [self.fi_method_rfe]
 
-    def create_module(self) -> Rfe2Module:
+    def create_module(self) -> ModuleExecution:
         """Create Rfe2Module execution instance."""
-        return Rfe2Module(config=self)
+        # import only during execution to avoid heavy dependency at config stage
+        from .core import Rfe2Module  # type: ignore[attr-defined] # noqa: PLC0415
+
+        return Rfe2Module(config=self)  # type: ignore[no-any-return]

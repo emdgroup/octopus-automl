@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from attrs import define, field, validators
 
-from octopus.modules.base import Task
-
-from .core import RfeModule
+from octopus.modules.base import ModuleExecution, Task
 
 
 @define
@@ -39,6 +37,9 @@ class Rfe(Task):
     mode: str = field(validator=[validators.in_(["Mode1", "Mode2"])], default="Mode1")
     """Mode used by RFE: Mode1=optimized model, Mode2=reoptimize each step."""
 
-    def create_module(self) -> RfeModule:
+    def create_module(self) -> ModuleExecution:
         """Create RfeModule execution instance."""
+        # import only during execution to avoid heavy dependency at config stage
+        from .core import RfeModule  # noqa: PLC0415
+
         return RfeModule(config=self)

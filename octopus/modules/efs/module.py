@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from attrs import define, field, validators
 
-from octopus.modules.base import Task
-
-from .core import EfsModule
+from octopus.modules.base import ModuleExecution, Task
 
 
 @define
@@ -43,6 +41,9 @@ class Efs(Task):
     max_n_models: int = field(validator=[validators.instance_of(int)], default=30)
     """Maximum number of models used in optimization, pruning."""
 
-    def create_module(self) -> EfsModule:
+    def create_module(self) -> ModuleExecution:
         """Create EfsModule execution instance."""
+        # import only during execution to avoid heavy dependency at config stage
+        from .core import EfsModule  # noqa: PLC0415
+
         return EfsModule(config=self)

@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from attrs import define, field, validators
 
-from octopus.modules.base import Task
-
-from .core import BorutaModule
+from octopus.modules.base import ModuleExecution, Task
 
 
 @define
@@ -35,6 +33,9 @@ class Boruta(Task):
     alpha: float = field(validator=[validators.instance_of(float)], default=0.05)
     """Level at which the corrected p-values will get rejected."""
 
-    def create_module(self) -> BorutaModule:
+    def create_module(self) -> ModuleExecution:
         """Create BorutaModule execution instance."""
+        # import only during execution to avoid heavy dependency at config stage
+        from .core import BorutaModule  # noqa: PLC0415
+
         return BorutaModule(config=self)
