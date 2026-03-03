@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from upath import UPath
 
-from octopus.modules import Octo, Roc
+from octopus.modules import Octo
 from octopus.study import OctoClassification, OctoRegression
 from octopus.study.core import _RUNNING_IN_TESTSUITE
 from octopus.study.types import DatasplitType, ImputationMethod, MLType
@@ -181,55 +181,3 @@ def test_ml_type_values():
                 **extra_kwargs,
             )
             assert study.ml_type == expected_ml_type
-
-
-def test_start_with_empty_study_valid():
-    """Test that start_with_empty_study=True works with tasks that don't have load_task=True."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        study = OctoClassification(
-            name="test",
-            target_metric="AUCROC",
-            feature_cols=["f1"],
-            target_col="target",
-            sample_id_col="id",
-            path=temp_dir,
-            start_with_empty_study=True,
-            workflow=[Octo(task_id=0), Roc(task_id=1, depends_on=0, load_task=False)],
-        )
-        assert study.start_with_empty_study is True
-
-
-def test_start_with_empty_study_invalid():
-    """Test that start_with_empty_study=True raises error when workflow has tasks with load_task=True."""
-    with (
-        tempfile.TemporaryDirectory() as temp_dir,
-        pytest.raises(
-            ValueError, match="Cannot set start_with_empty_study=True when workflow contains tasks with load_task=True"
-        ),
-    ):
-        OctoClassification(
-            name="test",
-            target_metric="AUCROC",
-            feature_cols=["f1"],
-            target_col="target",
-            sample_id_col="id",
-            path=temp_dir,
-            start_with_empty_study=True,
-            workflow=[Octo(task_id=0), Roc(task_id=1, depends_on=0, load_task=True)],
-        )
-
-
-def test_start_with_empty_study_false_with_load_task():
-    """Test that start_with_empty_study=False allows tasks with load_task=True."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        study = OctoClassification(
-            name="test",
-            target_metric="AUCROC",
-            feature_cols=["f1"],
-            target_col="target",
-            sample_id_col="id",
-            path=temp_dir,
-            start_with_empty_study=False,
-            workflow=[Octo(task_id=0), Roc(task_id=1, depends_on=0, load_task=True)],
-        )
-        assert study.start_with_empty_study is False

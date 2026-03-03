@@ -83,7 +83,6 @@ class TestOctoIntroClassification:
             description="step_1_octo",
             task_id=0,
             depends_on=None,
-            load_task=False,
             n_folds_inner=3,
             models=["ExtraTreesClassifier", "RandomForestClassifier"],
             fi_methods_bestbag=["permutation"],
@@ -208,7 +207,6 @@ class TestOctoIntroClassification:
                         description="step_1_octo",
                         task_id=0,
                         depends_on=None,
-                        load_task=False,
                         n_folds_inner=3,
                         models=["ExtraTreesClassifier"],
                         model_seed=0,
@@ -256,7 +254,6 @@ class TestOctoIntroClassification:
             description="step_1_octo",
             task_id=0,
             depends_on=None,
-            load_task=False,
             n_folds_inner=5,
             models=["ExtraTreesClassifier", "RandomForestClassifier"],
             model_seed=0,
@@ -279,7 +276,7 @@ class TestOctoIntroClassification:
         assert octo_task.description == "step_1_octo"
         assert octo_task.task_id == 0
         assert octo_task.depends_on is None
-        assert octo_task.load_task is False
+
         assert octo_task.n_folds_inner == 5
         assert set(octo_task.models) == {"ExtraTreesClassifier", "RandomForestClassifier"}
         assert octo_task.model_seed == 0

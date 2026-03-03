@@ -17,7 +17,6 @@ class TestRocModule:
 
         assert roc.task_id == 0
         assert roc.depends_on is None
-        assert roc.load_task is False
         assert roc.description == ""
         assert roc.threshold == 0.8
         assert roc.correlation_type == "spearmanr"
@@ -29,7 +28,6 @@ class TestRocModule:
         roc = Roc(
             task_id=1,
             depends_on=0,
-            load_task=True,
             description="test_roc",
             threshold=0.9,
             correlation_type="rdc",
@@ -38,7 +36,6 @@ class TestRocModule:
 
         assert roc.task_id == 1
         assert roc.depends_on == 0
-        assert roc.load_task is True
         assert roc.description == "test_roc"
         assert roc.threshold == 0.9
         assert roc.correlation_type == "rdc"
