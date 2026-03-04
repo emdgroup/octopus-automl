@@ -25,14 +25,14 @@ from octopus.modules.octo.training import Training
 from .optuna_storage_backend import JournalFsspecFileBackend
 
 if TYPE_CHECKING:
-    from octopus.modules.octo.module import Octo  # noqa: F401
+    from octopus.modules.octo.module import Octo
     from octopus.study.context import StudyContext
 
 logger = get_logger()
 
 
 @define
-class OctoModule(MLModuleExecution["Octo"]):
+class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
     """Octo execution module. Created by Octo.create_module()."""
 
     # Internal state (set during fit)
@@ -531,3 +531,6 @@ class OctoModule(MLModuleExecution["Octo"]):
             logger.warning("Best bag - all feature importances values are zero. This hints at a model related problem.")
 
         return selected_features  # type: ignore[no-any-return]
+
+
+type OctoModule = OctoModuleTemplate["Octo"]

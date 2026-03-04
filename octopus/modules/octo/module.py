@@ -173,6 +173,6 @@ class Octo(Task):
     def create_module(self) -> ModuleExecution:
         """Create OctoModule execution instance."""
         # import only during execution to avoid heavy dependency at config stage
-        from .core import OctoModule  # noqa: PLC0415
+        from .core import OctoModuleTemplate  # noqa: PLC0415
 
-        return OctoModule(config=self)
+        return OctoModuleTemplate(config=self)

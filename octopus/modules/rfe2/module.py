@@ -45,6 +45,6 @@ class Rfe2(Octo):
     def create_module(self) -> ModuleExecution:
         """Create Rfe2Module execution instance."""
         # import only during execution to avoid heavy dependency at config stage
-        from .core import Rfe2Module  # type: ignore[attr-defined] # noqa: PLC0415
+        from .core import Rfe2Module  # noqa: PLC0415
 
-        return Rfe2Module(config=self)  # type: ignore[no-any-return]
+        return Rfe2Module(config=self)
