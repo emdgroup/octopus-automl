@@ -75,7 +75,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        output_dir: UPath,
+        results_dir: UPath,
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit SFS module for feature selection."""
@@ -84,10 +84,6 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
 
         from octopus._optional.sfs import SFS  # noqa: PLC0415
-
-        # Create results directory
-        path_results = output_dir / "results"
-        path_results.mkdir(parents=True, exist_ok=True)
 
         # Configuration, define default model
         if study_context.ml_type == "classification":
@@ -271,7 +267,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
             "Test set (refit) performance": test_score_refit,
             "Test set (gs+refit) performance": test_score_gsrefit,
         }
-        with (path_results / "results.json").open("w", encoding="utf-8") as f:
+        with (results_dir / "results.json").open("w", encoding="utf-8") as f:
             json.dump(results, f, indent=4)
 
         return {

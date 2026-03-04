@@ -256,7 +256,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
-        output_dir: UPath,
+        results_dir: UPath,
         num_assigned_cpus: int,
         feature_groups: dict | None,
         **kwargs,
@@ -264,7 +264,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         """Fit AutoGluon TabularPredictor."""
         # Store temporary execution state (available during fit)
         self._study_context = study_context
-        self._output_dir = output_dir
+        self._output_dir = results_dir
         self._feature_groups = feature_groups or {}
         self._outersplit_id = outersplit_id
         self._feature_cols = feature_cols

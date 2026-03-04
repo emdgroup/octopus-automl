@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import copy
-import json
 from typing import TYPE_CHECKING
 
 import optuna
-import optuna.storages.journal
 import pandas as pd
 from attrs import Factory, define, field
 from optuna.trial import TrialState
@@ -21,8 +19,7 @@ from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.objective_optuna import ObjectiveOptuna
 from octopus.modules.octo.training import Training
-
-from .optuna_storage_backend import JournalFsspecFileBackend
+from octopus.utils import joblib_load
 
 if TYPE_CHECKING:
     from octopus.modules.octo.module import Octo
@@ -39,9 +36,6 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
     data_splits_: InnerSplits = field(init=False, default=Factory(dict))
     """Data splits for inner CV."""
 
-    paths_optuna_db_: dict[str, UPath] = field(init=False, default=Factory(dict))
-    """Paths to Optuna databases."""
-
     top_trials_: list = field(init=False, default=Factory(list))
     """Top performing trials."""
 
@@ -56,7 +50,8 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
-        output_dir: UPath,
+        results_dir: UPath,
+        scratch_dir: UPath,
         num_assigned_cpus: int,
         feature_groups: dict | None,
         prior_results: dict[str, pd.DataFrame] | None,
@@ -69,9 +64,6 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         x_traindev = data_traindev[feature_cols]
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
 
-        path_trials = output_dir / "trials"
-        path_results = output_dir / "results"
-
         # Initialize Octo-specific setup
         self._initialize_octo(
             study_context,
@@ -81,8 +73,8 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             feature_cols,
             outersplit_id,
             num_assigned_cpus,
-            path_trials,
-            path_results,
+            scratch_dir,
+            results_dir,
         )
 
         # Initialize local results collection
@@ -95,7 +87,7 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             feature_cols,
             feature_groups,
             outersplit_id,
-            path_results,
+            results_dir,
             results,
         )
 
@@ -120,7 +112,7 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         # (2) ensemble selection
         if self.config.ensemble_selection:
             ensel_selected_features = self._run_ensemble_selection(
-                study_context, outersplit_id, path_trials, path_results, results
+                study_context, outersplit_id, scratch_dir, results_dir, results
             )
             if ensel_selected_features:
                 self.selected_features_ = ensel_selected_features
@@ -151,8 +143,8 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         feature_cols: list[str],
         outersplit_id: int,
         num_assigned_cpus: int,
-        path_trials: UPath,
-        path_results: UPath,
+        scratch_dir: UPath,
+        results_dir: UPath,
     ):
         """Initialize Octo-specific data structures and directories."""
         # create datasplit during init
@@ -165,12 +157,9 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             process_id=f"OUTER {outersplit_id} SEQ TBD",
         ).get_inner_splits()
 
-        # if we don't want to resume optimization:
-        # delete directories /trials /results to ensure clean state
-        # of module when restarted, required for parallel optuna runs
-        # as optuna.create(...,load_if_exists=True)
-        for directory in [path_trials, path_results]:
-            if not self.config.resume_optimization and directory.exists():
+        # delete directories /scratch /results to ensure clean state
+        for directory in [scratch_dir, results_dir]:
+            if directory.exists():
                 directory.rmdir(recursive=True)
             directory.mkdir(parents=True, exist_ok=True)
 
@@ -234,25 +223,25 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         )
 
     def _run_ensemble_selection(
-        self, study_context: StudyContext, outersplit_id: int, path_trials: UPath, path_results: UPath, results: dict
+        self, study_context: StudyContext, outersplit_id: int, scratch_dir: UPath, results_dir: UPath, results: dict
     ) -> list[str]:
         """Run ensemble selection."""
         ensel = EnSel(
             target_metric=study_context.target_metric,
-            path_trials=path_trials,
+            path_trials=scratch_dir,
             max_n_iterations=100,
             row_id_col=study_context.row_id_col,
             target_assignments=study_context.target_assignments,
             positive_class=study_context.positive_class,
         )
         ensemble_paths_dict = ensel.start_ensemble
-        return self._create_ensemble_bag(study_context, outersplit_id, path_results, ensemble_paths_dict, results)
+        return self._create_ensemble_bag(study_context, outersplit_id, results_dir, ensemble_paths_dict, results)
 
     def _create_ensemble_bag(
         self,
         study_context: StudyContext,
         outersplit_id: int,
-        path_results: UPath,
+        results_dir: UPath,
         ensemble_paths_dict: dict,
         results: dict,
     ) -> list[str]:
@@ -267,7 +256,7 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         trainings = []
         train_id = 0
         for path, weight in ensemble_paths_dict.items():
-            bag = Bag.from_pickle(path)
+            bag = joblib_load(path)
             for training in bag.trainings:
                 for _ in range(int(weight)):
                     train_cp = copy.deepcopy(training)
@@ -289,9 +278,6 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             ml_type=study_context.ml_type,
             log_dir=study_context.log_dir,
         )
-        # save ensel bag
-        ensel_bag.to_pickle(path_results / "ensel_bag.pkl")
-
         # save performance values of best bag
         ensel_scores = ensel_bag.get_performance()
         target_metric = study_context.target_metric
@@ -301,9 +287,6 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         logger.info(
             f"Training: {training_id} {target_metric} (ensemble selection): Dev {ensel_scores['dev_pool']:.3f}, Test {ensel_scores['test_pool']:.3f}"
         )
-
-        with (path_results / "ensel_scores_scores.json").open("w", encoding="utf-8") as f:
-            json.dump(ensel_scores, f)
 
         # calculate feature importances of best bag
         fi_methods = None  # disable calculation of pfi for ensel_bag
@@ -329,7 +312,7 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         feature_cols: list[str],
         feature_groups: dict,
         outersplit_id: int,
-        path_results: UPath,
+        results_dir: UPath,
         results: dict[str, dict],
     ) -> list[str]:
         """Optimization run with a global HP set over all inner folds."""
@@ -372,18 +355,12 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             n_startup_trials=self.config.n_optuna_startup_trials,
         )
 
-        # create study with unique name and database
-        db_path = study_context.output_path / (study_name + "_optuna.log")
-        storage = optuna.storages.JournalStorage(JournalFsspecFileBackend(db_path))
+        # create study with in-memory storage
         study = optuna.create_study(
             study_name=study_name,
             direction="maximize",  # metric adjustment in optuna objective
             sampler=sampler,
-            storage=storage,
-            load_if_exists=True,
         )
-        # store optuna db path
-        self.paths_optuna_db_[study_name] = db_path
 
         def logging_callback(study, trial):
             logger.set_log_group(LogGroup.OPTUNA)
@@ -423,7 +400,7 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
                         "param_value": str(trial.params[name]),
                     }
                 )
-        dict_optuna_path = study_context.output_path / f"{study_name}_optuna_results.parquet"
+        dict_optuna_path = results_dir / "optuna_results.parquet"
         pd.DataFrame(dict_optuna).to_parquet(
             str(dict_optuna_path),
             storage_options=dict_optuna_path.storage_options,
@@ -482,9 +459,6 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         # train all models in best_bag
         best_bag.fit()
 
-        # save best bag
-        best_bag.to_pickle(path_results / "best_bag.pkl")
-
         # save performance values of best bag
         best_bag_performance = best_bag.get_performance()
         logger.info(f"Best bag performance {best_bag_performance}")
@@ -499,10 +473,6 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             f"Dev {best_bag_performance['dev_pool']:.3f}, "
             f"Test {best_bag_performance['test_pool']:.3f}"
         )
-
-        # save best bag performance
-        with (path_results / "best_bag_performance.json").open("w", encoding="utf-8") as f:
-            json.dump(best_bag_performance, f)
 
         # calculate feature importances of best bag
         fi_methods = self.config.fi_methods_bestbag

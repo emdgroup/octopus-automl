@@ -11,6 +11,7 @@ from upath import UPath
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.training import Training
+from octopus.utils import joblib_save
 
 
 def create_synthetic_data_and_models(n_samples=500):
@@ -238,9 +239,9 @@ def test_ensemble_selection_ensembled_data(tmp_path):
         bags[model_name] = bag
 
     for trial_idx, (_model_name, bag) in enumerate(bags.items()):
-        filename = f"trial{trial_idx}_bag.pkl"
+        filename = f"trial_{trial_idx}_bag.joblib"
         filepath = trials_path / filename
-        bag.to_pickle(filepath)
+        joblib_save(bag, filepath)
 
     # Get individual model performance
     individual_performances = []

@@ -2,8 +2,10 @@
 
 import json
 import os
+import platform
 import sys
 from abc import ABC, abstractmethod
+from datetime import UTC, datetime
 
 import pandas as pd
 from attrs import Factory, asdict, define, field, fields, has, validators
@@ -14,6 +16,7 @@ from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
 from octopus.modules import Octo, Task
+from octopus.utils import get_package_name, get_version
 
 from .context import StudyContext
 from .data_preparator import OctoDataPreparator
@@ -160,7 +163,7 @@ class OctoStudy(ABC):
         self.output_path.mkdir(parents=True, exist_ok=True)
 
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        set_logger_filename(log_file=self.log_dir / "octo_manager.log")
+        set_logger_filename(log_file=self.log_dir / "study.log")
 
     def _initialize_study_outputs(
         self, data: pd.DataFrame, prepared: PreparedData, ml_type: MLType, positive_class: int | None
@@ -205,11 +208,22 @@ class OctoStudy(ABC):
             "target_assignments": self.target_assignments,
         }
 
-        config_path = self.output_path / "config.json"
+        config_path = self.output_path / "study_config.json"
         with config_path.open("w") as f:
             json.dump(config, f, indent=2)
 
-        data_path = self.output_path / "data.parquet"
+        # Write study metadata (version, platform, timestamp)
+        study_meta = {
+            "octopus_version": get_version(),
+            "package_name": get_package_name(),
+            "python_version": platform.python_version(),
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        meta_path = self.output_path / "study_meta.json"
+        with meta_path.open("w") as f:
+            json.dump(study_meta, f, indent=2)
+
+        data_path = self.output_path / "data_raw.parquet"
         data.to_parquet(
             str(data_path),
             index=False,

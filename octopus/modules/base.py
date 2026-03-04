@@ -7,12 +7,12 @@ from abc import ABC, abstractmethod
 from enum import StrEnum
 from typing import Any
 
-import joblib
 import pandas as pd
 from attrs import define, field, validators
 from upath import UPath
 
 from octopus.study.context import StudyContext
+from octopus.utils import joblib_load, joblib_save
 
 
 class ResultType(StrEnum):
@@ -71,8 +71,7 @@ class ModuleResult:
         if self.model is not None:
             model_dir = result_dir / "model"
             model_dir.mkdir(parents=True, exist_ok=True)
-            with (model_dir / "model.joblib").open("wb") as f:
-                joblib.dump(self.model, f)
+            joblib_save(self.model, model_dir / "model.joblib")
             predictor_state = {"selected_features": self.selected_features}
             with (model_dir / "predictor.json").open("w") as f:
                 json.dump(predictor_state, f, indent=2)
@@ -118,8 +117,7 @@ class ModuleResult:
         model_dir = result_dir / "model"
         model_path = model_dir / "model.joblib"
         if model_path.exists():
-            with model_path.open("rb") as f:
-                model = joblib.load(f)
+            model = joblib_load(model_path)
 
         return cls(
             result_type=result_type,
@@ -187,7 +185,8 @@ class ModuleExecution[T: Task](ABC):
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
-        output_dir: UPath,
+        results_dir: UPath,
+        scratch_dir: UPath,
         num_assigned_cpus: int,
         feature_groups: dict | None,
         prior_results: dict[str, pd.DataFrame] | None,

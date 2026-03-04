@@ -79,7 +79,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         data_traindev: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        output_dir: UPath,
+        results_dir: UPath,
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit EFS module by creating and optimizing an ensemble of models."""
@@ -91,11 +91,6 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
             "probabilities" if study_context.target_metric in ["AUCROC", "LOGLOSS"] else "predictions"
         )
         direction = Metrics.get_direction(study_context.target_metric)
-
-        # Create results directory
-        path_results = output_dir / "results"
-        if path_results:
-            path_results.mkdir(parents=True, exist_ok=True)
 
         self._create_modeltable(
             study_context, x_traindev, y_traindev, row_traindev, feature_cols, metric_input, direction
@@ -112,7 +107,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
         print("EFS completed")
 
         # Save results to JSON
-        with (path_results / "results.json").open("w", encoding="utf-8") as f:
+        with (results_dir / "results.json").open("w", encoding="utf-8") as f:
             json.dump({}, f, indent=4)
 
         # Extract selected features (computed in _generate_results)

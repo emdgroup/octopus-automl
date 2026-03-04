@@ -10,6 +10,7 @@ from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules.octo.bag import Bag, BagClassifier, BagRegressor
 from octopus.modules.octo.training import Training, TrainingConfig
+from octopus.utils import joblib_save
 
 logger = get_logger()
 
@@ -208,13 +209,13 @@ class ObjectiveOptuna:
 
     def _save_topn_trials(self, bag: BagClassifier | BagRegressor, target_value, n_trial):
         max_n_trials = self.config.ensel_n_save_trials
-        path_save = self.path_study / self.task_path / "trials" / f"study{self.study_name}trial{n_trial}_bag.pkl"
+        path_save = self.path_study / self.task_path / "scratch" / f"trial_{n_trial}_bag.joblib"
 
         # saving top n_trials to disk
         # the optuna target_value will always be minimized. Heappop removes the lowest
         # value, therefore target_value needs to be negated.
         heapq.heappush(self.top_trials, (-1 * target_value, path_save))
-        bag.to_pickle(path_save)
+        joblib_save(bag, path_save)
         if len(self.top_trials) > max_n_trials:
             # delete trial with lowest perfomrmance in n_trials
             _, path_delete = heapq.heappop(self.top_trials)

@@ -70,7 +70,7 @@ class BorutaModule(FeatureSelectionExecution["Boruta"]):
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        output_dir: UPath,
+        results_dir: UPath,
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit Boruta module for feature selection."""
@@ -79,11 +79,6 @@ class BorutaModule(FeatureSelectionExecution["Boruta"]):
         # Extract data matrices (local variables)
         x_traindev = data_traindev[feature_cols]
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
-
-        # Create results directory
-        path_results = output_dir / "results" if output_dir else None
-        if path_results:
-            path_results.mkdir(parents=True, exist_ok=True)
 
         # Configuration, define default model
         if study_context.ml_type == "classification":
@@ -255,9 +250,9 @@ class BorutaModule(FeatureSelectionExecution["Boruta"]):
             "Test set (refit) performance": test_score_refit,
             "Test set (gs+refit) performance": test_score_gsrefit,
         }
-        if path_results:
-            with (path_results / "results.json").open("w", encoding="utf-8") as f:
-                json.dump(results, f, indent=4)
+
+        with (results_dir / "results.json").open("w", encoding="utf-8") as f:
+            json.dump(results, f, indent=4)
 
         return {
             ResultType.BEST: ModuleResult(

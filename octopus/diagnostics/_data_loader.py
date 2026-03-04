@@ -75,8 +75,8 @@ def load_parquet_glob(study_path: Path, pattern: str) -> pd.DataFrame:
 def load_predictions(study_path: Path) -> pd.DataFrame:
     """Load all predictions parquet files across outersplits and tasks.
 
-    Searches in ``outersplit*/task*/*/predictions.parquet`` to pick up
-    results stored under ``best/`` and ``ensemble_selection/`` sub-directories.
+    Searches in ``outersplit*/task*/results/*/predictions.parquet`` to pick up
+    results stored under ``results/best/`` and ``results/ensemble_selection/`` sub-directories.
 
     Args:
         study_path: Root path of the study directory.
@@ -84,14 +84,14 @@ def load_predictions(study_path: Path) -> pd.DataFrame:
     Returns:
         Combined predictions DataFrame.
     """
-    return load_parquet_glob(study_path, "outersplit*/task*/*/predictions.parquet")
+    return load_parquet_glob(study_path, "outersplit*/task*/results/*/predictions.parquet")
 
 
 def load_feature_importances(study_path: Path) -> pd.DataFrame:
     """Load all feature importance parquet files across outersplits and tasks.
 
-    Searches in ``outersplit*/task*/*/feature_importances.parquet`` to pick up
-    results stored under ``best/`` and ``ensemble_selection/`` sub-directories.
+    Searches in ``outersplit*/task*/results/*/feature_importances.parquet`` to pick up
+    results stored under ``results/best/`` and ``results/ensemble_selection/`` sub-directories.
 
     Args:
         study_path: Root path of the study directory.
@@ -99,7 +99,7 @@ def load_feature_importances(study_path: Path) -> pd.DataFrame:
     Returns:
         Combined feature importances DataFrame.
     """
-    return load_parquet_glob(study_path, "outersplit*/task*/*/feature_importances.parquet")
+    return load_parquet_glob(study_path, "outersplit*/task*/results/*/feature_importances.parquet")
 
 
 def load_optuna(study_path: Path) -> pd.DataFrame:
@@ -111,14 +111,14 @@ def load_optuna(study_path: Path) -> pd.DataFrame:
     Returns:
         Combined Optuna results DataFrame.
     """
-    return load_parquet_glob(study_path, "outersplit*/task*/optuna_*.parquet")
+    return load_parquet_glob(study_path, "outersplit*/task*/results/optuna_results.parquet")
 
 
 def load_scores(study_path: Path) -> pd.DataFrame:
     """Load all scores parquet files across outersplits and tasks.
 
-    Searches in ``outersplit*/task*/*/scores.parquet`` to pick up
-    results stored under ``best/`` and ``ensemble_selection/`` sub-directories.
+    Searches in ``outersplit*/task*/results/*/scores.parquet`` to pick up
+    results stored under ``results/best/`` and ``results/ensemble_selection/`` sub-directories.
 
     Args:
         study_path: Root path of the study directory.
@@ -126,4 +126,4 @@ def load_scores(study_path: Path) -> pd.DataFrame:
     Returns:
         Combined scores DataFrame.
     """
-    return load_parquet_glob(study_path, "outersplit*/task*/*/scores.parquet")
+    return load_parquet_glob(study_path, "outersplit*/task*/results/*/scores.parquet")

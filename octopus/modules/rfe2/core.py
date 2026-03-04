@@ -37,7 +37,8 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
-        output_dir: UPath,
+        results_dir: UPath,
+        scratch_dir: UPath,
         num_assigned_cpus: int,
         feature_groups: dict | None,
         prior_results: dict[str, pd.DataFrame] | None,
@@ -49,9 +50,6 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
 
         x_traindev = data_traindev[feature_cols]
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
-
-        path_trials = output_dir / "trials"
-        path_results = output_dir / "results"
 
         # Initialize RFE results DataFrame
         self.rfe_results_ = pd.DataFrame(
@@ -75,8 +73,8 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             feature_cols,
             outersplit_id,
             num_assigned_cpus,
-            path_trials,
-            path_results,
+            scratch_dir,
+            results_dir,
         )
 
         # (1) Run Octo optimization to get best bag
@@ -91,7 +89,7 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             feature_cols,
             feature_groups,
             outersplit_id,
-            path_results,
+            results_dir,
             results,
         )
 

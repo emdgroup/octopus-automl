@@ -7,14 +7,30 @@ import pytest
 from botocore.session import Session
 from moto.moto_server.threaded_moto_server import ThreadedMotoServer
 from sklearn.datasets import make_classification
+from sklearn.linear_model import LinearRegression
 from upath import UPath
 
 from octopus import OctoClassification
 from octopus.modules import Octo
+from octopus.utils import joblib_load, joblib_save
 
 
 class TestFSSpecIntegration:
     """Test for ensuring that all file IO goes through fsspec."""
+
+    def test_joblib_roundtrip_memory_filesystem(self):
+        """Verify joblib_save / joblib_load roundtrip on memory:// filesystem."""
+        model = LinearRegression()
+        model.fit([[1, 2], [3, 4]], [1, 2])
+
+        path = UPath("memory://test_joblib/model.joblib")
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        joblib_save(model, path)
+        loaded = joblib_load(path)
+
+        assert type(loaded) is type(model)
+        assert loaded.coef_.tolist() == model.coef_.tolist()
 
     @pytest.fixture
     def breast_cancer_dataset(self):
@@ -185,13 +201,14 @@ class TestFSSpecIntegration:
                 # Verify that the study was created and files exist
                 assert study_path.exists(), "Study directory should be created"
 
-                assert (study_path / "octo_manager.log").exists(), "Octo Manager log file should exist"
+                assert (study_path / "study.log").exists(), "Study log file should exist"
 
                 # Check for expected files (new architecture uses files, not directories)
-                assert (study_path / "data.parquet").exists(), "Data parquet file should exist"
+                assert (study_path / "data_raw.parquet").exists(), "Data parquet file should exist"
                 assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet file should exist"
 
-                assert (study_path / "config.json").exists(), "Config JSON file should exist"
+                assert (study_path / "study_config.json").exists(), "Config JSON file should exist"
+                assert (study_path / "study_meta.json").exists(), "Study meta JSON file should exist"
                 assert (study_path / "outersplit0").exists(), "Experiment directory should exist"
 
                 # Verify that the Octo step was executed by checking for workflow directories
