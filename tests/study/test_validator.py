@@ -19,9 +19,9 @@ def sample_data():
             "feature3": ["A", "B", "C"] * 33 + ["A"],
             "target": np.random.randint(0, 2, 100),
             "time": np.random.rand(100) * 10,
-            "strat": ["X", "Y"] * 50,
+            "strat": [0, 1] * 50,
         }
-    ).astype({"strat": "category", "feature3": "category"})
+    ).astype({"feature3": "category"})
 
 
 @pytest.fixture
@@ -118,6 +118,36 @@ def test_validate_stratification_col(validator_factory, stratification_col, shou
 
     if should_fail:
         with pytest.raises(ValueError):
+            validator._validate_stratification_col()
+    else:
+        validator._validate_stratification_col()
+
+
+@pytest.mark.parametrize(
+    "strat_dtype,should_fail",
+    [
+        ("int64", False),
+        ("bool", False),
+        ("float64", True),
+        ("category", True),
+        ("object", True),
+    ],
+)
+def test_validate_stratification_col_dtype(validator_factory, sample_data, strat_dtype, should_fail):
+    """Test stratification column dtype validation."""
+    data = sample_data.copy()
+    if strat_dtype == "bool":
+        data["strat"] = [True, False] * 50
+    elif strat_dtype == "int64":
+        data["strat"] = list(range(100))
+    elif strat_dtype == "float64":
+        data["strat"] = np.random.rand(100)
+    data["strat"] = data["strat"].astype(strat_dtype)
+
+    validator = validator_factory(data=data, stratification_col="strat")
+
+    if should_fail:
+        with pytest.raises(ValueError, match="unsupported dtype"):
             validator._validate_stratification_col()
     else:
         validator._validate_stratification_col()

@@ -104,11 +104,7 @@ class DataSplit:
                 random_state=datasplit_seed,
             )
 
-            if dataset_unique[self.stratification_col].dtype.kind not in "iub":
-                logger.error("Stratification column is of wrong type (expected: bool, int)")
-                raise ValueError("Stratification column is of wrong type (expected: bool, int)")
-
-            stratification_target = dataset_unique[self.stratification_col].astype(int)
+            stratification_target = dataset_unique[self.stratification_col]
             split_method = "StratifiedKFold"
         else:
             kf = KFold(

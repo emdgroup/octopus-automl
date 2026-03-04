@@ -133,19 +133,31 @@ class OctoDataValidator:
             raise ValueError(f"Duplicate columns found: {duplicates_str}")
 
     def _validate_stratification_col(self):
-        """Validate that stratification_col is not a reserved identifier.
+        """Validate stratification column constraints.
 
-        Ensures that the stratification column (if specified) is not the same as
-        sample_id_col or row_id_col, which are reserved for data identification.
+        Ensures that the stratification column (if specified):
+        - Is not the same as sample_id_col or row_id_col
+        - Has a supported dtype (integer or boolean)
+
+        Returns:
+            None: Returns early if stratification_col is not set.
 
         Raises:
-            ValueError: If stratification_col is the same as sample_id_col or row_id_col.
+            ValueError: If stratification_col is the same as sample_id_col or row_id_col,
+                or has an unsupported dtype.
         """
-        if self.stratification_col and self.stratification_col in [
-            self.sample_id_col,
-            self.row_id_col,
-        ]:
+        if not self.stratification_col:
+            return
+
+        if self.stratification_col in [self.sample_id_col, self.row_id_col]:
             raise ValueError("Stratification column cannot be the same as sample_id_col or row_id_col")
+
+        dtype = self.data[self.stratification_col].dtype
+        if not (pd.api.types.is_integer_dtype(dtype) or pd.api.types.is_bool_dtype(dtype)):
+            raise ValueError(
+                f"Stratification column '{self.stratification_col}' has unsupported dtype '{dtype}'. "
+                "Only int and bool are supported."
+            )
 
     def _validate_column_dtypes(self):
         """Validate that feature and target columns have supported data types.
