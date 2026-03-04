@@ -1,5 +1,3 @@
-# type: ignore
-
 """Wrapper for Gaussian Process Regressor."""
 
 from collections.abc import Callable
@@ -55,7 +53,7 @@ class GPRegressorWrapper(RegressorMixin, BaseEstimator):
         """Predict using the Gaussian Process model."""
         check_is_fitted(self, "model_")
         X = check_array(X)
-        return self.model_.predict(X)
+        return self.model_.predict(X)  # type: ignore[return-value]
 
     def _get_kernel(self, kernel_str: Literal["RBF", "Matern", "RationalQuadratic"] | Kernel) -> Kernel:
         """Get the kernel object based on the kernel string."""

@@ -1,5 +1,3 @@
-# type: ignore
-
 """Enhanced Tabular Neural Network Regressor with Categorical Embeddings."""
 
 from typing import Any
@@ -223,7 +221,7 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
             le = self.label_encoders_[cat_col]
             X_col = X[cat_col].fillna("__NAN__")
             # Handle unseen categories
-            encoded = np.array([le.transform([val])[0] if val in le.classes_ else 0 for val in X_col])
+            encoded = np.array([le.transform([val])[0] if val in le.classes_ else 0 for val in X_col])  # type: ignore[index]
             X_cat_encoded.append(encoded)
 
         # Prepare numerical features with same missing value handling as fit
@@ -251,7 +249,7 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
         with torch.no_grad():
             predictions = self.model_(X_cat_tensor, X_num_tensor)
 
-        return predictions.numpy().flatten()
+        return predictions.numpy().flatten()  # type: ignore[no-any-return]
 
     def _build_model(self) -> "TabularNNModel":
         """Build the neural network.

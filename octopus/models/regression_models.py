@@ -1,5 +1,3 @@
-# type: ignore
-
 """Regression models."""
 
 from catboost import CatBoostRegressor
@@ -23,7 +21,7 @@ from .wrapper_models.GaussianProcessRegressor import GPRegressorWrapper
 def ard_regressor() -> ModelConfig:
     """ARD regression model class."""
     return ModelConfig(
-        model_class=ARDRegression,
+        model_class=ARDRegression,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="permutation",
         n_repeats=2,
@@ -77,7 +75,7 @@ def catboost_regressor() -> ModelConfig:
 def elastic_net_regressor() -> ModelConfig:
     """ElasticNet regression model class."""
     return ModelConfig(
-        model_class=ElasticNet,
+        model_class=ElasticNet,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="shap",
         chpo_compatible=True,
@@ -101,7 +99,7 @@ def elastic_net_regressor() -> ModelConfig:
 def extra_trees_regressor() -> ModelConfig:
     """ExtraTrees regression model class."""
     return ModelConfig(
-        model_class=ExtraTreesRegressor,
+        model_class=ExtraTreesRegressor,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="internal",
         chpo_compatible=True,
@@ -124,7 +122,7 @@ def extra_trees_regressor() -> ModelConfig:
 def gaussian_process_regressor() -> ModelConfig:
     """Gaussian process regression model class."""
     return ModelConfig(
-        model_class=GPRegressorWrapper,
+        model_class=GPRegressorWrapper,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="permutation",
         n_repeats=2,
@@ -149,7 +147,7 @@ def gaussian_process_regressor() -> ModelConfig:
 def gradient_boosting_regressor() -> ModelConfig:
     """Gradient boost regression model class."""
     return ModelConfig(
-        model_class=GradientBoostingRegressor,
+        model_class=GradientBoostingRegressor,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="internal",
         chpo_compatible=True,
@@ -174,7 +172,7 @@ def gradient_boosting_regressor() -> ModelConfig:
 def random_forest_regressor() -> ModelConfig:
     """Random forrest regression model class."""
     return ModelConfig(
-        model_class=RandomForestRegressor,
+        model_class=RandomForestRegressor,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="internal",
         chpo_compatible=True,
@@ -197,7 +195,7 @@ def random_forest_regressor() -> ModelConfig:
 def ridge_regressor() -> ModelConfig:
     """Ridge regression model class."""
     return ModelConfig(
-        model_class=Ridge,
+        model_class=Ridge,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="shap",
         chpo_compatible=False,
@@ -218,7 +216,7 @@ def ridge_regressor() -> ModelConfig:
 def svr_regressor() -> ModelConfig:
     """Svr regression model class."""
     return ModelConfig(
-        model_class=SVR,
+        model_class=SVR,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="permutation",
         n_repeats=2,
@@ -265,7 +263,7 @@ def xgb_regressor() -> ModelConfig:
 def hist_gradient_boosting_regressor() -> ModelConfig:
     """Histogram-based gradient boosting regression model class (scikit-learn 1.6.1)."""
     return ModelConfig(
-        model_class=HistGradientBoostingRegressor,
+        model_class=HistGradientBoostingRegressor,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="internal",
         chpo_compatible=True,
@@ -292,7 +290,7 @@ def tabular_nn_regressor() -> ModelConfig:
     from .wrapper_models.TabularNNRegressor import TabularNNRegressor  # noqa: PLC0415
 
     return ModelConfig(
-        model_class=TabularNNRegressor,
+        model_class=TabularNNRegressor,  # type: ignore[arg-type]
         ml_type="regression",
         feature_method="permutation",
         n_repeats=2,
