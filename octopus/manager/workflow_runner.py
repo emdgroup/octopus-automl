@@ -201,8 +201,5 @@ class WorkflowTaskRunner:
             task: Task to log information about
         """
         logger.info(
-            f"Processing workflow task: {task.task_id} | "
-            f"Input task: {task.depends_on} | "
-            f"Module: {task.module} | "
-            f"Description: {task.description}"
+            f"Processing workflow task: {task.task_id} | Input task: {task.depends_on} | Module: {task.module} | Description: {task.description}"
         )
