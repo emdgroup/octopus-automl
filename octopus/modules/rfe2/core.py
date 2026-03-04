@@ -94,7 +94,7 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             raise ValueError("RFE2 requires 'best' results from Octo optimization")
 
         # Get bag from module state (stored by OctoModule._run_globalhp_optimization)
-        bag = copy.deepcopy(self.model_)
+        bag = copy.deepcopy(results["best"]["_bag"])
         bag_scores = results["best"]["scores"]
         bag_selected_features = bag.get_selected_features(fi_methods=[self.config.fi_method_rfe])
 
@@ -176,11 +176,6 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             f", Perf_sem: {selected_row['performance_sem']:.4f}"
         )
         print("Selected features:", selected_row["features"])
-
-        # Store fitted state
-        self.model_ = best_model
-        self.selected_features_ = selected_features
-        self.feature_importances_ = {"dev": selected_row["feature_importances"]}
 
         # Build flat scores DataFrame from best_model
         scores = best_model.get_performance_df(metric=study_context.target_metric)

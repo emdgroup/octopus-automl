@@ -117,10 +117,6 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
             .index.tolist()
         )
 
-        # Store fitted state
-        self.selected_features_ = selected_features
-        self.feature_importances_ = module_result["feature_importances"]
-
         # Build flat feature_importances DataFrame
         fi_dfs = []
         raw_fi = module_result["feature_importances"]

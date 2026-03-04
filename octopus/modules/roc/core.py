@@ -142,12 +142,8 @@ class RocModule(FeatureSelectionExecution["Roc"]):
 
         # Store selected features (fitted state only)
         selected_features = sorted(remaining_features, key=lambda x: (len(x), sorted(x)))
-        self.selected_features_ = selected_features
 
         logger.info("ROC completed")
-
-        # Store fitted state
-        self.feature_importances_ = {}
 
         return {
             ResultType.BEST: ModuleResult(

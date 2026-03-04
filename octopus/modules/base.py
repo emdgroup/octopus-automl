@@ -205,20 +205,12 @@ class ModuleExecution[T: Task](ABC):
 class FeatureSelectionExecution[T: Task](ModuleExecution[T]):
     """Execution class for feature selection modules."""
 
-    selected_features_: list[str] | None = field(init=False, default=None)
-    feature_importances_: dict | None = field(init=False, default=None)
-
-    def is_fitted(self) -> bool:
-        """Check if module has been fitted."""
-        return self.selected_features_ is not None
+    # selected_features_: list[str] | None = field(init=False, default=None)
+    # feature_importances_: dict | None = field(init=False, default=None)
 
 
 @define
 class MLModuleExecution[T: Task](FeatureSelectionExecution[T]):
     """Execution class for ML modules that train predictive models."""
 
-    model_: Any = field(init=False, default=None)
-
-    def is_fitted(self) -> bool:
-        """Check if module has been fitted."""
-        return self.model_ is not None
+    # model_: Any = field(init=False, default=None)

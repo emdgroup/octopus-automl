@@ -67,10 +67,6 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
 
         logger.info(f"Selected features: {selected_features}")
 
-        # Store fitted state
-        self.selected_features_ = selected_features
-        self.feature_importances_ = {}
-
         return {
             ResultType.BEST: ModuleResult(
                 result_type=ResultType.BEST,

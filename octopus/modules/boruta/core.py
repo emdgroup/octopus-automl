@@ -199,10 +199,6 @@ class BorutaModule(FeatureSelectionExecution["Boruta"]):
             }
         ).sort_values(by="importance", ascending=False)
 
-        # Store fitted state
-        self.selected_features_ = selected_features
-        self.feature_importances_ = {"internal": fi_df}
-
         # Build standard scores DataFrame
         scores = pd.DataFrame(
             [

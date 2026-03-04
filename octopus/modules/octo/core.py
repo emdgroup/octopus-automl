@@ -87,10 +87,6 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             results,
         )
 
-        # Store fitted state (permanent)
-        self.selected_features_ = best_selected_features
-        self.feature_importances_ = results["best"]["feature_importances"]
-
         # Build best ModuleResult
         best_bag = results["best"]["_bag"]
         best_result = ModuleResult(
@@ -110,9 +106,6 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             ensel_selected_features = self._run_ensemble_selection(
                 study_context, outersplit_id, scratch_dir, results_dir, results
             )
-            if ensel_selected_features:
-                self.selected_features_ = ensel_selected_features
-                self.feature_importances_ = results["ensel"]["feature_importances"]
 
             # Always save ensemble result if it was produced
             if "ensel" in results:
@@ -484,9 +477,6 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             "feature_importances": best_bag_fi,
             "_bag": best_bag,
         }
-
-        # Store the best bag as the module's fitted model
-        self.model_ = best_bag
 
         # log selected features info
         logger.set_log_group(LogGroup.RESULTS)
