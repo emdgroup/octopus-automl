@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from octopus.study.data_validator import OctoDataValidator
+from octopus.types import MLType
 
 
 @pytest.fixture
@@ -35,7 +36,7 @@ def validator_factory(sample_data):
         sample_id_col="sample_id_col",
         row_id_col="id",
         stratification_col="strat",
-        ml_type="classification",
+        ml_type=MLType.BINARY,
         positive_class=1,
     ):
         if data is None:

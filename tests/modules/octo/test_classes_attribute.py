@@ -12,6 +12,7 @@ from octopus.models.hyperparameter import (
     IntHyperparameter,
 )
 from octopus.modules.octo.training import Training
+from octopus.types import MLType
 
 
 def get_classification_models():
@@ -25,7 +26,7 @@ def get_classification_models():
     for model_name in Models._config_factories:
         try:
             config = Models.get_config(model_name)
-            if config.ml_type == "classification" and model_name not in excluded_models:
+            if config.supports_ml_type(MLType.BINARY) and model_name not in excluded_models:
                 models.append(model_name)
         except Exception:
             # Skip models that can't be loaded (e.g., missing dependencies)
@@ -94,7 +95,7 @@ def test_classification_model_has_classes_attribute(sample_data, model_name):
     try:
         training = Training(
             training_id=f"test_{model_name}",
-            ml_type="classification",
+            ml_type=MLType.BINARY,
             target_assignments={"target": "target"},
             feature_cols=["x1", "x2"],
             row_id_col="row_id",

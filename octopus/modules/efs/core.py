@@ -17,6 +17,7 @@ from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, cross_
 from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
+from octopus.types import MLType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -164,9 +165,9 @@ class EfsModule(ModuleExecution["Efs"]):
         random.seed(0)
 
         # Configuration, define default model
-        if study_context.ml_type == "classification":
+        if study_context.ml_type in (MLType.BINARY, MLType.MULTICLASS):
             default_model = "CatBoostClassifier"
-        elif study_context.ml_type == "regression":
+        elif study_context.ml_type == MLType.REGRESSION:
             default_model = "CatBoostRegressor"
         else:
             raise ValueError(f"{study_context.ml_type} not supported")
@@ -226,12 +227,12 @@ class EfsModule(ModuleExecution["Efs"]):
             print(f"Subset {i}, best_cv_score: {best_cv_score:.4f}")
 
             # predictions
-            if study_context.ml_type == "classification":
+            if study_context.ml_type in (MLType.BINARY, MLType.MULTICLASS):
                 cv_preds_df = pd.DataFrame()
                 cv_preds_df[study_context.row_id_col] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")  # type: ignore[arg-type]
                 cv_preds_df["probabilities"] = cross_val_predict(best_model, x, y, cv=cv, method="predict_proba")[:, 1]  # type: ignore[arg-type] # binary only
-            elif study_context.ml_type == "regression":
+            elif study_context.ml_type == MLType.REGRESSION:
                 cv_preds_df = pd.DataFrame()
                 cv_preds_df[study_context.row_id_col] = row_ids
                 cv_preds_df["predictions"] = cross_val_predict(best_model, x, y, cv=cv, method="predict")  # type: ignore[arg-type]

@@ -13,6 +13,7 @@ from octopus.models.hyperparameter import (
     FloatHyperparameter,
     IntHyperparameter,
 )
+from octopus.types import MLType
 
 
 @pytest.mark.parametrize(
@@ -139,7 +140,7 @@ def test_create_trial_parameters():
         return ModelConfig(
             model_class=object,
             feature_method="test",
-            ml_type="classification",
+            ml_types=[MLType.BINARY, MLType.MULTICLASS],
             hyperparameters=hyperparameters,
             n_jobs="n_jobs",
             model_seed="random_state",

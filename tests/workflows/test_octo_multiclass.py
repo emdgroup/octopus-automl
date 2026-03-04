@@ -10,7 +10,7 @@ from sklearn.datasets import make_classification
 
 from octopus import OctoClassification
 from octopus.modules import Octo
-from octopus.study.types import MLType
+from octopus.types import MLType
 
 
 class TestOctoMulticlass:
@@ -310,7 +310,7 @@ class TestOctoMulticlass:
                 study = OctoClassification(
                     name=f"test_multiclass_{target_metric.lower()}",
                     target_metric=target_metric,
-                    ml_type=MLType.CLASSIFICATION,
+                    ml_type=MLType.BINARY,
                     feature_cols=["f1"],
                     target_col="target",
                     sample_id_col="index",
@@ -320,5 +320,4 @@ class TestOctoMulticlass:
                 )
 
                 assert study.target_metric == target_metric
-                # ml_type will be set to MULTICLASS or CLASSIFICATION in fit() based on actual data
-                assert study.ml_type.value == "classification"  # Default before fit()
+                assert study.ml_type == MLType.BINARY

@@ -12,6 +12,7 @@ from sklearn.feature_selection import f_classif, f_regression
 from octopus.logger import LogGroup, get_logger
 from octopus.modules.base import FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
+from octopus.types import MLType
 
 if TYPE_CHECKING:
     from octopus.modules.mrmr import Mrmr  # noqa: F401
@@ -121,7 +122,7 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         x_traindev: pd.DataFrame,
         y_traindev: pd.DataFrame,
         feature_cols: list[str],
-        ml_type: str,
+        ml_type: MLType,
         prior_results: dict,
     ) -> pd.DataFrame:
         """Get relevance data based on relevance type."""
@@ -154,7 +155,7 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         return re_df
 
     def _get_fstats_relevance(
-        self, x_traindev: pd.DataFrame, y_traindev: pd.DataFrame, feature_cols: list[str], ml_type: str
+        self, x_traindev: pd.DataFrame, y_traindev: pd.DataFrame, feature_cols: list[str], ml_type: MLType
     ) -> pd.DataFrame:
         """Get f-statistics based relevance."""
         return _relevance_fstats(x_traindev, y_traindev, feature_cols, ml_type)
@@ -164,15 +165,15 @@ def _relevance_fstats(
     features: pd.DataFrame,
     target: pd.DataFrame,
     feature_cols: list[str],
-    ml_type: str,
+    ml_type: MLType,
 ) -> pd.DataFrame:
     """Calculate f-statistics based relevance."""
     features = features[feature_cols]
     target_array = target.to_numpy().ravel()
 
-    if ml_type == "classification":
+    if ml_type in (MLType.BINARY, MLType.MULTICLASS):
         values, _ = f_classif(features, target_array)
-    elif ml_type == "regression":
+    elif ml_type == MLType.REGRESSION:
         values, _ = f_regression(features, target_array)
     else:
         raise ValueError(f"ML-type {ml_type} not supported.")

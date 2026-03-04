@@ -13,14 +13,15 @@ from upath import UPath
 
 # sklearn imports for compatibility
 from octopus.logger import LogGroup, get_logger
-
-# Adjust this import path as needed depending on your package layout
 from octopus.manager.ray_parallel import (
     init_ray,
     run_parallel_inner,
 )
 from octopus.metrics.utils import get_performance_from_predictions
 from octopus.modules.octo.training import Training
+
+# Adjust this import path as needed depending on your package layout
+from octopus.types import MLType
 
 logger = get_logger()
 
@@ -124,7 +125,7 @@ class BagBase(BaseEstimator):
     target_metric: str = field(validator=[validators.instance_of(str)])
     target_assignments: dict = field(validator=[validators.instance_of(dict)])
     row_id_col: str = field(validator=[validators.instance_of(str)])
-    ml_type: str = field(validator=[validators.instance_of(str)])
+    ml_type: MLType = field(validator=[validators.instance_of(MLType)])
     log_dir: UPath = field(validator=[validators.instance_of(UPath)])
     train_status: bool = field(default=False)
 
@@ -149,7 +150,7 @@ class BagBase(BaseEstimator):
                                   for classification/multiclass tasks, None otherwise.
         """
         # Return None for non-classification tasks
-        if self.ml_type not in ["classification", "multiclass"]:
+        if self.ml_type not in (MLType.BINARY, MLType.MULTICLASS):
             return None
 
         # Check if we have any trainings
@@ -189,7 +190,7 @@ class BagBase(BaseEstimator):
         positive_class explicitly set in config_training. No fallback solutions are provided.
         """
         # Only applicable for binary classification
-        if self.ml_type != "classification":
+        if self.ml_type != MLType.BINARY:
             return None
 
         # Initialize _positive_class if it doesn't exist (e.g., when loaded from pickle)
@@ -775,7 +776,7 @@ class BagBase(BaseEstimator):
     def predict_proba(self, x):
         """Predict_proba with sklearn compatibility."""
         # Only available for classification tasks
-        if self.ml_type not in ["classification", "multiclass"]:
+        if self.ml_type not in (MLType.BINARY, MLType.MULTICLASS):
             raise AttributeError(f"predict_proba is not available for ml_type '{self.ml_type}'")
 
         # Check if the bag has fitted trainings
@@ -803,7 +804,7 @@ class BagBase(BaseEstimator):
 
     def _estimator_type(self):
         """Return the estimator type for sklearn compatibility."""
-        if self.ml_type in ["classification", "multiclass"]:
+        if self.ml_type in (MLType.BINARY, MLType.MULTICLASS):
             return "classifier"
         else:
             return "regressor"
@@ -842,9 +843,8 @@ class _BagFunction:
     """
 
     def __call__(self, **kwargs: Any) -> BagClassifier | BagRegressor:
-        ml_type = kwargs.get("ml_type", "regression")
-
-        if ml_type in ["classification", "multiclass"]:
+        ml_type = kwargs.get("ml_type", MLType.REGRESSION)
+        if ml_type in (MLType.BINARY, MLType.MULTICLASS):
             return BagClassifier(**kwargs)
         else:
             return BagRegressor(**kwargs)

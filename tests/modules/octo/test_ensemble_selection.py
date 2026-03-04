@@ -11,6 +11,7 @@ from upath import UPath
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.training import Training
+from octopus.types import MLType
 from octopus.utils import joblib_save
 
 
@@ -161,7 +162,7 @@ def create_fake_training(trained_model, model_name, feature_indices, fold_data, 
 
     training = Training(
         training_id=training_id,
-        ml_type="regression",
+        ml_type=MLType.REGRESSION,
         target_assignments={"default": "target"},
         feature_cols=[f"feature_{i}" for i in range(len(feature_indices))],
         row_id_col="row_id",
@@ -196,7 +197,7 @@ def create_fake_bag(log_dir, trained_model, model_name, feature_indices, cv_fold
         target_assignments={"default": "target"},
         row_id_col="row_id",
         target_metric="MAE",
-        ml_type="regression",
+        ml_type=MLType.REGRESSION,
         parallel_execution=False,
         num_workers=1,
         log_dir=log_dir,

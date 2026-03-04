@@ -321,18 +321,14 @@ def calculate_fi_shap(
         else:
             shap_values = sv.values  # type: ignore[union-attr]
 
-        # Handle multi-output (e.g., classification with predict_proba)
+        # Handle multi-output: (samples, features) or (samples, classes, features)
         vals = np.asarray(shap_values)
         if vals.ndim == 2 and vals.shape[1] == n_features:
             importance = np.abs(vals).mean(axis=0)
+        elif vals.ndim == 3 and vals.shape[-1] == n_features:
+            importance = np.mean(np.abs(vals), axis=(0, 1))
         else:
-            # Find the feature axis by matching n_features
-            feat_axes = [i for i, d in enumerate(vals.shape) if d == n_features]
-            if len(feat_axes) != 1:
-                raise ValueError(f"Unexpected SHAP values shape {vals.shape}")
-            feat_axis = feat_axes[0]
-            reduce_axes = tuple(i for i in range(vals.ndim) if i != feat_axis)
-            importance = np.mean(np.abs(vals), axis=reduce_axes)
+            raise ValueError(f"Unexpected SHAP values shape {vals.shape}")
 
         # Mean absolute SHAP per feature for this split
         for i, feat in enumerate(feature_names):

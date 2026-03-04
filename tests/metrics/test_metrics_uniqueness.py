@@ -9,7 +9,7 @@ from collections import Counter, defaultdict
 import pytest
 
 from octopus.metrics import Metrics
-from octopus.models.config import ML_TYPES
+from octopus.types import ML_TYPES, MLType
 
 
 class TestMetricsUniqueness:
@@ -91,7 +91,7 @@ class TestMetricsUniqueness:
         assert not mismatches, f"Found {len(mismatches)} registry key/config name mismatches:\n" + "\n".join(mismatches)
 
     def test_all_metrics_have_valid_ml_types(self):
-        """Test that all metrics have valid ml_type values.
+        """Test that all metrics have valid ml_types values.
 
         Ensures utils functions can properly deduce ML types.
         """
@@ -102,12 +102,12 @@ class TestMetricsUniqueness:
         for registry_key in self.all_metrics:
             try:
                 config = Metrics.get_instance(registry_key)
-                ml_type = config.ml_type
 
-                if ml_type not in valid_ml_types:
-                    invalid_metrics.append(f"'{registry_key}' has invalid ml_type: '{ml_type}'")
-                else:
-                    ml_type_distribution[ml_type].append(registry_key)
+                for ml_type in config.ml_types:
+                    if ml_type.value not in valid_ml_types:
+                        invalid_metrics.append(f"'{registry_key}' has invalid ml_type: '{ml_type}'")
+                    else:
+                        ml_type_distribution[ml_type.value].append(registry_key)
 
             except Exception as e:
                 pytest.fail(f"Failed to get config for metric '{registry_key}': {e}")
@@ -155,11 +155,12 @@ class TestMetricsUniqueness:
         for registry_key in self.all_metrics:
             try:
                 config = Metrics.get_instance(registry_key)
-                ml_types.add(config.ml_type)
+                for t in config.ml_types:
+                    ml_types.add(t.value)
             except Exception:
                 continue
 
-        expected_ml_types = {"classification", "regression"}  # At minimum
+        expected_ml_types = {MLType.BINARY.value, MLType.REGRESSION.value}  # At minimum
         missing_types = expected_ml_types - ml_types
 
         assert not missing_types, (
@@ -182,9 +183,9 @@ class TestMetricsUniqueness:
                     # Compare all attributes
                     existing_config = configs_by_name[config_name]
 
-                    if existing_config.ml_type != config.ml_type:
+                    if existing_config.ml_types != config.ml_types:
                         conflicts.append(
-                            f"'{config_name}': ml_type conflict - '{existing_config.ml_type}' vs '{config.ml_type}'"
+                            f"'{config_name}': ml_type conflict - '{existing_config.ml_types}' vs '{config.ml_types}'"
                         )
 
                     if existing_config.prediction_type != config.prediction_type:
@@ -215,7 +216,8 @@ class TestMetricsUniqueness:
         for registry_key in self.all_metrics:
             try:
                 config = Metrics.get_instance(registry_key)
-                metrics_by_ml_type[config.ml_type].append(registry_key)
+                for t in config.ml_types:
+                    metrics_by_ml_type[t.value].append(registry_key)
                 metrics_by_prediction_type[config.prediction_type].append(registry_key)
             except Exception:
                 continue

@@ -17,6 +17,7 @@ from upath import UPath
 from octopus.metrics.utils import get_performance_from_model
 from octopus.predict.study_io import StudyLoader
 from octopus.predict.task_predictor import TaskPredictor
+from octopus.types import MLType
 
 
 @define(slots=False)
@@ -123,7 +124,7 @@ class TaskPredictorTest(TaskPredictor):
         Raises:
             TypeError: If ml_type is not classification or multiclass.
         """
-        if self.ml_type not in ("classification", "multiclass"):
+        if self.ml_type not in (MLType.BINARY, MLType.MULTICLASS):
             raise TypeError(
                 f"predict_proba() is only available for classification and multiclass tasks, "
                 f"but this study has ml_type='{self.ml_type}'."

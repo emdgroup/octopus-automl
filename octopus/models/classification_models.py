@@ -10,6 +10,8 @@ from sklearn.ensemble import (
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 
+from octopus.types import MLType
+
 from .config import ModelConfig
 from .core import Models
 from .hyperparameter import CategoricalHyperparameter, FixedHyperparameter, FloatHyperparameter, IntHyperparameter
@@ -21,7 +23,7 @@ def extra_trees_classifier() -> ModelConfig:
     """ExtraTrees classification model config."""
     return ModelConfig(
         model_class=ExtraTreesClassifier,  # type: ignore[arg-type]
-        ml_type="classification",
+        ml_types=[MLType.BINARY, MLType.MULTICLASS],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -47,7 +49,7 @@ def hist_gradient_boosting_classifier() -> ModelConfig:
     """Histogram-based gradient boosting classification model config (scikit-learn 1.6.1)."""
     return ModelConfig(
         model_class=HistGradientBoostingClassifier,  # type: ignore[arg-type]
-        ml_type="classification",
+        ml_types=[MLType.BINARY, MLType.MULTICLASS],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -73,7 +75,7 @@ def gradient_boosting_classifier() -> ModelConfig:
     """Gradient boosting classification model config."""
     return ModelConfig(
         model_class=GradientBoostingClassifier,  # type: ignore[arg-type]
-        ml_type="classification",
+        ml_types=[MLType.BINARY, MLType.MULTICLASS],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -98,7 +100,7 @@ def random_forest_classifier() -> ModelConfig:
     """Random forest classification model config."""
     return ModelConfig(
         model_class=RandomForestClassifier,  # type: ignore[arg-type]
-        ml_type="classification",
+        ml_types=[MLType.BINARY, MLType.MULTICLASS],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -122,7 +124,7 @@ def xgb_classifier() -> ModelConfig:
     """XGBoost classification model config."""
     return ModelConfig(
         model_class=XGBClassifier,
-        ml_type="classification",
+        ml_types=[MLType.BINARY, MLType.MULTICLASS],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -146,7 +148,7 @@ def catboost_classifier() -> ModelConfig:
     """CatBoost classification model config."""
     return ModelConfig(
         model_class=CatBoostClassifier,
-        ml_type="classification",
+        ml_types=[MLType.BINARY, MLType.MULTICLASS],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -175,7 +177,7 @@ def logistic_regression_classifier() -> ModelConfig:
     """Logistic regression classification model config."""
     return ModelConfig(
         model_class=LogisticRegression,  # type: ignore[arg-type]
-        ml_type="classification",
+        ml_types=[MLType.BINARY, MLType.MULTICLASS],
         feature_method="permutation",
         n_repeats=2,
         chpo_compatible=True,
@@ -201,7 +203,7 @@ def gaussian_process_classifier() -> ModelConfig:
     """Gaussian process classification model config."""
     return ModelConfig(
         model_class=GPClassifierWrapper,  # type: ignore[arg-type]
-        ml_type="classification",
+        ml_types=[MLType.BINARY, MLType.MULTICLASS],
         feature_method="permutation",
         n_repeats=2,
         chpo_compatible=False,

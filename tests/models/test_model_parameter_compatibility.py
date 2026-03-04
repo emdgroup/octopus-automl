@@ -7,13 +7,13 @@ from typing import Any
 import pytest
 
 from octopus.models import Models
-from octopus.models.config import ML_TYPES
 from octopus.models.hyperparameter import (
     CategoricalHyperparameter,
     FixedHyperparameter,
     FloatHyperparameter,
     IntHyperparameter,
 )
+from octopus.types import ML_TYPES
 
 
 def get_all_models():
@@ -108,7 +108,7 @@ def test_all_models_have_valid_configs():
             config = Models.get_config(model_name)
             assert config.name == model_name
             assert config.model_class is not None
-            assert config.ml_type in ML_TYPES
+            assert all(t.value in ML_TYPES for t in config.ml_types)
         except Exception as e:
             config_errors.append(f"{model_name}: {e!s}")
 

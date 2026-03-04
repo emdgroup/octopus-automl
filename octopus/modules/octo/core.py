@@ -13,6 +13,7 @@ from upath import UPath
 
 from octopus.datasplit import DataSplit, InnerSplits
 from octopus.logger import LogGroup, get_logger
+from octopus.models import Models
 from octopus.modules.base import ModuleExecution, ModuleResult, ResultType
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
 from octopus.modules.octo.bag import Bag
@@ -136,6 +137,10 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         results_dir: UPath,
     ):
         """Initialize Octo-specific data structures and directories."""
+        # Validate model-task compatibility
+        for model_name in self.config.models:
+            Models.validate_model_compatibility(model_name, study_context.ml_type)
+
         # create datasplit during init
         self.data_splits_ = DataSplit(
             dataset=data_traindev,

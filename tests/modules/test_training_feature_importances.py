@@ -35,6 +35,7 @@ from octopus.models.hyperparameter import (
     IntHyperparameter,
 )
 from octopus.modules.octo.training import Training
+from octopus.types import MLType
 
 # ============================================================================
 # CONFIGURATION AND FIXTURES
@@ -73,14 +74,14 @@ class ModelCache:
         # Get all models from the registry
         all_models = Models._config_factories.keys()
 
-        models_by_type = {"classification": [], "regression": [], "timetoevent": [], "multiclass": []}
+        models_by_type = {MLType.BINARY: [], MLType.REGRESSION: [], MLType.TIMETOEVENT: [], MLType.MULTICLASS: []}
 
         for model_name in all_models:
             try:
                 model_config = Models.get_config(model_name)
-                ml_type = model_config.ml_type
-                if ml_type in models_by_type:
-                    models_by_type[ml_type].append(model_name)
+                for ml_type, models_list in models_by_type.items():
+                    if model_config.supports_ml_type(ml_type):
+                        models_list.append(model_name)
             except Exception as e:
                 print(f"Warning: Could not get config for model {model_name}: {e}")
                 continue
@@ -103,23 +104,23 @@ def get_model_configs():
     available_models = get_available_models_by_type()
 
     return {
-        "classification": {
-            "models": available_models["classification"],
+        MLType.BINARY: {
+            "models": available_models[MLType.BINARY],
             "target_assignments": {"target": "target_class"},
             "target_metric": "AUCROC",
         },
-        "regression": {
-            "models": available_models["regression"],
+        MLType.REGRESSION: {
+            "models": available_models[MLType.REGRESSION],
             "target_assignments": {"target": "target_reg"},
             "target_metric": "R2",
         },
-        "timetoevent": {
-            "models": available_models["timetoevent"],
+        MLType.TIMETOEVENT: {
+            "models": available_models[MLType.TIMETOEVENT],
             "target_assignments": {"duration": "duration", "event": "event"},
             "target_metric": "CI",
         },
-        "multiclass": {
-            "models": available_models["multiclass"],
+        MLType.MULTICLASS: {
+            "models": available_models[MLType.MULTICLASS],
             "target_assignments": {"target": "target_multiclass"},
             "target_metric": "ACCBAL_MC",
         },
@@ -231,7 +232,7 @@ def create_training_instance(
     data_train: pd.DataFrame,
     data_dev: pd.DataFrame,
     data_test: pd.DataFrame,
-    ml_type: str,
+    ml_type: MLType,
     model_name: str,
     feature_cols: list[str],
     feature_groups: dict[str, list[str]],
@@ -249,8 +250,8 @@ def create_training_instance(
         "outl_reduction": 0,
     }
 
-    # Add positive_class for classification tasks
-    if ml_type == "classification":
+    # Add positive_class for binary classification tasks
+    if ml_type == MLType.BINARY:
         training_config["positive_class"] = 1
 
     return Training(
