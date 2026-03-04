@@ -304,8 +304,7 @@ class BagBase(BaseEstimator):
         failed_count = len(failed_trainings)
 
         logger.info(
-            f"Bag {self.bag_id} training summary: {successful_count}/{total_trainings} successful, "
-            f"{failed_count} failed"
+            f"Bag {self.bag_id} training summary: {successful_count}/{total_trainings} successful, {failed_count} failed"
         )
 
         if failed_trainings:
@@ -588,14 +587,12 @@ class BagBase(BaseEstimator):
 
                 successful_calculations.append(training)
                 logger.info(
-                    f"Feature importance ({fi_type}) calculation completed for bag_id {self.bag_id} "
-                    f"and training id {training_id}"
+                    f"Feature importance ({fi_type}) calculation completed for bag_id {self.bag_id} and training id {training_id}"
                 )
             except Exception as e:  # pylint: disable=broad-except
                 failed_calculations.append((training_id, str(e), type(e).__name__))
                 logger.error(
-                    f"Feature importance ({fi_type}) calculation failed for bag_id {self.bag_id}, "
-                    f"training_id {training_id}: {e}, type: {type(e).__name__}"
+                    f"Feature importance ({fi_type}) calculation failed for bag_id {self.bag_id}, training_id {training_id}: {e}, type: {type(e).__name__}"
                 )
                 # Still include the training even if FI calculation failed
                 successful_calculations.append(training)
@@ -606,8 +603,7 @@ class BagBase(BaseEstimator):
         failed_count = len(failed_calculations)
 
         logger.info(
-            f"Bag {self.bag_id} feature importance ({fi_type}) summary: "
-            f"{successful_count}/{total_trainings} successful, {failed_count} failed"
+            f"Bag {self.bag_id} feature importance ({fi_type}) summary: {successful_count}/{total_trainings} successful, {failed_count} failed"
         )
 
         if failed_calculations:
@@ -624,7 +620,7 @@ class BagBase(BaseEstimator):
         else:
             self._calculate_fi_sequential(fi_type=fi_type, partition=partition)
 
-    def get_selected_features(self, fi_methods=None):
+    def get_selected_features(self, fi_methods: list[str] | None = None) -> list[str]:
         """Get features selected by model, depending on fi method.
 
         The list of selected features will be derived only from one feature
@@ -682,7 +678,7 @@ class BagBase(BaseEstimator):
 
         return sorted(feat_all, key=lambda x: (len(x), sorted(x)))
 
-    def calculate_feature_importances(self, fi_methods=None, partitions=None):
+    def calculate_feature_importances(self, fi_methods: list[str] | None = None, partitions: list[str] | None = None):
         """Extract feature importances of all models in bag."""
         # we always extract internal feature importances, if available
         if fi_methods is None:
