@@ -18,6 +18,8 @@ import pandas as pd
 from attrs import field, frozen
 from upath import UPath
 
+from octopus.types import MLType
+
 __all__ = [
     "SplitArtifacts",
     "StudyLoader",
@@ -42,7 +44,7 @@ class StudyMetadata:
     """Immutable study-level metadata extracted from config.
 
     Attributes:
-        ml_type: Machine learning type (classification, regression, etc.).
+        ml_type: Machine learning type as MLType enum.
         target_metric: Primary metric name.
         target_col: Target column name.
         target_assignments: Target column assignments from prepared config.
@@ -52,7 +54,7 @@ class StudyMetadata:
         n_outersplits: Number of outer folds from config.
     """
 
-    ml_type: str
+    ml_type: MLType
     target_metric: str
     target_col: str
     target_assignments: dict[str, str]
@@ -354,7 +356,7 @@ class StudyLoader:
             row_id_col = config.get("row_id_col") or "row_id"
 
         return StudyMetadata(
-            ml_type=config.get("ml_type", ""),
+            ml_type=MLType(config["ml_type"]),
             target_metric=config.get("target_metric", ""),
             target_col=config.get("target_col", ""),
             target_assignments=config.get("prepared", {}).get("target_assignments", {}),

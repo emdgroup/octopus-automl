@@ -17,6 +17,7 @@ from sklearn.metrics import auc, confusion_matrix, roc_curve
 from upath import UPath
 
 from octopus.predict.study_io import StudyLoader
+from octopus.types import MLType
 
 __all__ = [
     "display_table",
@@ -357,9 +358,9 @@ def show_testset_performance(
         >>> df = show_testset_performance(tp, metrics=["AUCROC", "ACCBAL", "ACC"])
     """
     if metrics is None:
-        if predictor.ml_type == "classification":
+        if predictor.ml_type == MLType.BINARY:
             metrics = ["AUCROC", "ACCBAL", "ACC"]
-        elif predictor.ml_type == "regression":
+        elif predictor.ml_type == MLType.REGRESSION:
             metrics = ["R2", "MAE", "RMSE"]
         else:
             metrics = []
@@ -446,8 +447,8 @@ def show_aucroc_plots(
         >>> tp = TaskPredictorTest("./studies/my_study/", task_id=0)
         >>> show_aucroc_plots(tp, show_individual=True)
     """
-    if predictor.ml_type != "classification":
-        raise ValueError("AUCROC plots are only available for classification tasks")
+    if predictor.ml_type != MLType.BINARY:
+        raise ValueError("AUCROC plots are only available for binary classification tasks")
 
     width_px, height_px = int(figsize[0] * 80), int(figsize[1] * 80)
 
@@ -696,8 +697,8 @@ def show_confusionmatrix(
     if metrics is None:
         metrics = ["AUCROC", "ACCBAL", "ACC", "F1", "AUCPR", "NEGBRIERSCORE"]
 
-    if predictor.ml_type != "classification":
-        raise ValueError("show_confusionmatrix() is only applicable for classification tasks")
+    if predictor.ml_type != MLType.BINARY:
+        raise ValueError("show_confusionmatrix() is only applicable for binary classification tasks")
 
     # Get all per-split probabilities + targets in one call
     proba_df = predictor.predict_proba(df=True)

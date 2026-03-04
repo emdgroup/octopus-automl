@@ -12,6 +12,7 @@ from octopus.manager import OctoManager
 from octopus.manager.core import ResourceConfig
 from octopus.manager.workflow_runner import WorkflowTaskRunner
 from octopus.study.context import StudyContext
+from octopus.types import MLType
 
 # =============================================================================
 # Fixtures
@@ -52,7 +53,7 @@ def mock_outersplit_data():
 def study():
     """Create StudyContext for testing."""
     return StudyContext(
-        ml_type="classification",
+        ml_type=MLType.BINARY,
         target_metric="AUCROC",
         metrics=["AUCROC"],
         target_assignments={"default": "target"},

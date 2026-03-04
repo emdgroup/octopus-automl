@@ -10,6 +10,7 @@ from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules.octo.bag import Bag, BagClassifier, BagRegressor
 from octopus.modules.octo.training import Training, TrainingConfig
+from octopus.types import MLType
 from octopus.utils import joblib_save
 
 logger = get_logger()
@@ -25,7 +26,7 @@ class ObjectiveOptuna:
         self,
         outersplit_task_id: str,
         outersplit_id: int,
-        ml_type: str,
+        ml_type: MLType,
         target_assignments: dict,
         feature_cols: list[str],
         row_column: str,

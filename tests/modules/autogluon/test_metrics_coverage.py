@@ -4,6 +4,7 @@ import pytest
 
 from octopus.metrics import Metrics
 from octopus.modules.autogluon.core import metrics_inventory_autogluon
+from octopus.types import MLType
 
 
 class TestAutogluonMetricsCoverage:
@@ -21,7 +22,7 @@ class TestAutogluonMetricsCoverage:
         for metric_name in all_metrics:
             try:
                 config = Metrics.get_instance(metric_name)
-                if config.ml_type == "classification":
+                if config.supports_ml_type(MLType.BINARY):
                     classification_metrics.append(metric_name)
             except Exception:
                 # Skip metrics that can't be configured
@@ -37,7 +38,7 @@ class TestAutogluonMetricsCoverage:
         for metric_name in all_metrics:
             try:
                 config = Metrics.get_instance(metric_name)
-                if config.ml_type == "regression":
+                if config.supports_ml_type(MLType.REGRESSION):
                     regression_metrics.append(metric_name)
             except Exception:
                 # Skip metrics that can't be configured
@@ -107,7 +108,7 @@ class TestAutogluonMetricsCoverage:
         for metric_name in all_metrics:
             try:
                 config = Metrics.get_instance(metric_name)
-                if config.ml_type == "timetoevent":
+                if config.supports_ml_type(MLType.TIMETOEVENT):
                     time_to_event_metrics.append(metric_name)
             except Exception:
                 continue

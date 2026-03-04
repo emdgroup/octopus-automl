@@ -11,6 +11,8 @@ from sklearn.linear_model import ARDRegression, ElasticNet, Ridge
 from sklearn.svm import SVR
 from xgboost import XGBRegressor
 
+from octopus.types import MLType
+
 from .config import ModelConfig
 from .core import Models
 from .hyperparameter import CategoricalHyperparameter, FixedHyperparameter, FloatHyperparameter, IntHyperparameter
@@ -22,7 +24,7 @@ def ard_regressor() -> ModelConfig:
     """ARD regression model class."""
     return ModelConfig(
         model_class=ARDRegression,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="permutation",
         n_repeats=2,
         chpo_compatible=False,
@@ -48,7 +50,7 @@ def catboost_regressor() -> ModelConfig:
     """Cat boost regression model class."""
     return ModelConfig(
         model_class=CatBoostRegressor,
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -76,7 +78,7 @@ def elastic_net_regressor() -> ModelConfig:
     """ElasticNet regression model class."""
     return ModelConfig(
         model_class=ElasticNet,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="shap",
         chpo_compatible=True,
         scaler="StandardScaler",
@@ -100,7 +102,7 @@ def extra_trees_regressor() -> ModelConfig:
     """ExtraTrees regression model class."""
     return ModelConfig(
         model_class=ExtraTreesRegressor,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -123,7 +125,7 @@ def gaussian_process_regressor() -> ModelConfig:
     """Gaussian process regression model class."""
     return ModelConfig(
         model_class=GPRegressorWrapper,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="permutation",
         n_repeats=2,
         chpo_compatible=False,
@@ -148,7 +150,7 @@ def gradient_boosting_regressor() -> ModelConfig:
     """Gradient boost regression model class."""
     return ModelConfig(
         model_class=GradientBoostingRegressor,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -173,7 +175,7 @@ def random_forest_regressor() -> ModelConfig:
     """Random forrest regression model class."""
     return ModelConfig(
         model_class=RandomForestRegressor,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -196,7 +198,7 @@ def ridge_regressor() -> ModelConfig:
     """Ridge regression model class."""
     return ModelConfig(
         model_class=Ridge,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="shap",
         chpo_compatible=False,
         scaler="StandardScaler",
@@ -217,7 +219,7 @@ def svr_regressor() -> ModelConfig:
     """Svr regression model class."""
     return ModelConfig(
         model_class=SVR,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="permutation",
         n_repeats=2,
         chpo_compatible=False,
@@ -239,7 +241,7 @@ def xgb_regressor() -> ModelConfig:
     """XGBoost regression model class."""
     return ModelConfig(
         model_class=XGBRegressor,
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -264,7 +266,7 @@ def hist_gradient_boosting_regressor() -> ModelConfig:
     """Histogram-based gradient boosting regression model class (scikit-learn 1.6.1)."""
     return ModelConfig(
         model_class=HistGradientBoostingRegressor,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
@@ -291,7 +293,7 @@ def tabular_nn_regressor() -> ModelConfig:
 
     return ModelConfig(
         model_class=TabularNNRegressor,  # type: ignore[arg-type]
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         feature_method="permutation",
         n_repeats=2,
         chpo_compatible=False,

@@ -8,6 +8,7 @@ from attrs import Attribute, define, field, validators
 from sklearn.base import BaseEstimator
 
 from octopus.models.hyperparameter import Hyperparameter
+from octopus.types import MLType, to_ml_types_frozenset, validate_ml_types
 
 
 def validate_hyperparameters(instance: "ModelConfig", attribute: Attribute, value: list[Hyperparameter]) -> None:
@@ -33,9 +34,6 @@ def validate_hyperparameters(instance: "ModelConfig", attribute: Attribute, valu
 
 type OctoArrayLike = np.typing.ArrayLike
 type OctoMatrixLike = np.ndarray | pd.DataFrame
-
-ML_TYPES = ["classification", "multiclass", "regression", "timetoevent"]
-type MLType = Literal["classification", "multiclass", "regression", "timetoevent"]
 
 PRED_TYPES = ["predict", "predict_proba"]
 type PredType = Literal["predict", "predict_proba"]
@@ -67,7 +65,7 @@ class ModelConfig:
 
     model_class: type[BaseModel]
     feature_method: str
-    ml_type: MLType = field(validator=validators.in_(ML_TYPES))
+    ml_types: frozenset[MLType] = field(converter=to_ml_types_frozenset, validator=validate_ml_types)
     hyperparameters: list[Hyperparameter] = field(validator=validate_hyperparameters)
     n_repeats: None | int = field(factory=lambda: None)
     n_jobs: None | str = field(factory=lambda: "n_jobs")
@@ -76,3 +74,7 @@ class ModelConfig:
     scaler: None | str = field(default=None, validator=validators.in_([None, "StandardScaler"]))
     imputation_required: bool = field(default=True)
     categorical_enabled: bool = field(default=False)
+
+    def supports_ml_type(self, ml_type: MLType) -> bool:
+        """Check if this model supports the given ml_type."""
+        return ml_type in self.ml_types

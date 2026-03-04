@@ -30,6 +30,7 @@ from octopus.diagnostics._plots import (
     plot_optuna_trials_chart,
     plot_predictions_vs_truth_chart,
 )
+from octopus.types import MLType
 
 
 def _has_ipywidgets() -> bool:
@@ -100,10 +101,9 @@ class StudyDiagnostics:
         return self._config
 
     @property
-    def ml_type(self) -> str:
+    def ml_type(self) -> MLType:
         """Machine learning type (classification, regression, timetoevent)."""
-        result: str = self._config.get("ml_type", "")
-        return result
+        return MLType(self._config.get("ml_type", ""))
 
     @property
     def predictions(self) -> pd.DataFrame:

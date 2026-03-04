@@ -17,6 +17,7 @@ from upath import UPath
 
 from octopus.metrics.utils import get_performance_from_model
 from octopus.predict.study_io import StudyLoader, StudyMetadata, _to_upath
+from octopus.types import MLType
 from octopus.utils import get_version, joblib_load, joblib_save
 
 
@@ -103,7 +104,7 @@ class TaskPredictor:
     # ── Properties ──────────────────────────────────────────────
 
     @property
-    def ml_type(self) -> str:
+    def ml_type(self) -> MLType:
         """Machine learning type (classification, regression, timetoevent)."""
         return self._metadata.ml_type
 
@@ -270,7 +271,7 @@ class TaskPredictor:
         Raises:
             TypeError: If ml_type is not classification or multiclass.
         """
-        if self.ml_type not in ("classification", "multiclass"):
+        if self.ml_type not in (MLType.BINARY, MLType.MULTICLASS):
             raise TypeError(
                 f"predict_proba() is only available for classification and multiclass tasks, "
                 f"but this study has ml_type='{self.ml_type}'."

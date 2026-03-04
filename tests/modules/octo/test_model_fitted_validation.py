@@ -28,6 +28,7 @@ from octopus.models.hyperparameter import (
     IntHyperparameter,
 )
 from octopus.modules.octo.training import Training
+from octopus.types import MLType
 
 # ============================================================================
 # CONFIGURATION AND FIXTURES
@@ -56,14 +57,14 @@ class ModelCache:
         # Get all models from the registry
         all_models = Models._config_factories.keys()
 
-        models_by_type = {"classification": [], "regression": [], "timetoevent": []}
+        models_by_type = {MLType.BINARY: [], MLType.REGRESSION: [], MLType.TIMETOEVENT: []}
 
         for model_name in all_models:
             try:
                 model_config = Models.get_config(model_name)
-                ml_type = model_config.ml_type
-                if ml_type in models_by_type:
-                    models_by_type[ml_type].append(model_name)
+                for ml_type, models_list in models_by_type.items():
+                    if model_config.supports_ml_type(ml_type):
+                        models_list.append(model_name)
             except Exception as e:
                 print(f"Warning: Could not get config for model {model_name}: {e}")
                 continue
@@ -86,18 +87,18 @@ def get_model_configs():
     available_models = get_available_models_by_type()
 
     return {
-        "classification": {
-            "models": available_models["classification"],
+        MLType.BINARY: {
+            "models": available_models[MLType.BINARY],
             "target_assignments": {"target": "target_class"},
             "target_metric": "accuracy",
         },
-        "regression": {
-            "models": available_models["regression"],
+        MLType.REGRESSION: {
+            "models": available_models[MLType.REGRESSION],
             "target_assignments": {"target": "target_reg"},
             "target_metric": "mse",
         },
-        "timetoevent": {
-            "models": available_models["timetoevent"],
+        MLType.TIMETOEVENT: {
+            "models": available_models[MLType.TIMETOEVENT],
             "target_assignments": {"duration": "duration", "event": "event"},
             "target_metric": "concordance_index",
         },
@@ -222,7 +223,7 @@ def create_training_instance(
     data_train: pd.DataFrame,
     data_dev: pd.DataFrame,
     data_test: pd.DataFrame,
-    ml_type: str,
+    ml_type: MLType,
     model_name: str,
     feature_cols: list[str],
     feature_groups: dict[str, list[str]],
@@ -340,7 +341,7 @@ def _display_model_info(model_name: str, model_params: dict, verbose: bool = Fal
 
         print(f"\n  📊 {model_name}")
         print(f"     Model Class: {model_config.model_class.__name__}")
-        print(f"     ML Type: {model_config.ml_type}")
+        print(f"     ML Types: {model_config.ml_types}")
         print(f"     Feature Method: {model_config.feature_method}")
         print(f"     Scaler: {model_config.scaler}")
         print(f"     Imputation Required: {model_config.imputation_required}")
@@ -419,7 +420,7 @@ class TestModelFittedValidation:
         warnings.filterwarnings("ignore")
 
         model_configs = get_model_configs()
-        classification_models = model_configs["classification"]["models"]
+        classification_models = model_configs[MLType.BINARY]["models"]
 
         failed_tests = []
         successful_tests = []
@@ -427,7 +428,7 @@ class TestModelFittedValidation:
         for model_name in classification_models:
             try:
                 training = create_training_instance(
-                    data_train, data_dev, data_test, "classification", model_name, feature_cols, feature_groups
+                    data_train, data_dev, data_test, MLType.BINARY, model_name, feature_cols, feature_groups
                 )
 
                 result = _test_model_fitted_validation(training, model_name)
@@ -479,7 +480,7 @@ class TestModelFittedValidation:
         warnings.filterwarnings("ignore")
 
         model_configs = get_model_configs()
-        regression_models = model_configs["regression"]["models"]
+        regression_models = model_configs[MLType.REGRESSION]["models"]
 
         failed_tests = []
         successful_tests = []
@@ -487,7 +488,7 @@ class TestModelFittedValidation:
         for model_name in regression_models:
             try:
                 training = create_training_instance(
-                    data_train, data_dev, data_test, "regression", model_name, feature_cols, feature_groups
+                    data_train, data_dev, data_test, MLType.REGRESSION, model_name, feature_cols, feature_groups
                 )
 
                 result = _test_model_fitted_validation(training, model_name)
@@ -539,7 +540,7 @@ class TestModelFittedValidation:
         warnings.filterwarnings("ignore")
 
         model_configs = get_model_configs()
-        timetoevent_models = model_configs["timetoevent"]["models"]
+        timetoevent_models = model_configs[MLType.TIMETOEVENT]["models"]
 
         if not timetoevent_models:
             pytest.skip("No time-to-event models available")
@@ -550,7 +551,7 @@ class TestModelFittedValidation:
         for model_name in timetoevent_models:
             try:
                 training = create_training_instance(
-                    data_train, data_dev, data_test, "timetoevent", model_name, feature_cols, feature_groups
+                    data_train, data_dev, data_test, MLType.TIMETOEVENT, model_name, feature_cols, feature_groups
                 )
 
                 result = _test_model_fitted_validation(training, model_name)

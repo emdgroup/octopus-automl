@@ -22,6 +22,7 @@ from octopus.logger import LogGroup, get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
+from octopus.types import MLType
 
 # # TOBEDONE pipeline
 # - implement cat encoding on module level
@@ -48,7 +49,7 @@ class Training:
     training_id: str = field(validator=[validators.instance_of(str)])
     """Training id."""
 
-    ml_type: str = field(validator=[validators.instance_of(str)])
+    ml_type: MLType = field(validator=[validators.instance_of(MLType)])
     """ML-type."""
 
     target_assignments: dict = field(validator=[validators.instance_of(dict)])
@@ -151,7 +152,7 @@ class Training:
     @property
     def y_train(self):
         """y_train."""
-        if self.ml_type == "timetoevent":
+        if self.ml_type == MLType.TIMETOEVENT:
             duration = self.data_train[self.target_assignments["duration"]]
             event = self.data_train[self.target_assignments["event"]]
             return np.array(
@@ -164,7 +165,7 @@ class Training:
     @property
     def y_dev(self):
         """y_dev."""
-        if self.ml_type == "timetoevent":
+        if self.ml_type == MLType.TIMETOEVENT:
             duration = self.data_dev[self.target_assignments["duration"]]
             event = self.data_dev[self.target_assignments["event"]]
             return np.array(
@@ -177,7 +178,7 @@ class Training:
     @property
     def y_test(self):
         """y_dev."""
-        if self.ml_type == "timetoevent":
+        if self.ml_type == MLType.TIMETOEVENT:
             duration = self.data_test[self.target_assignments["duration"]]
             event = self.data_test[self.target_assignments["event"]]
             return np.array(
@@ -363,22 +364,15 @@ class Training:
                 self.predictions["dev"][target_col] = self.data_dev[target_col]
                 self.predictions["test"][target_col] = self.data_test[target_col]
 
-        # add additional predictions for classifications
-        if self.ml_type == "classification":
-            columns = [int(x) for x in self.model.classes_]  # column names --> int
-            self.predictions["train"][columns] = self.model.predict_proba(self.x_train_processed)
-            self.predictions["dev"][columns] = self.model.predict_proba(self.x_dev_processed)
-            self.predictions["test"][columns] = self.model.predict_proba(self.x_test_processed)
-
-        # add additional predictions for multiclass classifications
-        if self.ml_type == "multiclass":
+        # add additional predictions for classifications (binary and multiclass)
+        if self.ml_type in (MLType.BINARY, MLType.MULTICLASS):
             columns = [int(x) for x in self.model.classes_]  # column names --> int
             self.predictions["train"][columns] = self.model.predict_proba(self.x_train_processed)
             self.predictions["dev"][columns] = self.model.predict_proba(self.x_dev_processed)
             self.predictions["test"][columns] = self.model.predict_proba(self.x_test_processed)
 
         # add additional predictions for time to event predictions
-        if self.ml_type == "timetoevent":
+        if self.ml_type == MLType.TIMETOEVENT:
             pass
 
         # calculate used features, but only if required for optuna max_features>0
@@ -440,7 +434,7 @@ class Training:
     def calculate_fi_internal(self):
         """Sklearn-provided internal feature importance (based on train dataset)."""
         # Handle unsupported "timetoevent" case as in your original code
-        if getattr(self, "ml_type", None) == "timetoevent":
+        if getattr(self, "ml_type", None) == MLType.TIMETOEVENT:
             fi_df = pd.DataFrame(columns=["feature", "importance"])
             logger.warning("Internal features importances not available for timetoevent.")
             self.feature_importances["internal"] = fi_df
@@ -581,7 +575,7 @@ class Training:
         """Permutation feature importance."""
         logger.info(f"Calculating permutation feature importances ({partition}). This may take a while...")
         np.random.seed(42)  # reproducibility
-        if self.ml_type == "timetoevent":
+        if self.ml_type == MLType.TIMETOEVENT:
             # sksurv models only provide inbuilt scorer (CI)
             # more work needed to support other metrics
             scoring_type = None
@@ -728,7 +722,9 @@ class Training:
         except Exception as e1:
             logger.debug(f"SHAP auto explainer failed: {e1}. Falling back to callable + Kernel.")
             # Fallback to a plain callable; do NOT pass string link (avoids 'link needs to be callable' errors)
-            if getattr(self, "ml_type", None) == "classification" and hasattr(self.model, "predict_proba"):
+            if getattr(self, "ml_type", None) in (MLType.BINARY, MLType.MULTICLASS) and hasattr(
+                self.model, "predict_proba"
+            ):
 
                 def predict_fn(X):
                     return np.asarray(self.model.predict_proba(np.asarray(X)))
@@ -741,20 +737,18 @@ class Training:
             explainer = shap.Explainer(predict_fn, X_bg)
             sv = explainer(X_eval)
 
-        # SHAP values and aggregation
-        vals = np.asarray(sv.values)  # could be (n, f) or (n, outputs, f), etc.
+        # SHAP values: (samples, features) or 3D with features on any non-sample axis
+        vals = np.asarray(sv.values)
         if vals.ndim == 2 and vals.shape[1] == n_features:
             importance = np.abs(vals).mean(axis=0)
-        else:
-            feat_axes = [i for i, d in enumerate(vals.shape) if d == n_features]
+        elif vals.ndim == 3:
+            feat_axes = [i for i in range(1, vals.ndim) if vals.shape[i] == n_features]
             if len(feat_axes) != 1:
-                raise ValueError(f"Unexpected SHAP values shape {vals.shape}")
-            feat_axis = feat_axes[0]
-            reduce_axes = tuple(i for i in range(vals.ndim) if i != feat_axis)
+                raise ValueError(f"Unexpected SHAP values shape {vals.shape} for {n_features} features")
+            reduce_axes = tuple(i for i in range(vals.ndim) if i != feat_axes[0])
             importance = np.mean(np.abs(vals), axis=reduce_axes)
-
-        if importance.shape[0] != n_features:
-            raise ValueError("Feature count mismatch between SHAP values and feature_cols.")
+        else:
+            raise ValueError(f"Unexpected SHAP values shape {vals.shape}")
 
         # Build and store importance DataFrame
         fi_df = pd.DataFrame({"feature": feature_names, "importance": importance})
@@ -784,7 +778,9 @@ class Training:
             feature_names = [f"f{i}" for i in range(X.shape[1])]
 
         # --- Prediction function as a plain callable (not a bound method)
-        if getattr(self, "ml_type", None) == "classification" and hasattr(self.model, "predict_proba"):
+        if getattr(self, "ml_type", None) in (MLType.BINARY, MLType.MULTICLASS) and hasattr(
+            self.model, "predict_proba"
+        ):
 
             def predict_fn(X_in):
                 return np.asarray(self.model.predict_proba(np.asarray(X_in)))
@@ -823,13 +819,14 @@ class Training:
         # --- Aggregate absolute SHAP to per-feature importances
         if vals.ndim == 2 and vals.shape[1] == n_features:
             importance = np.abs(vals).mean(axis=0)
-        else:
-            feat_axes = [i for i, d in enumerate(vals.shape) if d == n_features]
+        elif vals.ndim == 3:
+            feat_axes = [i for i in range(1, vals.ndim) if vals.shape[i] == n_features]
             if len(feat_axes) != 1:
-                raise ValueError(f"Unexpected SHAP values shape {vals.shape}")
-            feat_axis = feat_axes[0]
-            reduce_axes = tuple(i for i in range(vals.ndim) if i != feat_axis)
+                raise ValueError(f"Unexpected SHAP values shape {vals.shape} for {n_features} features")
+            reduce_axes = tuple(i for i in range(vals.ndim) if i != feat_axes[0])
             importance = np.mean(np.abs(vals), axis=reduce_axes)
+        else:
+            raise ValueError(f"Unexpected SHAP values shape {vals.shape}")
 
         # --- Build importance DataFrame
         fi_df = pd.DataFrame({"feature": feature_names, "importance": importance})
