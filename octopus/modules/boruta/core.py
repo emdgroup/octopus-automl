@@ -15,7 +15,7 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_sco
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ModuleResult, ResultType
+from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -60,7 +60,7 @@ def get_param_grid(model_type):
 
 
 @define
-class BorutaModule(FeatureSelectionExecution["Boruta"]):
+class BorutaModule(ModuleExecution["Boruta"]):
     """Boruta execution module. Created by Boruta.create_module()."""
 
     def fit(

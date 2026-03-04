@@ -199,18 +199,3 @@ class ModuleExecution[T: Task](ABC):
         if hasattr(self, "selected_features_"):
             return self.selected_features_ is not None
         return False
-
-
-@define
-class FeatureSelectionExecution[T: Task](ModuleExecution[T]):
-    """Execution class for feature selection modules."""
-
-    # selected_features_: list[str] | None = field(init=False, default=None)
-    # feature_importances_: dict | None = field(init=False, default=None)
-
-
-@define
-class MLModuleExecution[T: Task](FeatureSelectionExecution[T]):
-    """Execution class for ML modules that train predictive models."""
-
-    # model_: Any = field(init=False, default=None)

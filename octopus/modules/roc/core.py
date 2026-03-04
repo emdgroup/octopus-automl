@@ -18,7 +18,7 @@ from sklearn.feature_selection import (
 )
 
 from octopus.logger import get_logger
-from octopus.modules.base import FeatureSelectionExecution, ModuleResult, ResultType
+from octopus.modules.base import ModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ filter_inventory: dict[str, dict[str, Callable]] = {
 
 
 @define
-class RocModule(FeatureSelectionExecution["Roc"]):
+class RocModule(ModuleExecution["Roc"]):
     """ROC execution module. Created by Roc.create_module()."""
 
     feature_groups_: list = field(init=False, default=Factory(list))

@@ -29,7 +29,7 @@ from octopus._optional.autogluon import (
 from octopus.logger import LogGroup, get_logger
 from octopus.manager.ray_parallel import setup_ray_for_external_library
 from octopus.metrics.utils import get_score_from_model
-from octopus.modules.base import FIDataset, FIMethod, MLModuleExecution, ModuleResult, ResultType
+from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.study.context import StudyContext
 
 if TYPE_CHECKING:
@@ -102,7 +102,7 @@ metrics_inventory_autogluon = {
 
 
 @define
-class AutoGluonModule(MLModuleExecution["AutoGluon"]):
+class AutoGluonModule(ModuleExecution["AutoGluon"]):
     """AutoGluon execution module. Created by AutoGluon.create_module()."""
 
     def fit(

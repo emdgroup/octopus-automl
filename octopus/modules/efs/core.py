@@ -16,7 +16,7 @@ from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, cross_
 
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ModuleResult, ResultType
+from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -60,7 +60,7 @@ def get_param_grid(model_type):
 
 
 @define
-class EfsModule(FeatureSelectionExecution["Efs"]):
+class EfsModule(ModuleExecution["Efs"]):
     """EFS execution module. Created by Efs.create_module()."""
 
     # Internal state (set during fit)

@@ -13,7 +13,7 @@ from upath import UPath
 
 from octopus.datasplit import DataSplit, InnerSplits
 from octopus.logger import LogGroup, get_logger
-from octopus.modules.base import MLModuleExecution, ModuleResult, ResultType
+from octopus.modules.base import ModuleExecution, ModuleResult, ResultType
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
@@ -29,7 +29,7 @@ logger = get_logger()
 
 
 @define
-class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
+class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
     """Octo execution module. Created by Octo.create_module()."""
 
     # Internal state (set during fit)
