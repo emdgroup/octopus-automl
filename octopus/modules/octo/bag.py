@@ -1,5 +1,3 @@
-# type: ignore
-
 """Octo Bags."""
 
 # import concurrent.futures
@@ -135,7 +133,9 @@ class BagBase(BaseEstimator):
     train_status: bool = field(default=False)
 
     # bag training outputs, initialized in post_init
-    feature_importances: dict[str, pd.DataFrame] = field(init=False, validator=[validators.instance_of(dict)])
+    feature_importances: dict[str, pd.DataFrame | dict[str, pd.DataFrame]] = field(
+        init=False, validator=[validators.instance_of(dict)]
+    )
     n_features_used_mean: float = field(init=False, validator=[validators.instance_of(float)])
 
     @property
@@ -518,7 +518,7 @@ class BagBase(BaseEstimator):
         Returns:
             DataFrame with columns: feature, importance, fi_method, fi_dataset, training_id
         """
-        all_dfs = []
+        all_dfs: list[pd.DataFrame] = []
         for key, value in self.feature_importances.items():
             # Skip aggregated keys like "internal_mean", "permutation_dev_count", etc.
             if key.endswith("_mean") or key.endswith("_count"):
@@ -645,7 +645,7 @@ class BagBase(BaseEstimator):
             return []
 
         # only keep nonzero features
-        fi_df = fi_df[fi_df["importance"] != 0]
+        fi_df = fi_df[fi_df["importance"] != 0]  # type: ignore[index]
 
         # store group features
         groups_df = fi_df[fi_df["feature"].str.startswith("group")].copy()
@@ -821,6 +821,7 @@ class BagBase(BaseEstimator):
         # Gzip was too slow, switched to lz4
         # with file_path.open("wb") as file, gzip.GzipFile(fileobj=file, mode="wb") as gzip_file:
         #    pickle.dump(self, gzip_file)
+        file_path = UPath(file_path)
         with file_path.open("wb") as file, lz4.frame.open(file, mode="wb") as lz4_file:
             pickle.dump(self, lz4_file)
 
@@ -840,6 +841,7 @@ class BagBase(BaseEstimator):
         # Gzip was too slow, switched to lz4
         # with file_path.open("rb") as file, gzip.GzipFile(fileobj=file, mode="rb") as gzip_file:
         #    return pickle.load(gzip_file)
+        file_path = UPath(file_path)
         with file_path.open("rb") as file, lz4.frame.open(file, mode="rb") as lz4_file:
             data = pickle.load(lz4_file)
 
@@ -853,7 +855,7 @@ class BagBase(BaseEstimator):
 class BagClassifier(BagBase, ClassifierMixin):
     """Bag for classification tasks with sklearn ClassifierMixin."""
 
-    def _estimator_type(self):
+    def _estimator_type(self):  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "classifier"
 
@@ -862,7 +864,7 @@ class BagClassifier(BagBase, ClassifierMixin):
 class BagRegressor(BagBase, RegressorMixin):
     """Bag for regression tasks with sklearn RegressorMixin."""
 
-    def _estimator_type(self):
+    def _estimator_type(self):  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "regressor"
 
@@ -902,6 +904,7 @@ class _BagFunction:
         Raises:
             TypeError: If the file does not contain an BagClassifier | BagRegressor instance.
         """
+        file_path = UPath(file_path)
         with file_path.open("rb") as file, lz4.frame.open(file, mode="rb") as lz4_file:
             data = pickle.load(lz4_file)
 

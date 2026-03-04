@@ -17,7 +17,7 @@ from octopus.datasplit import DataSplit, InnerSplits
 from octopus.logger import LogGroup, get_logger
 from octopus.modules.base import MLModuleExecution, ModuleResult, ResultType
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
-from octopus.modules.octo.bag import Bag  # type: ignore
+from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.objective_optuna import ObjectiveOptuna
 from octopus.modules.octo.training import Training
@@ -320,7 +320,7 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
             "_bag": ensel_bag,
         }
 
-        return selected_features  # type: ignore[no-any-return]
+        return selected_features
 
     def _run_globalhp_optimization(
         self,
@@ -530,7 +530,7 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         if len(selected_features) == 0:
             logger.warning("Best bag - all feature importances values are zero. This hints at a model related problem.")
 
-        return selected_features  # type: ignore[no-any-return]
+        return selected_features
 
 
 type OctoModule = OctoModuleTemplate["Octo"]

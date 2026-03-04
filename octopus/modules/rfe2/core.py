@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from upath import UPath
 
 from octopus.modules.base import FIDataset, FIMethod, ModuleResult, ResultType
-from octopus.modules.octo.bag import BagBase  # type: ignore[attr-defined]
+from octopus.modules.octo.bag import BagBase
 from octopus.modules.octo.core import OctoModuleTemplate
 from octopus.study.context import StudyContext
 from octopus.utils import calculate_feature_groups
@@ -259,7 +259,7 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         elif self.config.fi_method_rfe == "shap":
             fi_df = bag.feature_importances["shap_dev_mean"]
 
-        return fi_df  # type: ignore[no-any-return]
+        return fi_df  # type: ignore[return-value]
 
     def _calculate_new_features(self, bag: BagBase) -> list[str]:
         """Perform RFE step and calculate new features."""
@@ -296,7 +296,7 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         fi_avail_df = fi_df[~fi_df["protected"]]
 
         # get the feature with the lowest value in the selection column
-        lowest_feature = fi_avail_df.loc[fi_avail_df[selection_column].idxmin(), "feature"]
+        lowest_feature: str = fi_avail_df.loc[fi_avail_df[selection_column].idxmin(), "feature"]  # type: ignore[assignment]
 
         # get all feature to be removed, including group members
         if lowest_feature in bag.feature_groups:

@@ -97,7 +97,7 @@ class Training:
     feature_importances: dict[str, pd.DataFrame] = field(
         default=Factory(dict), validator=[validators.instance_of(dict)]
     )
-    """Feature importances."""
+    """Feature importances, mapping from FI method to DataFrame."""
 
     features_used: list = field(default=Factory(list), validator=[validators.instance_of(list)])
     """Features used."""

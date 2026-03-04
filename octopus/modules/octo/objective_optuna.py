@@ -8,7 +8,7 @@ from octopus.datasplit import InnerSplits
 from octopus.logger import LogGroup, get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.modules.octo.bag import Bag, BagClassifier, BagRegressor  # type: ignore
+from octopus.modules.octo.bag import Bag, BagClassifier, BagRegressor
 from octopus.modules.octo.training import Training, TrainingConfig
 
 logger = get_logger()
