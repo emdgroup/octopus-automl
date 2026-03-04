@@ -1,11 +1,37 @@
 """Utils."""
 
 import logging
+from importlib.metadata import version
+from typing import Any
 
+import joblib
 import networkx as nx
 import numpy as np
 import pandas as pd
 import scipy.stats
+from upath import UPath
+
+
+def get_package_name() -> str:
+    """Return the package name."""
+    return "octopus-automl"
+
+
+def get_version() -> str:
+    """Return the installed version of octopus-automl."""
+    return version(get_package_name())
+
+
+def joblib_save(obj: Any, path: UPath) -> None:
+    """Save an object with joblib through a file handle (fsspec-compatible)."""
+    with path.open("wb") as f:
+        joblib.dump(obj, f)
+
+
+def joblib_load(path: UPath) -> Any:
+    """Load an object with joblib through a file handle (fsspec-compatible)."""
+    with path.open("rb") as f:
+        return joblib.load(f)
 
 
 def calculate_feature_groups(data_traindev: pd.DataFrame, feature_cols: list[str]) -> dict[str, list[str]]:

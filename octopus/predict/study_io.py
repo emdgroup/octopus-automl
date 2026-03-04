@@ -102,11 +102,11 @@ class TaskOutersplitLoader:
     """Load data for a single outersplit from disk.
 
     Matches actual disk structure:
-    - data_test.parquet, data_train.parquet at outersplit level
-    - feature_cols.json, feature_groups.json inside task/module/
-    - model.joblib, predictor.json inside task/{result_type}/model/
+    - data_test.parquet, data_traindev.parquet at outersplit level
+    - feature_cols.json, feature_groups.json inside task/config/
+    - model.joblib, predictor.json inside task/results/{result_type}/model/
     - selected_features.json, scores.parquet, predictions.parquet,
-      feature_importances.parquet inside task/{result_type}/
+      feature_importances.parquet inside task/results/{result_type}/
 
     Attributes:
         study_path: Path to the study directory.
@@ -132,13 +132,13 @@ class TaskOutersplitLoader:
 
     @property
     def result_dir(self) -> UPath:
-        """Result type directory path (e.g. task0/best/)."""
-        return self.task_dir / self.result_type
+        """Result type directory path (e.g. task0/results/best/)."""
+        return self.task_dir / "results" / self.result_type
 
     @property
-    def module_dir(self) -> UPath:
-        """Module artifact directory path (feature_cols, feature_groups)."""
-        return self.task_dir / "module"
+    def config_dir(self) -> UPath:
+        """Config artifact directory path (feature_cols, feature_groups)."""
+        return self.task_dir / "config"
 
     @property
     def model_dir(self) -> UPath:
@@ -205,7 +205,7 @@ class TaskOutersplitLoader:
         Raises:
             FileNotFoundError: If train data file is missing.
         """
-        path = self.fold_dir / "data_train.parquet"
+        path = self.fold_dir / "data_traindev.parquet"
         if not path.exists():
             raise FileNotFoundError(f"Train data not found: {path}")
         return pd.read_parquet(path)
@@ -219,12 +219,12 @@ class TaskOutersplitLoader:
         Raises:
             FileNotFoundError: If model file is missing.
         """
-        import joblib  # noqa: PLC0415
+        from octopus.utils import joblib_load  # noqa: PLC0415
 
         path = self.model_dir / "model.joblib"
         if not path.exists():
             raise FileNotFoundError(f"Model file not found: {path}. Has the study completed successfully?")
-        return joblib.load(path)
+        return joblib_load(path)
 
     def load_selected_features(self) -> list[str]:
         """Load selected_features.json from result_dir.
@@ -252,7 +252,7 @@ class TaskOutersplitLoader:
         Returns:
             List of input feature column names, or empty list if not found.
         """
-        path = self.module_dir / "feature_cols.json"
+        path = self.config_dir / "feature_cols.json"
         if not path.exists():
             return []
         with path.open() as f:
@@ -269,7 +269,7 @@ class TaskOutersplitLoader:
         Returns:
             Dict mapping group names to lists of feature names, or empty dict.
         """
-        path = self.module_dir / "feature_groups.json"
+        path = self.config_dir / "feature_groups.json"
         if not path.exists():
             return {}
         with path.open() as f:
@@ -308,15 +308,15 @@ class StudyLoader:
     # ── Config + validation ─────────────────────────────────────
 
     def load_config(self) -> dict[str, Any]:
-        """Load study config.json.
+        """Load study_config.json.
 
         Returns:
             Study configuration dictionary.
 
         Raises:
-            FileNotFoundError: If config.json is missing.
+            FileNotFoundError: If study_config.json is missing.
         """
-        path = self.study_path / "config.json"
+        path = self.study_path / "study_config.json"
         if not path.exists():
             raise FileNotFoundError(f"Study config not found at {path}")
         with path.open() as f:

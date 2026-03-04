@@ -6,7 +6,7 @@ import json
 
 import pandas as pd
 import ray
-from attrs import define, field, validators
+from attrs import asdict, define, field, validators
 from upath import UPath
 
 from octopus.datasplit import OuterSplit
@@ -56,7 +56,7 @@ class WorkflowTaskRunner:
         # Save fold data
         fold_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
         fold_dir.mkdir(parents=True, exist_ok=True)
-        train_path = fold_dir / "data_train.parquet"
+        train_path = fold_dir / "data_traindev.parquet"
         outersplit.traindev.to_parquet(str(train_path), storage_options=train_path.storage_options, engine="pyarrow")
         test_path = fold_dir / "data_test.parquet"
         outersplit.test.to_parquet(str(test_path), storage_options=test_path.storage_options, engine="pyarrow")
@@ -136,15 +136,15 @@ class WorkflowTaskRunner:
             prior_results=prior_results,
         )
 
-        # Save task configuration
-        self._save_task_config(task, output_dir)
-
-        # Save task runtime context (feature_cols, feature_groups)
         self._save_task_context(output_dir, feature_cols, feature_groups)
-
-        # Save each ModuleResult to its own subdirectory
+        self._save_task_config(task, output_dir)
         for result_type, module_result in results.items():
-            module_result.save(output_dir / result_type.value)
+            module_result.save(output_dir / "results" / result_type.value)
+
+        # Clean up scratch directory (temporary trial bags no longer needed)
+        scratch_dir = output_dir / "scratch"
+        if scratch_dir.exists():
+            scratch_dir.rmdir(recursive=True)
 
         return results
 
@@ -155,9 +155,7 @@ class WorkflowTaskRunner:
             task: Task to save configuration for
             output_dir: Directory to save configuration in
         """
-        config_path = output_dir / "task_config.json"
-
-        from attrs import asdict  # noqa: PLC0415
+        config_path = output_dir / "config" / "task_config.json"
 
         config_dict = asdict(task)
 
@@ -176,7 +174,7 @@ class WorkflowTaskRunner:
         that were used when running this task. These are needed by
         ``TaskPredictor`` for prediction and feature importance computation.
 
-        Files are written to a ``module/`` subdirectory to match the path
+        Files are written to a ``config/`` subdirectory to match the path
         expected by ``OuterSplitLoader``.
 
         Args:
@@ -184,14 +182,14 @@ class WorkflowTaskRunner:
             feature_cols: Input feature columns used by this task.
             feature_groups: Correlation-based feature groups, or None.
         """
-        module_dir = output_dir / "module"
-        module_dir.mkdir(parents=True, exist_ok=True)
+        config_dir = output_dir / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
 
-        with (module_dir / "feature_cols.json").open("w") as f:
+        with (config_dir / "feature_cols.json").open("w") as f:
             json.dump(feature_cols, f, indent=2)
 
         if feature_groups:
-            with (module_dir / "feature_groups.json").open("w") as f:
+            with (config_dir / "feature_groups.json").open("w") as f:
                 json.dump(feature_groups, f, indent=2)
 
     def _log_task_info(self, task: Task) -> None:

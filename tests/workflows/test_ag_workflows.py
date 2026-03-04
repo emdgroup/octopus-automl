@@ -80,8 +80,8 @@ class TestAutogluonWorkflows:
         assert study_path.exists(), "Study directory should be created"
 
         # Verify core study files
-        assert (study_path / "config.json").exists(), "Config JSON should exist"
-        assert (study_path / "data.parquet").exists(), "Data parquet should exist"
+        assert (study_path / "study_config.json").exists(), "Config JSON should exist"
+        assert (study_path / "data_raw.parquet").exists(), "Data parquet should exist"
         assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet should exist"
 
         # Verify outersplit and task output
@@ -93,9 +93,9 @@ class TestAutogluonWorkflows:
 
         # Verify AutoGluon task artifacts
         task_dir = task_dirs[0]
-        assert (task_dir / "task_config.json").exists(), "Task config should exist"
-        assert (task_dir / "best").exists(), "Best result directory should exist"
-        assert (task_dir / "best" / "model").exists(), "Model directory should exist"
+        assert (task_dir / "config" / "task_config.json").exists(), "Task config should exist"
+        assert (task_dir / "results" / "best").exists(), "Best result directory should exist"
+        assert (task_dir / "results" / "best" / "model").exists(), "Model directory should exist"
 
     def test_full_regression_workflow(self):
         """Test the complete regression workflow execution."""
@@ -146,8 +146,8 @@ class TestAutogluonWorkflows:
         assert study_path.exists(), "Study directory should be created"
 
         # Verify core study files
-        assert (study_path / "config.json").exists(), "Config JSON should exist"
-        assert (study_path / "data.parquet").exists(), "Data parquet should exist"
+        assert (study_path / "study_config.json").exists(), "Config JSON should exist"
+        assert (study_path / "data_raw.parquet").exists(), "Data parquet should exist"
         assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet should exist"
 
         # Verify outersplit and task output
@@ -159,9 +159,9 @@ class TestAutogluonWorkflows:
 
         # Verify AutoGluon task artifacts
         task_dir = task_dirs[0]
-        assert (task_dir / "task_config.json").exists(), "Task config should exist"
-        assert (task_dir / "best").exists(), "Best result directory should exist"
-        assert (task_dir / "best" / "model").exists(), "Model directory should exist"
+        assert (task_dir / "config" / "task_config.json").exists(), "Task config should exist"
+        assert (task_dir / "results" / "best").exists(), "Best result directory should exist"
+        assert (task_dir / "results" / "best" / "model").exists(), "Model directory should exist"
 
 
 if __name__ == "__main__":

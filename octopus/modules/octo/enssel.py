@@ -21,7 +21,7 @@ from upath import UPath
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_performance_from_predictions
-from octopus.modules.octo.bag import Bag
+from octopus.utils import joblib_load
 
 logger = get_logger()
 
@@ -68,12 +68,12 @@ class EnSel:
 
     def _collect_trials(self):
         """Get all trials save in path_trials and store properties in self.bags."""
-        # Get all .pkl files in the directory
-        pkl_files = [file for file in self.path_trials.iterdir() if file.is_file() and file.suffix == ".pkl"]
+        # Get all .joblib files in the directory
+        joblib_files = [file for file in self.path_trials.iterdir() if file.is_file() and file.suffix == ".joblib"]
 
         # fill bags dict
-        for file in pkl_files:
-            bag = Bag.from_pickle(file)
+        for file in joblib_files:
+            bag = joblib_load(file)
             self.bags[file] = {
                 "id": bag.bag_id,
                 "performance": bag.get_performance(),
@@ -126,7 +126,7 @@ class EnSel:
         predictions["ensemble"] = {}
         # Load the first bag once to determine target column dtype
         first_bag_key = bag_keys[0]
-        first_bag = Bag.from_pickle(first_bag_key)
+        first_bag = joblib_load(first_bag_key)
         for part, pool_value in pool.items():
             combined = pd.concat(pool_value, axis=0)
             # Identify numeric columns to average (exclude metadata and row_id)
