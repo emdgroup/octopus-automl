@@ -113,7 +113,7 @@ class EfsModule(FeatureSelectionExecution["Efs"]):
 
         # Save results to JSON
         with (path_results / "results.json").open("w", encoding="utf-8") as f:
-            json.dump(module_result, f, indent=4)
+            json.dump({}, f, indent=4)
 
         # Extract selected features (computed in _generate_results)
         selected_features = sorted(

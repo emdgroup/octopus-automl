@@ -31,7 +31,7 @@ class EnSel:
 
     target_metric: str = field(validator=[validators.instance_of(str)])
     target_assignments: dict = field(validator=[validators.instance_of(dict)])
-    path_trials: UPath = field(validator=[validators.instance_of(UPath)], converter=lambda x: UPath(x))
+    path_trials: UPath = field(validator=[validators.instance_of(UPath)])
     max_n_iterations: int = field(validator=[validators.instance_of(int)])
     row_id_col: str = field(validator=[validators.instance_of(str)])
     positive_class = field(default=None)

@@ -36,7 +36,7 @@ class ModuleResult:
     selected_features: list[str] = field(factory=list)
     scores: pd.DataFrame | None = field(default=None)
     predictions: pd.DataFrame | None = field(default=None)
-    feature_importances: pd.DataFrame | pd.Series | None = field(default=None)
+    feature_importances: pd.DataFrame | None = field(default=None)
     model: Any = field(default=None)
 
     def save(self, result_dir: UPath) -> None:

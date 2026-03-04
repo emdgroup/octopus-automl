@@ -220,7 +220,7 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
                 selected_features=selected_features,
                 scores=scores,
                 predictions=predictions,
-                feature_importances=feature_importances,
+                feature_importances=feature_importances.to_frame(),
                 model=best_model,
             )
         }
