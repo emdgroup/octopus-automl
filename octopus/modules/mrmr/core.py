@@ -31,12 +31,10 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
-        prior_results: dict[str, pd.DataFrame] | None,
+        prior_results: dict[str, pd.DataFrame],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit MRMR module by selecting features with maximum relevance and minimum redundancy."""
-        prior_results = prior_results or {}
-
         logger.set_log_group(LogGroup.PROCESSING, "MRMR")
         self._validate_configuration(prior_results)
         self._log_outersplit_info(outersplit_id, prior_results)

@@ -53,14 +53,10 @@ class OctoModuleTemplate[T: Octo](MLModuleExecution[T]):
         results_dir: UPath,
         scratch_dir: UPath,
         num_assigned_cpus: int,
-        feature_groups: dict | None,
-        prior_results: dict[str, pd.DataFrame] | None,
+        feature_groups: dict[str, list[str]],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit Octo module by running hyperparameter optimization with Optuna."""
-        feature_groups = feature_groups or {}
-        prior_results = prior_results or {}
-
         x_traindev = data_traindev[feature_cols]
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
 

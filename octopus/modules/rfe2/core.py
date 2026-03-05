@@ -40,14 +40,10 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         results_dir: UPath,
         scratch_dir: UPath,
         num_assigned_cpus: int,
-        feature_groups: dict | None,
-        prior_results: dict[str, pd.DataFrame] | None,
+        feature_groups: dict[str, list[str]],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit Rfe2 module by running Octo optimization followed by RFE."""
-        feature_groups = feature_groups or {}
-        prior_results = prior_results or {}
-
         x_traindev = data_traindev[feature_cols]
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
 

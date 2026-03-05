@@ -188,8 +188,8 @@ class ModuleExecution[T: Task](ABC):
         results_dir: UPath,
         scratch_dir: UPath,
         num_assigned_cpus: int,
-        feature_groups: dict | None,
-        prior_results: dict[str, pd.DataFrame] | None,
+        feature_groups: dict[str, list[str]],
+        prior_results: dict[str, pd.DataFrame],
     ) -> dict[ResultType, ModuleResult]:
         """Fit the module. Returns dict mapping ResultType to ModuleResult."""
         raise NotImplementedError("Subclasses must implement fit()")
