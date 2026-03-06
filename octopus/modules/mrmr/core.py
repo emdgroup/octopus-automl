@@ -10,7 +10,7 @@ from attrs import define
 from sklearn.feature_selection import f_classif, f_regression
 
 from octopus.logger import LogGroup, get_logger
-from octopus.modules.base import FeatureSelectionExecution, FIMethod, ModuleResult, ResultType
+from octopus.modules.base import FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
 
 if TYPE_CHECKING:
@@ -21,7 +21,7 @@ logger = get_logger()
 
 
 @define
-class MrmrModule(FeatureSelectionExecution["Mrmr"]):
+class MrmrModule(ModuleExecution["Mrmr"]):
     """MRMR execution module. Created by Mrmr.create_module()."""
 
     def fit(
@@ -66,10 +66,6 @@ class MrmrModule(FeatureSelectionExecution["Mrmr"]):
         selected_features = sorted(selected_mrmr_features, key=lambda s: (len(s), s))
 
         logger.info(f"Selected features: {selected_features}")
-
-        # Store fitted state
-        self.selected_features_ = selected_features
-        self.feature_importances_ = {}
 
         return {
             ResultType.BEST: ModuleResult(

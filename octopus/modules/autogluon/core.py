@@ -29,7 +29,7 @@ from octopus._optional.autogluon import (
 from octopus.logger import LogGroup, get_logger
 from octopus.manager.ray_parallel import setup_ray_for_external_library
 from octopus.metrics.utils import get_score_from_model
-from octopus.modules.base import FIDataset, FIMethod, MLModuleExecution, ModuleResult, ResultType
+from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.study.context import StudyContext
 
 if TYPE_CHECKING:
@@ -102,7 +102,7 @@ metrics_inventory_autogluon = {
 
 
 @define
-class AutoGluonModule(MLModuleExecution["AutoGluon"]):
+class AutoGluonModule(ModuleExecution["AutoGluon"]):
     """AutoGluon execution module. Created by AutoGluon.create_module()."""
 
     def fit(
@@ -159,7 +159,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         scoring_type = metrics_inventory_autogluon[study_context.target_metric]
 
         # Initialize TabularPredictor (store temporarily for fit operations)
-        _predictor = TabularPredictor(
+        predictor = TabularPredictor(
             label=target,
             eval_metric=scoring_type,
             verbosity=self.config.verbosity,
@@ -167,7 +167,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         )
 
         # Fit predictor
-        _predictor.fit(
+        predictor.fit(
             ag_train_data,
             time_limit=self.config.time_limit,
             infer_limit=self.config.infer_limit,
@@ -183,26 +183,17 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
 
         # Save failure info
         with (results_dir / "autogluon_debug_info.txt").open("w", encoding="utf-8") as text_file:
-            print(_predictor.model_failures(), file=text_file)
-
-        # Temporarily store predictor for helper methods
-        self.model_ = _predictor
+            print(predictor.model_failures(), file=text_file)
 
         # Save leaderboard and model info
-        self._save_leaderboard_info(ag_test_data, outersplit_id, results_dir)
+        self._save_leaderboard_info(predictor, ag_test_data, outersplit_id, results_dir)
 
-        # Get raw results (uses self.model_ internally)
-        raw_scores = self._get_scores(study_context, ag_train_data, ag_test_data, feature_cols, results_dir)
-        raw_predictions = self._get_predictions(study_context, ag_test_data, row_test, row_traindev, outersplit_id)
-        raw_fi = self._get_feature_importances(ag_test_data, outersplit_id, feature_groups, results_dir)
-
-        # AutoGluon doesn't do feature selection, so return all features
-        selected_features = feature_cols
-        self.selected_features_ = selected_features
-
-        # Store fitted state - wrap with sklearn-compatible model
-        self.feature_importances_ = raw_fi
-        self.model_ = self._get_sklearn_model(study_context)
+        # Get raw results
+        raw_scores = self._get_scores(predictor, study_context, ag_train_data, ag_test_data, feature_cols, results_dir)
+        raw_predictions = self._get_predictions(
+            predictor, study_context, ag_test_data, row_test, row_traindev, outersplit_id
+        )
+        raw_fi = self._get_feature_importances(predictor, ag_test_data, outersplit_id, feature_groups, results_dir)
 
         # Build flat scores DataFrame
         scores_rows = []
@@ -253,25 +244,26 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
             ResultType.BEST: ModuleResult(
                 result_type=ResultType.BEST,
                 module=self.config.module,
-                selected_features=selected_features,
+                selected_features=feature_cols,  # AutoGluon doesn't do feature selection, so return all features
                 scores=scores,
                 predictions=predictions,
                 feature_importances=feature_importances,
-                model=self.model_,
+                model=self._get_sklearn_model(predictor, study_context),
             )
         }
 
-    def _get_sklearn_model(self, study_context: StudyContext) -> BaseEstimator:
+    def _get_sklearn_model(self, model: TabularPredictor, study_context: StudyContext) -> BaseEstimator:
         """Get sklearn-compatible wrapper for the AutoGluon model."""
         if study_context.ml_type == "classification":
-            return SklearnClassifier(self.model_)
+            return SklearnClassifier(model)
         elif study_context.ml_type == "regression":
-            return SklearnRegressor(self.model_)
+            return SklearnRegressor(model)
         else:
             raise ValueError(f"ML type {study_context.ml_type} not supported")
 
     def _get_feature_importances(
         self,
+        model: TabularPredictor,
         ag_test_data: pd.DataFrame,
         outersplit_id: int,
         feature_groups: dict[str, list[str]],
@@ -285,7 +277,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         np.random.seed(42)
 
         # AutoGluon permutation feature importances
-        fi["autogluon_permutation_test"] = self.model_.feature_importance(
+        fi["autogluon_permutation_test"] = model.feature_importance(
             data=ag_test_data,
             subsample_size=5000,
             time_limit=None,
@@ -299,7 +291,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         if feature_groups:
             group_importances = {}
             for group_name, features in feature_groups.items():
-                group_importance = self.model_.feature_importance(
+                group_importance = model.feature_importance(
                     data=ag_test_data,
                     features=[(group_name, features)],
                     subsample_size=5000,
@@ -337,6 +329,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
 
     def _get_scores(
         self,
+        model: TabularPredictor,
         study_context: StudyContext,
         ag_train_data: pd.DataFrame,
         ag_test_data: pd.DataFrame,
@@ -345,17 +338,17 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
     ) -> dict[str, Any]:
         """Calculate performance scores on train/dev/test sets."""
         # Test performance
-        test_performance = self.model_.evaluate(ag_test_data, detailed_report=True, silent=True)
+        test_performance = model.evaluate(ag_test_data, detailed_report=True, silent=True)
         test_performance_with_suffix = {f"{key}_test": value for key, value in test_performance.items()}
 
         # Dev performance from leaderboard
-        leaderboard = self.model_.leaderboard(silent=True)
+        leaderboard = model.leaderboard(silent=True)
         best_model_info = leaderboard.iloc[0].to_dict()
         dev_performance = {key: value for key, value in best_model_info.items() if "val" in key or "score" in key}
         dev_performance_with_suffix = {f"{key}_dev": value for key, value in dev_performance.items()}
 
         # Train performance
-        train_performance = self.model_.evaluate(ag_train_data, detailed_report=True, silent=True)
+        train_performance = model.evaluate(ag_train_data, detailed_report=True, silent=True)
         train_performance_with_suffix = {f"{key}_train": value for key, value in train_performance.items()}
 
         # Test scores using Octopus metrics for comparison
@@ -366,7 +359,7 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
             assert feature_cols is not None, "feature_cols should be set during fit()"
             assert metric is not None, "metric should not be None"
             performance = get_score_from_model(
-                self.model_,
+                model,
                 ag_test_data,
                 feature_cols,
                 metric,
@@ -394,10 +387,16 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
 
         return combined_performance
 
-    def _save_leaderboard_info(self, ag_test_data: pd.DataFrame, outersplit_id: int, results_dir: UPath) -> None:
+    def _save_leaderboard_info(
+        self,
+        model: TabularPredictor,
+        ag_test_data: pd.DataFrame,
+        outersplit_id: int,
+        results_dir: UPath,
+    ) -> None:
         """Save AutoGluon leaderboard and model information."""
         # Save leaderboard
-        leaderboard = self.model_.leaderboard(ag_test_data, extra_info=True)
+        leaderboard = model.leaderboard(ag_test_data, extra_info=True)
         leaderboard_path = results_dir / "leaderboard.csv"
         leaderboard.to_csv(
             str(leaderboard_path),
@@ -414,17 +413,18 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         )
 
         # Save model info
-        model_info = self.model_.info()
+        model_info = model.info()
         with (results_dir / "model_info.json").open("w", encoding="utf-8") as f:
             json.dump(model_info, f, default=str, indent=4)
 
         # Save fit summary
-        fit_summary = self.model_.fit_summary()
+        fit_summary = model.fit_summary()
         with (results_dir / "model_stats.txt").open("w", encoding="utf-8") as text_file:
             print(fit_summary, file=text_file)
 
     def _get_predictions(
         self,
+        model: TabularPredictor,
         study_context: StudyContext,
         ag_test_data: pd.DataFrame,
         row_test: pd.Series,
@@ -433,8 +433,8 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
     ) -> dict[str, pd.DataFrame]:
         """Get out-of-fold and test predictions with metadata."""
         predictions = {}
-        best_model_name = self.model_.model_best
-        problem_type = self.model_.problem_type
+        best_model_name = model.model_best
+        problem_type = model.problem_type
         row_column = study_context.row_id_col
 
         # Metadata for all predictions (AutoGluon doesn't use inner splits)
@@ -445,11 +445,11 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         rowid_test = pd.DataFrame({row_column: row_test})
 
         if problem_type == "regression":
-            test_pred_data = self.model_.predict(ag_test_data)
+            test_pred_data = model.predict(ag_test_data)
             test_pred = pd.DataFrame({"prediction": test_pred_data})
         elif problem_type in ["binary", "multiclass"]:
-            test_pred = self.model_.predict_proba(ag_test_data)
-            class_labels = self.model_.class_labels
+            test_pred = model.predict_proba(ag_test_data)
+            class_labels = model.class_labels
             test_pred.columns = class_labels
         else:
             raise ValueError(f"Unsupported problem type: {problem_type}")
@@ -470,11 +470,11 @@ class AutoGluonModule(MLModuleExecution["AutoGluon"]):
         rowid_dev = pd.DataFrame({row_column: row_traindev})
 
         if problem_type == "regression":
-            oof_pred_data = self.model_.predict_oof(model=best_model_name)
+            oof_pred_data = model.predict_oof(model=best_model_name)
             oof_pred = pd.DataFrame({"prediction": oof_pred_data})
         elif problem_type in ["binary", "multiclass"]:
-            oof_pred = self.model_.predict_proba_oof(model=best_model_name)
-            class_labels = self.model_.class_labels
+            oof_pred = model.predict_proba_oof(model=best_model_name)
+            class_labels = model.class_labels
             oof_pred.columns = class_labels
         else:
             raise ValueError(f"Unsupported problem type: {problem_type}")

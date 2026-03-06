@@ -14,7 +14,7 @@ from sklearn.model_selection import BaseCrossValidator, GridSearchCV, Stratified
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod, ModuleResult, ResultType
+from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -65,7 +65,7 @@ def get_param_grid(model_type):
 
 
 @define
-class SfsModule(FeatureSelectionExecution["Sfs"]):
+class SfsModule(ModuleExecution["Sfs"]):
     """SFS execution module. Created by Sfs.create_module()."""
 
     def fit(
@@ -215,10 +215,6 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
                 "importance": best_gs_estimator.feature_importances_,
             }
         ).sort_values(by="importance", ascending=False)
-
-        # Store fitted state
-        self.selected_features_ = selected_features
-        self.feature_importances_ = {"internal": fi_df}
 
         # Build standard scores DataFrame
         scores = pd.DataFrame(
