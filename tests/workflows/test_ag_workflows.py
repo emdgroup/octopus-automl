@@ -7,7 +7,6 @@ import tempfile
 import pandas as pd
 import pytest
 from sklearn.datasets import make_classification, make_regression
-from upath import UPath
 
 from octopus.modules import AutoGluon
 from octopus.study import OctoClassification, OctoRegression
@@ -76,7 +75,7 @@ class TestAutogluonWorkflows:
         study.fit(data=self.df)
 
         # Verify that study files were created
-        study_path = UPath(self.studies_path) / "test_classification_workflow"
+        study_path = study.output_path
         assert study_path.exists(), "Study directory should be created"
 
         # Verify core study files
@@ -142,7 +141,7 @@ class TestAutogluonWorkflows:
         study.fit(data=df_regression)
 
         # Verify that study files were created
-        study_path = UPath(self.studies_path) / "test_regression_workflow"
+        study_path = study.output_path
         assert study_path.exists(), "Study directory should be created"
 
         # Verify core study files

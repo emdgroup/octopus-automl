@@ -16,7 +16,6 @@ Covers:
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -57,12 +56,15 @@ def _no_plotly_show(monkeypatch):
 _STUDY_TMPDIR: tempfile.TemporaryDirectory | None = None
 
 
-def _run_classification_study() -> str:
-    """Run a minimal classification study and return the study path."""
-    global _STUDY_TMPDIR  # noqa: PLW0603
-    _STUDY_TMPDIR = tempfile.TemporaryDirectory()
-    tmp = _STUDY_TMPDIR.name
+def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.DataFrame]:
+    """Create a minimal classification study and data without calling fit().
 
+    Parameters:
+        tmp_path: Path to temporary directory for study output.
+
+    Returns:
+        Tuple of (study, data) for use in tests.
+    """
     # Use breast cancer dataset (enough samples for nonzero FI)
     bc = load_breast_cancer(as_frame=True)
     df = bc["frame"].reset_index()
@@ -79,7 +81,7 @@ def _run_classification_study() -> str:
         metrics=["AUCROC", "ACCBAL", "ACC"],
         datasplit_seed_outer=1234,
         n_folds_outer=2,
-        path=tmp,
+        path=tmp_path,
         ignore_data_health_warning=True,
         outer_parallelization=False,
         workflow=[
@@ -106,8 +108,18 @@ def _run_classification_study() -> str:
             ),
         ],
     )
+    return study, df
+
+
+def _run_classification_study() -> str:
+    """Run a minimal classification study and return the study path."""
+    global _STUDY_TMPDIR  # noqa: PLW0603
+    _STUDY_TMPDIR = tempfile.TemporaryDirectory()
+    tmp = _STUDY_TMPDIR.name
+
+    study, df = _create_classification_study(tmp)
     study.fit(data=df)
-    return str(Path(tmp) / "predict_test_study")
+    return str(study.output_path)
 
 
 @pytest.fixture(scope="session")

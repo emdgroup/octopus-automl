@@ -196,7 +196,7 @@ class TestFSSpecIntegration:
 
                 study.fit(data=df)
 
-                study_path = root_dir / study.name
+                study_path = study.output_path
 
                 # Verify that the study was created and files exist
                 assert study_path.exists(), "Study directory should be created"
