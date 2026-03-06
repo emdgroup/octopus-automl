@@ -11,8 +11,7 @@ from upath import UPath
 
 from octopus.datasplit import OuterSplit
 from octopus.logger import get_logger
-from octopus.modules.base import ModuleResult, ResultType, Task
-from octopus.study.context import StudyContext
+from octopus.modules import ModuleResult, ResultType, StudyContext, Task
 from octopus.utils import calculate_feature_groups
 
 logger = get_logger()

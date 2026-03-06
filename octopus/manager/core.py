@@ -15,8 +15,7 @@ from octopus.manager.execution import (
 )
 from octopus.manager.ray_parallel import init_ray, shutdown_ray
 from octopus.manager.workflow_runner import WorkflowTaskRunner
-from octopus.modules.base import Task
-from octopus.study.context import StudyContext
+from octopus.modules import StudyContext, Task
 
 logger = get_logger()
 
@@ -78,13 +77,11 @@ class ResourceConfig:
 
         if run_single_outersplit_num < -1:
             raise ValueError(
-                f"run_single_outersplit_num must be -1 (all outersplits) or a valid index >= 0, "
-                f"got {run_single_outersplit_num}"
+                f"run_single_outersplit_num must be -1 (all outersplits) or a valid index >= 0, got {run_single_outersplit_num}"
             )
         if run_single_outersplit_num >= num_outersplits:
             raise ValueError(
-                f"run_single_outersplit_num ({run_single_outersplit_num}) must be less than "
-                f"num_outersplits ({num_outersplits})"
+                f"run_single_outersplit_num ({run_single_outersplit_num}) must be less than num_outersplits ({num_outersplits})"
             )
 
         # Get or validate num_cpus
@@ -100,8 +97,7 @@ class ResourceConfig:
         num_workers = min(effective_num_outersplits, num_cpus)
         if num_workers == 0:
             raise ValueError(
-                f"Cannot allocate resources: num_workers computed as 0 "
-                f"(effective_num_outersplits={effective_num_outersplits}, num_cpus={num_cpus})"
+                f"Cannot allocate resources: num_workers computed as 0 (effective_num_outersplits={effective_num_outersplits}, num_cpus={num_cpus})"
             )
 
         cpus_per_outersplit = max(1, math.floor(num_cpus / num_workers)) if outer_parallelization else num_cpus

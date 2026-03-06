@@ -7,8 +7,8 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from octopus import OctoClassification
 from octopus.modules import Octo
+from octopus.study import OctoClassification
 
 
 @pytest.mark.windows

@@ -2,4 +2,6 @@
 
 from .module import Octo
 
-__all__ = ["Octo"]
+__all__ = [
+    "Octo",
+]

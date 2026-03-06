@@ -16,14 +16,13 @@ from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, cross_
 
 from octopus.metrics import Metrics
 from octopus.models import ModelName, Models
-from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
+from octopus.modules import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType, StudyContext
 from octopus.types import MLType
 
 if TYPE_CHECKING:
     from upath import UPath
 
-    from octopus.modules.efs import Efs  # noqa: F401
-    from octopus.study.context import StudyContext
+    from octopus.modules import Efs  # noqa: F401
 
 supported_models = {
     ModelName.CatBoostClassifier,

@@ -29,12 +29,14 @@ from octopus._optional.autogluon import (
 from octopus.logger import LogGroup, get_logger
 from octopus.manager.ray_parallel import setup_ray_for_external_library
 from octopus.metrics.utils import get_score_from_model
-from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
-from octopus.study.context import StudyContext
+from octopus.modules import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType, StudyContext
 from octopus.types import MLType
 
 if TYPE_CHECKING:
-    from octopus.modules.autogluon.module import AutoGluon  # noqa: F401
+    from octopus.modules import (
+        AutoGluon,  # noqa: F401
+        StudyContext,
+    )
 
 logger = get_logger()
 

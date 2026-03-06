@@ -11,7 +11,7 @@ from octopus.datasplit import OuterSplit
 from octopus.manager import OctoManager
 from octopus.manager.core import ResourceConfig
 from octopus.manager.workflow_runner import WorkflowTaskRunner
-from octopus.study.context import StudyContext
+from octopus.modules import StudyContext
 from octopus.types import MLType
 
 # =============================================================================

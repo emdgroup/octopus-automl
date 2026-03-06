@@ -12,8 +12,8 @@ import os
 
 from sklearn.datasets import load_wine
 
-from octopus import OctoClassification
 from octopus.modules import Octo
+from octopus.study import OctoClassification
 
 ### Load and Preprocess Data
 wine = load_wine(as_frame=True)

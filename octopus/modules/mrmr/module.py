@@ -6,7 +6,7 @@ from typing import Literal
 
 from attrs import Factory, define, field, validators
 
-from octopus.modules.base import ModuleExecution, Task
+from ..base import ModuleExecution, Task
 
 
 @define

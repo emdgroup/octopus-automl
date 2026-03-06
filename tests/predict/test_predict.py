@@ -24,7 +24,6 @@ import plotly.graph_objects as go
 import pytest
 from sklearn.datasets import load_breast_cancer
 
-from octopus import OctoClassification
 from octopus.modules import Octo
 from octopus.predict.notebook_utils import (
     display_table,
@@ -40,6 +39,7 @@ from octopus.predict.notebook_utils import (
 from octopus.predict.study_io import StudyLoader, StudyMetadata
 from octopus.predict.task_predictor import TaskPredictor
 from octopus.predict.task_predictor_test import TaskPredictorTest
+from octopus.study import OctoClassification
 from octopus.types import MLType
 
 # ── Prevent plotly from opening browser windows ─────────────────

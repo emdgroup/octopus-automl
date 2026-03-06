@@ -6,7 +6,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from upath import UPath
 
-from octopus.modules.base import ModuleResult, ResultType
+from octopus.modules import ModuleResult, ResultType
 
 
 class TestModuleResultSaveLoad:

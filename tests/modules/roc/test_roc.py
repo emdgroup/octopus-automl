@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from octopus.modules.roc.module import Roc
+from octopus.modules import Roc
 
 
 class TestRocModule:

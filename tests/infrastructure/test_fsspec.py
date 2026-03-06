@@ -10,8 +10,8 @@ from sklearn.datasets import make_classification
 from sklearn.linear_model import LinearRegression
 from upath import UPath
 
-from octopus import OctoClassification
 from octopus.modules import Octo
+from octopus.study import OctoClassification
 from octopus.utils import joblib_load, joblib_save
 
 
