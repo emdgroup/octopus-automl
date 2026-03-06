@@ -13,8 +13,8 @@ import os
 import pandas as pd
 from sklearn.datasets import make_classification
 
-from octopus import OctoClassification
 from octopus.modules import AutoGluon, Octo
+from octopus.study import OctoClassification
 
 ### Generate Synthetic Binary Classification Dataset
 n_informative = 30

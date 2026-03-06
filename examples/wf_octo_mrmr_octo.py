@@ -13,8 +13,8 @@ import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification
 
-from octopus import OctoClassification
 from octopus.modules import Mrmr, Octo
+from octopus.study import OctoClassification
 
 # Set random seed for reproducibility
 np.random.seed(42)

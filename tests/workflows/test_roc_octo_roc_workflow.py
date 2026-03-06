@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from octopus import OctoClassification
 from octopus.modules import Octo, Roc
+from octopus.study import OctoClassification
 
 
 class TestRocOctoRocWorkflow:

@@ -9,7 +9,8 @@ from attrs import Factory, define, field, validators
 from octopus.logger import get_logger
 from octopus.models import Models
 from octopus.models.model_name import ModelName
-from octopus.modules.base import ModuleExecution, Task
+
+from ..base import ModuleExecution, Task
 
 logger = get_logger()
 

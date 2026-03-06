@@ -15,14 +15,13 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_sco
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import ModelName, Models
-from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
+from octopus.modules import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType, StudyContext
 from octopus.types import MLType
 
 if TYPE_CHECKING:
     from upath import UPath
 
-    from octopus.modules.boruta.module import Boruta  # noqa: F401
-    from octopus.study.context import StudyContext
+    from octopus.modules import Boruta  # noqa: F401
 
 # Ignore all Warnings
 warnings.filterwarnings("ignore")

@@ -9,15 +9,18 @@ try:
     from .autogluon import AutoGluon
 except ImportError:
     AutoGluon = None  # type: ignore[assignment,misc]
-from .base import FIDataset, FIMethod, ResultType, Task
+from .base import FIDataset, FIMethod, ModuleExecution, Task
 from .boruta import Boruta
+from .context import StudyContext
 from .efs import Efs
 from .mrmr import Mrmr
 from .octo import Octo
+from .result import ModuleResult, ResultType
 from .rfe import Rfe
 from .rfe2 import Rfe2
 from .roc import Roc
 from .sfs import Sfs
+from .utils import rdc_correlation_matrix
 
 __all__ = [
     "AutoGluon",
@@ -25,6 +28,8 @@ __all__ = [
     "Efs",
     "FIDataset",
     "FIMethod",
+    "ModuleExecution",
+    "ModuleResult",
     "Mrmr",
     "Octo",
     "ResultType",
@@ -32,7 +37,9 @@ __all__ = [
     "Rfe2",
     "Roc",
     "Sfs",
+    "StudyContext",
     "Task",
+    "rdc_correlation_matrix",
 ]
 
 _PARALLELIZATION_ENV_VARS = (

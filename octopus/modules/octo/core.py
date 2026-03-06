@@ -14,17 +14,17 @@ from upath import UPath
 from octopus.datasplit import DataSplit, InnerSplits
 from octopus.logger import LogGroup, get_logger
 from octopus.models import Models
-from octopus.modules.base import ModuleExecution, ModuleResult, ResultType
+from octopus.modules import ModuleExecution, ModuleResult, ResultType
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
-from octopus.modules.octo.bag import Bag
-from octopus.modules.octo.enssel import EnSel
-from octopus.modules.octo.objective_optuna import ObjectiveOptuna
-from octopus.modules.octo.training import Training
 from octopus.utils import joblib_load
 
+from .bag import Bag
+from .enssel import EnSel
+from .objective_optuna import ObjectiveOptuna
+from .training import Training
+
 if TYPE_CHECKING:
-    from octopus.modules.octo.module import Octo
-    from octopus.study.context import StudyContext
+    from octopus.modules import Octo, StudyContext
 
 logger = get_logger()
 
@@ -147,8 +147,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
                 self.config.models = [m for m in self.config.models if Models.get_config(m).chpo_compatible]
                 if not self.config.models:
                     raise ValueError(
-                        "No default models are compatible with constrained HPO (max_features > 0). "
-                        "Specify models explicitly."
+                        "No default models are compatible with constrained HPO (max_features > 0). Specify models explicitly."
                     )
 
         # Validate model-task compatibility

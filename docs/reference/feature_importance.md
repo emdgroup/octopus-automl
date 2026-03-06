@@ -389,7 +389,7 @@ fi_df = octo.get_feature_importances(method="internal")
 For modules with custom importance calculation needs, override the methods:
 
 ```python
-from octopus.modules.base import Task
+from octopus.modules import Task
 import pandas as pd
 
 class CustomModule(Task):

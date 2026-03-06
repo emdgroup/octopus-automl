@@ -8,8 +8,8 @@ import os
 
 from sklearn.datasets import load_diabetes
 
-from octopus import OctoRegression
 from octopus.modules import Mrmr, Octo
+from octopus.study import OctoRegression
 
 ### Load the diabetes dataset
 diabetes = load_diabetes(as_frame=True)

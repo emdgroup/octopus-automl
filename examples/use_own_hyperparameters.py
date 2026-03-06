@@ -10,9 +10,9 @@ import os
 
 from sklearn.datasets import load_diabetes
 
-from octopus import OctoRegression
 from octopus.models.hyperparameter import IntHyperparameter
 from octopus.modules import Octo
+from octopus.study import OctoRegression
 
 ### Load the diabetes dataset
 diabetes = load_diabetes(as_frame=True)

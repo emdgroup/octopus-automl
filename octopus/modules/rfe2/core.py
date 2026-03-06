@@ -9,16 +9,15 @@ import numpy as np
 import pandas as pd
 from attrs import Factory, define, field
 
-from octopus.modules.rfe2.module import Rfe2
+from octopus.modules import FIDataset, FIMethod, ModuleResult, ResultType, Rfe2
+from octopus.modules.octo.core import OctoModuleTemplate
+from octopus.utils import calculate_feature_groups
 
 if TYPE_CHECKING:
     from upath import UPath
 
-from octopus.modules.base import FIDataset, FIMethod, ModuleResult, ResultType
-from octopus.modules.octo.bag import BagBase
-from octopus.modules.octo.core import OctoModuleTemplate
-from octopus.study.context import StudyContext
-from octopus.utils import calculate_feature_groups
+    from octopus.modules import StudyContext
+    from octopus.modules.octo.bag import BagBase
 
 
 @define

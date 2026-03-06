@@ -15,11 +15,10 @@ from octopus.datasplit import DATASPLIT_COL, DataSplit, OuterSplits
 from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
-from octopus.modules import Octo, Task
+from octopus.modules import Octo, StudyContext, Task
 from octopus.types import MLType
 from octopus.utils import get_package_name, get_version
 
-from .context import StudyContext
 from .data_preparator import OctoDataPreparator
 from .data_validator import OctoDataValidator
 from .healthChecker import HealthCheckConfig, OctoDataHealthChecker

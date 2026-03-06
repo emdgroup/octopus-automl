@@ -1,10 +1,17 @@
 """Shared types for the Octopus framework."""
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class MLType(str, Enum):
+class ResultType(StrEnum):
+    """Types of results produced by modules."""
+
+    BEST = "best"
+    ENSEMBLE_SELECTION = "ensemble_selection"
+
+
+class MLType(StrEnum):
     """Machine learning task types."""
 
     BINARY = "binary"

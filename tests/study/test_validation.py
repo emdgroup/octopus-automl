@@ -4,8 +4,7 @@ import tempfile
 
 import pytest
 
-from octopus.modules import Octo
-from octopus.modules.mrmr.module import Mrmr
+from octopus.modules import Mrmr, Octo
 from octopus.study import OctoClassification
 
 

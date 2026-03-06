@@ -18,15 +18,16 @@ from sklearn.feature_selection import (
 )
 
 from octopus.logger import get_logger
-from octopus.modules.base import ModuleExecution, ModuleResult, ResultType
-from octopus.modules.utils import rdc_correlation_matrix
+from octopus.modules import ModuleExecution, ModuleResult, ResultType, rdc_correlation_matrix
 from octopus.types import MLType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from octopus.modules.roc.module import Roc  # noqa: F401
-    from octopus.study.context import StudyContext
+    from octopus.modules import (
+        Roc,  # noqa: F401
+        StudyContext,
+    )
 
 logger = get_logger()
 

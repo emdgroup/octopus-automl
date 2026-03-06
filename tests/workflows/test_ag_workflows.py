@@ -9,8 +9,8 @@ import pytest
 from sklearn.datasets import make_classification, make_regression
 from upath import UPath
 
-from octopus import OctoClassification, OctoRegression
 from octopus.modules import AutoGluon
+from octopus.study import OctoClassification, OctoRegression
 
 
 class TestAutogluonWorkflows:

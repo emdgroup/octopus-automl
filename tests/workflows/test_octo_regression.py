@@ -7,8 +7,8 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_regression
 
-from octopus import OctoRegression
 from octopus.modules import Octo
+from octopus.study import OctoRegression
 
 
 class TestOctoRegression:

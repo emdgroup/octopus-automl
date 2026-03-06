@@ -10,13 +10,12 @@ from attrs import define
 from sklearn.feature_selection import f_classif, f_regression
 
 from octopus.logger import LogGroup, get_logger
-from octopus.modules.base import FIMethod, ModuleExecution, ModuleResult, ResultType
-from octopus.modules.utils import rdc_correlation_matrix
+from octopus.modules import FIMethod, ModuleExecution, ModuleResult, ResultType, rdc_correlation_matrix
 from octopus.types import MLType
 
 if TYPE_CHECKING:
+    from octopus.modules import StudyContext
     from octopus.modules.mrmr import Mrmr  # noqa: F401
-    from octopus.study.context import StudyContext
 
 logger = get_logger()
 

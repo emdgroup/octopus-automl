@@ -10,8 +10,8 @@ import os
 
 from sklearn.datasets import load_breast_cancer
 
-from octopus import OctoClassification
 from octopus.modules import Octo
+from octopus.study import OctoClassification
 
 ### Load and Preprocess Data
 breast_cancer = load_breast_cancer(as_frame=True)

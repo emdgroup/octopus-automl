@@ -3,7 +3,7 @@
 # import concurrent.futures
 # import logging
 from statistics import mean
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,9 @@ from octopus.manager.ray_parallel import (
     run_parallel_inner,
 )
 from octopus.metrics.utils import get_performance_from_predictions
-from octopus.modules.octo.training import Training
+
+if TYPE_CHECKING:
+    from octopus.modules.octo.training import Training
 
 # Adjust this import path as needed depending on your package layout
 from octopus.types import MLType
@@ -117,7 +119,7 @@ class BagBase(BaseEstimator):
     """
 
     bag_id: str = field(validator=[validators.instance_of(str)])
-    trainings: list[Training] = field(validator=[validators.instance_of(list)])
+    trainings: list["Training"] = field(validator=[validators.instance_of(list)])
     # same config parameters (execution type, num_workers) also used for
     # parallelization of optuna optimizations of individual inner loop trainings
     parallel_execution: bool = field(validator=[validators.instance_of(bool)])

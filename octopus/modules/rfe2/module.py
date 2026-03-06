@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from attrs import define, field, validators
 
-from octopus.modules.base import ModuleExecution
-from octopus.modules.octo.module import Octo
+from ..base import ModuleExecution
+from ..octo import Octo
 
 
 @define

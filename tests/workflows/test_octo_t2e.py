@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from octopus import OctoTimeToEvent
 from octopus.modules import Octo
+from octopus.study import OctoTimeToEvent
 
 
 @pytest.mark.skip(reason="Temporarily disabled")
