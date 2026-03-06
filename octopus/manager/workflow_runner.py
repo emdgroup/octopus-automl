@@ -49,8 +49,7 @@ class WorkflowTaskRunner:
         """
         if not ray.is_initialized():
             raise RuntimeError(
-                "Ray is not initialized. WorkflowTaskRunner.run() must be called "
-                "after Ray initialization by OctoManager.run_outersplits()."
+                "Ray is not initialized. WorkflowTaskRunner.run() must be called after Ray initialization by OctoManager.run_outersplits()."
             )
 
         # Save fold data
@@ -119,6 +118,10 @@ class WorkflowTaskRunner:
         # Create output directory
         output_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
         output_dir.mkdir(parents=True, exist_ok=True)
+        results_dir = output_dir / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        scratch_dir = output_dir / "scratch"
+        scratch_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Running task {task.task_id} for fold {outersplit_id}")
 
@@ -130,7 +133,8 @@ class WorkflowTaskRunner:
             feature_cols=feature_cols,
             study_context=self.study_context,
             outersplit_id=outersplit_id,
-            output_dir=output_dir,
+            results_dir=results_dir,
+            scratch_dir=scratch_dir,
             num_assigned_cpus=self.cpus_per_outersplit,
             feature_groups=feature_groups,
             prior_results=prior_results,
@@ -139,12 +143,10 @@ class WorkflowTaskRunner:
         self._save_task_context(output_dir, feature_cols, feature_groups)
         self._save_task_config(task, output_dir)
         for result_type, module_result in results.items():
-            module_result.save(output_dir / "results" / result_type.value)
+            module_result.save(results_dir / result_type.value)
 
-        # Clean up scratch directory (temporary trial bags no longer needed)
-        scratch_dir = output_dir / "scratch"
-        if scratch_dir.exists():
-            scratch_dir.rmdir(recursive=True)
+        # Clean up scratch directory
+        scratch_dir.rmdir(recursive=True)
 
         return results
 
@@ -199,8 +201,5 @@ class WorkflowTaskRunner:
             task: Task to log information about
         """
         logger.info(
-            f"Processing workflow task: {task.task_id} | "
-            f"Input task: {task.depends_on} | "
-            f"Module: {task.module} | "
-            f"Description: {task.description}"
+            f"Processing workflow task: {task.task_id} | Input task: {task.depends_on} | Module: {task.module} | Description: {task.description}"
         )

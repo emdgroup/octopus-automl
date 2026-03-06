@@ -1,5 +1,3 @@
-# type: ignore
-
 """Octo Bags."""
 
 # import concurrent.futures
@@ -131,7 +129,9 @@ class BagBase(BaseEstimator):
     train_status: bool = field(default=False)
 
     # bag training outputs, initialized in post_init
-    feature_importances: dict[str, pd.DataFrame] = field(init=False, validator=[validators.instance_of(dict)])
+    feature_importances: dict[str, pd.DataFrame | dict[str, pd.DataFrame]] = field(
+        init=False, validator=[validators.instance_of(dict)]
+    )
     n_features_used_mean: float = field(init=False, validator=[validators.instance_of(float)])
 
     @property
@@ -300,8 +300,7 @@ class BagBase(BaseEstimator):
         failed_count = len(failed_trainings)
 
         logger.info(
-            f"Bag {self.bag_id} training summary: {successful_count}/{total_trainings} successful, "
-            f"{failed_count} failed"
+            f"Bag {self.bag_id} training summary: {successful_count}/{total_trainings} successful, {failed_count} failed"
         )
 
         if failed_trainings:
@@ -515,7 +514,7 @@ class BagBase(BaseEstimator):
         Returns:
             DataFrame with columns: feature, importance, fi_method, fi_dataset, training_id
         """
-        all_dfs = []
+        all_dfs: list[pd.DataFrame] = []
         for key, value in self.feature_importances.items():
             # Skip aggregated keys like "internal_mean", "permutation_dev_count", etc.
             if key.endswith("_mean") or key.endswith("_count"):
@@ -584,14 +583,12 @@ class BagBase(BaseEstimator):
 
                 successful_calculations.append(training)
                 logger.info(
-                    f"Feature importance ({fi_type}) calculation completed for bag_id {self.bag_id} "
-                    f"and training id {training_id}"
+                    f"Feature importance ({fi_type}) calculation completed for bag_id {self.bag_id} and training id {training_id}"
                 )
             except Exception as e:  # pylint: disable=broad-except
                 failed_calculations.append((training_id, str(e), type(e).__name__))
                 logger.error(
-                    f"Feature importance ({fi_type}) calculation failed for bag_id {self.bag_id}, "
-                    f"training_id {training_id}: {e}, type: {type(e).__name__}"
+                    f"Feature importance ({fi_type}) calculation failed for bag_id {self.bag_id}, training_id {training_id}: {e}, type: {type(e).__name__}"
                 )
                 # Still include the training even if FI calculation failed
                 successful_calculations.append(training)
@@ -602,8 +599,7 @@ class BagBase(BaseEstimator):
         failed_count = len(failed_calculations)
 
         logger.info(
-            f"Bag {self.bag_id} feature importance ({fi_type}) summary: "
-            f"{successful_count}/{total_trainings} successful, {failed_count} failed"
+            f"Bag {self.bag_id} feature importance ({fi_type}) summary: {successful_count}/{total_trainings} successful, {failed_count} failed"
         )
 
         if failed_calculations:
@@ -620,7 +616,7 @@ class BagBase(BaseEstimator):
         else:
             self._calculate_fi_sequential(fi_type=fi_type, partition=partition)
 
-    def get_selected_features(self, fi_methods=None):
+    def get_selected_features(self, fi_methods: list[str] | None = None) -> list[str]:
         """Get features selected by model, depending on fi method.
 
         The list of selected features will be derived only from one feature
@@ -645,7 +641,7 @@ class BagBase(BaseEstimator):
             return []
 
         # only keep nonzero features
-        fi_df = fi_df[fi_df["importance"] != 0]
+        fi_df = fi_df[fi_df["importance"] != 0]  # type: ignore[index]
 
         # store group features
         groups_df = fi_df[fi_df["feature"].str.startswith("group")].copy()
@@ -678,7 +674,7 @@ class BagBase(BaseEstimator):
 
         return sorted(feat_all, key=lambda x: (len(x), sorted(x)))
 
-    def calculate_feature_importances(self, fi_methods=None, partitions=None):
+    def calculate_feature_importances(self, fi_methods: list[str] | None = None, partitions: list[str] | None = None):
         """Extract feature importances of all models in bag."""
         # we always extract internal feature importances, if available
         if fi_methods is None:
@@ -817,7 +813,7 @@ class BagBase(BaseEstimator):
 class BagClassifier(BagBase, ClassifierMixin):
     """Bag for classification tasks with sklearn ClassifierMixin."""
 
-    def _estimator_type(self):
+    def _estimator_type(self):  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "classifier"
 
@@ -826,7 +822,7 @@ class BagClassifier(BagBase, ClassifierMixin):
 class BagRegressor(BagBase, RegressorMixin):
     """Bag for regression tasks with sklearn RegressorMixin."""
 
-    def _estimator_type(self):
+    def _estimator_type(self):  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "regressor"
 

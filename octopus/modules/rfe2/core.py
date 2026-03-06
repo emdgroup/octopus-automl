@@ -1,5 +1,3 @@
-# type: ignore
-
 """Rfe2 execution module."""
 
 from __future__ import annotations
@@ -11,18 +9,20 @@ import numpy as np
 import pandas as pd
 from attrs import Factory, define, field
 
+from octopus.modules.rfe2.module import Rfe2
+
 if TYPE_CHECKING:
     from upath import UPath
 
 from octopus.modules.base import FIDataset, FIMethod, ModuleResult, ResultType
 from octopus.modules.octo.bag import BagBase
-from octopus.modules.octo.core import OctoModule
+from octopus.modules.octo.core import OctoModuleTemplate
 from octopus.study.context import StudyContext
 from octopus.utils import calculate_feature_groups
 
 
 @define
-class Rfe2Module(OctoModule):
+class Rfe2Module(OctoModuleTemplate[Rfe2]):
     """Rfe2 execution module. Created by Rfe2.create_module()."""
 
     # Internal state for RFE
@@ -31,27 +31,21 @@ class Rfe2Module(OctoModule):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
         outersplit_id: int,
-        output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        results_dir: UPath,
+        scratch_dir: UPath,
+        num_assigned_cpus: int,
+        feature_groups: dict[str, list[str]],
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit Rfe2 module by running Octo optimization followed by RFE."""
-        # Store execution state temporarily (inherits Octo's pattern)
-        self._study_context = study_context
-        self._outersplit_id = outersplit_id
-        self._output_dir = output_dir
-        self._num_assigned_cpus = num_assigned_cpus
-        self._data_traindev = data_traindev
-        self._data_test = data_test
-        self._feature_cols = feature_cols
-        self._feature_groups = feature_groups or {}
-        self._prior_results = prior_results or {}
+        x_traindev = data_traindev[feature_cols]
+        y_traindev = data_traindev[list(study_context.target_assignments.values())]
 
         # Initialize RFE results DataFrame
         self.rfe_results_ = pd.DataFrame(
@@ -67,11 +61,33 @@ class Rfe2Module(OctoModule):
         )
 
         # Initialize Octo-specific setup
-        self._initialize_octo()
+        self._initialize_octo(
+            study_context,
+            data_traindev,
+            x_traindev,
+            y_traindev,
+            feature_cols,
+            outersplit_id,
+            num_assigned_cpus,
+            scratch_dir,
+            results_dir,
+        )
 
         # (1) Run Octo optimization to get best bag
-        results = {}
-        self._run_globalhp_optimization(results)
+
+        # Initialize local results collection
+        results: dict[str, dict] = {}
+
+        # (1) model training and optimization
+        self._run_globalhp_optimization(
+            study_context,
+            data_test,
+            feature_cols,
+            feature_groups,
+            outersplit_id,
+            results_dir,
+            results,
+        )
 
         # (2) Get best bag from Octo results
         if "best" not in results:
@@ -86,7 +102,7 @@ class Rfe2Module(OctoModule):
         # record baseline performance
         step = 0
         dev_lst = bag_scores["dev_lst"]
-        self.rfe_results_.loc[len(self.rfe_results_)] = {
+        result = {
             "step": step,
             "performance_mean": bag_scores["dev_avg"],
             "performance_sem": np.std(dev_lst, ddof=1) / len(dev_lst),  # no np.sqrt
@@ -95,6 +111,7 @@ class Rfe2Module(OctoModule):
             "feature_importances": self._get_fi(bag),
             "model": copy.deepcopy(bag),
         }
+        self.rfe_results_.loc[len(self.rfe_results_)] = result
 
         self._print_step_information()
 
@@ -108,14 +125,14 @@ class Rfe2Module(OctoModule):
                 break
 
             # retrain bag and calculate feature importances
-            bag = self._retrain_and_calc_fi(bag, new_features)
+            bag = self._retrain_and_calc_fi(bag, data_traindev, new_features)
 
             # get scores
             bag_scores = bag.get_performance()
 
             # record performance
             dev_lst = bag_scores["dev_lst"]
-            self.rfe_results_.loc[len(self.rfe_results_)] = {
+            result = {
                 "step": step,
                 "performance_mean": bag_scores["dev_avg"],
                 "performance_sem": np.std(dev_lst, ddof=1) / len(dev_lst),  # no np.sqrt
@@ -124,6 +141,7 @@ class Rfe2Module(OctoModule):
                 "feature_importances": self._get_fi(bag),
                 "model": copy.deepcopy(bag),
             }
+            self.rfe_results_.loc[len(self.rfe_results_)] = result
 
             # print step results
             self._print_step_information()
@@ -165,7 +183,7 @@ class Rfe2Module(OctoModule):
         self.feature_importances_ = {"dev": selected_row["feature_importances"]}
 
         # Build flat scores DataFrame from best_model
-        scores = best_model.get_performance_df(metric=self.target_metric)
+        scores = best_model.get_performance_df(metric=study_context.target_metric)
         scores["result_type"] = ResultType.BEST
 
         # Build flat predictions DataFrame
@@ -196,7 +214,7 @@ class Rfe2Module(OctoModule):
                 selected_features=selected_features,
                 scores=scores,
                 predictions=predictions,
-                feature_importances=feature_importances,
+                feature_importances=feature_importances.to_frame(),
                 model=best_model,
             )
         }
@@ -210,12 +228,12 @@ class Rfe2Module(OctoModule):
             f", Perf_sem: {last_row['performance_sem']:.4f}"
         )
 
-    def _retrain_and_calc_fi(self, bag: BagBase, new_features: list) -> BagBase:
+    def _retrain_and_calc_fi(self, bag: BagBase, data_traindev: pd.DataFrame, new_features: list) -> BagBase:
         """Retrain bag using new feature set and calculate feature importances."""
         bag = copy.deepcopy(bag)
 
         # update feature_cols and feature groups
-        feature_groups = calculate_feature_groups(self._data_traindev, new_features)
+        feature_groups = calculate_feature_groups(data_traindev, new_features)
         for training in bag.trainings:
             training.feature_cols = new_features
             training.feature_groups = feature_groups
@@ -235,9 +253,9 @@ class Rfe2Module(OctoModule):
         elif self.config.fi_method_rfe == "shap":
             fi_df = bag.feature_importances["shap_dev_mean"]
 
-        return fi_df
+        return fi_df  # type: ignore[return-value]
 
-    def _calculate_new_features(self, bag: BagBase) -> list:
+    def _calculate_new_features(self, bag: BagBase) -> list[str]:
         """Perform RFE step and calculate new features."""
         bag = copy.deepcopy(bag)
 
@@ -272,7 +290,7 @@ class Rfe2Module(OctoModule):
         fi_avail_df = fi_df[~fi_df["protected"]]
 
         # get the feature with the lowest value in the selection column
-        lowest_feature = fi_avail_df.loc[fi_avail_df[selection_column].idxmin(), "feature"]
+        lowest_feature: str = fi_avail_df.loc[fi_avail_df[selection_column].idxmin(), "feature"]  # type: ignore[assignment]
 
         # get all feature to be removed, including group members
         if lowest_feature in bag.feature_groups:

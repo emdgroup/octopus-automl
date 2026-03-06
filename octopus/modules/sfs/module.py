@@ -1,14 +1,10 @@
-# type: ignore
-
 """SFS module (sequential feature selection) with fit/predict interface."""
 
 from __future__ import annotations
 
 from attrs import define, field, validators
 
-from octopus.modules.base import Task
-
-from .core import SfsModule
+from octopus.modules.base import ModuleExecution, Task
 
 
 @define
@@ -36,6 +32,9 @@ class Sfs(Task):
     )
     """SFS type used."""
 
-    def create_module(self) -> SfsModule:
+    def create_module(self) -> ModuleExecution:
         """Create SfsModule execution instance."""
+        # import only during execution to avoid heavy dependency at config stage
+        from .core import SfsModule  # noqa: PLC0415
+
         return SfsModule(config=self)

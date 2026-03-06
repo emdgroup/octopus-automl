@@ -1,5 +1,3 @@
-# type: ignore
-
 """Enhanced Tabular Neural Network Classifier with Categorical Embeddings."""
 
 from typing import Any
@@ -248,7 +246,7 @@ class TabularNNClassifier(ClassifierMixin, BaseEstimator):
             le = self.label_encoders_[num_col]
             X_col = X[num_col].fillna("__NAN__")
             # Handle unseen categories
-            encoded = np.array([le.transform([val])[0] if val in le.classes_ else 0 for val in X_col])
+            encoded = np.array([le.transform([val])[0] if val in le.classes_ else 0 for val in X_col])  # type: ignore[index]
             X_cat_encoded.append(encoded)
 
         # Prepare numerical features with same missing value handling as fit
@@ -282,7 +280,7 @@ class TabularNNClassifier(ClassifierMixin, BaseEstimator):
                 return np.column_stack([probs_class0, probs_class1])
             else:
                 probs = torch.softmax(logits, dim=1).numpy()
-                return probs
+                return probs  # type: ignore[no-any-return]
 
     def predict(self, X: Any) -> np.ndarray:
         """Predict class labels.
@@ -297,7 +295,7 @@ class TabularNNClassifier(ClassifierMixin, BaseEstimator):
         y_pred_encoded = np.argmax(proba, axis=1)
 
         if self.is_binary_:
-            return self.classes_[y_pred_encoded]
+            return self.classes_[y_pred_encoded]  # type: ignore
         else:
             return self.target_encoder_.inverse_transform(y_pred_encoded)
 

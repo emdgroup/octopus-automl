@@ -1,5 +1,3 @@
-# type: ignore
-
 """RFE execution module."""
 
 from __future__ import annotations
@@ -76,24 +74,18 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        outersplit_id: int,
-        output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        results_dir: UPath,
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit RFE module by recursively eliminating features."""
         # Extract data matrices (local variables)
         x_traindev = data_traindev[feature_cols]
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
-
-        # Create results directory
-        path_results = output_dir / "results"
-        path_results.mkdir(parents=True, exist_ok=True)
 
         # Determine default model based on ml_type
         if study_context.ml_type == "classification":
@@ -137,7 +129,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
             n_jobs=1,
         )
         print("Optimize base model....")
-        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))
+        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))  # type: ignore[arg-type]
         best_model = grid_search.best_estimator_
         best_cv_score = grid_search.best_score_
         best_params = grid_search.best_params_
@@ -169,7 +161,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
             importance_getter=get_feature_importances,
         )
 
-        rfecv.fit(x_traindev, y_traindev.squeeze(axis=1))
+        rfecv.fit(x_traindev, y_traindev.squeeze(axis=1))  # type: ignore[arg-type]
         optimal_features = rfecv.n_features_
         selected_features = [feature_cols[i] for i in range(len(rfecv.support_)) if rfecv.support_[i]]
         selected_features = sorted(selected_features, key=lambda x: (len(x), sorted(x)))
@@ -195,7 +187,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
         print(f"Test set (refit) performance: {test_score_refit:.3f}")
 
         # GridSearch + retrain on selected features
-        grid_search.fit(x_traindev_rfe, y_traindev.squeeze(axis=1))
+        grid_search.fit(x_traindev_rfe, y_traindev.squeeze(axis=1))  # type: ignore[arg-type]
         best_gs_parameters = grid_search.best_params_
         best_gs_estimator = grid_search.best_estimator_
         best_gs_estimator.fit(x_traindev_rfe, y_traindev.squeeze(axis=1))
@@ -268,7 +260,7 @@ class RfeModule(FeatureSelectionExecution["Rfe"]):
             "Test set (refit) performance": test_score_refit,
             "Test set (gs+refit) performance": test_score_gsrefit,
         }
-        with (path_results / "results.json").open("w", encoding="utf-8") as f:
+        with (results_dir / "results.json").open("w", encoding="utf-8") as f:
             json.dump(results_data, f, indent=4)
 
         return {

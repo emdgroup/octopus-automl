@@ -8,8 +8,8 @@ from octopus.datasplit import InnerSplits
 from octopus.logger import LogGroup, get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.modules.octo.bag import Bag, BagClassifier, BagRegressor  # type: ignore
-from octopus.modules.octo.training import Training  # type: ignore
+from octopus.modules.octo.bag import Bag, BagClassifier, BagRegressor
+from octopus.modules.octo.training import Training, TrainingConfig
 from octopus.utils import joblib_save
 
 logger = get_logger()
@@ -117,7 +117,7 @@ class ObjectiveOptuna:
             model_seed=self.ml_seed,
         )
 
-        config_training = {
+        config_training: TrainingConfig = {
             "outl_reduction": num_outl,
             "n_input_features": len(feature_cols),
             "ml_model_type": ml_model_type,

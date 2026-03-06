@@ -1,5 +1,3 @@
-# type: ignore
-
 """MRMR module (Minimum Redundancy Maximum Relevance feature selection)."""
 
 from __future__ import annotations
@@ -8,9 +6,7 @@ from typing import Literal
 
 from attrs import Factory, define, field, validators
 
-from octopus.modules.base import Task
-
-from .core import MrmrModule
+from octopus.modules.base import ModuleExecution, Task
 
 
 @define
@@ -59,6 +55,9 @@ class Mrmr(Task):
     )
     """Selection of feature importance method."""
 
-    def create_module(self) -> MrmrModule:
+    def create_module(self) -> ModuleExecution:
         """Create MrmrModule execution instance."""
+        # import only during execution to avoid heavy dependency at config stage
+        from .core import MrmrModule  # noqa: PLC0415
+
         return MrmrModule(config=self)

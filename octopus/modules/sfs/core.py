@@ -1,5 +1,3 @@
-# type: ignore
-
 """SFS execution module."""
 
 from __future__ import annotations
@@ -21,7 +19,7 @@ from octopus.modules.base import FeatureSelectionExecution, FIDataset, FIMethod,
 if TYPE_CHECKING:
     from upath import UPath
 
-    from octopus.modules.sfs.module import Sfs  # noqa: F401
+    from octopus.modules.sfs import Sfs  # noqa: F401
     from octopus.study.context import StudyContext
 
 # Ignore all Warnings
@@ -72,15 +70,13 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
 
     def fit(
         self,
+        *,
         data_traindev: pd.DataFrame,
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        outersplit_id: int,
-        output_dir: UPath,
-        num_assigned_cpus: int = 1,
-        feature_groups: dict | None = None,
-        prior_results: dict | None = None,
+        results_dir: UPath,
+        **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit SFS module for feature selection."""
         # Extract data matrices (local variables)
@@ -88,10 +84,6 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
 
         from octopus._optional.sfs import SFS  # noqa: PLC0415
-
-        # Create results directory
-        path_results = output_dir / "results"
-        path_results.mkdir(parents=True, exist_ok=True)
 
         # Configuration, define default model
         if study_context.ml_type == "classification":
@@ -136,7 +128,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         )
         print("Optimize base model....")
         # Perform Grid Search and Cross-Validation
-        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))
+        grid_search.fit(x_traindev, y_traindev.squeeze(axis=1))  # type: ignore[arg-type]
         best_model = grid_search.best_estimator_
         best_cv_score = grid_search.best_score_
         best_params = grid_search.best_params_
@@ -202,7 +194,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
         print(f"Test set (refit) performance: {test_score_refit:.3f}")
 
         # gridsearch + retrain best model on x_traindev
-        grid_search.fit(x_traindev_sfs, y_traindev.squeeze(axis=1))
+        grid_search.fit(x_traindev_sfs, y_traindev.squeeze(axis=1))  # type: ignore[arg-type]
         best_gs_parameters = grid_search.best_params_
         best_gs_estimator = grid_search.best_estimator_
         best_gs_estimator.fit(x_traindev_sfs, y_traindev.squeeze(axis=1))  # refit
@@ -275,7 +267,7 @@ class SfsModule(FeatureSelectionExecution["Sfs"]):
             "Test set (refit) performance": test_score_refit,
             "Test set (gs+refit) performance": test_score_gsrefit,
         }
-        with (path_results / "results.json").open("w", encoding="utf-8") as f:
+        with (results_dir / "results.json").open("w", encoding="utf-8") as f:
             json.dump(results, f, indent=4)
 
         return {

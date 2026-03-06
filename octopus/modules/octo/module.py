@@ -1,5 +1,3 @@
-# type: ignore
-
 """Octo module with fit/predict interface."""
 
 from __future__ import annotations
@@ -10,9 +8,7 @@ from attrs import Factory, define, field, validators
 
 from octopus.logger import get_logger
 from octopus.models import Models
-from octopus.modules.base import Task
-
-from .core import OctoModule
+from octopus.modules.base import ModuleExecution, Task
 
 logger = get_logger()
 
@@ -174,6 +170,9 @@ class Octo(Task):
                 logger.error(msg)
                 raise ValueError(msg)
 
-    def create_module(self) -> OctoModule:
+    def create_module(self) -> ModuleExecution:
         """Create OctoModule execution instance."""
-        return OctoModule(config=self)
+        # import only during execution to avoid heavy dependency at config stage
+        from .core import OctoModuleTemplate  # noqa: PLC0415
+
+        return OctoModuleTemplate(config=self)

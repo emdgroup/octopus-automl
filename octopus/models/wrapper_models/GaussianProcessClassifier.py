@@ -1,5 +1,3 @@
-# type: ignore
-
 """Wrapper for Gaussian Process Classifier."""
 
 from collections.abc import Callable
@@ -41,7 +39,7 @@ class GPClassifierWrapper(ClassifierMixin, BaseEstimator):
     def classes_(self) -> np.ndarray:
         """Get the class labels."""
         check_is_fitted(self, "model_")
-        return self.model_.classes_
+        return self.model_.classes_  # type: ignore[return-value]
 
     def fit(self, X: Any, y: Any) -> "GPClassifierWrapper":
         """Fit the Gaussian Process model."""

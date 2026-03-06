@@ -47,3 +47,10 @@ class StudyContext:
 
     log_dir: UPath
     """Directory where logs are stored."""
+
+    @property
+    def datasplit_column(self) -> str:
+        """Column used for data splitting based on datasplit_type."""
+        if self.datasplit_type == "sample":
+            return self.sample_id_col
+        return self.datasplit_type

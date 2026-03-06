@@ -6,9 +6,7 @@ from typing import Literal
 
 from attrs import define, field, validators
 
-from octopus.modules.base import Task
-
-from .core import AutoGluonModule
+from octopus.modules.base import ModuleExecution, Task
 
 
 @define
@@ -107,6 +105,9 @@ class AutoGluon(Task):
     )
     """Specific model types to include (None = all)."""
 
-    def create_module(self) -> AutoGluonModule:
+    def create_module(self) -> ModuleExecution:
         """Create AutoGluonModule execution instance."""
+        # import only during execution to avoid heavy dependency at config stage
+        from .core import AutoGluonModule  # noqa: PLC0415
+
         return AutoGluonModule(config=self)

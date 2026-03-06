@@ -1,14 +1,10 @@
-# type: ignore
-
 """ROC module (removal of correlated features)."""
 
 from __future__ import annotations
 
 from attrs import define, field, validators
 
-from octopus.modules.base import Task
-
-from .core import RocModule
+from octopus.modules.base import ModuleExecution, Task
 
 
 @define
@@ -38,6 +34,9 @@ class Roc(Task):
     )
     """Selection of filter type for correlated features."""
 
-    def create_module(self) -> RocModule:
+    def create_module(self) -> ModuleExecution:
         """Create RocModule execution instance."""
+        # import only during execution to avoid heavy dependency at config stage
+        from .core import RocModule  # noqa: PLC0415
+
         return RocModule(config=self)

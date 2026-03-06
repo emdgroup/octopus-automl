@@ -1,9 +1,9 @@
-# type: ignore
-
 """Octo Training."""
 
 import copy
 import math
+import statistics
+from typing import TypedDict
 
 import numpy as np
 import pandas as pd
@@ -23,12 +23,22 @@ from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
 
-## TOBEDONE pipeline
+# # TOBEDONE pipeline
 # - implement cat encoding on module level
 # - how to provide categorical info to catboost and other models?
 
 
 logger = get_logger()
+
+
+class TrainingConfig(TypedDict):
+    """Training configuration type."""
+
+    outl_reduction: int
+    n_input_features: int
+    ml_model_type: str
+    ml_model_params: dict
+    positive_class: int | None
 
 
 @define
@@ -68,7 +78,7 @@ class Training:
     feature_groups: dict[str, list[str]] = field(validator=[validators.instance_of(dict)])
     """Feature Groups."""
 
-    config_training: dict = field(validator=[validators.instance_of(dict)])
+    config_training: TrainingConfig = field()
     """Training configuration."""
 
     training_weight: int = field(default=1, validator=[validators.instance_of(int)])
@@ -83,7 +93,7 @@ class Training:
     feature_importances: dict[str, pd.DataFrame] = field(
         default=Factory(dict), validator=[validators.instance_of(dict)]
     )
-    """Feature importances."""
+    """Feature importances, mapping from FI method to DataFrame."""
 
     features_used: list = field(default=Factory(list), validator=[validators.instance_of(list)])
     """Features used."""
@@ -207,7 +217,7 @@ class Training:
 
         # Numerical columns transformer
         if numerical_columns:
-            steps = []
+            steps: list[tuple[str, SimpleImputer | StandardScaler]] = []
             if model_config.imputation_required:
                 steps.append(("imputer", SimpleImputer(strategy="median")))
             if model_config.scaler == "StandardScaler":
@@ -405,8 +415,7 @@ class Training:
         # Check if feature importance calculation failed (empty DataFrame)
         if fi_df.empty:
             logger.warning(
-                f"Feature importance calculation failed for model {self.ml_model_type} "
-                f"using method {feature_method}. Returning all features as used."
+                f"Feature importance calculation failed for model {self.ml_model_type} using method {feature_method}. Returning all features as used."
             )
             return self.feature_cols.copy()
 
@@ -415,8 +424,7 @@ class Training:
         # If no features have non-zero importance, return all features as a fallback
         if not features_used:
             logger.warning(
-                f"All feature importances are zero for model {self.ml_model_type} "
-                f"using method {feature_method}. Returning all features as used."
+                f"All feature importances are zero for model {self.ml_model_type} using method {feature_method}. Returning all features as used."
             )
             return self.feature_cols.copy()
 
@@ -462,8 +470,7 @@ class Training:
             if len(importance) != len(self.feature_cols):
                 # Defensive check in case columns mismatch model coefficients
                 logger.warning(
-                    "Length mismatch between coefficients (%d) and feature columns (%d). "
-                    "Skipping internal importances.",
+                    "Length mismatch between coefficients (%d) and feature columns (%d). Skipping internal importances.",
                     len(importance),
                     len(self.feature_cols),
                 )
@@ -518,17 +525,8 @@ class Training:
             positive_class=self.config_training.get("positive_class"),
         )
 
-        results_df = pd.DataFrame(
-            columns=[
-                "feature",
-                "importance",
-                "stddev",
-                "p-value",
-                "n",
-                "ci_low_95",
-                "ci_high_95",
-            ]
-        )
+        results: list[tuple[str, float, float, float, int, float, float]] = []
+
         # calculate pfi
         for name, feature in features_dict.items():
             data_pfi = data.copy()
@@ -550,10 +548,10 @@ class Training:
                 fi_lst.append(baseline_score - pfi_score)
 
             # calculate statistics
-            pfi_mean = np.mean(fi_lst)
+            pfi_mean = statistics.fmean(fi_lst)
             n = len(fi_lst)
             p_value = np.nan
-            stddev = np.std(fi_lst, ddof=1) if n > 1 else np.nan
+            stddev = statistics.stdev(fi_lst) if n > 1 else np.nan
             if stddev not in (np.nan, 0):
                 t_stat = pfi_mean / (stddev / math.sqrt(n))
                 p_value = scipy.stats.t.sf(t_stat, n - 1)
@@ -570,15 +568,11 @@ class Training:
                 ci_low = pfi_mean - t_val * stddev / math.sqrt(n)
 
             # save results
-            results_df.loc[len(results_df)] = [
-                name,
-                pfi_mean,
-                stddev,
-                p_value,
-                n,
-                ci_low,
-                ci_high,
-            ]
+            results.append((name, pfi_mean, stddev, p_value, n, ci_low, ci_high))
+
+        results_df = pd.DataFrame(
+            results, columns=["feature", "importance", "stddev", "p-value", "n", "ci_low_95", "ci_high_95"]
+        )
 
         results_df = results_df.sort_values(by="importance", ascending=False)
         self.feature_importances["permutation" + "_" + partition] = results_df
@@ -614,8 +608,8 @@ class Training:
 
         fi_df = pd.DataFrame()
         fi_df["feature"] = self.feature_cols
-        fi_df["importance"] = perm_importance.importances_mean
-        fi_df["importance_std"] = perm_importance.importances_std
+        fi_df["importance"] = perm_importance.importances_mean  # type: ignore
+        fi_df["importance_std"] = perm_importance.importances_std  # type: ignore
         self.feature_importances["permutation" + "_" + partition] = fi_df
 
     def calculate_fi_lofo(self):
@@ -652,8 +646,8 @@ class Training:
         lofo_features = {**feature_cols_dict, **self.feature_groups}
 
         # lofo
-        fi_dev_df = pd.DataFrame(columns=["feature", "importance"])
-        fi_test_df = pd.DataFrame(columns=["feature", "importance"])
+        fi_dev: list[tuple[str, float]] = []
+        fi_test: list[tuple[str, float]] = []
         for name, lofo_feature in lofo_features.items():
             selected_features = copy.deepcopy(feature_cols)
             model = copy.deepcopy(self.model)
@@ -687,11 +681,11 @@ class Training:
                 positive_class=self.config_training.get("positive_class"),
             )
 
-            fi_dev_df.loc[len(fi_dev_df)] = [name, baseline_dev - score_dev]
-            fi_test_df.loc[len(fi_test_df)] = [name, baseline_test - score_test]
+            fi_dev.append((name, baseline_dev - score_dev))
+            fi_test.append((name, baseline_test - score_test))
 
-        self.feature_importances["lofo" + "_dev"] = fi_dev_df
-        self.feature_importances["lofo" + "_test"] = fi_test_df
+        self.feature_importances["lofo" + "_dev"] = pd.DataFrame(fi_dev, columns=["feature", "importance"])
+        self.feature_importances["lofo" + "_test"] = pd.DataFrame(fi_test, columns=["feature", "importance"])
 
     def calculate_fi_featuresused_shap(self, partition="dev", bg_max=200):
         """SHAP feature importance (for calc_features_used) with robust fallbacks.
@@ -862,7 +856,7 @@ class Training:
 
         # Apply the same preprocessing pipeline used during training
         x_processed = self.preprocessing_pipeline.transform(x)
-        return self.model.predict(x_processed)
+        return self.model.predict(x_processed)  # type: ignore
 
     def predict_proba(self, x: pd.DataFrame) -> np.ndarray:
         """Predict_proba.
@@ -882,7 +876,7 @@ class Training:
 
         # Apply the same preprocessing pipeline used during training
         x_processed = self.preprocessing_pipeline.transform(x)
-        return self.model.predict_proba(x_processed)
+        return self.model.predict_proba(x_processed)  # type: ignore
 
     def _validate_model_trained(self):
         """Validate that the model actually trained using sklearn's check_is_fitted utility.
