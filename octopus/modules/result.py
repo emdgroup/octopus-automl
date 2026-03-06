@@ -8,7 +8,7 @@ from attrs import define, field
 from upath import UPath
 
 from octopus.types import ResultType
-from octopus.utils import joblib_load, joblib_save
+from octopus.utils import joblib_load, joblib_save, parquet_load, parquet_save
 
 
 @define
@@ -54,7 +54,7 @@ class ModuleResult:
                 out["module"] = self.module
                 out["result_type"] = self.result_type.value
                 path = result_dir / f"{name}.parquet"
-                out.to_parquet(str(path), storage_options=path.storage_options, engine="pyarrow")
+                parquet_save(out, path)
 
         # Save model/ subdirectory if model exists
         if self.model is not None:
@@ -93,7 +93,7 @@ class ModuleResult:
         for name in ["scores", "predictions", "feature_importances"]:
             path = result_dir / f"{name}.parquet"
             if path.exists():
-                df = pd.read_parquet(str(path), storage_options=path.storage_options, engine="pyarrow")
+                df = parquet_load(path)
                 if name == "scores":
                     scores = df
                 elif name == "predictions":

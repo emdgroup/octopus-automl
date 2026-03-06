@@ -17,7 +17,7 @@ from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
 from octopus.modules import Octo, StudyContext, Task
 from octopus.types import MLType
-from octopus.utils import get_package_name, get_version
+from octopus.utils import csv_save, get_package_name, get_version, parquet_save
 
 from .data_preparator import OctoDataPreparator
 from .data_validator import OctoDataValidator
@@ -220,19 +220,9 @@ class OctoStudy(ABC):
             json.dump(study_meta, f, indent=2)
 
         data_path = self.output_path / "data_raw.parquet"
-        data.to_parquet(
-            str(data_path),
-            index=False,
-            storage_options=data_path.storage_options,
-            engine="pyarrow",
-        )
+        parquet_save(data, data_path, index=False)
         prepared_data_path = self.output_path / "data_prepared.parquet"
-        prepared.data.to_parquet(
-            str(prepared_data_path),
-            index=False,
-            storage_options=prepared_data_path.storage_options,
-            engine="pyarrow",
-        )
+        parquet_save(prepared.data, prepared_data_path, index=False)
 
     def _prepare_data(self, data: pd.DataFrame) -> PreparedData:
         """Prepare the data for training."""
@@ -292,11 +282,7 @@ class OctoStudy(ABC):
         )
         report = checker.generate_report()
         report_path = self.output_path / "health_check_report.csv"
-        report.to_csv(
-            str(report_path),
-            index=False,
-            storage_options=report_path.storage_options,
-        )
+        csv_save(report, report_path, index=False)
 
         if report.empty:
             return

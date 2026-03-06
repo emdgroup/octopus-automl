@@ -12,7 +12,7 @@ from upath import UPath
 from octopus.datasplit import OuterSplit
 from octopus.logger import get_logger
 from octopus.modules import ModuleResult, ResultType, StudyContext, Task
-from octopus.utils import calculate_feature_groups
+from octopus.utils import calculate_feature_groups, parquet_save
 
 logger = get_logger()
 
@@ -55,9 +55,9 @@ class WorkflowTaskRunner:
         fold_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
         fold_dir.mkdir(parents=True, exist_ok=True)
         train_path = fold_dir / "data_traindev.parquet"
-        outersplit.traindev.to_parquet(str(train_path), storage_options=train_path.storage_options, engine="pyarrow")
+        parquet_save(outersplit.traindev, train_path)
         test_path = fold_dir / "data_test.parquet"
-        outersplit.test.to_parquet(str(test_path), storage_options=test_path.storage_options, engine="pyarrow")
+        parquet_save(outersplit.test, test_path)
 
         # task_results: dict[task_id -> dict[ResultType, ModuleResult]]
         task_results: dict[int, dict[ResultType, ModuleResult]] = {}

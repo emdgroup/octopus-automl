@@ -31,6 +31,7 @@ from octopus.manager.ray_parallel import setup_ray_for_external_library
 from octopus.metrics.utils import get_score_from_model
 from octopus.modules import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType, StudyContext
 from octopus.types import MLType
+from octopus.utils import csv_save
 
 if TYPE_CHECKING:
     from octopus.modules import (
@@ -401,19 +402,13 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         # Save leaderboard
         leaderboard = model.leaderboard(ag_test_data, extra_info=True)
         leaderboard_path = results_dir / "leaderboard.csv"
-        leaderboard.to_csv(
-            str(leaderboard_path),
-            storage_options=dict(leaderboard_path.storage_options),
-        )
+        csv_save(leaderboard, leaderboard_path)
 
         # Save best model results
         best_model = leaderboard.iloc[0]
         best_result_df = pd.DataFrame(best_model).transpose()
         best_result_path = results_dir / "best_model_result.csv"
-        best_result_df.to_csv(
-            str(best_result_path),
-            storage_options=dict(best_result_path.storage_options),
-        )
+        csv_save(best_result_df, best_result_path)
 
         # Save model info
         model_info = model.info()
