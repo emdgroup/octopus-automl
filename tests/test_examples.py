@@ -68,7 +68,7 @@ def temporary_working_dir(tmp_path_factory):
 
 
 @pytest.mark.slow
-@pytest.mark.skip(reason="Example tests only run on demand.")
+@pytest.mark.skipif("not config.getoption('--run-examples')", reason="Only run when --run-examples is given")
 @pytest.mark.usefixtures("temporary_working_dir")
 @pytest.mark.parametrize("example_path", _all_examples_basic, ids=lambda p: p.name)
 def test_basic_examples(example_path: Path):
@@ -81,7 +81,7 @@ def test_basic_examples(example_path: Path):
 
 
 @pytest.mark.slow
-@pytest.mark.skip(reason="Example tests only run on demand.")
+@pytest.mark.skipif("not config.getoption('--run-examples')", reason="Only run when --run-examples is given")
 @pytest.mark.order(after="test_basic_examples")
 @pytest.mark.usefixtures("temporary_working_dir")
 @pytest.mark.parametrize("example_path", _all_examples_others, ids=lambda p: p.name)
