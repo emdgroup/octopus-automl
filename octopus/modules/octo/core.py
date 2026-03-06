@@ -16,7 +16,7 @@ from octopus.logger import LogGroup, get_logger
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult, ResultType
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
-from octopus.utils import joblib_load
+from octopus.utils import joblib_load, parquet_save
 
 from .bag import Bag
 from .enssel import EnSel
@@ -407,11 +407,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
                     }
                 )
         dict_optuna_path = results_dir / "optuna_results.parquet"
-        pd.DataFrame(dict_optuna).to_parquet(
-            str(dict_optuna_path),
-            storage_options=dict_optuna_path.storage_options,
-            engine="pyarrow",
-        )
+        parquet_save(pd.DataFrame(dict_optuna), dict_optuna_path)
 
         # display results
         logger.set_log_group(LogGroup.SCORES, f"OUTER {outersplit_id} SQE TBD")

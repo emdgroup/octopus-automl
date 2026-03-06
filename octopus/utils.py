@@ -1,13 +1,17 @@
 """Utils."""
 
+import json
 import logging
 from importlib.metadata import version
+from pathlib import Path
 from typing import Any
 
 import joblib
 import networkx as nx
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import scipy.stats
 from upath import UPath
 
@@ -32,6 +36,108 @@ def joblib_load(path: UPath) -> Any:
     """Load an object with joblib through a file handle (fsspec-compatible)."""
     with path.open("rb") as f:
         return joblib.load(f)
+
+
+_PARQUET_METADATA_KEY = f"{get_package_name()}.dtype_fidelity.v1".encode()
+
+
+def _generate_dtype_fidelity_metadata(col, dtype) -> dict[str, str | bool | list]:
+    """Generate metadata for a given dtype to preserve fidelity when saving to Parquet."""
+    result: dict[str, str | bool | list] = {}
+
+    if not isinstance(col, str):
+        result["name"] = col
+
+    if isinstance(dtype, pd.CategoricalDtype):
+        result["kind"] = "category"
+        result["ordered"] = bool(dtype.ordered)
+        result["categories"] = dtype.categories.tolist()
+        result["cat_dtype"] = str(dtype.categories.dtype)
+    elif dtype.name == "object":
+        result["kind"] = "object"
+    elif isinstance(dtype, pd.StringDtype):
+        result["kind"] = "string"
+    elif isinstance(dtype, (pd.Float64Dtype, pd.Float32Dtype)):
+        result["kind"] = str(dtype)
+
+    return result
+
+
+def parquet_save(df: pd.DataFrame, path: str | Path | UPath, index: bool = True) -> None:
+    """Save a DataFrame to Parquet with octopus-specific dtype fidelity metadata."""
+    path = UPath(path)
+
+    # Build fidelity metadata: only what pyarrow can't roundtrip
+    fidelity: dict[str, dict] = {}
+    for col in df.columns:
+        if metadata := _generate_dtype_fidelity_metadata(col, df[col].dtype):
+            fidelity[str(col)] = metadata
+
+    table = pa.Table.from_pandas(df, preserve_index=index)
+
+    if fidelity:
+        existing_md = table.schema.metadata or {}
+        new_md = {**existing_md, _PARQUET_METADATA_KEY: json.dumps(fidelity).encode()}
+        table = table.replace_schema_metadata(new_md)
+
+    with path.open("wb") as f:
+        pq.write_table(table, f)
+
+
+def parquet_load(path: str | Path | UPath) -> pd.DataFrame:
+    """Load a DataFrame from Parquet, restoring dtype fidelity if metadata exists."""
+    path = UPath(path)
+
+    with path.open("rb") as f:
+        table = pq.read_table(f)
+
+    md = table.schema.metadata or {}
+    if _PARQUET_METADATA_KEY not in md:
+        return table.to_pandas()  # type: ignore[no-any-return]
+
+    fidelity = json.loads(md[_PARQUET_METADATA_KEY].decode("utf-8"))
+
+    cat_cols = [col for col, spec in fidelity.items() if spec.get("kind") == "category" and col in table.column_names]
+
+    df: pd.DataFrame = table.to_pandas(categories=cat_cols if cat_cols else None)
+
+    col_name_mapper = {}
+    for col, spec in fidelity.items():
+        if col not in df.columns:
+            raise ValueError(
+                f"Column '{col}' specified in parquet metadata not found in table columns {table.column_names}"
+            )
+
+        if (name := spec.get("name", None)) is not None:
+            col_name_mapper[col] = name
+
+        kind = spec.get("kind")
+        if kind == "category":
+            if "categories" in spec:
+                cat_dtype = spec.get("cat_dtype", "object")
+                full_cats = pd.Index(spec["categories"], dtype=cat_dtype)
+                df[col] = df[col].cat.set_categories(full_cats)
+            if spec.get("ordered", False):
+                df[col] = df[col].cat.as_ordered()
+            else:
+                df[col] = df[col].cat.as_unordered()
+        elif kind == "object":
+            df[col] = df[col].astype("object")
+        elif kind == "string":
+            df[col] = df[col].astype("string")
+        elif kind in ("Float64", "Float32"):
+            df[col] = df[col].astype(kind)
+
+    if col_name_mapper:
+        df.rename(columns=col_name_mapper, inplace=True)
+
+    return df
+
+
+def csv_save(df: pd.DataFrame, path: str | Path | UPath, **kwargs) -> None:
+    """Save a DataFrame to CSV format."""
+    path = UPath(path)
+    df.to_csv(str(path), storage_options=dict(path.storage_options), **kwargs)
 
 
 def calculate_feature_groups(data_traindev: pd.DataFrame, feature_cols: list[str]) -> dict[str, list[str]]:

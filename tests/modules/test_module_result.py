@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from upath import UPath
 
 from octopus.modules import ModuleResult, ResultType
+from octopus.utils import parquet_load
 
 
 class TestModuleResultSaveLoad:
@@ -146,7 +147,7 @@ class TestModuleResultSaveLoad:
         result_dir = UPath(tmp_path / "best")
         result.save(result_dir)
 
-        loaded_df = pd.read_parquet(result_dir / "scores.parquet", engine="pyarrow")
+        loaded_df = parquet_load(result_dir / "scores.parquet")
         assert "module" in loaded_df.columns
         assert "result_type" in loaded_df.columns
         assert loaded_df.iloc[0]["module"] == "octo"

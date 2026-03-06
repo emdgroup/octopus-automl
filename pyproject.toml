@@ -44,6 +44,7 @@ dependencies = [
     "xgboost>=3.0",
     "fsspec>=2025.10.0",
     "universal_pathlib>=0.3.6",
+    "pyarrow>=17.0.0",
 ]
 
 [project.urls]

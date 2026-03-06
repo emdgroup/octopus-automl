@@ -41,6 +41,7 @@ from octopus.predict.task_predictor import TaskPredictor
 from octopus.predict.task_predictor_test import TaskPredictorTest
 from octopus.study import OctoClassification
 from octopus.types import MLType
+from octopus.utils import parquet_load
 
 # ── Prevent plotly from opening browser windows ─────────────────
 
@@ -313,14 +314,14 @@ class TestTaskPredictorPredict:
 
     def test_predict_array(self, tp, study_path):
         """Verify TaskPredictor predict returns array matching input length."""
-        data = pd.read_parquet(f"{study_path}/data_prepared.parquet")
+        data = parquet_load(f"{study_path}/data_prepared.parquet")
         result = tp.predict(data, df=False)
         assert isinstance(result, np.ndarray)
         assert len(result) == len(data)
 
     def test_predict_df(self, tp, study_path):
         """Verify TaskPredictor predict with df=True includes ensemble predictions."""
-        data = pd.read_parquet(f"{study_path}/data_prepared.parquet")
+        data = parquet_load(f"{study_path}/data_prepared.parquet")
         result = tp.predict(data, df=True)
         assert isinstance(result, pd.DataFrame)
         assert "prediction" in result.columns
@@ -329,7 +330,7 @@ class TestTaskPredictorPredict:
 
     def test_predict_proba(self, tp, study_path):
         """Verify TaskPredictor predict_proba returns valid probabilities."""
-        data = pd.read_parquet(f"{study_path}/data_prepared.parquet")
+        data = parquet_load(f"{study_path}/data_prepared.parquet")
         result = tp.predict_proba(data, df=False)
         assert result.ndim == 2
         np.testing.assert_allclose(result.sum(axis=1), 1.0, atol=1e-6)
@@ -350,7 +351,7 @@ class TestTaskPredictorSaveLoad:
         """Verify a loaded TaskPredictor can still produce predictions."""
         tp.save(tmp_path / "saved2")
         loaded = TaskPredictor.load(tmp_path / "saved2")
-        data = pd.read_parquet(f"{study_path}/data_prepared.parquet")
+        data = parquet_load(f"{study_path}/data_prepared.parquet")
         result = loaded.predict(data)
         assert isinstance(result, np.ndarray)
         assert len(result) == len(data)

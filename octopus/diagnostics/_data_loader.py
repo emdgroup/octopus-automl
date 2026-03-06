@@ -12,8 +12,10 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from octopus.utils import parquet_load
+
 if TYPE_CHECKING:
-    from pathlib import Path
+    from upath import UPath
 
 
 def _extract_id_from_dirname(dirname: str, prefix: str) -> int | None:
@@ -32,7 +34,7 @@ def _extract_id_from_dirname(dirname: str, prefix: str) -> int | None:
     return None
 
 
-def load_parquet_glob(study_path: Path, pattern: str) -> pd.DataFrame:
+def load_parquet_glob(study_path: UPath, pattern: str) -> pd.DataFrame:
     """Load and concatenate parquet files matching a glob pattern.
 
     Extracts ``outersplit_id`` and ``task_id`` from the directory structure,
@@ -51,7 +53,7 @@ def load_parquet_glob(study_path: Path, pattern: str) -> pd.DataFrame:
     dfs: list[pd.DataFrame] = []
     for parquet_file in sorted(study_path.glob(pattern)):
         try:
-            df = pd.read_parquet(parquet_file)
+            df = parquet_load(parquet_file)
         except Exception:
             continue
 
@@ -72,7 +74,7 @@ def load_parquet_glob(study_path: Path, pattern: str) -> pd.DataFrame:
     return pd.concat(dfs, ignore_index=True)
 
 
-def load_predictions(study_path: Path) -> pd.DataFrame:
+def load_predictions(study_path: UPath) -> pd.DataFrame:
     """Load all predictions parquet files across outersplits and tasks.
 
     Searches in ``outersplit*/task*/results/*/predictions.parquet`` to pick up
@@ -87,7 +89,7 @@ def load_predictions(study_path: Path) -> pd.DataFrame:
     return load_parquet_glob(study_path, "outersplit*/task*/results/*/predictions.parquet")
 
 
-def load_feature_importances(study_path: Path) -> pd.DataFrame:
+def load_feature_importances(study_path: UPath) -> pd.DataFrame:
     """Load all feature importance parquet files across outersplits and tasks.
 
     Searches in ``outersplit*/task*/results/*/feature_importances.parquet`` to pick up
@@ -102,7 +104,7 @@ def load_feature_importances(study_path: Path) -> pd.DataFrame:
     return load_parquet_glob(study_path, "outersplit*/task*/results/*/feature_importances.parquet")
 
 
-def load_optuna(study_path: Path) -> pd.DataFrame:
+def load_optuna(study_path: UPath) -> pd.DataFrame:
     """Load all Optuna parquet files across outersplits and tasks.
 
     Args:
@@ -114,7 +116,7 @@ def load_optuna(study_path: Path) -> pd.DataFrame:
     return load_parquet_glob(study_path, "outersplit*/task*/results/optuna_results.parquet")
 
 
-def load_scores(study_path: Path) -> pd.DataFrame:
+def load_scores(study_path: UPath) -> pd.DataFrame:
     """Load all scores parquet files across outersplits and tasks.
 
     Searches in ``outersplit*/task*/results/*/scores.parquet`` to pick up

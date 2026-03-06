@@ -19,6 +19,7 @@ from attrs import field, frozen
 from upath import UPath
 
 from octopus.types import MLType
+from octopus.utils import parquet_load
 
 __all__ = [
     "SplitArtifacts",
@@ -196,7 +197,7 @@ class TaskOutersplitLoader:
         path = self.fold_dir / "data_test.parquet"
         if not path.exists():
             raise FileNotFoundError(f"Test data not found: {path}")
-        return pd.read_parquet(path)
+        return parquet_load(path)
 
     def load_train_data(self) -> pd.DataFrame:
         """Load train data (at outersplit level).
@@ -210,7 +211,7 @@ class TaskOutersplitLoader:
         path = self.fold_dir / "data_traindev.parquet"
         if not path.exists():
             raise FileNotFoundError(f"Train data not found: {path}")
-        return pd.read_parquet(path)
+        return parquet_load(path)
 
     def load_model(self) -> Any:
         """Load fitted model from result_dir/model/model.joblib.
@@ -285,7 +286,7 @@ class TaskOutersplitLoader:
             DataFrame with scores, or empty DataFrame if not found.
         """
         path = self.result_dir / "scores.parquet"
-        return pd.read_parquet(path) if path.exists() else pd.DataFrame()
+        return parquet_load(path) if path.exists() else pd.DataFrame()
 
 
 # ═══════════════════════════════════════════════════════════════
