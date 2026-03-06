@@ -1,7 +1,6 @@
 """Test workflow for Octopus regression example."""
 
 import tempfile
-from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -236,7 +235,7 @@ class TestOctoRegression:
             study.fit(data=df)
 
             # Verify that the study was created and files exist
-            study_path = Path(temp_dir) / "test_octo_regression_execution"
+            study_path = study.output_path
             assert study_path.exists(), "Study directory should be created"
 
             assert (study_path / "study.log").exists(), "Study log file should exist"

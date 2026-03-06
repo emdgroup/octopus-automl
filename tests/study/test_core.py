@@ -5,7 +5,6 @@ import tempfile
 import numpy as np
 import pandas as pd
 import pytest
-from upath import UPath
 
 from octopus.modules import Octo
 from octopus.study import OctoClassification, OctoRegression
@@ -78,20 +77,6 @@ def test_string_to_enum_conversion(study_class, param_name, param_value, expecte
             **kwargs,
         )
         assert getattr(study, param_name) == expected_enum
-
-
-def test_output_path_property():
-    """Test that output_path is correctly computed."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        study = OctoClassification(
-            name="my_study",
-            target_metric="AUCROC",
-            feature_cols=["f1"],
-            target_col="target",
-            sample_id_col="id",
-            path=temp_dir,
-        )
-        assert study.output_path == UPath(temp_dir) / "my_study"
 
 
 def test_default_workflow():

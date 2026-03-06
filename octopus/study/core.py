@@ -1,11 +1,11 @@
 """Octo Study."""
 
+import datetime
 import json
 import os
 import platform
-import sys
 from abc import ABC, abstractmethod
-from datetime import UTC, datetime
+from datetime import UTC
 
 import pandas as pd
 from attrs import Factory, asdict, define, field, fields, has, validators
@@ -36,14 +36,14 @@ _RUNNING_IN_TESTSUITE = "RUNNING_IN_TESTSUITE" in os.environ
 class OctoStudy(ABC):
     """Abstract base class for all Octopus studies."""
 
-    name: str = field(validator=[validators.instance_of(str)])
-    """The name of the study."""
-
     feature_cols: list[str] = field(validator=[validators.instance_of(list)])
     """List of all feature columns in the dataset."""
 
     sample_id_col: str = field(validator=validators.instance_of(str))
     """Identifier for sample instances."""
+
+    name: str = field(default="Octopus", validator=[validators.instance_of(str)])
+    """The name of the study. Defaults to 'Octopus'."""
 
     row_id_col: str | None = field(
         default=Factory(lambda: None),
@@ -84,14 +84,14 @@ class OctoStudy(ABC):
     )
     """A list of tasks that defines the processing workflow. Each item in the list is an instance of `Task`."""
 
-    silently_overwrite_study: bool = field(default=Factory(lambda: False), validator=[validators.instance_of(bool)])
-    """If False, prompts user for confirmation when overwriting existing study. Defaults to False."""
-
     path: UPath = field(default=UPath("./studies/"), converter=lambda x: UPath(x))
     """The path where study outputs are saved. Defaults to "./studies/"."""
 
     ml_type: MLType = field(init=False)
     """The type of machine learning model. Set automatically by subclass."""
+
+    # Time of last fit() call (internal state)
+    _fit_timestamp: str | None = field(default=None, init=False)
 
     @property
     @abstractmethod
@@ -113,8 +113,12 @@ class OctoStudy(ABC):
 
     @property
     def output_path(self) -> UPath:
-        """Full output path for this study (path/name)."""
-        return self.path / self.name
+        """Full output path for this study (path/name-timestamp)."""
+        if self._fit_timestamp is None:
+            raise RuntimeError("output_path is not available until fit() has been called.")
+        fit_dt = datetime.datetime.fromisoformat(self._fit_timestamp)
+        folder_name = f"{self.name}-{fit_dt.strftime('%Y%m%d_%H%M%S')}"
+        return self.path / folder_name
 
     @property
     def log_dir(self) -> UPath:
@@ -144,18 +148,8 @@ class OctoStudy(ABC):
     def _initialize_study_directory(self) -> None:
         """Initialize study directory."""
         if self.output_path.exists():
-            if not self.silently_overwrite_study:
-                confirmation = input("Study exists, do you want to continue? (yes/no): ")
-                if confirmation.strip().lower() != "yes":
-                    print("Exiting...")
-                    sys.exit()
-                print("Continuing...")
-
-            print("Overwriting existing study....")
-            self.output_path.rmdir(recursive=True)
-
-        self.output_path.mkdir(parents=True, exist_ok=True)
-
+            raise FileExistsError(f"Study output folder already exists: {self.output_path}")
+        self.output_path.mkdir(parents=True, exist_ok=False)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         set_logger_filename(log_file=self.log_dir / "study.log")
 
@@ -210,11 +204,12 @@ class OctoStudy(ABC):
             json.dump(config, f, indent=2)
 
         # Write study metadata (version, platform, timestamp)
+        assert self._fit_timestamp is not None  # Set at start of fit()
         study_meta = {
             "octopus_version": get_version(),
             "package_name": get_package_name(),
             "python_version": platform.python_version(),
-            "created_at": datetime.now(UTC).isoformat(),
+            "created_at": self._fit_timestamp,
         }
         meta_path = self.output_path / "study_meta.json"
         with meta_path.open("w") as f:
@@ -354,6 +349,12 @@ class OctoStudy(ABC):
             data: DataFrame containing the dataset.
             health_check_config: Optional configuration for health check thresholds.
         """
+        if self._fit_timestamp is not None:
+            raise RuntimeError("fit() can only be called once per study instance.")
+
+        # Generate single timestamp for this fit() call
+        self._fit_timestamp = datetime.datetime.now(UTC).isoformat()
+
         self._initialize_study_directory()
         ml_type, positive_class = self._resolve_ml_config(data)
         self._validate_data(data, ml_type, positive_class)
@@ -371,6 +372,7 @@ class OctoStudy(ABC):
             run_single_outersplit_num=self.run_single_outersplit_num,
         )
         manager.run_outersplits()
+        logger.info("Study completed. Results saved to: %s", self.output_path)
 
 
 @define

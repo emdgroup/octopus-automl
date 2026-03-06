@@ -1,7 +1,6 @@
 """Test workflow for ROC-OCTO-ROC sequence."""
 
 import tempfile
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -323,7 +322,7 @@ class TestRocOctoRocWorkflow:
             study.fit(data=df)
 
             # Verify that the study was created and files exist
-            study_path = Path(temp_dir) / "test_roc_octo_roc_execution"
+            study_path = study.output_path
             assert study_path.exists(), "Study directory should be created"
 
             assert (study_path / "study.log").exists(), "Study log file should exist"
