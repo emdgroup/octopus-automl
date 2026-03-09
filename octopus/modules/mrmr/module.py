@@ -7,7 +7,7 @@ from typing import Literal
 from attrs import Factory, define, field, validators
 
 from octopus.modules.base import ModuleExecution, Task
-from octopus.types import FeatureImportanceMethod, FeatureImportanceType
+from octopus.types import CorrelationType, FeatureImportanceMethod, FeatureImportanceType
 
 
 @define
@@ -30,8 +30,8 @@ class Mrmr(Task):
     n_features: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 30))
     """Number of features selected by MRMR."""
 
-    correlation_type: Literal["pearson", "rdc", "spearman"] = field(
-        validator=validators.in_(["pearson", "rdc", "spearman"]), default="spearman"
+    correlation_type: CorrelationType = field(
+        validator=validators.instance_of(CorrelationType), default=CorrelationType.SPEARMAN
     )
     """Selection of correlation type."""
 

@@ -6,6 +6,7 @@ import pytest
 from sklearn.datasets import make_classification
 
 from octopus.modules.roc.module import Roc
+from octopus.types import CorrelationType
 
 
 class TestRocModule:
@@ -19,7 +20,7 @@ class TestRocModule:
         assert roc.depends_on is None
         assert roc.description == ""
         assert roc.threshold == 0.8
-        assert roc.correlation_type == "spearmanr"
+        assert roc.correlation_type == CorrelationType.SPEARMAN
         assert roc.filter_type == "f_statistics"
         assert roc.module == "roc"
 
@@ -30,7 +31,7 @@ class TestRocModule:
             depends_on=0,
             description="test_roc",
             threshold=0.9,
-            correlation_type="rdc",
+            correlation_type=CorrelationType.RDC,
             filter_type="mutual_info",
         )
 
@@ -38,12 +39,12 @@ class TestRocModule:
         assert roc.depends_on == 0
         assert roc.description == "test_roc"
         assert roc.threshold == 0.9
-        assert roc.correlation_type == "rdc"
+        assert roc.correlation_type == CorrelationType.RDC
         assert roc.filter_type == "mutual_info"
 
     def test_roc_module_invalid_correlation_type(self):
         """Test ROC module with invalid correlation type."""
-        with pytest.raises(ValueError, match="must be in"):
+        with pytest.raises(TypeError):
             Roc(task_id=0, correlation_type="invalid_correlation")
 
     def test_roc_module_invalid_filter_type(self):
@@ -67,7 +68,7 @@ class TestRocModule:
         roc = Roc(task_id=0, threshold=threshold)
         assert roc.threshold == threshold
 
-    @pytest.mark.parametrize("correlation_type", ["spearmanr", "rdc"])
+    @pytest.mark.parametrize("correlation_type", [CorrelationType.SPEARMAN, CorrelationType.RDC])
     def test_roc_module_correlation_types(self, correlation_type):
         """Test ROC module with different correlation types."""
         roc = Roc(task_id=0, correlation_type=correlation_type)
@@ -100,12 +101,12 @@ class TestRocIntegration:
             task_id=0,
             description="integration_test",
             threshold=0.85,
-            correlation_type="spearmanr",
+            correlation_type=CorrelationType.SPEARMAN,
             filter_type="mutual_info",
         )
 
         # Verify module configuration
         assert roc_module.threshold == 0.85
-        assert roc_module.correlation_type == "spearmanr"
+        assert roc_module.correlation_type == CorrelationType.SPEARMAN
         assert roc_module.filter_type == "mutual_info"
         assert roc_module.description == "integration_test"

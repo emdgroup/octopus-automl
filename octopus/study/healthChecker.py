@@ -3,12 +3,14 @@
 import logging
 import re
 from itertools import combinations
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 import pandas as pd
 from attrs import define, field, validators
 from rapidfuzz import fuzz
+
+from octopus.types import CorrelationType
 
 
 @define
@@ -454,7 +456,7 @@ class OctoDataHealthChecker:
                 ),
             )
 
-    def _check_feature_feature_correlation(self, method: Literal["pearson", "kendall", "spearman"] = "spearman"):
+    def _check_feature_feature_correlation(self, method: CorrelationType = CorrelationType.SPEARMAN):
         """Detect highly correlated feature pairs.
 
         Calculates pairwise correlations between all numeric features and identifies
@@ -462,8 +464,8 @@ class OctoDataHealthChecker:
         features can cause multicollinearity issues in modeling.
 
         Args:
-            method: Correlation method to use ('pearson', 'kendall', or 'spearman').
-                Default: 'spearman'.
+            method: Correlation method to use (CorrelationType enum).
+                Default: CorrelationType.SPEARMAN.
 
         Uses:
             config.feature_correlation_threshold to determine what constitutes
@@ -475,7 +477,10 @@ class OctoDataHealthChecker:
         """
         threshold = self.config.feature_correlation_threshold
         numeric_features = self.data[self.feature_cols].select_dtypes(include=[float, int]).columns
-        corr_matrix = self.data[numeric_features].corr(method=method)
+
+        # Cast to satisfy mypy's literal type requirement for pandas corr method
+        method_str = cast("Literal['pearson', 'kendall', 'spearman']", method.value)
+        corr_matrix = self.data[numeric_features].corr(method=method_str)
 
         highly_correlated: dict[str, set[str]] = {}
         for col in corr_matrix.columns:

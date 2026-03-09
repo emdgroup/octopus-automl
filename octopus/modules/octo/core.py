@@ -20,6 +20,7 @@ from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.objective_optuna import ObjectiveOptuna
 from octopus.modules.octo.training import Training
+from octopus.types import CorrelationType
 from octopus.utils import joblib_load
 
 if TYPE_CHECKING:
@@ -197,7 +198,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             features=x_traindev,
             relevance=re_df,
             requested_feature_counts=feature_numbers,
-            correlation_type="spearman",
+            correlation_type=CorrelationType.SPEARMAN,
         )
         # add original features
         self.mrmr_features_[len(feature_cols)] = feature_cols

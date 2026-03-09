@@ -5,6 +5,7 @@ from __future__ import annotations
 from attrs import define, field, validators
 
 from octopus.modules.base import ModuleExecution, Task
+from octopus.types import CorrelationType
 
 
 @define
@@ -18,14 +19,16 @@ class Roc(Task):
 
     Configuration:
         threshold: Correlation threshold above which features are considered correlated
-        correlation_type: Type of correlation measure ("spearmanr" or "rdc")
+        correlation_type: Type of correlation measure ("spearman" or "rdc")
         filter_type: Method to select best feature in group ("mutual_info" or "f_statistics")
     """
 
     threshold: float = field(validator=[validators.instance_of(float)], default=0.8)
     """Threshold for feature removal (features with correlation > threshold are grouped)."""
 
-    correlation_type: str = field(validator=[validators.in_(["spearmanr", "rdc"])], default="spearmanr")
+    correlation_type: CorrelationType = field(
+        validator=[validators.instance_of(CorrelationType)], default=CorrelationType.SPEARMAN
+    )
     """Selection of correlation type."""
 
     filter_type: str = field(

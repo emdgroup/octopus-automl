@@ -41,6 +41,15 @@ class FeatureImportanceMethod(str, Enum):
     COUNT = "count"
 
 
+class CorrelationType(str, Enum):
+    """Correlation calculation methods."""
+
+    PEARSON = "pearson"
+    SPEARMAN = "spearman"
+    KENDALL = "kendall"
+    RDC = "rdc"
+
+
 ML_TYPES = [e.value for e in MLType]
 
 

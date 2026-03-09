@@ -20,7 +20,7 @@ from sklearn.feature_selection import (
 from octopus.logger import get_logger
 from octopus.modules.base import ModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import MLType
+from octopus.types import CorrelationType, MLType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -92,13 +92,16 @@ class RocModule(ModuleExecution["Roc"]):
 
         # Calculate correlation matrix
         logger.info("Calculating feature groups.")
-        if self.config.correlation_type == "spearmanr":
+        if self.config.correlation_type == CorrelationType.SPEARMAN:
             pos_corr_matrix, _ = scipy.stats.spearmanr(np.nan_to_num(x_traindev.values))
             pos_corr_matrix = np.abs(pos_corr_matrix)
-        elif self.config.correlation_type == "rdc":
+        elif self.config.correlation_type == CorrelationType.RDC:
             pos_corr_matrix = np.abs(rdc_correlation_matrix(x_traindev))
         else:
-            raise ValueError(f"Correlation type {self.config.correlation_type} not supported")
+            valid_types = ", ".join([e.value for e in CorrelationType])
+            raise ValueError(
+                f"Correlation type {self.config.correlation_type} not supported. Valid types: {valid_types}"
+            )
 
         # Build graph of correlated features
         g: nx.Graph = nx.Graph()

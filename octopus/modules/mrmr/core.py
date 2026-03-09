@@ -12,7 +12,7 @@ from sklearn.feature_selection import f_classif, f_regression
 from octopus.logger import LogGroup, get_logger
 from octopus.modules.base import FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import FeatureImportanceType, MLType
+from octopus.types import CorrelationType, FeatureImportanceType, MLType
 
 if TYPE_CHECKING:
     from octopus.modules.mrmr import Mrmr  # noqa: F401
@@ -185,7 +185,7 @@ def _maxrminr(
     features: pd.DataFrame,
     relevance: pd.DataFrame,
     requested_feature_counts: list[int],
-    correlation_type: Literal["pearson", "spearman", "rdc"] = "pearson",
+    correlation_type: CorrelationType = CorrelationType.PEARSON,
     method: Literal["ratio", "difference"] = "ratio",
 ) -> dict[int, list[str]]:
     """Perform mRMR feature selection.
@@ -197,7 +197,7 @@ def _maxrminr(
         features: Dataset with columns as feature names
         relevance: DataFrame with "feature" and "importance" columns
         requested_feature_counts: List of feature counts for partial snapshots
-        correlation_type: Correlation method ("pearson", "spearman", or "rdc")
+        correlation_type: Correlation method (CorrelationType enum)
         method: Score method ("ratio" or "difference")
 
     Returns:
@@ -209,8 +209,15 @@ def _maxrminr(
     MIN_RED = 1e-6  # minimum redundancy to avoid division by zero
 
     # Validate arguments
-    if correlation_type not in {"pearson", "spearman", "rdc"}:
-        raise ValueError("correlation_type must be one of {'pearson','spearman','rdc'}")
+    if correlation_type not in {CorrelationType.PEARSON, CorrelationType.SPEARMAN, CorrelationType.RDC}:
+        valid_types = ", ".join(
+            [
+                e.value
+                for e in CorrelationType
+                if e in {CorrelationType.PEARSON, CorrelationType.SPEARMAN, CorrelationType.RDC}
+            ]
+        )
+        raise ValueError(f"correlation_type must be one of: {valid_types}")
     if method not in {"ratio", "difference"}:
         raise ValueError("method must be 'ratio' or 'difference'")
     if "feature" not in relevance.columns or "importance" not in relevance.columns:
@@ -246,11 +253,13 @@ def _maxrminr(
         raise ValueError(f"Some relevant feature columns contain non-numeric/NaN values: {bad_cols}")
 
     # Calculate correlation matrix
-    if correlation_type in {"pearson", "spearman"}:
-        corr = feats.corr(method=correlation_type).abs()
-    else:  # rdc
+    if correlation_type in {CorrelationType.PEARSON, CorrelationType.SPEARMAN}:
+        corr = feats.corr(method=correlation_type.value).abs()
+    elif correlation_type == CorrelationType.RDC:
         corr_vals = rdc_correlation_matrix(feats)
         corr = pd.DataFrame(corr_vals, index=feats.columns, columns=feats.columns).abs()
+    else:
+        raise ValueError(f"Unsupported correlation type: {correlation_type}")
 
     corr = corr.reindex(index=feats.columns, columns=feats.columns)
 
