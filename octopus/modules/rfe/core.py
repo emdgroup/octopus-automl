@@ -15,7 +15,7 @@ from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
 from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
-from octopus.types import MLType
+from octopus.types import MLType, RFEMode
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -139,10 +139,10 @@ class RfeModule(ModuleExecution["Rfe"]):
         print(f"Best params: {best_params}")
 
         # Select estimator based on mode
-        if self.config.mode == "Mode1":
+        if self.config.mode == RFEMode.MODE1:
             # RFE with the trained model
             estimator = best_model
-        elif self.config.mode == "Mode2":
+        elif self.config.mode == RFEMode.MODE2:
             # RFE with hyperparameter optimization at each step
             estimator = grid_search
         else:

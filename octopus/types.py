@@ -98,6 +98,11 @@ class OptunaReturnType(str, Enum):
     POOL = "pool"
     AVERAGE = "average"
 
+class RFEMode(str, Enum):
+    """Recursive Feature Elimination modes."""
+    MODE1 = "Mode1"
+    MODE2 = "Mode2"
+
 
 ML_TYPES = [e.value for e in MLType]
 

@@ -6,6 +6,8 @@ from attrs import define, field, validators
 
 from octopus.modules.base import ModuleExecution, Task
 
+from octopus.types import RFEMode
+
 
 @define
 class Rfe(Task):
@@ -34,7 +36,7 @@ class Rfe(Task):
     cv: int = field(validator=[validators.instance_of(int)], default=5)
     """Number of CV folds for RFE_CV."""
 
-    mode: str = field(validator=[validators.in_(["Mode1", "Mode2"])], default="Mode1")
+    mode: RFEMode = field(validator=[validators.instance_of(RFEMode)], default=RFEMode.MODE1)
     """Mode used by RFE: Mode1=optimized model, Mode2=reoptimize each step."""
 
     def create_module(self) -> ModuleExecution:
