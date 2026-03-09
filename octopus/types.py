@@ -64,6 +64,15 @@ class RocFilterMethod(str, Enum):
     F_STATISTICS = "f_statistics"
 
 
+class SFSDirection(str, Enum):
+    """Sequential Feature Selection directions."""
+
+    FORWARD = "forward"
+    BACKWARD = "backward"
+    FLOATING_FORWARD = "floating_forward"
+    FLOATING_BACKWARD = "floating_backward"
+
+
 ML_TYPES = [e.value for e in MLType]
 
 
