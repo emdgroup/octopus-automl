@@ -6,7 +6,7 @@ import pytest
 from sklearn.datasets import make_classification
 
 from octopus.modules.roc.module import Roc
-from octopus.types import CorrelationType
+from octopus.types import CorrelationType, RocFilterMethod
 
 
 class TestRocModule:
@@ -21,7 +21,7 @@ class TestRocModule:
         assert roc.description == ""
         assert roc.threshold == 0.8
         assert roc.correlation_type == CorrelationType.SPEARMAN
-        assert roc.filter_type == "f_statistics"
+        assert roc.filter_type == RocFilterMethod.F_STATISTICS
         assert roc.module == "roc"
 
     def test_roc_module_initialization_custom_params(self):
@@ -32,7 +32,7 @@ class TestRocModule:
             description="test_roc",
             threshold=0.9,
             correlation_type=CorrelationType.RDC,
-            filter_type="mutual_info",
+            filter_type=RocFilterMethod.MUTUAL_INFO,
         )
 
         assert roc.task_id == 1
@@ -40,7 +40,7 @@ class TestRocModule:
         assert roc.description == "test_roc"
         assert roc.threshold == 0.9
         assert roc.correlation_type == CorrelationType.RDC
-        assert roc.filter_type == "mutual_info"
+        assert roc.filter_type == RocFilterMethod.MUTUAL_INFO
 
     def test_roc_module_invalid_correlation_type(self):
         """Test ROC module with invalid correlation type."""
@@ -74,7 +74,7 @@ class TestRocModule:
         roc = Roc(task_id=0, correlation_type=correlation_type)
         assert roc.correlation_type == correlation_type
 
-    @pytest.mark.parametrize("filter_type", ["mutual_info", "f_statistics"])
+    @pytest.mark.parametrize("filter_type", [RocFilterMethod.MUTUAL_INFO, RocFilterMethod.F_STATISTICS])
     def test_roc_module_filter_types(self, filter_type):
         """Test ROC module with different filter types."""
         roc = Roc(task_id=0, filter_type=filter_type)
@@ -102,11 +102,11 @@ class TestRocIntegration:
             description="integration_test",
             threshold=0.85,
             correlation_type=CorrelationType.SPEARMAN,
-            filter_type="mutual_info",
+            filter_type=RocFilterMethod.MUTUAL_INFO,
         )
 
         # Verify module configuration
         assert roc_module.threshold == 0.85
         assert roc_module.correlation_type == CorrelationType.SPEARMAN
-        assert roc_module.filter_type == "mutual_info"
+        assert roc_module.filter_type == RocFilterMethod.MUTUAL_INFO
         assert roc_module.description == "integration_test"

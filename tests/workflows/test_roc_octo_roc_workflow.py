@@ -10,6 +10,7 @@ from sklearn.datasets import make_classification
 
 from octopus import OctoClassification
 from octopus.modules import Octo, Roc
+from octopus.types import RocFilterMethod
 
 
 class TestRocOctoRocWorkflow:
@@ -60,7 +61,7 @@ class TestRocOctoRocWorkflow:
                 depends_on=None,
                 threshold=0.85,
                 correlation_type="spearmanr",
-                filter_type="f_statistics",
+                filter_type=RocFilterMethod.F_STATISTICS,
             ),
             Octo(
                 description="step_1_octo",
@@ -81,7 +82,7 @@ class TestRocOctoRocWorkflow:
                 depends_on=1,
                 threshold=0.5,
                 correlation_type="spearmanr",
-                filter_type="mutual_info",
+                filter_type=RocFilterMethod.MUTUAL_INFO,
             ),
         ]
 
@@ -132,7 +133,7 @@ class TestRocOctoRocWorkflow:
                         depends_on=None,
                         threshold=0.85,
                         correlation_type="spearmanr",
-                        filter_type="f_statistics",
+                        filter_type=RocFilterMethod.F_STATISTICS,
                     ),
                     Octo(
                         description="step_1_octo",
@@ -150,7 +151,7 @@ class TestRocOctoRocWorkflow:
                         depends_on=1,
                         threshold=0.5,
                         correlation_type="spearmanr",
-                        filter_type="mutual_info",
+                        filter_type=RocFilterMethod.MUTUAL_INFO,
                     ),
                 ],
             )
@@ -196,7 +197,7 @@ class TestRocOctoRocWorkflow:
         assert second_roc.threshold < first_roc.threshold
 
     @pytest.mark.parametrize("correlation_type", ["spearmanr", "rdc"])
-    @pytest.mark.parametrize("filter_type", ["f_statistics", "mutual_info"])
+    @pytest.mark.parametrize("filter_type", [RocFilterMethod.F_STATISTICS, RocFilterMethod.MUTUAL_INFO])
     def test_roc_configuration_variations(self, correlation_type, filter_type):
         """Test ROC configuration with different correlation and filter types."""
         workflow = [
@@ -295,7 +296,7 @@ class TestRocOctoRocWorkflow:
                         depends_on=None,
                         threshold=0.9,
                         correlation_type="spearmanr",
-                        filter_type="f_statistics",
+                        filter_type=RocFilterMethod.F_STATISTICS,
                     ),
                     Octo(
                         description="step_1_octo",
@@ -315,7 +316,7 @@ class TestRocOctoRocWorkflow:
                         depends_on=1,
                         threshold=0.5,
                         correlation_type="spearmanr",
-                        filter_type="f_statistics",
+                        filter_type=RocFilterMethod.F_STATISTICS,
                     ),
                 ],
             )
