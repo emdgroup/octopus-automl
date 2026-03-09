@@ -12,7 +12,7 @@ from sklearn.feature_selection import f_classif, f_regression
 from octopus.logger import LogGroup, get_logger
 from octopus.modules.base import FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import CorrelationType, FeatureImportanceType, MLType
+from octopus.types import CorrelationType, FeatureImportanceType, MLType, MRMRRelevance
 
 if TYPE_CHECKING:
     from octopus.modules.mrmr import Mrmr  # noqa: F401
@@ -92,7 +92,7 @@ class MrmrModule(ModuleExecution["Mrmr"]):
 
     def _validate_configuration(self, prior_results: dict) -> None:
         """Validate MRMR configuration."""
-        if self.config.relevance_type == "permutation":
+        if self.config.relevance_type == MRMRRelevance.PERMUTATION:
             if self.config.task_id == 0:
                 raise ValueError("MRMR module should not be the first workflow task.")
             fi_df = prior_results.get("feature_importances", pd.DataFrame())
@@ -126,9 +126,9 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         prior_results: dict,
     ) -> pd.DataFrame:
         """Get relevance data based on relevance type."""
-        if self.config.relevance_type == "permutation":
+        if self.config.relevance_type == MRMRRelevance.PERMUTATION:
             return self._get_permutation_relevance(feature_cols, prior_results)
-        elif self.config.relevance_type == "f-statistics":
+        elif self.config.relevance_type == MRMRRelevance.F_STATISTICS:
             return self._get_fstats_relevance(x_traindev, y_traindev, feature_cols, ml_type)
         else:
             raise ValueError(f"Relevance type {self.config.relevance_type} not supported for MRMR.")

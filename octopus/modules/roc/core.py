@@ -20,7 +20,7 @@ from sklearn.feature_selection import (
 from octopus.logger import get_logger
 from octopus.modules.base import ModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import CorrelationType, MLType
+from octopus.types import CorrelationType, MLType, RocFilterMethod
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -77,15 +77,15 @@ class RocModule(ModuleExecution["Roc"]):
         logger.info("Calculating dependency to target")
         if study_context.ml_type == MLType.TIMETOEVENT:
             logger.info("Time2Event: Note, that the first group element is selected.")
-        elif self.config.filter_type == "mutual_info":
+        elif self.config.filter_type == RocFilterMethod.MUTUAL_INFO:
             # Set random state
-            values = filter_inventory[self.config.filter_type][study_context.ml_type](
+            values = filter_inventory[self.config.filter_type.value][study_context.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel(), random_state=0
             )
             dependency = pd.Series(values, index=feature_cols)
-        elif self.config.filter_type == "f_statistics":
+        elif self.config.filter_type == RocFilterMethod.F_STATISTICS:
             # Ignoring p-values
-            values, _ = filter_inventory[self.config.filter_type][study_context.ml_type](
+            values, _ = filter_inventory[self.config.filter_type.value][study_context.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel()
             )
             dependency = pd.Series(values, index=feature_cols)

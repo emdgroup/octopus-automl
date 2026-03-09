@@ -50,6 +50,20 @@ class CorrelationType(str, Enum):
     RDC = "rdc"
 
 
+class MRMRRelevance(str, Enum):
+    """Relevance calculation methods for MRMR feature selection."""
+
+    PERMUTATION = "permutation"
+    F_STATISTICS = "f-statistics"
+
+
+class RocFilterMethod(str, Enum):
+    """Filter methods for ROC feature selection."""
+
+    MUTUAL_INFO = "mutual_info"
+    F_STATISTICS = "f_statistics"
+
+
 ML_TYPES = [e.value for e in MLType]
 
 

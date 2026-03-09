@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from attrs import Factory, define, field, validators
 
 from octopus.modules.base import ModuleExecution, Task
-from octopus.types import CorrelationType, FeatureImportanceMethod, FeatureImportanceType
+from octopus.types import CorrelationType, FeatureImportanceMethod, FeatureImportanceType, MRMRRelevance
 
 
 @define
@@ -21,7 +19,7 @@ class Mrmr(Task):
     Configuration:
         n_features: Number of features to select
         correlation_type: Type of correlation to measure redundancy
-        relevance_type: Method to calculate relevance ("permutation" or "f-statistics")
+        relevance_type: Method to calculate relevance (MRMRRelevance enum)
         results_module: Module name to filter prior results' feature importances (for permutation relevance)
         feature_importance_type: Type of FI aggregation ("mean" or "count")
         feature_importance_method: FI calculation method (FeatureImportanceType enum)
@@ -35,8 +33,8 @@ class Mrmr(Task):
     )
     """Selection of correlation type."""
 
-    relevance_type: Literal["permutation", "f-statistics"] = field(
-        validator=validators.in_(["permutation", "f-statistics"]), default="permutation"
+    relevance_type: MRMRRelevance = field(
+        validator=validators.instance_of(MRMRRelevance), default=MRMRRelevance.PERMUTATION
     )
     """Selection of relevance measure."""
 

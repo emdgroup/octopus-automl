@@ -5,7 +5,7 @@ from __future__ import annotations
 from attrs import define, field, validators
 
 from octopus.modules.base import ModuleExecution, Task
-from octopus.types import CorrelationType
+from octopus.types import CorrelationType, RocFilterMethod
 
 
 @define
@@ -20,7 +20,7 @@ class Roc(Task):
     Configuration:
         threshold: Correlation threshold above which features are considered correlated
         correlation_type: Type of correlation measure ("spearman" or "rdc")
-        filter_type: Method to select best feature in group ("mutual_info" or "f_statistics")
+        filter_type: Method to select best feature in group (RocFilterMethod enum)
     """
 
     threshold: float = field(validator=[validators.instance_of(float)], default=0.8)
@@ -31,9 +31,9 @@ class Roc(Task):
     )
     """Selection of correlation type."""
 
-    filter_type: str = field(
-        validator=[validators.in_(["mutual_info", "f_statistics"])],
-        default="f_statistics",
+    filter_type: RocFilterMethod = field(
+        validator=[validators.instance_of(RocFilterMethod)],
+        default=RocFilterMethod.F_STATISTICS,
     )
     """Selection of filter type for correlated features."""
 
