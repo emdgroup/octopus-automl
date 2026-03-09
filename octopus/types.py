@@ -73,6 +73,13 @@ class SFSDirection(str, Enum):
     FLOATING_BACKWARD = "floating_backward"
 
 
+class AutoGluonFitStrategy(str, Enum):
+    """AutoGluon fitting strategies."""
+
+    SEQUENTIAL = "sequential"
+    PARALLEL = "parallel"
+
+
 ML_TYPES = [e.value for e in MLType]
 
 
