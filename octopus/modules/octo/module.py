@@ -38,18 +38,20 @@ class Octo(Task):
         mrmr_feature_numbers: Feature counts for MRMR feature selection
     """
 
-    models: list[str] = field(
-        default=Factory(lambda: ["ExtraTreesClassifier"]),
-        converter=_unique_unordered,
-        validator=[
-            validators.instance_of(list),
-            validators.deep_iterable(
-                member_validator=validators.instance_of(str),
-                iterable_validator=validators.instance_of(list),
-            ),
-        ],
+    models: list[str] | None = field(
+        default=None,
+        converter=lambda x: _unique_unordered(x) if x else None,
+        validator=validators.optional(
+            [
+                validators.instance_of(list),
+                validators.deep_iterable(
+                    member_validator=validators.instance_of(str),
+                    iterable_validator=validators.instance_of(list),
+                ),
+            ]
+        ),
     )
-    """Models for ML."""
+    """Models for ML. If None, defaults are resolved at fit time based on ml_type."""
 
     n_folds_inner: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 5))
     """Number of inner folds."""
@@ -128,8 +130,8 @@ class Octo(Task):
             logger.warning(
                 f"Octofull Warning: n_workers ({self.n_workers}) does not match n_folds_inner ({self.n_folds_inner})",
             )
-        # (2) Only enforce constrained-HPO compatibility when max_features > 0
-        if self.max_features > 0:
+        # (2) Only enforce constrained-HPO compatibility when max_features > 0 and models are specified
+        if self.max_features > 0 and self.models is not None:
             incompatible_models: list[str] = []
 
             for m in self.models:

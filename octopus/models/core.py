@@ -166,6 +166,28 @@ class Models:
         return [name for name in cls._config_factories if cls.get_config(name).supports_ml_type(ml_type)]
 
     @classmethod
+    def get_defaults(cls, ml_type: MLType) -> list[str]:
+        """Get default model names for a given ml_type.
+
+        Args:
+            ml_type: The MLType to filter by.
+
+        Returns:
+            List of default model names that support the given ml_type.
+
+        Raises:
+            ValueError: If no default models are defined for the given ml_type.
+        """
+        defaults = [
+            name
+            for name in cls._config_factories
+            if (config := cls.get_config(name)).supports_ml_type(ml_type) and config.default
+        ]
+        if not defaults:
+            raise ValueError(f"No default models defined for ml_type '{ml_type.value}'. Specify models explicitly.")
+        return defaults
+
+    @classmethod
     def validate_model_compatibility(cls, model_name: str, ml_type: MLType) -> None:
         """Validate that a model is compatible with the given ml_type.
 

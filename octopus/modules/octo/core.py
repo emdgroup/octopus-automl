@@ -137,6 +137,20 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         results_dir: UPath,
     ):
         """Initialize Octo-specific data structures and directories."""
+        # Resolve default models if none were specified
+        if self.config.models is None:
+            self.config.models = Models.get_defaults(study_context.ml_type)
+            logger.debug(f"Using default models for {study_context.ml_type.value}: {self.config.models}")
+
+            # Filter out chpo-incompatible models when constrained HPO is active
+            if self.config.max_features > 0:
+                self.config.models = [m for m in self.config.models if Models.get_config(m).chpo_compatible]
+                if not self.config.models:
+                    raise ValueError(
+                        "No default models are compatible with constrained HPO (max_features > 0). "
+                        "Specify models explicitly."
+                    )
+
         # Validate model-task compatibility
         for model_name in self.config.models:
             Models.validate_model_compatibility(model_name, study_context.ml_type)

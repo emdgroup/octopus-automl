@@ -56,6 +56,7 @@ def catboost_regressor() -> ModelConfig:
         scaler=None,
         imputation_required=False,
         categorical_enabled=True,
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=1e-3, high=1e-1, log=True),
             IntHyperparameter(name="depth", low=3, high=10),
@@ -84,6 +85,7 @@ def elastic_net_regressor() -> ModelConfig:
         scaler="StandardScaler",
         imputation_required=True,
         categorical_enabled=False,
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="alpha", low=1e-10, high=1e2, log=True),
             FloatHyperparameter(name="l1_ratio", low=0, high=1, log=False),
@@ -108,6 +110,7 @@ def extra_trees_regressor() -> ModelConfig:
         scaler=None,
         imputation_required=True,
         categorical_enabled=False,
+        default=True,
         hyperparameters=[
             IntHyperparameter(name="max_depth", low=2, high=32),
             IntHyperparameter(name="min_samples_split", low=2, high=100),
@@ -156,6 +159,7 @@ def gradient_boosting_regressor() -> ModelConfig:
         scaler=None,
         imputation_required=True,
         categorical_enabled=False,
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=0.01, high=1, log=True),
             IntHyperparameter(name="min_samples_leaf", low=1, high=200),
@@ -181,6 +185,7 @@ def random_forest_regressor() -> ModelConfig:
         scaler=None,
         imputation_required=True,  # maybe: False -- check!
         categorical_enabled=False,
+        default=True,
         hyperparameters=[
             IntHyperparameter(name="max_depth", low=2, high=32),
             IntHyperparameter(name="min_samples_split", low=2, high=100),
@@ -204,6 +209,7 @@ def ridge_regressor() -> ModelConfig:
         scaler="StandardScaler",
         imputation_required=True,
         categorical_enabled=False,
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="alpha", low=1e-5, high=1e5, log=True),
             CategoricalHyperparameter(name="fit_intercept", choices=[True, False]),
@@ -247,6 +253,7 @@ def xgb_regressor() -> ModelConfig:
         scaler=None,
         imputation_required=False,
         categorical_enabled=False,  # maybe:True -- check!
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=1e-4, high=0.3, log=True),
             IntHyperparameter(name="min_child_weight", low=2, high=15),
@@ -272,6 +279,7 @@ def hist_gradient_boosting_regressor() -> ModelConfig:
         scaler=None,
         imputation_required=False,
         categorical_enabled=True,
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=0.01, high=0.3, log=True),
             IntHyperparameter(name="max_iter", low=50, high=1000),

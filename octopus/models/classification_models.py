@@ -29,6 +29,7 @@ def extra_trees_classifier() -> ModelConfig:
         scaler=None,
         imputation_required=True,
         categorical_enabled=False,
+        default=True,
         hyperparameters=[
             IntHyperparameter(name="max_depth", low=2, high=32),
             IntHyperparameter(name="min_samples_split", low=2, high=100),
@@ -55,6 +56,7 @@ def hist_gradient_boosting_classifier() -> ModelConfig:
         scaler=None,
         imputation_required=False,
         categorical_enabled=True,
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=0.01, high=0.3, log=True),
             IntHyperparameter(name="max_iter", low=50, high=1000),
@@ -81,6 +83,7 @@ def gradient_boosting_classifier() -> ModelConfig:
         scaler=None,
         imputation_required=True,
         categorical_enabled=False,
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=0.01, high=1, log=True),
             IntHyperparameter(name="min_samples_leaf", low=1, high=200),
@@ -106,6 +109,7 @@ def random_forest_classifier() -> ModelConfig:
         scaler=None,
         imputation_required=True,  # maybe: False - check!
         categorical_enabled=False,
+        default=True,
         hyperparameters=[
             IntHyperparameter(name="max_depth", low=2, high=32),
             IntHyperparameter(name="min_samples_split", low=2, high=100),
@@ -130,6 +134,7 @@ def xgb_classifier() -> ModelConfig:
         scaler=None,
         imputation_required=False,
         categorical_enabled=False,  # Maybe True - check!
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=1e-4, high=0.3, log=True),
             IntHyperparameter(name="min_child_weight", low=2, high=15),
@@ -154,6 +159,7 @@ def catboost_classifier() -> ModelConfig:
         scaler=None,
         imputation_required=False,
         categorical_enabled=True,
+        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=1e-2, high=1e-1, log=True),
             IntHyperparameter(name="depth", low=3, high=10),
@@ -184,6 +190,7 @@ def logistic_regression_classifier() -> ModelConfig:
         scaler="StandardScaler",
         imputation_required=True,
         categorical_enabled=False,
+        default=True,
         hyperparameters=[
             IntHyperparameter(name="max_iter", low=100, high=500),
             FloatHyperparameter(name="C", low=1e-2, high=100, log=True),
