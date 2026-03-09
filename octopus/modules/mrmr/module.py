@@ -7,7 +7,7 @@ from typing import Literal
 from attrs import Factory, define, field, validators
 
 from octopus.modules.base import ModuleExecution, Task
-from octopus.types import FeatureImportanceType
+from octopus.types import FeatureImportanceMethod, FeatureImportanceType
 
 
 @define
@@ -46,10 +46,10 @@ class Mrmr(Task):
     )
     """Module name from which feature importances were created."""
 
-    feature_importance_type: Literal["mean", "count"] = field(
-        validator=validators.in_(["mean", "count"]), default="mean"
+    feature_importance_type: FeatureImportanceMethod = field(
+        validator=validators.instance_of(FeatureImportanceMethod), default=FeatureImportanceMethod.MEAN
     )
-    """Selection of feature importance type."""
+    """Selection of feature importance aggregation method."""
 
     feature_importance_method: FeatureImportanceType = field(
         validator=validators.instance_of(FeatureImportanceType), default=FeatureImportanceType.PERMUTATION

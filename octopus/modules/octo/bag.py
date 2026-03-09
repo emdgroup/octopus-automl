@@ -21,7 +21,7 @@ from octopus.metrics.utils import get_performance_from_predictions
 from octopus.modules.octo.training import Training
 
 # Adjust this import path as needed depending on your package layout
-from octopus.types import FeatureImportanceType, MLType
+from octopus.types import FeatureImportanceMethod, FeatureImportanceType, MLType
 
 logger = get_logger()
 
@@ -522,7 +522,9 @@ class BagBase(BaseEstimator):
         all_dfs: list[pd.DataFrame] = []
         for key, value in self.feature_importances.items():
             # Skip aggregated keys like "internal_mean", "permutation_dev_count", etc.
-            if key.endswith("_mean") or key.endswith("_count"):
+            if key.endswith(f"_{FeatureImportanceMethod.MEAN.value}") or key.endswith(
+                f"_{FeatureImportanceMethod.COUNT.value}"
+            ):
                 continue
             if isinstance(value, dict):
                 # Per-training: {fi_key: DataFrame}
@@ -633,13 +635,17 @@ class BagBase(BaseEstimator):
             fi_methods = []
 
         if FeatureImportanceType.PERMUTATION.value in fi_methods:
-            fi_df = self.feature_importances["permutation_dev_mean"]
+            fi_df = self.feature_importances[f"permutation_dev_{FeatureImportanceMethod.MEAN.value}"]
         elif FeatureImportanceType.SHAP.value in fi_methods:
-            fi_df = self.feature_importances["shap_dev_mean"]
+            fi_df = self.feature_importances[f"shap_dev_{FeatureImportanceMethod.MEAN.value}"]
         elif FeatureImportanceType.INTERNAL.value in fi_methods:
-            fi_df = self.feature_importances["internal_mean"]
+            fi_df = self.feature_importances[
+                f"{FeatureImportanceType.INTERNAL.value}_{FeatureImportanceMethod.MEAN.value}"
+            ]
         elif FeatureImportanceType.CONSTANT.value in fi_methods:
-            fi_df = self.feature_importances["constant_mean"]
+            fi_df = self.feature_importances[
+                f"{FeatureImportanceType.CONSTANT.value}_{FeatureImportanceMethod.MEAN.value}"
+            ]
         else:
             logger.set_log_group(LogGroup.RESULTS)
             logger.info("No features selected, return empty list")
@@ -725,7 +731,7 @@ class BagBase(BaseEstimator):
             fi = pd.concat(fi_pool, axis=0)
 
             # calculate mean feature importances, keep zero entries
-            self.feature_importances[method_str + "_mean"] = (
+            self.feature_importances[method_str + f"_{FeatureImportanceMethod.MEAN.value}"] = (
                 fi[["feature", "importance"]]
                 .groupby(by="feature")
                 .sum()
@@ -744,7 +750,7 @@ class BagBase(BaseEstimator):
             all_features.update(non_zero_importances)
             all_features = all_features.reset_index()
             # Sort and reset index
-            self.feature_importances[method_str + "_count"] = all_features.sort_values(
+            self.feature_importances[method_str + f"_{FeatureImportanceMethod.COUNT.value}"] = all_features.sort_values(
                 by="importance", ascending=False
             ).reset_index(drop=True)
 

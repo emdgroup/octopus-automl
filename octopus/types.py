@@ -34,6 +34,13 @@ class ShapType(str, Enum):
     EXACT = "exact"
 
 
+class FeatureImportanceMethod(str, Enum):
+    """Feature importance aggregation methods."""
+
+    MEAN = "mean"
+    COUNT = "count"
+
+
 ML_TYPES = [e.value for e in MLType]
 
 
