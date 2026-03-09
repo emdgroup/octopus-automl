@@ -9,6 +9,7 @@ from attrs import Factory, define, field, validators
 from octopus.logger import get_logger
 from octopus.models import Models
 from octopus.modules.base import ModuleExecution, Task
+from octopus.types import OptunaReturnType
 
 logger = get_logger()
 
@@ -117,7 +118,9 @@ class Octo(Task):
     resume_optimization: bool = field(validator=[validators.instance_of(bool)], default=Factory(lambda: False))
     """Resume HPO, use existing optuna.db, don't delete optuna.db"""
 
-    optuna_return: str = field(default="pool", validator=[validators.in_(["pool", "average"])])
+    optuna_return: OptunaReturnType = field(
+        default=OptunaReturnType.POOL, validator=[validators.instance_of(OptunaReturnType)]
+    )
     """How to calculate the bag performance for the optuna optimization target."""
 
     def __attrs_post_init__(self):

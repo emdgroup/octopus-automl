@@ -3,6 +3,8 @@
 from enum import Enum
 from typing import Any
 
+# TODO: Group in a reasonable way.
+
 
 class MLType(str, Enum):
     """Machine learning task types."""
@@ -15,6 +17,7 @@ class MLType(str, Enum):
 
 # TODO: Duplicate with octopus.modules.base.FIMethod, but this is used in module configuration while FIMethod is for results, so we may want to keep them separate for clarity and to avoid circular imports. Consider refactoring later to unify if it doesn't cause issues.
 # TODO: Usedn in RFE2 Module.
+# TODO: ued in octo module, but only subset.
 class FeatureImportanceType(str, Enum):
     """Feature importance calculation methods."""
 
@@ -87,6 +90,13 @@ class RFE2SelectionMethod(str, Enum):
 
     BEST = "best"
     PARSIMONIOUS = "parsimonious"
+
+
+class OptunaReturnType(str, Enum):
+    """Optuna return types."""
+
+    POOL = "pool"
+    AVERAGE = "average"
 
 
 ML_TYPES = [e.value for e in MLType]

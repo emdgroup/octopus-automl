@@ -10,7 +10,7 @@ from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules.octo.bag import Bag, BagClassifier, BagRegressor
 from octopus.modules.octo.training import Training, TrainingConfig
-from octopus.types import MLType
+from octopus.types import MLType, OptunaReturnType
 from octopus.utils import joblib_save
 
 logger = get_logger()
@@ -181,7 +181,7 @@ class ObjectiveOptuna:
         self._log_trial_scores(bag_performance)
 
         # define optuna target
-        if self.config.optuna_return == "pool":
+        if self.config.optuna_return == OptunaReturnType.POOL:
             optuna_target = bag_performance["dev_pool"]
         else:
             optuna_target = bag_performance["dev_avg"]
