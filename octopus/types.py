@@ -13,6 +13,27 @@ class MLType(str, Enum):
     TIMETOEVENT = "timetoevent"
 
 
+class FeatureImportanceType(str, Enum):
+    """Feature importance calculation methods."""
+
+    PERMUTATION = "permutation"
+    GROUP_PERMUTATION = "group_permutation"
+    SHAP = "shap"
+    GROUP_SHAP = "group_shap"
+    INTERNAL = "internal"
+    LOFO = "lofo"
+    CONSTANT = "constant"
+    PERMUTATION_DEV = "permutation_dev"
+
+
+class ShapType(str, Enum):
+    """SHAP explainer types."""
+
+    KERNEL = "kernel"
+    PERMUTATION = "permutation"
+    EXACT = "exact"
+
+
 ML_TYPES = [e.value for e in MLType]
 
 

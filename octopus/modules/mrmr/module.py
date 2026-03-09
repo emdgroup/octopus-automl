@@ -7,6 +7,7 @@ from typing import Literal
 from attrs import Factory, define, field, validators
 
 from octopus.modules.base import ModuleExecution, Task
+from octopus.types import FeatureImportanceType
 
 
 @define
@@ -23,7 +24,7 @@ class Mrmr(Task):
         relevance_type: Method to calculate relevance ("permutation" or "f-statistics")
         results_module: Module name to filter prior results' feature importances (for permutation relevance)
         feature_importance_type: Type of FI aggregation ("mean" or "count")
-        feature_importance_method: FI calculation method
+        feature_importance_method: FI calculation method (FeatureImportanceType enum)
     """
 
     n_features: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 30))
@@ -50,8 +51,8 @@ class Mrmr(Task):
     )
     """Selection of feature importance type."""
 
-    feature_importance_method: Literal["permutation", "shap", "internal", "lofo"] = field(
-        validator=validators.in_(["permutation", "shap", "internal", "lofo"]), default="permutation"
+    feature_importance_method: FeatureImportanceType = field(
+        validator=validators.instance_of(FeatureImportanceType), default=FeatureImportanceType.PERMUTATION
     )
     """Selection of feature importance method."""
 

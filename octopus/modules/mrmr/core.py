@@ -12,7 +12,7 @@ from sklearn.feature_selection import f_classif, f_regression
 from octopus.logger import LogGroup, get_logger
 from octopus.modules.base import FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import MLType
+from octopus.types import FeatureImportanceType, MLType
 
 if TYPE_CHECKING:
     from octopus.modules.mrmr import Mrmr  # noqa: F401
@@ -79,13 +79,13 @@ class MrmrModule(ModuleExecution["Mrmr"]):
     def _get_fi_method(self) -> FIMethod:
         """Get FIMethod enum from configuration."""
         fi_method = self.config.feature_importance_method
-        if fi_method == "internal":
+        if fi_method == FeatureImportanceType.INTERNAL:
             return FIMethod.INTERNAL
-        elif fi_method == "permutation":
+        elif fi_method == FeatureImportanceType.PERMUTATION:
             return FIMethod.PERMUTATION
-        elif fi_method == "shap":
+        elif fi_method == FeatureImportanceType.SHAP:
             return FIMethod.SHAP
-        elif fi_method == "lofo":
+        elif fi_method == FeatureImportanceType.LOFO:
             return FIMethod.LOFO
         else:
             raise ValueError(f"Unknown FI method: {fi_method}")
