@@ -5,7 +5,8 @@ from typing import Any
 
 from attrs import define, field, validators
 
-from octopus.models.config import ML_TYPES, PRED_TYPES, MLType, OctoArrayLike, PredType
+from octopus.models.config import PRED_TYPES, OctoArrayLike, PredType
+from octopus.types import MLType, to_ml_types_frozenset, validate_ml_types
 
 # Type alias for metric functions
 # Metric functions should accept (y_true, y_pred, **kwargs) and return a numeric value.
@@ -25,11 +26,15 @@ class Metric:
 
     name: str
     metric_function: MetricFunction = field(validator=validators.is_callable())
-    ml_type: MLType = field(validator=validators.in_(ML_TYPES))
+    ml_types: frozenset[MLType] = field(converter=to_ml_types_frozenset, validator=validate_ml_types)
     higher_is_better: bool = field(validator=validators.instance_of(bool))
     prediction_type: PredType = field(validator=validators.in_(PRED_TYPES))
     scorer_string: str = field(validator=validators.instance_of(str))  # needed for some sklearn functionalities
     metric_params: dict[str, Any] = field(factory=dict)
+
+    def supports_ml_type(self, ml_type: MLType) -> bool:
+        """Check if this metric supports the given ml_type."""
+        return ml_type in self.ml_types
 
     @property
     def direction(self) -> str:
@@ -50,7 +55,7 @@ class Metric:
         Raises:
             ValueError: If called on a time-to-event metric
         """
-        if self.ml_type == "timetoevent":
+        if self.supports_ml_type(MLType.TIMETOEVENT):
             raise ValueError(
                 f"Metric '{self.name}' is a time-to-event metric. "
                 "Use calculate_t2e(event_indicator, event_time, estimate) instead."
@@ -74,8 +79,10 @@ class Metric:
         Raises:
             ValueError: If called on a non-time-to-event metric
         """
-        if self.ml_type != "timetoevent":
-            raise ValueError(f"Metric '{self.name}' is a {self.ml_type} metric. Use calculate(y_true, y_pred) instead.")
+        if not self.supports_ml_type(MLType.TIMETOEVENT):
+            raise ValueError(
+                f"Metric '{self.name}' is not a time-to-event metric. Use calculate(y_true, y_pred) instead."
+            )
 
         # Merge metric_params with any additional kwargs
         params = {**self.metric_params, **kwargs}

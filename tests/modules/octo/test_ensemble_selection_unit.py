@@ -10,6 +10,7 @@ from upath import UPath
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.training import Training
+from octopus.types import MLType
 from octopus.utils import joblib_save
 
 # Utility functions for creating mock data and bags
@@ -94,7 +95,7 @@ def create_mock_training(training_id, performance_dev, performance_test, n_sampl
 
     training = Training(
         training_id=training_id,
-        ml_type="regression",
+        ml_type=MLType.REGRESSION,
         target_assignments={"default": "target"},
         feature_cols=[f"feature_{i}" for i in range(4)],
         row_id_col="row_id",
@@ -135,7 +136,7 @@ def create_mock_bag(log_dir, bag_id, target_dev_mae, target_test_mae, n_training
         target_assignments={"default": "target"},
         row_id_col="row_id",
         target_metric="MAE",
-        ml_type="regression",
+        ml_type=MLType.REGRESSION,
         parallel_execution=False,
         num_workers=1,
         log_dir=log_dir,

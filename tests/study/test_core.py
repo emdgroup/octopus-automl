@@ -10,7 +10,8 @@ from upath import UPath
 from octopus.modules import Octo
 from octopus.study import OctoClassification, OctoRegression
 from octopus.study.core import _RUNNING_IN_TESTSUITE
-from octopus.study.types import DatasplitType, ImputationMethod, MLType
+from octopus.study.types import DatasplitType, ImputationMethod
+from octopus.types import MLType
 
 
 @pytest.fixture

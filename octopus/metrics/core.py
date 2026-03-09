@@ -9,6 +9,8 @@ from octopus.exceptions import UnknownMetricError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from octopus.types import MLType
+
     from .config import Metric
 
 
@@ -109,24 +111,25 @@ class Metrics:
         return "maximize" if cls.get_instance(name).higher_is_better else "minimize"
 
     @classmethod
-    def get_by_type(cls, *ml_types: str) -> list[str]:
+    def get_by_type(cls, *ml_types: MLType) -> list[str]:
         """Get list of metric names for specified ML types.
 
         Args:
-            *ml_types: One or more ML types (e.g., "regression", "classification", "multiclass", "timetoevent").
+            *ml_types: One or more MLType enums (e.g., MLType.REGRESSION, MLType.BINARY, MLType.MULTICLASS).
 
         Returns:
-            List of metric names matching the specified ML types.
+            List of metric names matching any of the specified ML types.
 
         Example:
-            >>> Metrics.get_by_type("regression")
+            >>> Metrics.get_by_type(MLType.REGRESSION)
             ['RMSE', 'MAE', 'R2', ...]
-            >>> Metrics.get_by_type("classification", "multiclass")
-            ['AUCROC', 'Accuracy', ...]
+            >>> Metrics.get_by_type(MLType.BINARY, MLType.MULTICLASS)
+            ['AUCROC', 'ACC', ...]
         """
+        requested = frozenset(ml_types)
         matching_metrics = []
         for name, factory in cls._config_factories.items():
             metric = factory()
-            if metric.ml_type in ml_types:
+            if metric.ml_types & requested:  # intersection
                 matching_metrics.append(name)
         return sorted(matching_metrics)

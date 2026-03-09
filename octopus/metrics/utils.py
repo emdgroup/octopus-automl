@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from octopus.metrics import Metrics
+from octopus.types import MLType
 
 
 def _to_numpy(data: Any) -> np.ndarray:
@@ -84,7 +85,7 @@ def get_performance_from_model(
     metric = Metrics.get_instance(target_metric)
 
     # Time-to-event
-    if metric.ml_type == "timetoevent":
+    if metric.supports_ml_type(MLType.TIMETOEVENT):
         estimate = model.predict(input_data)
         event_time = data[target_assignments["duration"]].astype(float)
         event_indicator = data[target_assignments["event"]].astype(bool)
@@ -94,11 +95,8 @@ def get_performance_from_model(
     target_col = list(target_assignments.values())[0]
     target = data[target_col]
 
-    # Binary classification
-    if metric.ml_type == "classification":
-        if positive_class is None:
-            raise ValueError("positive_class must be provided for classification tasks")
-
+    # Binary classification: positive_class provided means binary context
+    if positive_class is not None and metric.supports_ml_type(MLType.BINARY):
         try:
             positive_class_idx = list(model.classes_).index(positive_class)
         except ValueError as e:
@@ -112,8 +110,8 @@ def get_performance_from_model(
         predictions = (probabilities >= threshold).astype(int)
         return metric.calculate(target, predictions)
 
-    # Multiclass classification
-    if metric.ml_type == "multiclass":
+    # Multiclass classification: no positive_class means multiclass context
+    if metric.supports_ml_type(MLType.MULTICLASS) and positive_class is None:
         if metric.prediction_type == "predict_proba":
             probabilities = _to_numpy(model.predict_proba(input_data))
             return metric.calculate(target, probabilities)
@@ -122,14 +120,18 @@ def get_performance_from_model(
         return metric.calculate(target, predictions)
 
     # Regression
-    if metric.ml_type == "regression":
+    if metric.supports_ml_type(MLType.REGRESSION):
         if metric.prediction_type == "predict_proba":
             raise ValueError("predict_proba not supported for regression")
 
         predictions = _to_numpy(model.predict(input_data))
         return metric.calculate(target, predictions)
 
-    raise ValueError(f"Unknown ml_type: {metric.ml_type}")
+    # Binary metric without positive_class
+    if metric.supports_ml_type(MLType.BINARY) and positive_class is None:
+        raise ValueError("positive_class must be provided for binary classification metrics")
+
+    raise ValueError(f"Metric '{metric.name}' with ml_types {metric.ml_types} is not compatible with the given context")
 
 
 def get_performance_from_predictions(
@@ -167,7 +169,7 @@ def get_performance_from_predictions(
 
         for part, pred_df in partitions.items():
             # Time-to-event
-            if metric.ml_type == "timetoevent":
+            if metric.supports_ml_type(MLType.TIMETOEVENT):
                 estimate = pred_df["prediction"]
                 event_time = pred_df[target_assignments["duration"]].astype(float)
                 event_indicator = pred_df[target_assignments["event"]].astype(bool)
@@ -178,11 +180,8 @@ def get_performance_from_predictions(
                 target_col = list(target_assignments.values())[0]
                 target = pred_df[target_col]
 
-                # Binary classification
-                if metric.ml_type == "classification":
-                    if positive_class is None:
-                        raise ValueError("positive_class must be provided for classification tasks")
-
+                # Binary classification: positive_class provided means binary context
+                if positive_class is not None and metric.supports_ml_type(MLType.BINARY):
                     probabilities = pred_df[positive_class]
 
                     if metric.prediction_type == "predict_proba":
@@ -191,8 +190,8 @@ def get_performance_from_predictions(
                         predictions_binary = (probabilities >= threshold).astype(int)
                         perf_value = metric.calculate(target, predictions_binary)
 
-                # Multiclass classification
-                elif metric.ml_type == "multiclass":
+                # Multiclass classification: no positive_class means multiclass context
+                elif metric.supports_ml_type(MLType.MULTICLASS) and positive_class is None:
                     if metric.prediction_type == "predict_proba":
                         prob_columns = _get_probability_columns(pred_df, target_col)
                         probabilities = pred_df[prob_columns].values
@@ -202,15 +201,22 @@ def get_performance_from_predictions(
                         perf_value = metric.calculate(target, predictions_class)
 
                 # Regression
-                elif metric.ml_type == "regression":
+                elif metric.supports_ml_type(MLType.REGRESSION):
                     if metric.prediction_type == "predict_proba":
                         raise ValueError("predict_proba not supported for regression")
 
                     predictions_reg = pred_df["prediction"]
                     perf_value = metric.calculate(target, predictions_reg)
 
+                # Binary metric without positive_class
+                elif metric.supports_ml_type(MLType.BINARY) and positive_class is None:
+                    raise ValueError("positive_class must be provided for binary classification metrics")
+
                 else:
-                    raise ValueError(f"Unknown ml_type: {metric.ml_type}")
+                    raise ValueError(
+                        f"Metric '{metric.name}' with ml_types {metric.ml_types} "
+                        "is not compatible with the given context"
+                    )
 
             performance[training_id][part] = perf_value
 

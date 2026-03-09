@@ -20,6 +20,7 @@ from sklearn.feature_selection import (
 from octopus.logger import get_logger
 from octopus.modules.base import ModuleExecution, ModuleResult, ResultType
 from octopus.modules.utils import rdc_correlation_matrix
+from octopus.types import MLType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -30,14 +31,16 @@ if TYPE_CHECKING:
 logger = get_logger()
 
 # Filter functions for feature selection
-filter_inventory: dict[str, dict[str, Callable]] = {
+filter_inventory: dict[str, dict[MLType, Callable]] = {
     "mutual_info": {
-        "classification": mutual_info_classif,
-        "regression": mutual_info_regression,
+        MLType.BINARY: mutual_info_classif,
+        MLType.MULTICLASS: mutual_info_classif,
+        MLType.REGRESSION: mutual_info_regression,
     },
     "f_statistics": {
-        "classification": f_classif,
-        "regression": f_regression,
+        MLType.BINARY: f_classif,
+        MLType.MULTICLASS: f_classif,
+        MLType.REGRESSION: f_regression,
     },
 }
 
@@ -72,7 +75,7 @@ class RocModule(ModuleExecution["Roc"]):
 
         # Calculate dependency to target
         logger.info("Calculating dependency to target")
-        if study_context.ml_type == "timetoevent":
+        if study_context.ml_type == MLType.TIMETOEVENT:
             logger.info("Time2Event: Note, that the first group element is selected.")
         elif self.config.filter_type == "mutual_info":
             # Set random state
@@ -123,7 +126,7 @@ class RocModule(ModuleExecution["Roc"]):
 
         for group in self.feature_groups_:
             if group:
-                if study_context.ml_type == "timetoevent":
+                if study_context.ml_type == MLType.TIMETOEVENT:
                     # timetoevent: keep first feature
                     keep_feature = group[0]
                 else:

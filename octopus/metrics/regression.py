@@ -5,6 +5,8 @@ import math
 import numpy as np
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
+from octopus.types import MLType
+
 from .config import Metric
 from .core import Metrics
 
@@ -28,7 +30,7 @@ def r2_metric() -> Metric:
     return Metric(
         name="R2",
         metric_function=r2_score,
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         higher_is_better=True,
         prediction_type="predict",
         scorer_string="r2",
@@ -41,7 +43,7 @@ def mae_metric() -> Metric:
     return Metric(
         name="MAE",
         metric_function=mean_absolute_error,
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         higher_is_better=False,
         prediction_type="predict",
         scorer_string="neg_mean_absolute_error",
@@ -54,7 +56,7 @@ def mse_metric() -> Metric:
     return Metric(
         name="MSE",
         metric_function=mean_squared_error,
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         higher_is_better=False,
         prediction_type="predict",
         scorer_string="neg_mean_squared_error",
@@ -67,7 +69,7 @@ def rmse_metric() -> Metric:
     return Metric(
         name="RMSE",
         metric_function=root_mean_squared_error,
-        ml_type="regression",
+        ml_types=[MLType.REGRESSION],
         higher_is_better=False,
         prediction_type="predict",
         scorer_string="neg_root_mean_squared_error",

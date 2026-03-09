@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from octopus.exceptions import UnknownModelError
+from octopus.types import MLType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -151,3 +152,33 @@ class Models:
             params[model_item.model_seed] = model_seed
 
         return params
+
+    @classmethod
+    def get_models_for_type(cls, ml_type: MLType) -> list[str]:
+        """Get all registered model names compatible with the given ml_type.
+
+        Args:
+            ml_type: The MLType to filter by.
+
+        Returns:
+            List of model names that support the given ml_type.
+        """
+        return [name for name in cls._config_factories if cls.get_config(name).supports_ml_type(ml_type)]
+
+    @classmethod
+    def validate_model_compatibility(cls, model_name: str, ml_type: MLType) -> None:
+        """Validate that a model is compatible with the given ml_type.
+
+        Args:
+            model_name: Name of the registered model.
+            ml_type: The MLType to check compatibility against.
+
+        Raises:
+            ValueError: If the model does not support the given ml_type.
+        """
+        config = cls.get_config(model_name)
+        if not config.supports_ml_type(ml_type):
+            raise ValueError(
+                f"Model '{model_name}' does not support ml_type '{ml_type.value}'. "
+                f"Supported types: {', '.join(t.value for t in config.ml_types)}"
+            )

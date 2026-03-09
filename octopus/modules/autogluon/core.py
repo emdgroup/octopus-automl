@@ -31,6 +31,7 @@ from octopus.manager.ray_parallel import setup_ray_for_external_library
 from octopus.metrics.utils import get_score_from_model
 from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.study.context import StudyContext
+from octopus.types import MLType
 
 if TYPE_CHECKING:
     from octopus.modules.autogluon.module import AutoGluon  # noqa: F401
@@ -254,9 +255,9 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
 
     def _get_sklearn_model(self, model: TabularPredictor, study_context: StudyContext) -> BaseEstimator:
         """Get sklearn-compatible wrapper for the AutoGluon model."""
-        if study_context.ml_type == "classification":
+        if study_context.ml_type in (MLType.BINARY, MLType.MULTICLASS):
             return SklearnClassifier(model)
-        elif study_context.ml_type == "regression":
+        elif study_context.ml_type == MLType.REGRESSION:
             return SklearnRegressor(model)
         else:
             raise ValueError(f"ML type {study_context.ml_type} not supported")

@@ -5,6 +5,8 @@ from collections import Counter
 import pandas as pd
 from attrs import define, field, validators
 
+from octopus.types import MLType
+
 
 @define
 class OctoDataValidator:
@@ -16,8 +18,8 @@ class OctoDataValidator:
     feature_cols: list[str]
     """List of all feature columns in the dataset."""
 
-    ml_type: str
-    """Machine learning type (classification, regression, etc.)."""
+    ml_type: MLType = field(validator=validators.instance_of(MLType))
+    """Machine learning type (MLType.BINARY, MLType.REGRESSION, etc.)."""
 
     duration_col: str | None = field(default=None, validator=validators.optional(validators.instance_of(str)))
     """Duration column for time-to-event tasks. None for non-time-to-event tasks."""
@@ -257,7 +259,7 @@ class OctoDataValidator:
         Raises:
             ValueError: If any validation fails for binary classification.
         """
-        if self.ml_type != "classification":
+        if self.ml_type != MLType.BINARY:
             return
 
         if self.positive_class is None:

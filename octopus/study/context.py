@@ -3,6 +3,8 @@
 from attrs import frozen
 from upath import UPath
 
+from octopus.types import MLType
+
 
 @frozen
 class StudyContext:
@@ -12,8 +14,8 @@ class StudyContext:
     No OctoStudy dependency - only attrs + upath.
     """
 
-    ml_type: str
-    """MLType.value (e.g. 'classification', 'regression', 'timetoevent')."""
+    ml_type: MLType
+    """MLType enum (e.g. MLType.BINARY, MLType.REGRESSION, MLType.TIMETOEVENT)."""
 
     target_metric: str
     """Primary metric for model evaluation."""

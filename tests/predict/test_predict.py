@@ -40,6 +40,7 @@ from octopus.predict.notebook_utils import (
 from octopus.predict.study_io import StudyLoader, StudyMetadata
 from octopus.predict.task_predictor import TaskPredictor
 from octopus.predict.task_predictor_test import TaskPredictorTest
+from octopus.types import MLType
 
 # ── Prevent plotly from opening browser windows ─────────────────
 
@@ -141,7 +142,7 @@ class TestStudyIO:
         """Verify StudyLoader loads config with correct ml_type and folds."""
         loader = StudyLoader(study_path)
         cfg = loader.load_config()
-        assert cfg["ml_type"] == "classification"
+        assert cfg["ml_type"] == MLType.BINARY
         assert cfg["n_folds_outer"] == 2
 
     def test_extract_metadata(self, study_path):
@@ -150,7 +151,7 @@ class TestStudyIO:
         cfg = loader.load_config()
         meta = loader.extract_metadata(cfg)
         assert isinstance(meta, StudyMetadata)
-        assert meta.ml_type == "classification"
+        assert meta.ml_type == MLType.BINARY
         assert meta.target_metric == "ACCBAL"
         assert len(meta.feature_cols) == 5
 
@@ -193,7 +194,7 @@ class TestTaskPredictorTestProperties:
 
     def test_ml_type(self, tpt):
         """Verify ml_type is classification."""
-        assert tpt.ml_type == "classification"
+        assert tpt.ml_type == MLType.BINARY
 
     def test_n_outersplits(self, tpt):
         """Verify n_outersplits matches study configuration."""
@@ -363,7 +364,7 @@ class TestPredictProbaMLTypeGuard:
         original = tp._metadata.ml_type
         try:
             tp._metadata = tp._metadata.__class__(
-                ml_type="regression",
+                ml_type=MLType.REGRESSION,
                 target_metric=tp._metadata.target_metric,
                 target_col=tp._metadata.target_col,
                 target_assignments=tp._metadata.target_assignments,
@@ -399,7 +400,7 @@ class TestNotebookUtilsStudyLevel:
     def test_show_study_details(self, study_path):
         """Verify show_study_details returns correct study info dict."""
         info = show_study_details(study_path, verbose=False)
-        assert info["ml_type"] == "classification"
+        assert info["ml_type"] == MLType.BINARY
         assert info["n_folds_outer"] == 2
         assert len(info["outersplit_dirs"]) == 2
         assert len(info["missing_outersplits"]) == 0
@@ -408,7 +409,7 @@ class TestNotebookUtilsStudyLevel:
         """Verify verbose mode prints ML type to stdout."""
         show_study_details(study_path, verbose=True)
         captured = capsys.readouterr()
-        assert "ML Type: classification" in captured.out
+        assert "ML Type: binary" in captured.out
 
     def test_show_study_details_missing_path(self):
         """Verify FileNotFoundError is raised for nonexistent path."""
@@ -483,7 +484,7 @@ class TestNotebookWorkflow:
         """Run all notebook steps end-to-end."""
         # Cell: show_study_details
         study_info = show_study_details(study_path, verbose=True)
-        assert study_info["ml_type"] == "classification"
+        assert study_info["ml_type"] == MLType.BINARY
 
         # Cell: show_target_metric_performance
         perf_tables = show_target_metric_performance(study_info, details=False)

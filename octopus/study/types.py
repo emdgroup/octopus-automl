@@ -3,15 +3,6 @@
 from enum import Enum
 
 
-class MLType(str, Enum):
-    """Machine learning types."""
-
-    CLASSIFICATION = "classification"
-    MULTICLASS = "multiclass"
-    REGRESSION = "regression"
-    TIMETOEVENT = "timetoevent"
-
-
 class ImputationMethod(str, Enum):
     """Imputation methods."""
 

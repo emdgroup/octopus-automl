@@ -15,6 +15,7 @@ from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
 from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
+from octopus.types import MLType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -86,9 +87,9 @@ class SfsModule(ModuleExecution["Sfs"]):
         from octopus._optional.sfs import SFS  # noqa: PLC0415
 
         # Configuration, define default model
-        if study_context.ml_type == "classification":
+        if study_context.ml_type in (MLType.BINARY, MLType.MULTICLASS):
             default_model = "CatBoostClassifier"
-        elif study_context.ml_type == "regression":
+        elif study_context.ml_type == MLType.REGRESSION:
             default_model = "CatBoostRegressor"
         else:
             raise ValueError(f"{study_context.ml_type} not supported")

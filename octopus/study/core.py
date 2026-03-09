@@ -16,6 +16,7 @@ from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
 from octopus.modules import Octo, Task
+from octopus.types import MLType
 from octopus.utils import get_package_name, get_version
 
 from .context import StudyContext
@@ -23,7 +24,7 @@ from .data_preparator import OctoDataPreparator
 from .data_validator import OctoDataValidator
 from .healthChecker import HealthCheckConfig, OctoDataHealthChecker
 from .prepared_data import PreparedData
-from .types import DatasplitType, ImputationMethod, MLType
+from .types import DatasplitType, ImputationMethod
 from .validation import validate_workflow
 
 logger = get_logger()
@@ -142,7 +143,7 @@ class OctoStudy(ABC):
             sample_id_col=self.sample_id_col,
             row_id_col=self.row_id_col,
             stratification_col=self.stratification_col,
-            ml_type=ml_type.value,
+            ml_type=ml_type,
             positive_class=positive_class,
         )
         validator.validate()
@@ -335,7 +336,7 @@ class OctoStudy(ABC):
     ) -> StudyContext:
         """Create a frozen StudyContext from the current study state."""
         return StudyContext(
-            ml_type=ml_type.value,
+            ml_type=ml_type,
             target_metric=self.target_metric,
             metrics=self.metrics,
             target_assignments=self.target_assignments,
@@ -391,7 +392,7 @@ class OctoRegression(OctoStudy):
 
     target_metric: str = field(
         default="RMSE",
-        validator=validators.in_(Metrics.get_by_type("regression")),
+        validator=validators.in_(Metrics.get_by_type(MLType.REGRESSION)),
     )
     """The primary metric used for model evaluation. Defaults to RMSE."""
 
@@ -400,7 +401,7 @@ class OctoRegression(OctoStudy):
         validator=[
             validators.instance_of(list),
             validators.deep_iterable(
-                member_validator=validators.in_(Metrics.get_by_type("regression")),
+                member_validator=validators.in_(Metrics.get_by_type(MLType.REGRESSION)),
                 iterable_validator=validators.instance_of(list),
             ),
         ],
@@ -423,13 +424,13 @@ class OctoClassification(OctoStudy):
     ml_type: MLType | None = field(  # type: ignore[assignment]
         default=None,
         kw_only=True,
-        validator=validators.optional(validators.in_([MLType.CLASSIFICATION, MLType.MULTICLASS])),
+        validator=validators.optional(validators.in_([MLType.BINARY, MLType.MULTICLASS])),
     )
     """The type of machine learning model. Can be set explicitly or auto-detected from data (binary vs multiclass)."""
 
     target_metric: str = field(
         default="AUCROC",
-        validator=validators.in_(Metrics.get_by_type("classification", "multiclass")),
+        validator=validators.in_(Metrics.get_by_type(MLType.BINARY, MLType.MULTICLASS)),
     )
     """The primary metric used for model evaluation. Defaults to AUCROC."""
 
@@ -438,7 +439,7 @@ class OctoClassification(OctoStudy):
         validator=[
             validators.instance_of(list),
             validators.deep_iterable(
-                member_validator=validators.in_(Metrics.get_by_type("classification", "multiclass")),
+                member_validator=validators.in_(Metrics.get_by_type(MLType.BINARY, MLType.MULTICLASS)),
                 iterable_validator=validators.instance_of(list),
             ),
         ],
@@ -458,8 +459,8 @@ class OctoClassification(OctoStudy):
             if len(unique_values) > 2:
                 ml_type, positive_class = MLType.MULTICLASS, None
             else:
-                ml_type, positive_class = MLType.CLASSIFICATION, 1
-        if ml_type == MLType.CLASSIFICATION and positive_class is None:
+                ml_type, positive_class = MLType.BINARY, 1
+        if ml_type == MLType.BINARY and positive_class is None:
             raise ValueError("For binary classification, `positive_class` must be specified.")
         return ml_type, positive_class
 
@@ -489,7 +490,7 @@ class OctoTimeToEvent(OctoStudy):
 
     target_metric: str = field(
         default="CI",
-        validator=validators.in_(Metrics.get_by_type("timetoevent")),
+        validator=validators.in_(Metrics.get_by_type(MLType.TIMETOEVENT)),
     )
     """The primary metric used for model evaluation. Defaults to CI (Concordance Index)."""
 
@@ -498,7 +499,7 @@ class OctoTimeToEvent(OctoStudy):
         validator=[
             validators.instance_of(list),
             validators.deep_iterable(
-                member_validator=validators.in_(Metrics.get_by_type("timetoevent")),
+                member_validator=validators.in_(Metrics.get_by_type(MLType.TIMETOEVENT)),
                 iterable_validator=validators.instance_of(list),
             ),
         ],
