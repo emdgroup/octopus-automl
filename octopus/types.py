@@ -13,6 +13,8 @@ class MLType(str, Enum):
     TIMETOEVENT = "timetoevent"
 
 
+# TODO: Duplicate with octopus.modules.base.FIMethod, but this is used in module configuration while FIMethod is for results, so we may want to keep them separate for clarity and to avoid circular imports. Consider refactoring later to unify if it doesn't cause issues.
+# TODO: Usedn in RFE2 Module.
 class FeatureImportanceType(str, Enum):
     """Feature importance calculation methods."""
 
@@ -78,6 +80,13 @@ class AutoGluonFitStrategy(str, Enum):
 
     SEQUENTIAL = "sequential"
     PARALLEL = "parallel"
+
+
+class RFE2SelectionMethod(str, Enum):
+    """Feature selection method for RFE2."""
+
+    BEST = "best"
+    PARSIMONIOUS = "parsimonious"
 
 
 ML_TYPES = [e.value for e in MLType]

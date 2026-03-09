@@ -6,6 +6,7 @@ from attrs import define, field, validators
 
 from octopus.modules.base import ModuleExecution
 from octopus.modules.octo.module import Octo
+from octopus.types import RFE2SelectionMethod
 
 
 @define
@@ -29,7 +30,9 @@ class Rfe2(Octo):
     fi_method_rfe: str = field(validator=[validators.in_(["permutation", "shap"])], default="permutation")
     """Feature importance method for RFE."""
 
-    selection_method: str = field(validator=[validators.in_(["best", "parsimonious"])], default="best")
+    selection_method: RFE2SelectionMethod = field(
+        validator=[validators.instance_of(RFE2SelectionMethod)], default=RFE2SelectionMethod.BEST
+    )
     """Method to select best solution. Parsimonious: smallest solutions within sem."""
 
     abs_on_fi: bool = field(validator=[validators.instance_of(bool)], default=False)

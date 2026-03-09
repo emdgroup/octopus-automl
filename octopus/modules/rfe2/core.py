@@ -18,6 +18,7 @@ from octopus.modules.base import FIDataset, FIMethod, ModuleResult, ResultType
 from octopus.modules.octo.bag import BagBase
 from octopus.modules.octo.core import OctoModuleTemplate
 from octopus.study.context import StudyContext
+from octopus.types import RFE2SelectionMethod
 from octopus.utils import calculate_feature_groups
 
 
@@ -147,9 +148,9 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             self._print_step_information()
 
         # (4) Analyze results and select best model
-        if self.config.selection_method == "best":
+        if self.config.selection_method == RFE2SelectionMethod.BEST:
             selected_row = self.rfe_results_.loc[self.rfe_results_["performance_mean"].idxmax()]
-        elif self.config.selection_method == "parsimonious":
+        elif self.config.selection_method == RFE2SelectionMethod.PARSIMONIOUS:
             # best performance mean and sem
             best_performance_mean = self.rfe_results_["performance_mean"].max()
             best_performance_sem = self.rfe_results_.loc[
