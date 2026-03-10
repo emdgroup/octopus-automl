@@ -55,7 +55,6 @@ def study():
     return StudyContext(
         ml_type=MLType.BINARY,
         target_metric="AUCROC",
-        metrics=["AUCROC"],
         target_assignments={"default": "target"},
         positive_class=1,
         stratification_col=None,

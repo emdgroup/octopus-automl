@@ -28,6 +28,7 @@ from octopus._optional.autogluon import (
 )
 from octopus.logger import get_logger
 from octopus.manager.ray_parallel import setup_ray_for_external_library
+from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.modules import ModuleExecution, ModuleResult, StudyContext
 from octopus.types import DataPartition, FIResultLabel, LogGroup, MLType, ResultType
@@ -357,7 +358,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
 
         # Test scores using Octopus metrics for comparison
         assert study_context.target_metric is not None, "target_metric should be set during fit()"
-        all_metrics = list(dict.fromkeys([*study_context.metrics, study_context.target_metric]))
+        all_metrics = Metrics.get_by_type(study_context.ml_type)
         test_performance_octo = {}
         for metric in all_metrics:
             assert feature_cols is not None, "feature_cols should be set during fit()"

@@ -13,6 +13,7 @@ from upath import UPath
 
 from octopus.datasplit import DataSplit, InnerSplits
 from octopus.logger import get_logger
+from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
@@ -91,11 +92,16 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         # Build best ModuleResult
         best_bag = results["best"]["_bag"]
+        all_metrics = Metrics.get_by_type(study_context.ml_type)
+        best_scores = pd.concat(
+            [best_bag.get_performance_df(metric=m) for m in all_metrics],
+            ignore_index=True,
+        )
         best_result = ModuleResult(
             result_type=ResultType.BEST,
             module=self.config.module,
             selected_features=best_selected_features,
-            scores=best_bag.get_performance_df(metric=study_context.target_metric),
+            scores=best_scores,
             predictions=best_bag.get_predictions_df(),
             feature_importances=best_bag.get_feature_importances_df(),
             model=best_bag,
@@ -112,11 +118,15 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             # Always save ensemble result if it was produced
             if "ensel" in results:
                 ensel_bag = results["ensel"]["_bag"]
+                ensel_scores = pd.concat(
+                    [ensel_bag.get_performance_df(metric=m) for m in all_metrics],
+                    ignore_index=True,
+                )
                 ensel_result = ModuleResult(
                     result_type=ResultType.ENSEMBLE_SELECTION,
                     module=self.config.module,
                     selected_features=ensel_selected_features or best_selected_features,
-                    scores=ensel_bag.get_performance_df(metric=study_context.target_metric),
+                    scores=ensel_scores,
                     predictions=ensel_bag.get_predictions_df(),
                     feature_importances=ensel_bag.get_feature_importances_df(),
                     model=ensel_bag,

@@ -77,7 +77,6 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
         target_col="target",
         sample_id_col="index",
         stratification_col="target",
-        metrics=["AUCROC", "ACCBAL", "ACC"],
         datasplit_seed_outer=1234,
         n_folds_outer=2,
         path=tmp_path,

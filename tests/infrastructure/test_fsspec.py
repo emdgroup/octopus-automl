@@ -162,7 +162,6 @@ class TestFSSpecIntegration:
                     target_col="target",
                     sample_id_col="index",
                     stratification_col="target",
-                    metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS"],
                     datasplit_seed_outer=1234,
                     n_folds_outer=2,
                     path=root_dir,

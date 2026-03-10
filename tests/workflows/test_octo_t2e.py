@@ -205,7 +205,6 @@ class TestOctoTimeToEvent:
                 duration_col="duration",
                 event_col="event",
                 sample_id_col="index",
-                metrics=["CI"],
                 datasplit_seed_outer=1234,
                 n_folds_outer=2,
                 path=temp_dir,

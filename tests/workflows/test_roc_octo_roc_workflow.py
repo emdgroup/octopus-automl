@@ -261,7 +261,6 @@ class TestRocOctoRocWorkflow:
                 target_col="target",
                 sample_id_col="sample_id_col",
                 stratification_col="target",
-                metrics=["AUCROC", "ACCBAL"],
                 datasplit_seed_outer=1234,
                 n_folds_outer=2,
                 path=temp_dir,

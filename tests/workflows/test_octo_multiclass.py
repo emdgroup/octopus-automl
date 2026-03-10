@@ -151,25 +151,6 @@ class TestOctoMulticlass:
         assert octo_task.models is not None
         assert set(octo_task.models) == set(models)
 
-    def test_multiclass_metrics_configuration(self):
-        """Test multiclass-specific metrics configuration."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoClassification(
-                name="test_multiclass_metrics",
-                target_metric="AUCROC_MACRO",
-                feature_cols=["f1"],
-                target_col="target",
-                sample_id_col="index",
-                metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],
-                path=temp_dir,
-                ignore_data_health_warning=True,
-            )
-
-            assert study.target_metric == "AUCROC_MACRO"
-            assert "AUCROC_MACRO" in study.metrics
-            assert "AUCROC_WEIGHTED" in study.metrics
-            assert "ACCBAL_MC" in study.metrics
-
     def test_feature_importance_configuration(self):
         """Test feature importance method configuration for multiclass."""
         fi_methods = ["permutation"]
@@ -211,7 +192,6 @@ class TestOctoMulticlass:
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],
                 datasplit_seed_outer=1234,
                 n_folds_outer=2,
                 path=temp_dir,
@@ -315,7 +295,6 @@ class TestOctoMulticlass:
                     feature_cols=["f1"],
                     target_col="target",
                     sample_id_col="index",
-                    metrics=["AUCROC_MACRO", "AUCROC_WEIGHTED", "ACCBAL_MC"],
                     path=temp_dir,
                     ignore_data_health_warning=True,
                 )

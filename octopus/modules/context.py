@@ -20,9 +20,6 @@ class StudyContext:
     target_metric: str
     """Primary metric for model evaluation."""
 
-    metrics: list[str]
-    """All metrics to calculate."""
-
     target_assignments: dict[str, str]
     """Target column assignments (e.g. {'default': 'target'} or {'duration': ..., 'event': ...})."""
 

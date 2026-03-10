@@ -389,24 +389,25 @@ class BagBase(BaseEstimator):
 
         return predictions
 
-    def get_performance(self):
+    def get_performance(self, metric: str | None = None):
         """Get performance using get_performance_from_predictions utility.
 
-        This is a simpler alternative to get_performance() that:
-        1. Gets predictions from bag.get_predictions()
-        2. Calculates performance using get_performance_from_predictions()
-        3. Restructures output to match expected format
+        Args:
+            metric: The metric to evaluate. Defaults to self.target_metric when None.
 
         Returns:
             dict: Dictionary with performance values in the same format as get_performance()
         """
+        if metric is None:
+            metric = self.target_metric
+
         # Get predictions from the bag
         predictions = self.get_predictions()
 
         # Calculate performance using the utility function
         performance = get_performance_from_predictions(
             predictions=predictions,
-            target_metric=self.target_metric,
+            target_metric=metric,
             target_assignments=self.target_assignments,
             positive_class=self.positive_class,
         )
@@ -450,7 +451,7 @@ class BagBase(BaseEstimator):
         Returns:
             DataFrame with columns: metric, partition, aggregation, fold, value
         """
-        perf = self.get_performance()
+        perf = self.get_performance(metric=metric)
         rows = []
 
         # Per-fold scores
