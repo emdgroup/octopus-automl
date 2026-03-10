@@ -7,6 +7,8 @@ from attrs import define, field, validators
 
 from octopus.types import MLType
 
+from ..datasplit import DATASPLIT_COL
+
 
 @define
 class OctoDataValidator:
@@ -228,13 +230,12 @@ class OctoDataValidator:
         """Validate that reserved column names are not present in the DataFrame.
 
         Checks for conflicts with columns that will be created during data
-        preparation: 'group_features', 'group_sample_and_features', and 'row_id_col'
-        (if not provided by user).
+        preparation: 'datasplit_group' and 'row_id' (if not provided by user).
 
         Raises:
             ValueError: If any reserved column names are found in the DataFrame.
         """
-        reserved = ["group_features", "group_sample_and_features"]
+        reserved = [DATASPLIT_COL]
         if not self.row_id_col:
             reserved.append("row_id")
 

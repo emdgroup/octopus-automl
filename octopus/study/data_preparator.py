@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from attrs import define
 
+from ..datasplit import DATASPLIT_COL
 from ..logger import get_logger
 from .prepared_data import PreparedData
 
@@ -29,6 +30,43 @@ class OctoDataPreparator:
     row_id_col: str | None
     """Unique row identifier."""
 
+    target_col: str | None = None
+    """Target column name."""
+
+    stratification_col: str | None = None
+    """Stratification column name."""
+
+    duration_col: str | None = None
+    """Duration column for time-to-event tasks."""
+
+    event_col: str | None = None
+    """Event column for time-to-event tasks."""
+
+    @property
+    def _columns_to_standardize(self) -> list[str]:
+        """Columns that should be standardized (null/inf conversion).
+
+        Includes feature columns and all pipeline columns except sample_id_col,
+        which must not be standardized to avoid merging unrelated samples
+        during datasplit grouping.
+        """
+        return list(
+            dict.fromkeys(
+                self.feature_cols
+                + [
+                    c
+                    for c in (
+                        self.target_col,
+                        self.row_id_col,
+                        self.stratification_col,
+                        self.duration_col,
+                        self.event_col,
+                    )
+                    if c is not None
+                ]
+            )
+        )
+
     def prepare(self) -> PreparedData:
         """Run all data preparation steps and return PreparedData instance.
 
@@ -41,7 +79,7 @@ class OctoDataPreparator:
         self._remove_singlevalue_features()
         self._transform_bool_to_int()
         self._create_row_id_col()
-        self._add_group_features()  # needs to be done at the end
+        self._add_datasplit_group()  # needs to be done at the end
 
         return PreparedData(
             data=self.data,
@@ -71,103 +109,60 @@ class OctoDataPreparator:
             self.data["row_id"] = list(range(len(self.data)))
             self.row_id_col = "row_id"
 
-    def _add_group_features(self):
-        """Add group feature columns for data splitting and tracking.
+    def _add_datasplit_group(self):
+        """Add datasplit_group column for data splitting.
 
-        Creates two grouping columns used for data splitting strategies:
-        - group_features: Groups rows with identical feature values
-        - group_sample_and_features: Groups rows by sample_id_col OR identical features
-          using transitive closure (if row A and B share sample_id_col, and B and C
-          share features, then A, B, and C are all in the same group)
-
-        The DataFrame index is reset after adding these columns.
+        Groups rows by sample_id_col OR identical features using transitive closure
+        (if row A and B share sample_id_col, and B and C share features, then A, B,
+        and C are all in the same group).
 
         Note:
             This must be called at the end of preparation, after all feature
             transformations are complete, to ensure accurate grouping.
         """
-        # Step 1: Create group_features column (groups by identical feature values)
-        self.data = self.data.assign(
-            group_features=lambda df_: df_.groupby(self.feature_cols, dropna=False, observed=True).ngroup()
-        )
-
-        # Step 2: Initialize Union-Find data structure
-        # Each row starts as its own parent (independent set)
-        # parent[i] represents the parent of row i in the forest of sets
+        # Union-Find with path compression
         parent = list(range(len(self.data)))
 
         def find(x):
-            """Find the root (representative) of the set containing x.
-
-            Uses path compression: makes all nodes on the path point directly to the root.
-            This flattens the tree structure for faster future lookups.
-
-            Example: If we have 0->1->2->3 and call find(0), it becomes 0->3, 1->3, 2->3
-            """
-            if parent[x] != x:
-                # Recursively find root and compress path
-                parent[x] = find(parent[x])
-            return parent[x]
+            root = x
+            while parent[root] != root:
+                root = parent[root]
+            while parent[x] != root:
+                parent[x], x = root, parent[x]
+            return root
 
         def union(x, y):
-            """Merge the sets containing x and y.
-
-            Finds the roots of both sets and makes one point to the other.
-            After this operation, x and y are in the same connected component.
-
-            Example: union(0, 5) connects all elements in set of 0 with all elements in set of 5
-            """
-            root_x = find(x)
-            root_y = find(y)
+            root_x, root_y = find(x), find(y)
             if root_x != root_y:
-                # Make root_x point to root_y (could be reversed, doesn't matter)
                 parent[root_x] = root_y
 
-        # Step 3: Union rows with the same sample_id_col
-        # All rows with same sample_id_col must be in the same group
-        sample_groups = self.data.groupby(self.sample_id_col, dropna=False).indices
-        for indices in sample_groups.values():
+        # Union rows sharing the same sample_id_col
+        for indices in self.data.groupby(self.sample_id_col, dropna=False).indices.values():
             indices_list = list(indices)
-            # Connect all rows in this sample_id_col group by linking them sequentially
-            # e.g., if rows [2, 5, 7] have same sample_id_col, do: union(2,5), union(5,7)
             for i in range(1, len(indices_list)):
                 union(indices_list[0], indices_list[i])
 
-        # Step 4: Union rows with the same features (group_features)
-        # All rows with identical feature values must be in the same group
-        feature_groups = self.data.groupby("group_features").indices
-        for indices in feature_groups.values():
+        # Union rows sharing identical feature values
+        for indices in self.data.groupby(self.feature_cols, dropna=False, observed=True).indices.values():
             indices_list = list(indices)
-            # Connect all rows in this feature group by linking them sequentially
             for i in range(1, len(indices_list)):
                 union(indices_list[0], indices_list[i])
 
-        # Step 5: Assign each row to its root component
-        # find(i) returns the representative (root) of the set containing row i
-        # All rows with the same root are in the same connected component
-        group_sample_and_features = [find(i) for i in range(len(self.data))]
-
-        # Step 6: Renumber groups to be sequential starting from 0
-        # Roots might be arbitrary numbers (e.g., [5, 5, 12, 12, 23])
-        # Convert to sequential (e.g., [0, 0, 1, 1, 2]) for cleaner output
-        unique_groups = {}
-        next_group_id = 0
-        normalized_groups = []
-        for group_root in group_sample_and_features:
-            if group_root not in unique_groups:
-                unique_groups[group_root] = next_group_id
-                next_group_id += 1
-            normalized_groups.append(unique_groups[group_root])
-
-        # Step 7: Add the column and reset index
-        self.data = self.data.assign(group_sample_and_features=normalized_groups).reset_index(drop=True)
+        # Assign sequential group IDs (0, 1, 2, ...) from arbitrary root values
+        roots = np.array([find(i) for i in range(len(self.data))])
+        self.data = self.data.assign(**{DATASPLIT_COL: pd.factorize(roots)[0]}).reset_index(drop=True)
 
     def _standardize_null_values(self):
-        """Standardize null values to np.nan.
+        """Standardize null values to np.nan in pipeline columns.
 
         Converts common string representations of null values (case-insensitive)
         to np.nan for consistent handling. Recognized values include: 'none',
         'null', 'nan', 'na', '', and similar variants.
+
+        Only applies to explicitly used pipeline columns (features, target, row_id,
+        stratification, duration, event). Excludes sample_id_col to prevent
+        merging unrelated samples during datasplit grouping, and excludes any
+        columns not used by the pipeline.
         """
         null_values_case_insensitive = {val.lower() for val in DEFAULT_NULL_VALUES}
 
@@ -176,14 +171,19 @@ class OctoDataPreparator:
                 return np.nan
             return x
 
-        self.data = self.data.map(replace_null)
+        cols = [c for c in self._columns_to_standardize if c in self.data.columns]
+        self.data[cols] = self.data[cols].map(replace_null)
 
     def _standardize_inf_values(self):
-        """Standardize infinity values to np.inf.
+        """Standardize infinity values to np.inf in pipeline columns.
 
         Converts common string representations of infinity (case-insensitive)
         to np.inf or -np.inf for consistent numerical handling. Recognized values
         include: 'inf', 'infinity', '∞', and their negative variants.
+
+        Only applies to explicitly used pipeline columns (features, target, row_id,
+        stratification, duration, event). Excludes sample_id_col and any columns
+        not used by the pipeline.
         """
         infinity_values_case_insensitive = {val.lower() for val in DEFAULT_INF_VALUES}
 
@@ -196,4 +196,5 @@ class OctoDataPreparator:
                     return -np.inf
             return x
 
-        self.data = self.data.map(replace_infinity)
+        cols = [c for c in self._columns_to_standardize if c in self.data.columns]
+        self.data[cols] = self.data[cols].map(replace_infinity)

@@ -31,6 +31,8 @@ class InnerSplit:
 OuterSplits = dict[int, OuterSplit]
 InnerSplits = dict[int, InnerSplit]
 
+DATASPLIT_COL = "datasplit_group"
+
 
 @define
 class DataSplit:
@@ -41,11 +43,8 @@ class DataSplit:
     StratifiedGroupKfold is not available for sklearn 0.24.3
     which is required for Auto-Sklearn 0.15.
     stratification_col: contains the group info used for stratification
-    datasplit_col: contains group info on samples. Each group goes either
-    into the training or the test dataset.
     """
 
-    datasplit_col: str = field(validator=[validators.instance_of(str)])
     seeds: list = field(
         validator=validators.deep_iterable(
             member_validator=validators.instance_of(int),
@@ -92,7 +91,7 @@ class DataSplit:
         random.seed(datasplit_seed)
         np.random.seed(datasplit_seed)
 
-        dataset_unique = self.dataset.drop_duplicates(subset=self.datasplit_col, keep="first", inplace=False)
+        dataset_unique = self.dataset.drop_duplicates(subset=DATASPLIT_COL, keep="first", inplace=False)
         dataset_unique.reset_index(drop=True, inplace=True)
 
         kf: KFold | StratifiedKFold
@@ -116,7 +115,7 @@ class DataSplit:
             split_method = "KFold"
 
         logger.info(
-            f"{len(self.dataset)} rows, {len(dataset_unique)} groups (column: {self.datasplit_col}), "
+            f"{len(self.dataset)} rows, {len(dataset_unique)} groups (column: {DATASPLIT_COL}), "
             f"{split_method}, {self.num_folds} folds, seed {datasplit_seed}"
         )
 
@@ -125,13 +124,13 @@ class DataSplit:
         all_test_groups = []
 
         for num_split, (train_ind, test_ind) in enumerate(kf.split(dataset_unique, stratification_target)):  # type: ignore
-            groups_train = set(dataset_unique.iloc[train_ind][self.datasplit_col])
-            groups_test = set(dataset_unique.iloc[test_ind][self.datasplit_col])
+            groups_train = set(dataset_unique.iloc[train_ind][DATASPLIT_COL])
+            groups_test = set(dataset_unique.iloc[test_ind][DATASPLIT_COL])
             assert groups_train.intersection(groups_test) == set()
             all_test_groups.extend(list(groups_test))
 
-            partition_train = self.dataset[self.dataset[self.datasplit_col].isin(groups_train)]
-            partition_test = self.dataset[self.dataset[self.datasplit_col].isin(groups_test)]
+            partition_train = self.dataset[self.dataset[DATASPLIT_COL].isin(groups_train)]
+            partition_test = self.dataset[self.dataset[DATASPLIT_COL].isin(groups_test)]
             assert set(partition_train.index).intersection(partition_test.index) == set()
             all_test_indices.extend(partition_test.index.tolist())
 
@@ -149,7 +148,7 @@ class DataSplit:
             raw_splits[num_split] = (partition_train, partition_test)
 
         assert len(all_test_groups) == len(set(all_test_groups))
-        assert len(set(self.dataset[self.datasplit_col]).symmetric_difference(set(all_test_groups))) == 0
+        assert len(set(self.dataset[DATASPLIT_COL]).symmetric_difference(set(all_test_groups))) == 0
         assert len(all_test_indices) == len(set(all_test_indices))
         assert len(self.dataset) == len(all_test_indices)
 

@@ -71,6 +71,53 @@ def test_check_critical_column_missing_values(health_checker):
     assert any(issue["Issue Type"] == "critical_missing_values" for issue in health_checker.issues)
 
 
+def test_check_sample_id_null_like_strings():
+    """Test that null-like strings in sample_id_col are flagged as Critical."""
+    data = pd.DataFrame(
+        {
+            "feature1": [1, 2, 3, 4, 5],
+            "target": [0, 1, 0, 1, 0],
+            "sample_id_col": ["s1", "None", "NA", "null", "s2"],
+        }
+    )
+
+    checker = OctoDataHealthChecker(
+        data=data,
+        feature_cols=["feature1"],
+        target_col="target",
+        sample_id_col="sample_id_col",
+    )
+
+    checker._check_sample_id_null_like_strings()
+
+    assert len(checker.issues) == 1
+    assert checker.issues[0]["Issue Type"] == "sample_id_null_like_strings"
+    assert checker.issues[0]["Severity"] == "Critical"
+    assert "sample_id_col" in checker.issues[0]["Affected Items"]
+
+
+def test_check_sample_id_null_like_strings_no_issue():
+    """Test that valid sample IDs pass without issues."""
+    data = pd.DataFrame(
+        {
+            "feature1": [1, 2, 3],
+            "target": [0, 1, 0],
+            "sample_id_col": ["s1", "s2", "s3"],
+        }
+    )
+
+    checker = OctoDataHealthChecker(
+        data=data,
+        feature_cols=["feature1"],
+        target_col="target",
+        sample_id_col="sample_id_col",
+    )
+
+    checker._check_sample_id_null_like_strings()
+
+    assert len(checker.issues) == 0
+
+
 def test_check_feature_cols_missing_values(health_checker):
     """Test feature column missing values check."""
     health_checker.data.loc[:25, "feature1"] = np.nan
