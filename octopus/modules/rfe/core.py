@@ -13,7 +13,7 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
-from octopus.models import Models
+from octopus.models import ModelName, Models
 from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.types import MLType
 
@@ -25,14 +25,14 @@ if TYPE_CHECKING:
 
 # Supported models for RFE
 supported_models = {
-    "CatBoostClassifier",
-    "CatBoostRegressor",
-    "RandomForestClassifier",
-    "RandomForestRegressor",
-    "ExtraTreesClassifier",
-    "ExtraTreesRegressor",
-    "XGBClassifier",
-    "XGBRegressor",
+    ModelName.CatBoostClassifier,
+    ModelName.CatBoostRegressor,
+    ModelName.RandomForestClassifier,
+    ModelName.RandomForestRegressor,
+    ModelName.ExtraTreesClassifier,
+    ModelName.ExtraTreesRegressor,
+    ModelName.XGBClassifier,
+    ModelName.XGBRegressor,
 }
 
 
@@ -43,16 +43,16 @@ def get_feature_importances(estimator):
     return estimator.feature_importances_
 
 
-def get_param_grid(model_type: str) -> dict:
+def get_param_grid(model_type: ModelName) -> dict:
     """Get hyperparameter grid for model type."""
-    if model_type in ("CatBoostClassifier", "CatBoostRegressor"):
+    if model_type in (ModelName.CatBoostClassifier, ModelName.CatBoostRegressor):
         return {
             "learning_rate": [0.001, 0.01, 0.1],
             "depth": [3, 6, 8, 10],
             "l2_leaf_reg": [2, 5, 7, 10],
             "iterations": [500],
         }
-    elif model_type in ("XGBClassifier", "XGBRegressor"):
+    elif model_type in (ModelName.XGBClassifier, ModelName.XGBRegressor):
         return {
             "learning_rate": [0.0001, 0.001, 0.01, 0.3],
             "min_child_weight": [2, 5, 10, 15],
@@ -90,13 +90,13 @@ class RfeModule(ModuleExecution["Rfe"]):
 
         # Determine default model based on ml_type
         if study_context.ml_type in (MLType.BINARY, MLType.MULTICLASS):
-            default_model = "CatBoostClassifier"
+            default_model = ModelName.CatBoostClassifier
         elif study_context.ml_type == MLType.REGRESSION:
-            default_model = "CatBoostRegressor"
+            default_model = ModelName.CatBoostRegressor
         else:
             raise ValueError(f"{study_context.ml_type} not supported")
 
-        model_type = self.config.model if self.config.model else default_model
+        model_type = ModelName(self.config.model) if self.config.model else default_model
 
         if model_type not in supported_models:
             raise ValueError(f"{model_type} not supported")
@@ -118,7 +118,7 @@ class RfeModule(ModuleExecution["Rfe"]):
             cv = self.config.cv
 
         # Silence catboost output
-        if model_type in ("CatBoostClassifier", "CatBoostRegressor"):
+        if model_type in (ModelName.CatBoostClassifier, ModelName.CatBoostRegressor):
             model.set_params(verbose=False, allow_writing_files=False)
 
         # Hyperparameter optimization

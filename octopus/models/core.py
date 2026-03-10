@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from octopus.exceptions import UnknownModelError
+from octopus.models.model_name import ModelName
 from octopus.types import MLType
 
 if TYPE_CHECKING:
@@ -17,24 +18,7 @@ if TYPE_CHECKING:
 
 
 class Models:
-    """Central registry and inventory for models.
-
-    Usage:
-        # Get config
-        cfg = Models.get_config("ExtraTreesClassifier")
-
-        # Create Optuna params (with optional custom hyperparameters)
-        params = Models.create_trial_parameters(
-            trial=trial,
-            model_name="ExtraTreesClassifier",
-            custom_hyperparameters=None,  # or {"ExtraTreesClassifier": [custom_hps]}
-            n_jobs=4,
-            model_seed=42,
-        )
-
-        # Instantiate estimator
-        model = Models.get_instance("ExtraTreesClassifier", params)
-    """
+    """Central registry and inventory for models."""
 
     # Internal registry: model name -> function returning ModelConfig
     _config_factories: ClassVar[dict[str, Callable[[], ModelConfig]]] = {}
@@ -62,7 +46,7 @@ class Models:
         return decorator
 
     @classmethod
-    def get_config(cls, name: str) -> ModelConfig:
+    def get_config(cls, name: ModelName) -> ModelConfig:
         """Get model configuration by name.
 
         Args:
@@ -94,7 +78,7 @@ class Models:
         return config
 
     @classmethod
-    def get_instance(cls, name: str, params: dict[str, Any]):
+    def get_instance(cls, name: ModelName, params: dict[str, Any]):
         """Get model class by name and initialize it with the provided parameters.
 
         Args:
@@ -111,8 +95,8 @@ class Models:
     def create_trial_parameters(
         cls,
         trial: optuna.trial.Trial,
-        model_name: str,
-        custom_hyperparameters: dict[str, list[Hyperparameter]] | None,
+        model_name: ModelName,
+        custom_hyperparameters: dict[ModelName, list[Hyperparameter]] | None,
         n_jobs: int,
         model_seed: int,
     ) -> dict[str, Any]:
@@ -154,7 +138,7 @@ class Models:
         return params
 
     @classmethod
-    def get_models_for_type(cls, ml_type: MLType) -> list[str]:
+    def get_models_for_type(cls, ml_type: MLType) -> list[ModelName]:
         """Get all registered model names compatible with the given ml_type.
 
         Args:
@@ -163,10 +147,32 @@ class Models:
         Returns:
             List of model names that support the given ml_type.
         """
-        return [name for name in cls._config_factories if cls.get_config(name).supports_ml_type(ml_type)]
+        return [mn for name in cls._config_factories if cls.get_config(mn := ModelName(name)).supports_ml_type(ml_type)]
 
     @classmethod
-    def validate_model_compatibility(cls, model_name: str, ml_type: MLType) -> None:
+    def get_defaults(cls, ml_type: MLType) -> list[ModelName]:
+        """Get default model names for a given ml_type.
+
+        Args:
+            ml_type: The MLType to filter by.
+
+        Returns:
+            List of default model names that support the given ml_type.
+
+        Raises:
+            ValueError: If no default models are defined for the given ml_type.
+        """
+        defaults = [
+            mn
+            for name in cls._config_factories
+            if (config := cls.get_config(mn := ModelName(name))).supports_ml_type(ml_type) and config.default
+        ]
+        if not defaults:
+            raise ValueError(f"No default models defined for ml_type '{ml_type.value}'. Specify models explicitly.")
+        return defaults
+
+    @classmethod
+    def validate_model_compatibility(cls, model_name: ModelName, ml_type: MLType) -> None:
         """Validate that a model is compatible with the given ml_type.
 
         Args:

@@ -74,6 +74,7 @@ class ModelConfig:
     scaler: None | str = field(default=None, validator=validators.in_([None, "StandardScaler"]))
     imputation_required: bool = field(default=True)
     categorical_enabled: bool = field(default=False)
+    default: bool = field(default=False)
 
     def supports_ml_type(self, ml_type: MLType) -> bool:
         """Check if this model supports the given ml_type."""

@@ -7,7 +7,7 @@ from upath import UPath
 from octopus.datasplit import InnerSplits
 from octopus.logger import LogGroup, get_logger
 from octopus.metrics import Metrics
-from octopus.models import Models
+from octopus.models import ModelName, Models
 from octopus.modules.octo.bag import Bag, BagClassifier, BagRegressor
 from octopus.modules.octo.training import Training, TrainingConfig
 from octopus.types import MLType
@@ -90,7 +90,7 @@ class ObjectiveOptuna:
         """
         # get non-model parameters
         # (1) ml_model_type
-        ml_model_type = (
+        ml_model_type = ModelName(
             trial.suggest_categorical(name="ml_model_type", choices=self.ml_model_types)
             if len(self.ml_model_types) > 1
             else self.ml_model_types[0]
