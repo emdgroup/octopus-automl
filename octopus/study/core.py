@@ -11,7 +11,7 @@ import pandas as pd
 from attrs import Factory, asdict, define, field, fields, has, validators
 from upath import UPath
 
-from octopus.datasplit import DataSplit, OuterSplits
+from octopus.datasplit import DATASPLIT_COL, DataSplit, OuterSplits
 from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
@@ -24,7 +24,7 @@ from .data_preparator import OctoDataPreparator
 from .data_validator import OctoDataValidator
 from .healthChecker import HealthCheckConfig, OctoDataHealthChecker
 from .prepared_data import PreparedData
-from .types import DatasplitType, ImputationMethod
+from .types import ImputationMethod
 from .validation import validate_workflow
 
 logger = get_logger()
@@ -44,13 +44,6 @@ class OctoStudy(ABC):
 
     sample_id_col: str = field(validator=validators.instance_of(str))
     """Identifier for sample instances."""
-
-    datasplit_type: DatasplitType = field(
-        default=DatasplitType.SAMPLE,
-        converter=lambda x: DatasplitType(x.lower()) if isinstance(x, str) else x,
-        validator=validators.instance_of(DatasplitType),
-    )
-    """Type of datasplit. Allowed are `sample`, `group_features` and `group_sample_and_features`."""
 
     row_id_col: str | None = field(
         default=Factory(lambda: None),
@@ -167,7 +160,11 @@ class OctoStudy(ABC):
         set_logger_filename(log_file=self.log_dir / "study.log")
 
     def _initialize_study_outputs(
-        self, data: pd.DataFrame, prepared: PreparedData, ml_type: MLType, positive_class: int | None
+        self,
+        data: pd.DataFrame,
+        prepared: PreparedData,
+        ml_type: MLType,
+        positive_class: int | None,
     ) -> None:
         """Initialize study saving config and data into study directory."""
 
@@ -202,7 +199,6 @@ class OctoStudy(ABC):
         config["ml_type"] = ml_type.value
         if "positive_class" in config:
             config["positive_class"] = positive_class
-
         config["prepared"] = {
             "feature_cols": prepared.feature_cols,
             "row_id": prepared.row_id_col,
@@ -246,6 +242,10 @@ class OctoStudy(ABC):
             feature_cols=self.feature_cols,
             sample_id_col=self.sample_id_col,
             row_id_col=self.row_id_col,
+            target_col=self.target_col if hasattr(self, "target_col") else None,
+            stratification_col=self.stratification_col,
+            duration_col=self.duration_col if hasattr(self, "duration_col") else None,
+            event_col=self.event_col if hasattr(self, "event_col") else None,
         )
         return preparator.prepare()
 
@@ -264,19 +264,13 @@ class OctoStudy(ABC):
             if c is not None
         ]
 
-        relevant_cols += [s for s in ("group_features", "group_sample_and_features") if s in prepared.data.columns]
+        relevant_cols += [DATASPLIT_COL]
 
         relevant_cols = list(dict.fromkeys(relevant_cols))
         data_clean = prepared.data[relevant_cols]
 
-        if self.datasplit_type.value == "sample":
-            datasplit_col = self.sample_id_col
-        else:
-            datasplit_col = self.datasplit_type.value
-
         outersplits = DataSplit(
             dataset=data_clean,
-            datasplit_col=datasplit_col,
             seeds=[self.datasplit_seed_outer],
             num_folds=self.n_folds_outer,
             stratification_col=self.stratification_col,
@@ -342,7 +336,6 @@ class OctoStudy(ABC):
             target_assignments=self.target_assignments,
             positive_class=positive_class,
             stratification_col=self.stratification_col,
-            datasplit_type=self.datasplit_type.value,
             sample_id_col=self.sample_id_col,
             feature_cols=prepared.feature_cols,
             row_id_col=prepared.row_id_col,

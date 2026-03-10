@@ -10,6 +10,8 @@ import pandas as pd
 from attrs import define, field, validators
 from rapidfuzz import fuzz
 
+from .data_preparator import DEFAULT_NULL_VALUES
+
 
 @define
 class HealthCheckConfig:
@@ -245,6 +247,7 @@ class OctoDataHealthChecker:
         self._check_minimum_samples()
         self._check_row_id_col_unique()
         self._check_critical_column_missing_values()
+        self._check_sample_id_null_like_strings()
         self._check_features_not_all_null()
         self._check_feature_cols_missing_values()
         self._check_row_missing_values()
@@ -298,6 +301,36 @@ class OctoDataHealthChecker:
                 action=(
                     "Investigate and resolve missing values in these columns immediately. These are crucial for model training and data integrity."
                 ),
+            )
+
+    def _check_sample_id_null_like_strings(self):
+        """Check for null-like string values in sample_id_col.
+
+        Scans the sample_id_col for string values that look like null representations
+        (e.g., 'None', 'null', 'NA', 'nan', empty strings). These are not standardized
+        to np.nan during data preparation to prevent unrelated samples from being
+        silently merged into a single datasplit_group, which would cause data leakage.
+        """
+        if self.sample_id_col is None:
+            return
+
+        null_values_lower = {val.lower() for val in DEFAULT_NULL_VALUES}
+        sample_ids = self.data[self.sample_id_col]
+        null_like_mask = sample_ids.apply(lambda x: isinstance(x, str) and x.strip().lower() in null_values_lower)
+
+        if null_like_mask.any():
+            null_like_values = sorted(sample_ids[null_like_mask].unique().tolist())
+            self.add_issue(
+                category="columns",
+                issue_type="sample_id_null_like_strings",
+                affected_items=[self.sample_id_col],
+                severity="Critical",
+                description=(
+                    f"sample_id_col '{self.sample_id_col}' contains null-like string values: {null_like_values}. "
+                    "These values are not converted to NaN to prevent unrelated samples from being "
+                    "silently merged into the same datasplit_group, which would cause data leakage."
+                ),
+                action=("Replace these values with meaningful sample identifiers or remove the affected rows."),
             )
 
     def _check_feature_cols_missing_values(self):

@@ -158,7 +158,6 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         # create datasplit during init
         self.data_splits_ = DataSplit(
             dataset=data_traindev,
-            datasplit_col=study_context.datasplit_column,
             seeds=self.config.datasplit_seeds_inner,
             num_folds=self.config.n_folds_inner,
             stratification_col=study_context.stratification_col,
