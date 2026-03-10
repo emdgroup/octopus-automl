@@ -15,9 +15,9 @@ from attrs import Factory, define, field
 from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, cross_val_predict
 
 from octopus.metrics import Metrics
-from octopus.models import ModelName, Models
-from octopus.modules import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType, StudyContext
-from octopus.types import MLType
+from octopus.models import Models
+from octopus.modules.base import ModuleExecution, ModuleResult
+from octopus.types import FIDataset, FIMethod, MLType, ModelName, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath

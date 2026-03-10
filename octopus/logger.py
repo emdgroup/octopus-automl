@@ -3,25 +3,10 @@
 import io
 import logging
 import sys
-from enum import Enum, auto
 
 from upath import UPath
 
-
-class LogGroup(Enum):
-    """Create log groups."""
-
-    DEFAULT = auto()
-    DATA_PREPARATION = auto()
-    DATA_HEALTH_REPORT = auto()
-    CREATING_DATASPLITS = auto()
-    PREPARE_EXECUTION = auto()
-    PROCESSING = auto()
-    OPTUNA = auto()
-    TRAINING = auto()
-    SCORES = auto()
-    RESULTS = auto()
-    AUTOGLUON = auto()
+from .types import LogGroup
 
 
 class ContextualFilter(logging.Filter):

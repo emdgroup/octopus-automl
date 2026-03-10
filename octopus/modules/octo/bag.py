@@ -12,7 +12,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from upath import UPath
 
 # sklearn imports for compatibility
-from octopus.logger import LogGroup, get_logger
+from octopus.logger import get_logger
 from octopus.manager.ray_parallel import (
     init_ray,
     run_parallel_inner,
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from octopus.modules.octo.training import Training
 
 # Adjust this import path as needed depending on your package layout
-from octopus.types import MLType
+from octopus.types import LogGroup, MLType
 
 logger = get_logger()
 

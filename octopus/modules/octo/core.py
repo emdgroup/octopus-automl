@@ -12,16 +12,16 @@ from optuna.trial import TrialState
 from upath import UPath
 
 from octopus.datasplit import DataSplit, InnerSplits
-from octopus.logger import LogGroup, get_logger
+from octopus.logger import get_logger
 from octopus.models import Models
-from octopus.modules import ModuleExecution, ModuleResult, ResultType
+from octopus.modules.base import ModuleExecution, ModuleResult
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
+from octopus.modules.octo.bag import Bag
+from octopus.modules.octo.enssel import EnSel
+from octopus.modules.octo.objective_optuna import ObjectiveOptuna
+from octopus.modules.octo.training import Training
+from octopus.types import ResultType
 from octopus.utils import joblib_load, parquet_save
-
-from .bag import Bag
-from .enssel import EnSel
-from .objective_optuna import ObjectiveOptuna
-from .training import Training
 
 if TYPE_CHECKING:
     from octopus.modules import Octo, StudyContext

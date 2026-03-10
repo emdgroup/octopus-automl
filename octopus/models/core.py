@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from octopus.exceptions import UnknownModelError
-from octopus.models.model_name import ModelName
-from octopus.types import MLType
+from octopus.types import MLType, ModelName
 
 if TYPE_CHECKING:
     from collections.abc import Callable

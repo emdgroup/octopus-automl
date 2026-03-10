@@ -1,11 +1,4 @@
 """Study types."""
 
-from enum import Enum
-
-
-class ImputationMethod(str, Enum):
-    """Imputation methods."""
-
-    MEDIAN = "median"
-    HALFMIN = "halfmin"
-    MICE = "mice"
+# ImputationMethod has been moved to octopus/types.py
+# Import it from there if needed: from octopus.types import ImputationMethod

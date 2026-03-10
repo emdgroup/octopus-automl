@@ -6,8 +6,9 @@ from attrs import define
 from upath import UPath
 
 from octopus.datasplit import OuterSplit, OuterSplits
-from octopus.logger import LogGroup, get_logger
+from octopus.logger import get_logger
 from octopus.manager.ray_parallel import run_parallel_outer_ray
+from octopus.types import LogGroup
 
 if TYPE_CHECKING:
     from collections.abc import Callable

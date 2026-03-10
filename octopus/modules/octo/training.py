@@ -18,11 +18,11 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 from sklearn.utils.validation import check_is_fitted
 
-from octopus.logger import LogGroup, get_logger
+from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
-from octopus.models import ModelName, Models
-from octopus.types import MLType
+from octopus.models import Models
+from octopus.types import LogGroup, MLType, ModelName
 
 # # TOBEDONE pipeline
 # - implement cat encoding on module level
