@@ -2,7 +2,7 @@
 
 from sklearn.metrics import balanced_accuracy_score, roc_auc_score
 
-from octopus.types import MLType
+from octopus.types import MLType, PredType
 
 from .config import Metric
 from .core import Metrics
@@ -16,7 +16,7 @@ def accbal_multiclass_metric() -> Metric:
         metric_function=balanced_accuracy_score,
         ml_types=[MLType.MULTICLASS],
         higher_is_better=True,
-        prediction_type="predict",
+        prediction_type=PredType.PREDICT,
         scorer_string="balanced_accuracy",
     )
 
@@ -30,7 +30,7 @@ def aucroc_macro_multiclass_metric() -> Metric:
         metric_params={"multi_class": "ovr", "average": "macro"},
         ml_types=[MLType.MULTICLASS],
         higher_is_better=True,
-        prediction_type="predict_proba",
+        prediction_type=PredType.PREDICT_PROBA,
         scorer_string="roc_auc_ovr",
     )
 
@@ -44,6 +44,6 @@ def aucroc_weighted_multiclass_metric() -> Metric:
         metric_params={"multi_class": "ovr", "average": "weighted"},
         ml_types=[MLType.MULTICLASS],
         higher_is_better=True,
-        prediction_type="predict_proba",
+        prediction_type=PredType.PREDICT_PROBA,
         scorer_string="roc_auc_ovr_weighted",
     )

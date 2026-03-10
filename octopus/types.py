@@ -98,8 +98,17 @@ class OptunaReturnType(str, Enum):
     POOL = "pool"
     AVERAGE = "average"
 
+
+class PredType(str, Enum):
+    """Prediction type for model outputs (class predictions or probability scores)."""
+
+    PREDICT = "predict"
+    PREDICT_PROBA = "predict_proba"
+
+
 class RFEMode(str, Enum):
     """Recursive Feature Elimination modes."""
+
     MODE1 = "Mode1"
     MODE2 = "Mode2"
 

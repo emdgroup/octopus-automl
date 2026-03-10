@@ -5,7 +5,6 @@ from __future__ import annotations
 from attrs import define, field, validators
 
 from octopus.modules.base import ModuleExecution, Task
-
 from octopus.types import RFEMode
 
 
