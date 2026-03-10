@@ -1,7 +1,11 @@
 """Shared types for the Octopus framework."""
 
-from enum import StrEnum
+from enum import Enum, StrEnum, auto
 from typing import Any
+
+# ============================================================================
+# CORE MACHINE LEARNING TYPES
+# ============================================================================
 
 
 class ResultType(StrEnum):
@@ -18,6 +22,114 @@ class MLType(StrEnum):
     MULTICLASS = "multiclass"
     REGRESSION = "regression"
     TIMETOEVENT = "timetoevent"
+
+
+# ============================================================================
+# LOGGING AND INFRASTRUCTURE
+# ============================================================================
+
+
+class LogGroup(Enum):
+    """Create log groups for contextual logging."""
+
+    DEFAULT = auto()
+    DATA_PREPARATION = auto()
+    DATA_HEALTH_REPORT = auto()
+    CREATING_DATASPLITS = auto()
+    PREPARE_EXECUTION = auto()
+    PROCESSING = auto()
+    OPTUNA = auto()
+    TRAINING = auto()
+    SCORES = auto()
+    RESULTS = auto()
+    AUTOGLUON = auto()
+
+
+# ============================================================================
+# STUDY AND DATA PROCESSING
+# ============================================================================
+
+
+class ImputationMethod(str, Enum):
+    """Imputation methods for handling missing data."""
+
+    MEDIAN = "median"
+    HALFMIN = "halfmin"
+    MICE = "mice"
+
+
+# ============================================================================
+# MODEL SELECTION AND CONFIGURATION
+# ============================================================================
+
+
+class ModelName(StrEnum):
+    """Available model names for user-friendly model selection with IDE autocomplete.
+
+    Use this enum for IDE autocomplete when specifying models, e.g.::
+
+        Octo(task_id=0, models=[ModelName.XGBClassifier, ModelName.CatBoostClassifier])
+
+    Plain strings still work too::
+
+        Octo(task_id=0, models=["XGBClassifier", "CatBoostClassifier"])
+    """
+
+    # Classification models
+    ExtraTreesClassifier = "ExtraTreesClassifier"
+    HistGradientBoostingClassifier = "HistGradientBoostingClassifier"
+    GradientBoostingClassifier = "GradientBoostingClassifier"
+    RandomForestClassifier = "RandomForestClassifier"
+    XGBClassifier = "XGBClassifier"
+    CatBoostClassifier = "CatBoostClassifier"
+    LogisticRegressionClassifier = "LogisticRegressionClassifier"
+    GaussianProcessClassifier = "GaussianProcessClassifier"
+
+    # Regression models
+    ARDRegressor = "ARDRegressor"
+    CatBoostRegressor = "CatBoostRegressor"
+    ElasticNetRegressor = "ElasticNetRegressor"
+    ExtraTreesRegressor = "ExtraTreesRegressor"
+    GaussianProcessRegressor = "GaussianProcessRegressor"
+    GradientBoostingRegressor = "GradientBoostingRegressor"
+    RandomForestRegressor = "RandomForestRegressor"
+    RidgeRegressor = "RidgeRegressor"
+    SvrRegressor = "SvrRegressor"
+    XGBRegressor = "XGBRegressor"
+    HistGradientBoostingRegressor = "HistGradientBoostingRegressor"
+    TabularNNRegressor = "TabularNNRegressor"
+
+
+# ============================================================================
+# MODULE EXECUTION AND RESULTS
+# ============================================================================
+
+
+class ResultType(StrEnum):
+    """Types of results produced by modules."""
+
+    BEST = "best"
+    ENSEMBLE_SELECTION = "ensemble_selection"
+
+
+class FIMethod(StrEnum):
+    """Feature importance computation methods."""
+
+    INTERNAL = "internal"
+    PERMUTATION = "permutation"
+    SHAP = "shap"
+    LOFO = "lofo"
+    CONSTANT = "constant"
+    COUNTS = "counts"
+    COUNTS_RELATIVE = "counts_relative"
+
+
+class FIDataset(StrEnum):
+    """Dataset partitions for feature importance computation."""
+
+    TRAIN = "train"
+    DEV = "dev"
+    TEST = "test"
 
 
 ML_TYPES = [e.value for e in MLType]

@@ -7,7 +7,8 @@ import pandas as pd
 from attrs import Factory, define, field, frozen, validators
 from sklearn.model_selection import KFold, StratifiedKFold
 
-from .logger import LogGroup, get_logger
+from .logger import get_logger
+from .types import LogGroup
 
 logger = get_logger()
 

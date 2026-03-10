@@ -5,10 +5,10 @@ import heapq
 from upath import UPath
 
 from octopus.datasplit import InnerSplits
-from octopus.logger import LogGroup, get_logger
+from octopus.logger import get_logger
 from octopus.metrics import Metrics
-from octopus.models import ModelName, Models
-from octopus.types import MLType
+from octopus.models import Models
+from octopus.types import MLType, ModelName
 from octopus.utils import joblib_save
 
 from .bag import Bag, BagClassifier, BagRegressor

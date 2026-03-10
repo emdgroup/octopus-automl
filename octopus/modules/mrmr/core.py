@@ -9,9 +9,10 @@ import pandas as pd
 from attrs import define
 from sklearn.feature_selection import f_classif, f_regression
 
-from octopus.logger import LogGroup, get_logger
-from octopus.modules import FIMethod, ModuleExecution, ModuleResult, ResultType, rdc_correlation_matrix
-from octopus.types import MLType
+from octopus.logger import get_logger
+from octopus.modules.base import ModuleExecution, ModuleResult
+from octopus.modules.utils import rdc_correlation_matrix
+from octopus.types import FIMethod, LogGroup, MLType, ResultType
 
 if TYPE_CHECKING:
     from octopus.modules import StudyContext

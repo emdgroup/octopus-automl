@@ -16,8 +16,8 @@ from octopus.utils import calculate_feature_groups
 if TYPE_CHECKING:
     from upath import UPath
 
-    from octopus.modules import StudyContext
-    from octopus.modules.octo.bag import BagBase
+from octopus.modules.octo.bag import BagBase
+from octopus.modules import StudyContext
 
 
 @define

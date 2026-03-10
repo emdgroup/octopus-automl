@@ -23,7 +23,6 @@ from .data_preparator import OctoDataPreparator
 from .data_validator import OctoDataValidator
 from .healthChecker import HealthCheckConfig, OctoDataHealthChecker
 from .prepared_data import PreparedData
-from .types import ImputationMethod
 from .validation import validate_workflow
 
 logger = get_logger()
