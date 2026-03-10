@@ -83,7 +83,6 @@ def gradient_boosting_classifier() -> ModelConfig:
         scaler=None,
         imputation_required=True,
         categorical_enabled=False,
-        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=0.01, high=1, log=True),
             IntHyperparameter(name="min_samples_leaf", low=1, high=200),

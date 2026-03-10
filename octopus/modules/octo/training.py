@@ -21,7 +21,7 @@ from sklearn.utils.validation import check_is_fitted
 from octopus.logger import LogGroup, get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
-from octopus.models import Models
+from octopus.models import ModelName, Models
 from octopus.types import MLType
 
 # # TOBEDONE pipeline
@@ -37,7 +37,7 @@ class TrainingConfig(TypedDict):
 
     outl_reduction: int
     n_input_features: int
-    ml_model_type: str
+    ml_model_type: ModelName
     ml_model_params: dict
     positive_class: int | None
 
@@ -117,7 +117,7 @@ class Training:
         return self.config_training["outl_reduction"]
 
     @property
-    def ml_model_type(self) -> str:
+    def ml_model_type(self) -> ModelName:
         """ML model type."""
         return self.config_training["ml_model_type"]
 

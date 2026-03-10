@@ -13,7 +13,7 @@ from sklearn.model_selection import BaseCrossValidator, GridSearchCV, Stratified
 
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
-from octopus.models import Models
+from octopus.models import ModelName, Models
 from octopus.modules.base import FIDataset, FIMethod, ModuleExecution, ModuleResult, ResultType
 from octopus.types import MLType
 
@@ -27,27 +27,27 @@ if TYPE_CHECKING:
 warnings.filterwarnings("ignore")
 
 supported_models = {
-    "CatBoostClassifier",
-    "CatBoostRegressor",
-    "RandomForestClassifier",
-    "RandomForestRegressor",
-    "ExtraTreesClassifier",
-    "ExtraTreesRegressor",
-    "XGBClassifier",
-    "XGBRegressor",
+    ModelName.CatBoostClassifier,
+    ModelName.CatBoostRegressor,
+    ModelName.RandomForestClassifier,
+    ModelName.RandomForestRegressor,
+    ModelName.ExtraTreesClassifier,
+    ModelName.ExtraTreesRegressor,
+    ModelName.XGBClassifier,
+    ModelName.XGBRegressor,
 }
 
 
-def get_param_grid(model_type):
+def get_param_grid(model_type: ModelName):
     """Hyperparameter grid initialization."""
-    if model_type in ("CatBoostClassifier", "CatBoostRegressor"):
+    if model_type in (ModelName.CatBoostClassifier, ModelName.CatBoostRegressor):
         param_grid = {
             "learning_rate": [0.001, 0.01, 0.1],
             "depth": [3, 6, 8, 10],
             "l2_leaf_reg": [2, 5, 7, 10],
             "iterations": [500],
         }
-    elif model_type in ("XGBClassifier", "XGBRegressor"):
+    elif model_type in (ModelName.XGBClassifier, ModelName.XGBRegressor):
         param_grid = {
             "learning_rate": [0.0001, 0.001, 0.01, 0.3],
             "min_child_weight": [2, 5, 10, 15],
@@ -88,15 +88,13 @@ class SfsModule(ModuleExecution["Sfs"]):
 
         # Configuration, define default model
         if study_context.ml_type in (MLType.BINARY, MLType.MULTICLASS):
-            default_model = "CatBoostClassifier"
+            default_model = ModelName.CatBoostClassifier
         elif study_context.ml_type == MLType.REGRESSION:
-            default_model = "CatBoostRegressor"
+            default_model = ModelName.CatBoostRegressor
         else:
             raise ValueError(f"{study_context.ml_type} not supported")
 
-        model_type = self.config.model
-        if model_type == "":
-            model_type = default_model
+        model_type = ModelName(self.config.model) if self.config.model else default_model
 
         if model_type not in supported_models:
             raise ValueError(f"{model_type} not supported")

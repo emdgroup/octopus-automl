@@ -159,7 +159,6 @@ def gradient_boosting_regressor() -> ModelConfig:
         scaler=None,
         imputation_required=True,
         categorical_enabled=False,
-        default=True,
         hyperparameters=[
             FloatHyperparameter(name="learning_rate", low=0.01, high=1, log=True),
             IntHyperparameter(name="min_samples_leaf", low=1, high=200),
@@ -209,7 +208,6 @@ def ridge_regressor() -> ModelConfig:
         scaler="StandardScaler",
         imputation_required=True,
         categorical_enabled=False,
-        default=True,
         hyperparameters=[
             FloatHyperparameter(name="alpha", low=1e-5, high=1e5, log=True),
             CategoricalHyperparameter(name="fit_intercept", choices=[True, False]),
