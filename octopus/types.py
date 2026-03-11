@@ -153,6 +153,19 @@ class FIDataset(StrEnum):
     TEST = "test"
 
 
+class FIType(StrEnum):
+    """Feature importance types for the prediction API.
+
+    Used as the ``fi_type`` parameter in
+    ``TaskPredictor.calculate_fi()`` and
+    ``TaskPredictorTest.calculate_fi()``.
+    """
+
+    PERMUTATION = "permutation"
+    GROUP_PERMUTATION = "group_permutation"
+    SHAP = "shap"
+
+
 ML_TYPES = [e.value for e in MLType]
 
 

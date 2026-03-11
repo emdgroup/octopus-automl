@@ -17,7 +17,7 @@ from upath import UPath
 from octopus.metrics.utils import get_performance_from_model
 from octopus.predict.study_io import StudyLoader
 from octopus.predict.task_predictor import TaskPredictor
-from octopus.types import MLType
+from octopus.types import FIType, MLType
 
 
 @define(slots=False)
@@ -207,7 +207,7 @@ class TaskPredictorTest(TaskPredictor):
 
     def calculate_fi(  # type: ignore[override]
         self,
-        fi_type: str = "permutation",
+        fi_type: FIType | str = FIType.PERMUTATION,
         *,
         n_repeats: int = 10,
         feature_groups: dict[str, list[str]] | None = None,
@@ -220,20 +220,20 @@ class TaskPredictorTest(TaskPredictor):
 
         Args:
             fi_type: Type of feature importance. One of:
-                - ``'permutation'`` — Per-feature permutation importance.
-                - ``'group_permutation'`` — Per-feature + per-group permutation
+                - ``FIType.PERMUTATION`` — Per-feature permutation importance.
+                - ``FIType.GROUP_PERMUTATION`` — Per-feature + per-group permutation
                   importance.  Uses ``feature_groups`` (from study config or
                   explicitly provided) to also compute group-level importance.
-                - ``'shap'`` — SHAP-based importance.  Pass ``shap_type`` as a
+                - ``FIType.SHAP`` — SHAP-based importance.  Pass ``shap_type`` as a
                   kwarg to select the explainer: ``'kernel'`` (default),
                   ``'permutation'``, or ``'exact'``.
             n_repeats: Number of permutation repeats.
             feature_groups: Dict mapping group names to feature lists.
-                If None and fi_type is ``'group_permutation'``, groups are
+                If None and fi_type is ``FIType.GROUP_PERMUTATION``, groups are
                 loaded from the study.
             random_state: Random seed.
             **kwargs: Additional keyword arguments passed to the FI function.
-                For ``fi_type='shap'``, supported kwargs include:
+                For ``fi_type=FIType.SHAP``, supported kwargs include:
                 ``shap_type`` (``'kernel'``, ``'permutation'``, ``'exact'``),
                 ``max_samples``, ``background_size``.
 
@@ -249,11 +249,12 @@ class TaskPredictorTest(TaskPredictor):
             calculate_fi_shap,
         )
 
+        fi_type = FIType(fi_type)
         target_col = self._resolve_target_col()
 
-        if fi_type in ("permutation", "group_permutation"):
+        if fi_type in (FIType.PERMUTATION, FIType.GROUP_PERMUTATION):
             resolved_groups = None
-            if fi_type == "group_permutation":
+            if fi_type == FIType.GROUP_PERMUTATION:
                 if feature_groups is not None:
                     resolved_groups = feature_groups
                 else:
@@ -272,7 +273,7 @@ class TaskPredictorTest(TaskPredictor):
                 feature_groups=resolved_groups,
                 feature_cols=self._feature_cols,
             )
-        elif fi_type == "shap":
+        elif fi_type == FIType.SHAP:
             result = calculate_fi_shap(
                 models=self._models,
                 selected_features=self._selected_features,
@@ -280,7 +281,7 @@ class TaskPredictorTest(TaskPredictor):
                 **kwargs,
             )
         else:
-            raise ValueError(f"Unknown fi_type '{fi_type}'. Use 'permutation', 'group_permutation', or 'shap'.")
+            raise ValueError(f"Unknown fi_type '{fi_type}'. Use FIType.PERMUTATION, FIType.GROUP_PERMUTATION, or FIType.SHAP.")
 
         result.insert(0, "fi_type", fi_type)
         return result
