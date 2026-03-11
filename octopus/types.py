@@ -112,8 +112,13 @@ class ResultType(StrEnum):
     ENSEMBLE_SELECTION = "ensemble_selection"
 
 
-class FIMethod(StrEnum):
-    """Feature importance computation methods."""
+class FIResultLabel(StrEnum):
+    """Labels used in feature-importance result DataFrames.
+
+    Every module writes a ``fi_method`` column into its result DataFrame.
+    Use these members as the column values so downstream code can filter
+    and aggregate results reliably.
+    """
 
     INTERNAL = "internal"
     PERMUTATION = "permutation"

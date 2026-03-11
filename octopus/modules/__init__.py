@@ -19,6 +19,9 @@ except ImportError:
 
 
 from .base import FIDataset, FIMethod, ModuleExecution, Task
+    AutoGluon = None  # type: ignore[assignment,misc]
+from octopus.types import FIDataset, FIResultLabel, ResultType
+from .base import Task
 from .boruta import Boruta
 from .context import StudyContext
 from .efs import Efs
@@ -39,6 +42,7 @@ __all__ = [
     "FIMethod",
     "ModuleExecution",
     "ModuleResult",
+    "FIResultLabel",
     "Mrmr",
     "Octo",
     "ResultType",
