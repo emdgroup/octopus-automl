@@ -297,7 +297,7 @@ class TestTaskPredictorTestFI:
 
     def test_fi_invalid_type(self, tpt):
         """Verify invalid fi_type raises ValueError."""
-        with pytest.raises(ValueError, match="Unknown fi_type"):
+        with pytest.raises(ValueError, match="is not a valid FIType"):
             tpt.calculate_fi(fi_type="invalid_method")
 
 

@@ -1,6 +1,8 @@
 """Tests for octopus.types enums."""
 
-from octopus.types import FIComputeMethod, FIResultLabel
+import pytest
+
+from octopus.types import FIComputeMethod, FIResultLabel, FIType
 
 
 class TestFIResultLabel:
@@ -58,3 +60,29 @@ class TestFIComputeMethod:
         result_label_values = {m.value for m in FIResultLabel}
         for member in FIComputeMethod:
             assert member.value in result_label_values
+
+
+class TestFIType:
+    """Tests for FIType enum."""
+
+    def test_is_strenum(self) -> None:
+        assert isinstance(FIType.PERMUTATION, str)
+
+    def test_string_values(self) -> None:
+        assert FIType.PERMUTATION == "permutation"
+        assert FIType.GROUP_PERMUTATION == "group_permutation"
+        assert FIType.SHAP == "shap"
+
+    def test_member_count(self) -> None:
+        assert len(FIType) == 3
+
+    def test_construction_from_string(self) -> None:
+        """FIType can be constructed from a plain string."""
+        assert FIType("permutation") == FIType.PERMUTATION
+        assert FIType("group_permutation") == FIType.GROUP_PERMUTATION
+        assert FIType("shap") == FIType.SHAP
+
+    def test_invalid_string_raises(self) -> None:
+        """FIType rejects unknown strings."""
+        with pytest.raises(ValueError):
+            FIType("invalid")
