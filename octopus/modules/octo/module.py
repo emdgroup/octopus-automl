@@ -9,7 +9,7 @@ from attrs import Factory, define, field, validators
 from octopus.logger import get_logger
 from octopus.models import Models
 from octopus.modules.base import ModuleExecution, Task
-from octopus.types import ModelName
+from octopus.types import FIComputeMethod, ModelName
 
 logger = get_logger()
 
@@ -68,10 +68,11 @@ class Octo(Task):
     max_outl: int = field(validator=[validators.instance_of(int)], default=3)
     """Maximum number of outliers, optimized by Optuna"""
 
-    fi_methods_bestbag: list[str] = field(
-        default=Factory(lambda: ["permutation"]),
+    fi_methods_bestbag: list[FIComputeMethod] = field(
+        default=Factory(lambda: [FIComputeMethod.PERMUTATION]),
+        converter=lambda vs: [FIComputeMethod(v) for v in vs],
         validator=validators.deep_iterable(
-            member_validator=validators.in_(["permutation", "shap", "constant"]),
+            member_validator=validators.in_([FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.CONSTANT]),
             iterable_validator=validators.instance_of(list),
         ),
     )

@@ -38,6 +38,7 @@ __all__ = [
     "AutoGluon",
     "Boruta",
     "Efs",
+    "FIComputeMethod",
     "FIDataset",
     "FIMethod",
     "ModuleExecution",

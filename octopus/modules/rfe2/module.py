@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from attrs import define, field, validators
 
-from ..base import ModuleExecution
-from ..octo import Octo
+from octopus.modules.base import ModuleExecution
+from octopus.modules.octo.module import Octo
+from octopus.types import FIComputeMethod
 
 
 @define
@@ -26,7 +27,11 @@ class Rfe2(Octo):
     min_features_to_select: int = field(validator=[validators.instance_of(int)], default=1)
     """Minimum number of features to be selected."""
 
-    fi_method_rfe: str = field(validator=[validators.in_(["permutation", "shap"])], default="permutation")
+    fi_method_rfe: FIComputeMethod = field(
+        converter=FIComputeMethod,
+        validator=validators.in_([FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP]),
+        default=FIComputeMethod.PERMUTATION,
+    )
     """Feature importance method for RFE."""
 
     selection_method: str = field(validator=[validators.in_(["best", "parsimonious"])], default="best")

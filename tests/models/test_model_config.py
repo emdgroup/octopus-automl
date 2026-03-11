@@ -4,7 +4,7 @@ import pytest
 
 from octopus.models.config import ModelConfig
 from octopus.models.hyperparameter import CategoricalHyperparameter, FloatHyperparameter
-from octopus.types import MLType
+from octopus.types import FIComputeMethod, MLType
 
 
 def test_model_config_initialization():
@@ -16,7 +16,7 @@ def test_model_config_initialization():
 
     model = ModelConfig(
         model_class=object,
-        feature_method="some_method",
+        feature_method=FIComputeMethod.INTERNAL,
         ml_types=[MLType.REGRESSION],
         hyperparameters=hyperparameters,
         n_jobs="n_jobs",
@@ -26,7 +26,7 @@ def test_model_config_initialization():
     # Name is not set during initialization - it's added by Models.get_config()
     assert not hasattr(model, "name")
     assert isinstance(model.model_class, object)
-    assert model.feature_method == "some_method"
+    assert model.feature_method == FIComputeMethod.INTERNAL
     assert model.supports_ml_type(MLType.REGRESSION)
     assert model.hyperparameters == hyperparameters
     assert model.n_jobs == "n_jobs"
@@ -47,7 +47,7 @@ def test_model_config_with_conflict():
     ):
         ModelConfig(
             model_class=object,
-            feature_method="some_method",
+            feature_method=FIComputeMethod.INTERNAL,
             ml_types=[MLType.REGRESSION],
             hyperparameters=hyperparameters,
             n_jobs="n_jobs",

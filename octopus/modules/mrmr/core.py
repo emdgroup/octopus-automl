@@ -12,7 +12,7 @@ from sklearn.feature_selection import f_classif, f_regression
 from octopus.logger import get_logger
 from octopus.modules.base import ModuleExecution, ModuleResult
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import FIResultLabel, LogGroup, MLType, ResultType
+from octopus.types import FIComputeMethod, FIResultLabel, LogGroup, MLType, ResultType
 
 if TYPE_CHECKING:
     from octopus.modules import StudyContext
@@ -79,13 +79,13 @@ class MrmrModule(ModuleExecution["Mrmr"]):
     def _get_fi_method(self) -> FIResultLabel:
         """Get FIResultLabel enum from configuration."""
         fi_method = self.config.feature_importance_method
-        if fi_method == "internal":
+        if fi_method == FIComputeMethod.INTERNAL:
             return FIResultLabel.INTERNAL
-        elif fi_method == "permutation":
+        elif fi_method == FIComputeMethod.PERMUTATION:
             return FIResultLabel.PERMUTATION
-        elif fi_method == "shap":
+        elif fi_method == FIComputeMethod.SHAP:
             return FIResultLabel.SHAP
-        elif fi_method == "lofo":
+        elif fi_method == FIComputeMethod.LOFO:
             return FIResultLabel.LOFO
         else:
             raise ValueError(f"Unknown FI method: {fi_method}")

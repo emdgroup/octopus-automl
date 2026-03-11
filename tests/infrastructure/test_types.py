@@ -1,6 +1,6 @@
 """Tests for octopus.types enums."""
 
-from octopus.types import FIResultLabel
+from octopus.types import FIComputeMethod, FIResultLabel
 
 
 class TestFIResultLabel:
@@ -25,3 +25,36 @@ class TestFIResultLabel:
         """FIResultLabel members compare equal to their string values."""
         assert FIResultLabel.PERMUTATION == "permutation"
         assert "shap" == FIResultLabel.SHAP
+
+
+class TestFIComputeMethod:
+    """Tests for FIComputeMethod enum."""
+
+    def test_is_strenum(self) -> None:
+        assert isinstance(FIComputeMethod.INTERNAL, str)
+
+    def test_string_values(self) -> None:
+        assert FIComputeMethod.INTERNAL == "internal"
+        assert FIComputeMethod.PERMUTATION == "permutation"
+        assert FIComputeMethod.SHAP == "shap"
+        assert FIComputeMethod.LOFO == "lofo"
+        assert FIComputeMethod.CONSTANT == "constant"
+
+    def test_member_count(self) -> None:
+        assert len(FIComputeMethod) == 5
+
+    def test_string_comparison(self) -> None:
+        """FIComputeMethod members compare equal to their string values."""
+        assert FIComputeMethod.PERMUTATION == "permutation"
+        assert "shap" == FIComputeMethod.SHAP
+
+    def test_construction_from_string(self) -> None:
+        """FIComputeMethod can be constructed from a plain string."""
+        assert FIComputeMethod("internal") == FIComputeMethod.INTERNAL
+        assert FIComputeMethod("permutation") == FIComputeMethod.PERMUTATION
+
+    def test_is_subset_of_fi_result_label(self) -> None:
+        """Every FIComputeMethod value exists in FIResultLabel."""
+        result_label_values = {m.value for m in FIResultLabel}
+        for member in FIComputeMethod:
+            assert member.value in result_label_values

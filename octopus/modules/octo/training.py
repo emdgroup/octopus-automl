@@ -22,7 +22,7 @@ from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.types import LogGroup, MLType, ModelName
+from octopus.types import FIComputeMethod, LogGroup, MLType, ModelName
 
 # # TOBEDONE pipeline
 # - implement cat encoding on module level
@@ -391,16 +391,16 @@ class Training:
         """Calculate used features, method based on model type."""
         feature_method = Models.get_config(self.ml_model_type).feature_method
 
-        if feature_method == "internal":
+        if feature_method == FIComputeMethod.INTERNAL:
             self.calculate_fi_internal()
             fi_df = self.feature_importances["internal"]
-        elif feature_method == "shap":
+        elif feature_method == FIComputeMethod.SHAP:
             self.calculate_fi_featuresused_shap(partition="dev")
             fi_df = self.feature_importances["shap_dev"]
-        elif feature_method == "permutation":
+        elif feature_method == FIComputeMethod.PERMUTATION:
             self.calculate_fi_permutation(partition="dev", n_repeats=2)  # only 2 repeats!
             fi_df = self.feature_importances["permutation_dev"]
-        elif feature_method == "constant":
+        elif feature_method == FIComputeMethod.CONSTANT:
             self.calculate_fi_constant()
             fi_df = self.feature_importances["constant"]
         else:
