@@ -8,7 +8,16 @@ import threadpoolctl
 try:
     from .autogluon import AutoGluon
 except ImportError:
-    AutoGluon = None  # type: ignore[assignment,misc]
+
+    class AutoGluon:  # type: ignore[no-redef]
+        """AutoGluon module placeholder when AutoGluon is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "AutoGluon is not installed. Please install it with `pip install octopus[autogluon]` to use this module."
+            )
+
+
 from .base import FIDataset, FIMethod, ModuleExecution, Task
 from .boruta import Boruta
 from .context import StudyContext
