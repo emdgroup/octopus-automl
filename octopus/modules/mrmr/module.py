@@ -57,7 +57,9 @@ class Mrmr(Task):
 
     feature_importance_method: FIComputeMethod = field(
         converter=FIComputeMethod,
-        validator=validators.in_([FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.INTERNAL, FIComputeMethod.LOFO]),
+        validator=validators.in_(
+            [FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.INTERNAL, FIComputeMethod.LOFO]
+        ),
         default=FIComputeMethod.PERMUTATION,
     )
     """Selection of feature importance method."""

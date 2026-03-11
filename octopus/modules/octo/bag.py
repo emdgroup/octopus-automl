@@ -677,7 +677,9 @@ class BagBase(BaseEstimator):
 
         return sorted(feat_all, key=lambda x: (len(x), sorted(x)))
 
-    def calculate_feature_importances(self, fi_methods: list[FIComputeMethod] | None = None, partitions: list[str] | None = None):
+    def calculate_feature_importances(
+        self, fi_methods: list[FIComputeMethod] | None = None, partitions: list[str] | None = None
+    ):
         """Extract feature importances of all models in bag."""
         # we always extract internal feature importances, if available
         if fi_methods is None:

@@ -72,7 +72,9 @@ class Octo(Task):
         default=Factory(lambda: [FIComputeMethod.PERMUTATION]),
         converter=lambda vs: [FIComputeMethod(v) for v in vs],
         validator=validators.deep_iterable(
-            member_validator=validators.in_([FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.CONSTANT]),
+            member_validator=validators.in_(
+                [FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.CONSTANT]
+            ),
             iterable_validator=validators.instance_of(list),
         ),
     )
