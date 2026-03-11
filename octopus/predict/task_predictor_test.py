@@ -282,7 +282,9 @@ class TaskPredictorTest(TaskPredictor):
                 **kwargs,
             )
         else:
-            raise ValueError(f"Unknown fi_type '{fi_type}'. Use FIType.PERMUTATION, FIType.GROUP_PERMUTATION, or FIType.SHAP.")
+            raise ValueError(
+                f"Unknown fi_type '{fi_type}'. Use FIType.PERMUTATION, FIType.GROUP_PERMUTATION, or FIType.SHAP."
+            )
 
         result.insert(0, "fi_type", fi_type)
         return result
