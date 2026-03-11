@@ -166,6 +166,19 @@ class FIType(StrEnum):
     SHAP = "shap"
 
 
+class ShapExplainerType(StrEnum):
+    """SHAP explainer implementations.
+
+    Selects which SHAP explainer algorithm to use when computing
+    SHAP-based feature importances via ``shap_type`` parameters
+    in training and prediction code.
+    """
+
+    KERNEL = "kernel"
+    PERMUTATION = "permutation"
+    EXACT = "exact"
+
+
 ML_TYPES = [e.value for e in MLType]
 
 

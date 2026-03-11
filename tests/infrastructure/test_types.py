@@ -2,7 +2,7 @@
 
 import pytest
 
-from octopus.types import FIComputeMethod, FIResultLabel, FIType
+from octopus.types import FIComputeMethod, FIResultLabel, FIType, ShapExplainerType
 
 
 class TestFIResultLabel:
@@ -86,3 +86,29 @@ class TestFIType:
         """FIType rejects unknown strings."""
         with pytest.raises(ValueError):
             FIType("invalid")
+
+
+class TestShapExplainerType:
+    """Tests for ShapExplainerType enum."""
+
+    def test_is_strenum(self) -> None:
+        assert isinstance(ShapExplainerType.KERNEL, str)
+
+    def test_string_values(self) -> None:
+        assert ShapExplainerType.KERNEL == "kernel"
+        assert ShapExplainerType.PERMUTATION == "permutation"
+        assert ShapExplainerType.EXACT == "exact"
+
+    def test_member_count(self) -> None:
+        assert len(ShapExplainerType) == 3
+
+    def test_construction_from_string(self) -> None:
+        """ShapExplainerType can be constructed from a plain string."""
+        assert ShapExplainerType("kernel") == ShapExplainerType.KERNEL
+        assert ShapExplainerType("permutation") == ShapExplainerType.PERMUTATION
+        assert ShapExplainerType("exact") == ShapExplainerType.EXACT
+
+    def test_invalid_string_raises(self) -> None:
+        """ShapExplainerType rejects unknown strings."""
+        with pytest.raises(ValueError):
+            ShapExplainerType("invalid")

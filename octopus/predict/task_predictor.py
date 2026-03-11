@@ -387,8 +387,8 @@ class TaskPredictor:
                   importance.  Uses ``feature_groups`` (from study config or
                   explicitly provided) to also compute group-level importance.
                 - ``FIType.SHAP`` — SHAP-based importance.  Pass ``shap_type`` as a
-                  kwarg to select the explainer: ``'kernel'`` (default),
-                  ``'permutation'``, or ``'exact'``.
+                  kwarg to select the explainer: ``ShapExplainerType.KERNEL`` (default),
+                  ``ShapExplainerType.PERMUTATION``, or ``ShapExplainerType.EXACT``.
             n_repeats: Number of permutation repeats (for permutation FI).
             feature_groups: Dict mapping group names to feature lists
                 (for group_permutation).  If None and fi_type is
@@ -396,7 +396,8 @@ class TaskPredictor:
             random_state: Random seed.
             **kwargs: Additional keyword arguments passed to the FI function.
                 For ``fi_type=FIType.SHAP``, supported kwargs include:
-                ``shap_type`` (``'kernel'``, ``'permutation'``, ``'exact'``),
+                ``shap_type`` (``ShapExplainerType.KERNEL``, ``ShapExplainerType.PERMUTATION``,
+                ``ShapExplainerType.EXACT``),
                 ``max_samples``, ``background_size``.
 
         Returns:

@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from octopus.metrics.utils import get_score_from_model
+from octopus.types import ShapExplainerType
 
 # Fixed confidence level for CI calculations (matches training.py)
 _CONFIDENCE_LEVEL = 0.95
@@ -239,7 +240,7 @@ def calculate_fi_shap(
     models: dict[int, Any],
     selected_features: dict[int, list[str]],
     test_data: dict[int, pd.DataFrame],
-    shap_type: str = "kernel",
+    shap_type: ShapExplainerType | str = ShapExplainerType.KERNEL,
     max_samples: int = 100,
     background_size: int = 200,
 ) -> pd.DataFrame:
@@ -254,11 +255,11 @@ def calculate_fi_shap(
         selected_features: Dict mapping outersplit_id to feature list.
         test_data: Dict mapping outersplit_id to test DataFrame.
         shap_type: SHAP explainer type.  One of:
-            - ``'kernel'`` — Model-agnostic using KernelExplainer (default).
+            - ``ShapExplainerType.KERNEL`` — Model-agnostic using KernelExplainer (default).
               Works with any model but slower.
-            - ``'permutation'`` — Model-agnostic using PermutationExplainer.
+            - ``ShapExplainerType.PERMUTATION`` — Model-agnostic using PermutationExplainer.
               Uses permutation-based approach.
-            - ``'exact'`` — Model-agnostic using ExactExplainer.
+            - ``ShapExplainerType.EXACT`` — Model-agnostic using ExactExplainer.
               Computes exact SHAP values (slowest, most accurate).
         max_samples: Maximum number of evaluation samples per split.
         background_size: Maximum background dataset size for kernel explainer.
@@ -276,6 +277,7 @@ def calculate_fi_shap(
 
     # Collect per-split SHAP values: one mean|SHAP| per (split, feature)
     split_shap: dict[int, dict[str, float]] = {}
+    shap_type = ShapExplainerType(shap_type)
 
     for split_id, model in models.items():
         features = selected_features[split_id]
@@ -302,21 +304,21 @@ def calculate_fi_shap(
                 return np.asarray(_m.predict(np.asarray(x_in)))
 
         # Create appropriate explainer
-        if shap_type == "kernel":
+        if shap_type == ShapExplainerType.KERNEL:
             bg_size = min(background_size, x_arr.shape[0])
             rng = np.random.default_rng(42)
             bg_idx = rng.choice(x_arr.shape[0], size=bg_size, replace=False)
             bg = x_arr[bg_idx]
             explainer = shap.KernelExplainer(predict_fn, bg)
-        elif shap_type == "permutation":
+        elif shap_type == ShapExplainerType.PERMUTATION:
             explainer = shap.explainers.Permutation(predict_fn, x_arr)
-        elif shap_type == "exact":
+        elif shap_type == ShapExplainerType.EXACT:
             explainer = shap.explainers.Exact(predict_fn, x_arr)
         else:
-            raise ValueError(f"Unknown shap_type '{shap_type}'. Use 'kernel', 'permutation', or 'exact'.")
+            raise ValueError(f"Unknown shap_type '{shap_type}'. Use ShapExplainerType members.")
 
-        sv = explainer(x_arr) if shap_type != "kernel" else None
-        if shap_type == "kernel":
+        sv = explainer(x_arr) if shap_type != ShapExplainerType.KERNEL else None
+        if shap_type == ShapExplainerType.KERNEL:
             shap_values = explainer.shap_values(x_arr)
         else:
             shap_values = sv.values  # type: ignore[union-attr]
