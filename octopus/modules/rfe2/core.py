@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 from octopus.modules.octo.bag import BagBase
 from octopus.modules.octo.core import OctoModuleTemplate
 from octopus.modules import StudyContext
-from octopus.types import FIDataset, FIResultLabel, ResultType
+from octopus.types import FIComputeMethod, FIDataset, FIResultLabel, ResultType
 from octopus.utils import calculate_feature_groups
 
 
@@ -192,10 +192,10 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         fi_df = selected_row["feature_importances"]
         feature_importances = fi_df[["feature", "importance"]].copy()
         fi_method = self.config.fi_method_rfe
-        if fi_method == "permutation":
+        if fi_method == FIComputeMethod.PERMUTATION:
             feature_importances["fi_method"] = FIResultLabel.PERMUTATION
             feature_importances["fi_dataset"] = FIDataset.DEV
-        elif fi_method == "shap":
+        elif fi_method == FIComputeMethod.SHAP:
             feature_importances["fi_method"] = FIResultLabel.SHAP
             feature_importances["fi_dataset"] = FIDataset.DEV
         else:
@@ -245,9 +245,9 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
 
     def _get_fi(self, bag: BagBase) -> pd.DataFrame:
         """Get relevant feature importances."""
-        if self.config.fi_method_rfe == "permutation":
+        if self.config.fi_method_rfe == FIComputeMethod.PERMUTATION:
             fi_df = bag.feature_importances["permutation_dev_mean"]
-        elif self.config.fi_method_rfe == "shap":
+        elif self.config.fi_method_rfe == FIComputeMethod.SHAP:
             fi_df = bag.feature_importances["shap_dev_mean"]
 
         return fi_df  # type: ignore[return-value]

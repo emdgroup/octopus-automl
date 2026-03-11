@@ -8,7 +8,7 @@ from attrs import Attribute, define, field, validators
 from sklearn.base import BaseEstimator
 
 from octopus.models.hyperparameter import Hyperparameter
-from octopus.types import MLType, to_ml_types_frozenset, validate_ml_types
+from octopus.types import FIComputeMethod, MLType, to_ml_types_frozenset, validate_ml_types
 
 
 def validate_hyperparameters(instance: "ModelConfig", attribute: Attribute, value: list[Hyperparameter]) -> None:
@@ -64,7 +64,7 @@ class ModelConfig:
     """Create model config."""
 
     model_class: type[BaseModel]
-    feature_method: str
+    feature_method: FIComputeMethod = field(converter=FIComputeMethod)
     ml_types: frozenset[MLType] = field(converter=to_ml_types_frozenset, validator=validate_ml_types)
     hyperparameters: list[Hyperparameter] = field(validator=validate_hyperparameters)
     n_repeats: None | int = field(factory=lambda: None)

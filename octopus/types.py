@@ -129,6 +129,22 @@ class FIResultLabel(StrEnum):
     COUNTS_RELATIVE = "counts_relative"
 
 
+class FIComputeMethod(StrEnum):
+    """Computation methods for feature importance calculation.
+
+    Used in model configuration (``ModelConfig.feature_method``), module
+    configuration (``Octo.fi_methods_bestbag``, ``Rfe2.fi_method_rfe``,
+    ``Mrmr.feature_importance_method``), and internal dispatch in bag
+    and training code.
+    """
+
+    INTERNAL = "internal"
+    PERMUTATION = "permutation"
+    SHAP = "shap"
+    LOFO = "lofo"
+    CONSTANT = "constant"
+
+
 class FIDataset(StrEnum):
     """Dataset partitions for feature importance computation."""
 

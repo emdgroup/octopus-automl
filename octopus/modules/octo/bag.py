@@ -23,14 +23,14 @@ if TYPE_CHECKING:
     from octopus.modules.octo.training import Training
 
 # Adjust this import path as needed depending on your package layout
-from octopus.types import LogGroup, MLType
+from octopus.types import FIComputeMethod, LogGroup, MLType
 
 logger = get_logger()
 
 
 def _parse_fi_key(key: str) -> tuple[str, str]:
     """Parse a FI dict key like 'permutation_dev' into (method, dataset)."""
-    known_methods = {"permutation", "shap", "lofo"}
+    known_methods = {FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.LOFO}
     for method in known_methods:
         if key.startswith(method + "_"):
             return method, key[len(method) + 1 :]
@@ -86,15 +86,15 @@ class FeatureImportanceWithLogging:
         self._logger.info(f"Starting {self._fi_type} feature importance calculation")
 
         try:
-            if self._fi_type == "internal":
+            if self._fi_type == FIComputeMethod.INTERNAL:
                 self._training.calculate_fi_internal()
-            elif self._fi_type == "shap":
+            elif self._fi_type == FIComputeMethod.SHAP:
                 self._training.calculate_fi_shap(partition=self._partition)
-            elif self._fi_type == "permutation":
+            elif self._fi_type == FIComputeMethod.PERMUTATION:
                 self._training.calculate_fi_group_permutation(partition=self._partition)
-            elif self._fi_type == "lofo":
+            elif self._fi_type == FIComputeMethod.LOFO:
                 self._training.calculate_fi_lofo()
-            elif self._fi_type == "constant":
+            elif self._fi_type == FIComputeMethod.CONSTANT:
                 self._training.calculate_fi_constant()
             else:
                 raise ValueError(f"FI type {self._fi_type} not supported")
@@ -537,7 +537,7 @@ class BagBase(BaseEstimator):
             return pd.concat(all_dfs, ignore_index=True)
         return pd.DataFrame()
 
-    def _calculate_fi_parallel(self, fi_type="internal", partition="dev"):
+    def _calculate_fi_parallel(self, fi_type=FIComputeMethod.INTERNAL, partition="dev"):
         """Calculate feature importance in parallel using Ray."""
         # Ensure Ray is initialized before parallel execution
         init_ray(start_local_if_missing=True)
@@ -563,7 +563,7 @@ class BagBase(BaseEstimator):
         # Update trainings with results (should be the same objects with FI calculated)
         self.trainings = results
 
-    def _calculate_fi_sequential(self, fi_type="internal", partition="dev"):
+    def _calculate_fi_sequential(self, fi_type=FIComputeMethod.INTERNAL, partition="dev"):
         """Calculate feature importance sequentially."""
         successful_calculations = []
         failed_calculations = []
@@ -571,15 +571,15 @@ class BagBase(BaseEstimator):
         for idx, training in enumerate(self.trainings):
             training_id = getattr(training, "training_id", idx)
             try:
-                if fi_type == "internal":
+                if fi_type == FIComputeMethod.INTERNAL:
                     training.calculate_fi_internal()
-                elif fi_type == "shap":
+                elif fi_type == FIComputeMethod.SHAP:
                     training.calculate_fi_shap(partition=partition)
-                elif fi_type == "permutation":
+                elif fi_type == FIComputeMethod.PERMUTATION:
                     training.calculate_fi_group_permutation(partition=partition)
-                elif fi_type == "lofo":
+                elif fi_type == FIComputeMethod.LOFO:
                     training.calculate_fi_lofo()
-                elif fi_type == "constant":
+                elif fi_type == FIComputeMethod.CONSTANT:
                     training.calculate_fi_constant()
                 else:
                     raise ValueError(f"FI type {fi_type} not supported")
@@ -612,14 +612,14 @@ class BagBase(BaseEstimator):
 
         self.trainings = successful_calculations
 
-    def _calculate_fi(self, fi_type="internal", partition="dev"):
+    def _calculate_fi(self, fi_type=FIComputeMethod.INTERNAL, partition="dev"):
         """Calculate feature importance using parallel or sequential execution."""
         if self.parallel_execution:
             self._calculate_fi_parallel(fi_type=fi_type, partition=partition)
         else:
             self._calculate_fi_sequential(fi_type=fi_type, partition=partition)
 
-    def get_selected_features(self, fi_methods: list[str] | None = None) -> list[str]:
+    def get_selected_features(self, fi_methods: list[FIComputeMethod] | None = None) -> list[str]:
         """Get features selected by model, depending on fi method.
 
         The list of selected features will be derived only from one feature
@@ -630,13 +630,13 @@ class BagBase(BaseEstimator):
         if fi_methods is None:
             fi_methods = []
 
-        if "permutation" in fi_methods:
+        if FIComputeMethod.PERMUTATION in fi_methods:
             fi_df = self.feature_importances["permutation_dev_mean"]
-        elif "shap" in fi_methods:
+        elif FIComputeMethod.SHAP in fi_methods:
             fi_df = self.feature_importances["shap_dev_mean"]
-        elif "internal" in fi_methods:
+        elif FIComputeMethod.INTERNAL in fi_methods:
             fi_df = self.feature_importances["internal_mean"]
-        elif "constant" in fi_methods:
+        elif FIComputeMethod.CONSTANT in fi_methods:
             fi_df = self.feature_importances["constant_mean"]
         else:
             logger.set_log_group(LogGroup.RESULTS)
@@ -677,7 +677,7 @@ class BagBase(BaseEstimator):
 
         return sorted(feat_all, key=lambda x: (len(x), sorted(x)))
 
-    def calculate_feature_importances(self, fi_methods: list[str] | None = None, partitions: list[str] | None = None):
+    def calculate_feature_importances(self, fi_methods: list[FIComputeMethod] | None = None, partitions: list[str] | None = None):
         """Extract feature importances of all models in bag."""
         # we always extract internal feature importances, if available
         if fi_methods is None:
@@ -685,21 +685,21 @@ class BagBase(BaseEstimator):
         if partitions is None:
             partitions = ["dev", "test"]
 
-        self._calculate_fi(fi_type="internal")
+        self._calculate_fi(fi_type=FIComputeMethod.INTERNAL)
 
         for method in fi_methods:
-            if method == "internal":
+            if method == FIComputeMethod.INTERNAL:
                 pass  # already done
-            elif method == "shap":
+            elif method == FIComputeMethod.SHAP:
                 for partition in partitions:
-                    self._calculate_fi(fi_type="shap", partition=partition)
-            elif method == "permutation":
+                    self._calculate_fi(fi_type=FIComputeMethod.SHAP, partition=partition)
+            elif method == FIComputeMethod.PERMUTATION:
                 for partition in partitions:
-                    self._calculate_fi(fi_type="permutation", partition=partition)
-            elif method == "lofo":
-                self._calculate_fi(fi_type="lofo")
-            elif method == "constant":
-                self._calculate_fi(fi_type="constant")
+                    self._calculate_fi(fi_type=FIComputeMethod.PERMUTATION, partition=partition)
+            elif method == FIComputeMethod.LOFO:
+                self._calculate_fi(fi_type=FIComputeMethod.LOFO)
+            elif method == FIComputeMethod.CONSTANT:
+                self._calculate_fi(fi_type=FIComputeMethod.CONSTANT)
             else:
                 raise ValueError(f"Feature importance method {method} not supported.")
 
