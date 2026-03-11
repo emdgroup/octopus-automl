@@ -29,8 +29,9 @@ from octopus._optional.autogluon import (
 from octopus.logger import get_logger
 from octopus.manager.ray_parallel import setup_ray_for_external_library
 from octopus.metrics.utils import get_score_from_model
+from octopus.modules import StudyContext
 from octopus.modules.base import ModuleExecution, ModuleResult
-from octopus.types import FIDataset, FIMethod, LogGroup, MLType, ResultType
+from octopus.types import FIDataset, LogGroup, MLType, ResultType
 from octopus.utils import csv_save
 
 if TYPE_CHECKING:
@@ -237,7 +238,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                     if "feature" in temp.columns and "importance" in temp.columns
                     else temp
                 )
-                temp["fi_method"] = FIMethod.PERMUTATION
+                temp["fi_method"] = FIResultLabel.PERMUTATION
                 temp["fi_dataset"] = FIDataset.TEST
                 temp["training_id"] = "autogluon"
                 temp["result_type"] = ResultType.BEST

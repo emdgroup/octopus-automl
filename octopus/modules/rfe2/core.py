@@ -17,7 +17,10 @@ if TYPE_CHECKING:
     from upath import UPath
 
 from octopus.modules.octo.bag import BagBase
+from octopus.modules.octo.core import OctoModuleTemplate
 from octopus.modules import StudyContext
+from octopus.types import FIDataset, FIResultLabel, ResultType
+from octopus.utils import calculate_feature_groups
 
 
 @define
@@ -190,10 +193,10 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         feature_importances = fi_df[["feature", "importance"]].copy()
         fi_method = self.config.fi_method_rfe
         if fi_method == "permutation":
-            feature_importances["fi_method"] = FIMethod.PERMUTATION
+            feature_importances["fi_method"] = FIResultLabel.PERMUTATION
             feature_importances["fi_dataset"] = FIDataset.DEV
         elif fi_method == "shap":
-            feature_importances["fi_method"] = FIMethod.SHAP
+            feature_importances["fi_method"] = FIResultLabel.SHAP
             feature_importances["fi_dataset"] = FIDataset.DEV
         else:
             feature_importances["fi_method"] = fi_method
