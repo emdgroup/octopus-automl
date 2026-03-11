@@ -9,9 +9,11 @@ class TestFIResultLabel:
     """Tests for FIResultLabel enum."""
 
     def test_is_strenum(self) -> None:
+        """FIResultLabel members are strings."""
         assert isinstance(FIResultLabel.INTERNAL, str)
 
     def test_string_values(self) -> None:
+        """Each member equals its expected string value."""
         assert FIResultLabel.INTERNAL == "internal"
         assert FIResultLabel.PERMUTATION == "permutation"
         assert FIResultLabel.SHAP == "shap"
@@ -21,21 +23,24 @@ class TestFIResultLabel:
         assert FIResultLabel.COUNTS_RELATIVE == "counts_relative"
 
     def test_member_count(self) -> None:
+        """FIResultLabel has exactly 7 members."""
         assert len(FIResultLabel) == 7
 
     def test_string_comparison(self) -> None:
         """FIResultLabel members compare equal to their string values."""
         assert FIResultLabel.PERMUTATION == "permutation"
-        assert "shap" == FIResultLabel.SHAP
+        assert FIResultLabel.SHAP == "shap"
 
 
 class TestFIComputeMethod:
     """Tests for FIComputeMethod enum."""
 
     def test_is_strenum(self) -> None:
+        """FIComputeMethod members are strings."""
         assert isinstance(FIComputeMethod.INTERNAL, str)
 
     def test_string_values(self) -> None:
+        """Each member equals its expected string value."""
         assert FIComputeMethod.INTERNAL == "internal"
         assert FIComputeMethod.PERMUTATION == "permutation"
         assert FIComputeMethod.SHAP == "shap"
@@ -43,12 +48,13 @@ class TestFIComputeMethod:
         assert FIComputeMethod.CONSTANT == "constant"
 
     def test_member_count(self) -> None:
+        """FIComputeMethod has exactly 5 members."""
         assert len(FIComputeMethod) == 5
 
     def test_string_comparison(self) -> None:
         """FIComputeMethod members compare equal to their string values."""
         assert FIComputeMethod.PERMUTATION == "permutation"
-        assert "shap" == FIComputeMethod.SHAP
+        assert FIComputeMethod.SHAP == "shap"
 
     def test_construction_from_string(self) -> None:
         """FIComputeMethod can be constructed from a plain string."""
@@ -66,14 +72,17 @@ class TestFIType:
     """Tests for FIType enum."""
 
     def test_is_strenum(self) -> None:
+        """FIType members are strings."""
         assert isinstance(FIType.PERMUTATION, str)
 
     def test_string_values(self) -> None:
+        """Each member equals its expected string value."""
         assert FIType.PERMUTATION == "permutation"
         assert FIType.GROUP_PERMUTATION == "group_permutation"
         assert FIType.SHAP == "shap"
 
     def test_member_count(self) -> None:
+        """FIType has exactly 3 members."""
         assert len(FIType) == 3
 
     def test_construction_from_string(self) -> None:
@@ -92,14 +101,17 @@ class TestShapExplainerType:
     """Tests for ShapExplainerType enum."""
 
     def test_is_strenum(self) -> None:
+        """ShapExplainerType members are strings."""
         assert isinstance(ShapExplainerType.KERNEL, str)
 
     def test_string_values(self) -> None:
+        """Each member equals its expected string value."""
         assert ShapExplainerType.KERNEL == "kernel"
         assert ShapExplainerType.PERMUTATION == "permutation"
         assert ShapExplainerType.EXACT == "exact"
 
     def test_member_count(self) -> None:
+        """ShapExplainerType has exactly 3 members."""
         assert len(ShapExplainerType) == 3
 
     def test_construction_from_string(self) -> None:
