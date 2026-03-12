@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import ray
@@ -14,6 +15,9 @@ from octopus.logger import get_logger
 from octopus.modules import ModuleResult, StudyContext, Task
 from octopus.types import ResultType
 from octopus.utils import calculate_feature_groups, parquet_save
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 logger = get_logger()
 
@@ -34,7 +38,7 @@ class WorkflowTaskRunner:
     """
 
     study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
-    workflow: list[Task] = field(validator=[validators.instance_of(list)])
+    workflow: Sequence[Task] = field(validator=[validators.instance_of(list)])
     cpus_per_outersplit: int = field(validator=[validators.instance_of(int)])
 
     def run(self, outersplit_id: int, outersplit: OuterSplit) -> None:

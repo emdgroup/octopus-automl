@@ -54,7 +54,7 @@ class TestRocModule:
     def test_roc_module_invalid_threshold_type(self):
         """Test ROC module with invalid threshold type."""
         with pytest.raises(TypeError):
-            Roc(task_id=0, threshold="invalid")
+            Roc(task_id=0, threshold="invalid")  # type: ignore[arg-type]
 
     def test_roc_module_negative_task_id(self):
         """Test ROC module with negative sequence ID."""

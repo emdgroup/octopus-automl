@@ -23,7 +23,7 @@ def get_classification_models():
     excluded_models = {}
 
     # Get all models from the registry
-    for model_name in Models._config_factories:
+    for model_name in Models.get_registered_models():
         try:
             config = Models.get_config(model_name)
             if config.supports_ml_type(MLType.BINARY) and model_name not in excluded_models:

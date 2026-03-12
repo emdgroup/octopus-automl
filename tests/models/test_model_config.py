@@ -2,9 +2,15 @@
 
 import pytest
 
-from octopus.models.config import ModelConfig
+from octopus.models.config import BaseModel, ModelConfig
 from octopus.models.hyperparameter import CategoricalHyperparameter, FloatHyperparameter
 from octopus.types import FIComputeMethod, MLType
+
+
+class DummyModel(BaseModel):
+    """Dummy model for testing."""
+
+    pass
 
 
 def test_model_config_initialization():
@@ -15,7 +21,7 @@ def test_model_config_initialization():
     ]
 
     model = ModelConfig(
-        model_class=object,
+        model_class=DummyModel,
         feature_method=FIComputeMethod.INTERNAL,
         ml_types=[MLType.REGRESSION],
         hyperparameters=hyperparameters,
@@ -25,7 +31,7 @@ def test_model_config_initialization():
 
     # Name is not set during initialization - it's added by Models.get_config()
     assert not hasattr(model, "name")
-    assert isinstance(model.model_class, object)
+    assert isinstance(model.model_class, type)
     assert model.feature_method == FIComputeMethod.INTERNAL
     assert model.supports_ml_type(MLType.REGRESSION)
     assert model.hyperparameters == hyperparameters
@@ -46,7 +52,7 @@ def test_model_config_with_conflict():
         match=r"Hyperparameter 'n_jobs' is not allowed in 'hyperparameters'\.",
     ):
         ModelConfig(
-            model_class=object,
+            model_class=DummyModel,
             feature_method=FIComputeMethod.INTERNAL,
             ml_types=[MLType.REGRESSION],
             hyperparameters=hyperparameters,

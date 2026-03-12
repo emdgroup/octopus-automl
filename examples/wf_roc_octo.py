@@ -9,6 +9,7 @@
 import os
 
 from sklearn.datasets import load_breast_cancer
+from sklearn.utils import Bunch
 
 from octopus.modules import Octo, Roc
 from octopus.study import OctoClassification
@@ -19,7 +20,7 @@ from octopus.study import OctoClassification
 # This is a binary classification dataset with 30 features
 # Target: 0 = malignant, 1 = benign
 
-breast_cancer = load_breast_cancer(as_frame=True)
+breast_cancer: Bunch = load_breast_cancer(as_frame=True)  # type: ignore[assignment]
 
 df = breast_cancer["frame"].reset_index()
 df.columns = df.columns.str.replace(" ", "_")

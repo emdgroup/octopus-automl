@@ -45,6 +45,11 @@ class Models:
         return decorator
 
     @classmethod
+    def get_registered_models(cls) -> list[ModelName]:
+        """Get a list of all registered model names."""
+        return [ModelName(name) for name in cls._config_factories]
+
+    @classmethod
     def get_config(cls, name: ModelName) -> ModelConfig:
         """Get model configuration by name.
 
@@ -184,6 +189,5 @@ class Models:
         config = cls.get_config(model_name)
         if not config.supports_ml_type(ml_type):
             raise ValueError(
-                f"Model '{model_name}' does not support ml_type '{ml_type.value}'. "
-                f"Supported types: {', '.join(t.value for t in config.ml_types)}"
+                f"Model '{model_name}' does not support ml_type '{ml_type.value}'. Supported types: {', '.join(t.value for t in config.ml_types)}"
             )

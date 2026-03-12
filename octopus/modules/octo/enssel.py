@@ -1,6 +1,6 @@
 """Ensemble selection."""
 
-# TOBEDONE
+# TODO
 # - issue: ACC and BALACC need integer pooling values!
 # - potential issue: check start_n, +1 or not
 # - get FI and counts

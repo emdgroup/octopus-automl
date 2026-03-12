@@ -16,12 +16,13 @@ class TestOctoRegression:
     @pytest.fixture
     def diabetes_dataset(self):
         """Create synthetic regression dataset for testing."""
-        X, y = make_regression(
+        X, y, _ = make_regression(
             n_samples=30,
             n_features=5,
             n_informative=3,
             noise=0.1,
             random_state=42,
+            coef=True,
         )
 
         features = [f"feature_{i}" for i in range(5)]
@@ -105,6 +106,7 @@ class TestOctoRegression:
             "GradientBoostingRegressor",
             "CatBoostRegressor",
         }
+        assert octo_task.models is not None
         assert set(octo_task.models) == expected_models
 
     @pytest.mark.parametrize(
@@ -150,7 +152,7 @@ class TestOctoRegression:
             ensemble_selection=True,
             ensel_n_save_trials=10,
         )
-
+        assert octo_task.models is not None
         assert set(octo_task.models) == set(models)
 
     def test_ensemble_selection_configuration(self):
@@ -297,6 +299,7 @@ class TestOctoRegression:
             "GradientBoostingRegressor",
             "CatBoostRegressor",
         }
+        assert octo_task.models is not None
         assert set(octo_task.models) == expected_models
         assert octo_task.model_seed == 0
         assert octo_task.n_jobs == 1

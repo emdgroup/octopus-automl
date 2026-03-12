@@ -99,12 +99,13 @@ class TestAutogluonWorkflows:
     def test_full_regression_workflow(self):
         """Test the complete regression workflow execution."""
         # Create synthetic regression dataset with reduced size for faster testing
-        X, y = make_regression(
+        X, y, _ = make_regression(
             n_samples=30,
             n_features=5,
             n_informative=3,
             noise=0.1,
             random_state=42,
+            coef=True,
         )
 
         # Create DataFrame similar to diabetes dataset structure

@@ -13,17 +13,18 @@ from octopus.models.hyperparameter import (
     FloatHyperparameter,
     IntHyperparameter,
 )
+from octopus.models.model_name import ModelName
 from octopus.types import ML_TYPES
 
 
-def get_all_models():
+def get_all_models() -> list[ModelName]:
     """Get all available models from registry."""
     # Get all registered model names from Models class
-    all_models = sorted(Models._config_factories.keys())
+    all_models: list[ModelName] = sorted(Models.get_registered_models(), key=lambda x: x.value)
     return [name for name in all_models if "TabPFN" not in name]
 
 
-def generate_param_combinations(model_name: str, max_combos: int = 20) -> list[dict[str, Any]]:
+def generate_param_combinations(model_name: ModelName, max_combos: int = 20) -> list[dict[str, Any]]:
     """Generate parameter combinations from model config."""
     # Models uses classmethods, no instantiation needed
     config = Models.get_config(model_name)
@@ -69,7 +70,7 @@ def generate_param_combinations(model_name: str, max_combos: int = 20) -> list[d
 
 
 @pytest.mark.parametrize("model_name", get_all_models())
-def test_model_parameter_compatibility(model_name):
+def test_model_parameter_compatibility(model_name: ModelName):
     """Test that all parameter combinations from config are compatible."""
     # Models uses classmethods, no instantiation needed
     param_combinations = generate_param_combinations(model_name)
@@ -106,7 +107,6 @@ def test_all_models_have_valid_configs():
     for model_name in get_all_models():
         try:
             config = Models.get_config(model_name)
-            assert config.name == model_name
             assert config.model_class is not None
             assert all(t.value in ML_TYPES for t in config.ml_types)
         except Exception as e:

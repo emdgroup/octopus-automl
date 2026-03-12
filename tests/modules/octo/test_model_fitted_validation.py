@@ -27,6 +27,7 @@ from octopus.models.hyperparameter import (
     FloatHyperparameter,
     IntHyperparameter,
 )
+from octopus.models.model_name import ModelName
 from octopus.modules.octo.training import Training
 from octopus.types import MLType
 
@@ -34,13 +35,14 @@ from octopus.types import MLType
 # CONFIGURATION AND FIXTURES
 # ============================================================================
 
-# Test data configuration
-TEST_CONFIG = {
-    "n_samples": 100,  # Smaller dataset for faster testing
-    "test_split": 0.3,
-    "dev_split": 0.2,
-    "random_seed": 42,
-}
+
+class TEST_CONFIG:
+    """Test data configuration."""
+
+    n_samples = 100  # Smaller dataset for faster testing
+    test_split = 0.3
+    dev_split = 0.2
+    random_seed = 42
 
 
 class ModelCache:
@@ -55,9 +57,13 @@ class ModelCache:
             return self._cached_models_by_type
 
         # Get all models from the registry
-        all_models = Models._config_factories.keys()
+        all_models = Models.get_registered_models()
 
-        models_by_type = {MLType.BINARY: [], MLType.REGRESSION: [], MLType.TIMETOEVENT: []}
+        models_by_type: dict[MLType, list[ModelName]] = {
+            MLType.BINARY: [],
+            MLType.REGRESSION: [],
+            MLType.TIMETOEVENT: [],
+        }
 
         for model_name in all_models:
             try:
@@ -105,7 +111,7 @@ def get_model_configs():
     }
 
 
-def get_default_model_params(model_name: str) -> dict:
+def get_default_model_params(model_name: ModelName) -> dict:
     """Get default parameters for a model from its hyperparameter configuration.
 
     This function should replicate the exact same parameter handling as the real octopus framework
@@ -151,8 +157,8 @@ def get_default_model_params(model_name: str) -> dict:
 @pytest.fixture(scope="session")
 def test_data():
     """Create comprehensive test dataset with mixed data types."""
-    np.random.seed(TEST_CONFIG["random_seed"])
-    n_samples = TEST_CONFIG["n_samples"]
+    np.random.seed(TEST_CONFIG.random_seed)
+    n_samples = TEST_CONFIG.n_samples
 
     # Generate numerical features
     data = pd.DataFrame(
@@ -193,8 +199,8 @@ def test_data():
     data["event"] = np.random.choice([True, False], n_samples, p=[0.7, 0.3])
 
     # Split data
-    n_train = int(n_samples * (1 - TEST_CONFIG["test_split"] - TEST_CONFIG["dev_split"]))
-    n_dev = int(n_samples * TEST_CONFIG["dev_split"])
+    n_train = int(n_samples * (1 - TEST_CONFIG.test_split - TEST_CONFIG.dev_split))
+    n_dev = int(n_samples * TEST_CONFIG.dev_split)
 
     indices = np.random.permutation(n_samples)
     train_idx = indices[:n_train]
@@ -224,7 +230,7 @@ def create_training_instance(
     data_dev: pd.DataFrame,
     data_test: pd.DataFrame,
     ml_type: MLType,
-    model_name: str,
+    model_name: ModelName,
     feature_cols: list[str],
     feature_groups: dict[str, list[str]],
 ) -> Training:
@@ -234,12 +240,6 @@ def create_training_instance(
 
     # Get default parameters from model inventory
     ml_model_params = get_default_model_params(model_name)
-
-    training_config = {
-        "ml_model_type": model_name,
-        "ml_model_params": ml_model_params,
-        "outl_reduction": 0,
-    }
 
     return Training(
         training_id=f"test_{ml_type}_{model_name}",
@@ -253,7 +253,11 @@ def create_training_instance(
         target_metric=config["target_metric"],
         max_features=0,  # Disable automatic feature selection
         feature_groups=feature_groups,
-        config_training=training_config,
+        config_training={
+            "ml_model_type": model_name,
+            "ml_model_params": ml_model_params,
+            "outl_reduction": 0,
+        },
     )
 
 
@@ -262,7 +266,7 @@ def create_training_instance(
 # ============================================================================
 
 
-def _test_model_fitted_validation(training: Training, model_name: str) -> dict:
+def _test_model_fitted_validation(training: Training, model_name: ModelName) -> dict:
     """Test the _validate_model_trained method for a specific model."""
     result = {
         "model": model_name,
@@ -317,7 +321,7 @@ def _test_model_fitted_validation(training: Training, model_name: str) -> dict:
     return result
 
 
-def _display_model_info(model_name: str, model_params: dict, verbose: bool = False):
+def _display_model_info(model_name: ModelName, model_params: dict, verbose: bool = False):
     """Display detailed model information and hyperparameters.
 
     Args:
@@ -339,7 +343,7 @@ def _display_model_info(model_name: str, model_params: dict, verbose: bool = Fal
         # Models uses classmethods, no instantiation needed
         model_config = Models.get_config(model_name)
 
-        print(f"\n  📊 {model_name}")
+        print(f"\n  📊 {model_name.value}")
         print(f"     Model Class: {model_config.model_class.__name__}")
         print(f"     ML Types: {model_config.ml_types}")
         print(f"     Feature Method: {model_config.feature_method}")
@@ -359,7 +363,7 @@ def _display_model_info(model_name: str, model_params: dict, verbose: bool = Fal
                 categorical_params.append(f"{hp.name}={hp.choices[0]} (choices: {hp.choices})")
             elif isinstance(hp, IntHyperparameter | FloatHyperparameter):
                 if isinstance(hp, IntHyperparameter):
-                    default_val = int((hp.low + hp.high) / 2)
+                    default_val: int | float = int((hp.low + hp.high) / 2)
                 else:
                     default_val = np.sqrt(hp.low * hp.high) if hp.log else (hp.low + hp.high) / 2
                 numeric_params.append(f"{hp.name}={default_val:.4f} (range: {hp.low}-{hp.high}, log: {hp.log})")
@@ -665,8 +669,8 @@ if __name__ == "__main__":
     print("=" * 80)
 
     # Create test data manually for standalone execution
-    np.random.seed(TEST_CONFIG["random_seed"])
-    n_samples = TEST_CONFIG["n_samples"]
+    np.random.seed(TEST_CONFIG.random_seed)
+    n_samples = TEST_CONFIG.n_samples
 
     data = pd.DataFrame(
         {
@@ -701,21 +705,21 @@ if __name__ == "__main__":
     data["event"] = np.random.choice([True, False], n_samples, p=[0.7, 0.3])
 
     # Split data
-    n_train = int(n_samples * (1 - TEST_CONFIG["test_split"] - TEST_CONFIG["dev_split"]))
-    n_dev = int(n_samples * TEST_CONFIG["dev_split"])
+    n_train = int(n_samples * (1 - TEST_CONFIG.test_split - TEST_CONFIG.dev_split))
+    n_dev = int(n_samples * TEST_CONFIG.dev_split)
 
     indices = np.random.permutation(n_samples)
     train_idx = indices[:n_train]
     dev_idx = indices[n_train : n_train + n_dev]
     test_idx = indices[n_train + n_dev :]
 
-    test_data = (
+    main_test_data = (
         data.iloc[train_idx].reset_index(drop=True),
         data.iloc[dev_idx].reset_index(drop=True),
         data.iloc[test_idx].reset_index(drop=True),
     )
 
-    feature_config = (
+    main_feature_config = (
         ["num_col1", "num_col2", "num_col3", "nominal_col", "ordinal_col"],
         {"numerical_group": ["num_col1", "num_col2"], "categorical_group": ["nominal_col", "ordinal_col"]},
     )
@@ -724,25 +728,25 @@ if __name__ == "__main__":
     test_instance = TestModelFittedValidation()
 
     try:
-        test_instance.test_classification_models_fitted_validation(test_data, feature_config)
+        test_instance.test_classification_models_fitted_validation(main_test_data, main_feature_config)
         print("✅ Classification models test passed")
     except Exception as e:
         print(f"❌ Classification models test failed: {e}")
 
     try:
-        test_instance.test_regression_models_fitted_validation(test_data, feature_config)
+        test_instance.test_regression_models_fitted_validation(main_test_data, main_feature_config)
         print("✅ Regression models test passed")
     except Exception as e:
         print(f"❌ Regression models test failed: {e}")
 
     try:
-        test_instance.test_timetoevent_models_fitted_validation(test_data, feature_config)
+        test_instance.test_timetoevent_models_fitted_validation(main_test_data, main_feature_config)
         print("✅ Time-to-event models test passed")
     except Exception as e:
         print(f"❌ Time-to-event models test failed: {e}")
 
     try:
-        test_instance.test_comprehensive_model_fitted_validation(test_data, feature_config)
+        test_instance.test_comprehensive_model_fitted_validation(main_test_data, main_feature_config)
         print("✅ Comprehensive test passed")
     except Exception as e:
         print(f"❌ Comprehensive test failed: {e}")

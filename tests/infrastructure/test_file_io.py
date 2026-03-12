@@ -48,7 +48,7 @@ _CASES = [
 def test_parquet_dtype_roundtrip(tmp_path, data, dtype):
     """Test that saving and loading a DataFrame with parquet_save and parquet_load works correctly."""
     if dtype == "CategoricalDtype":
-        dtype = pd.CategoricalDtype(set(data))
+        dtype = pd.CategoricalDtype(sorted(set(data)))
     elif dtype == "StringDtype":
         dtype = pd.StringDtype()
 

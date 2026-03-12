@@ -5,6 +5,7 @@ import json
 import os
 import platform
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import UTC
 
 import pandas as pd
@@ -76,7 +77,7 @@ class OctoStudy(ABC):
     run_single_outersplit_num: int = field(default=Factory(lambda: -1), validator=[validators.instance_of(int)])
     """Select a single outersplit to execute. Defaults to -1 to run all outersplits"""
 
-    workflow: list[Task] = field(
+    workflow: Sequence[Task] = field(
         default=Factory(lambda: [Octo(task_id=0)]),
         validator=[validators.instance_of(list), validate_workflow],
     )

@@ -24,7 +24,7 @@ from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
 from octopus.types import FIComputeMethod, LogGroup, MLType, ModelName, ShapType
 
-# # TOBEDONE pipeline
+# # TODO pipeline
 # - implement cat encoding on module level
 # - how to provide categorical info to catboost and other models?
 
@@ -32,7 +32,7 @@ from octopus.types import FIComputeMethod, LogGroup, MLType, ModelName, ShapType
 logger = get_logger()
 
 
-class TrainingConfig(TypedDict):
+class TrainingConfig(TypedDict, total=False):
     """Training configuration type."""
 
     outl_reduction: int

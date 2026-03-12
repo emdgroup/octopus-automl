@@ -11,12 +11,13 @@
 import os
 
 from sklearn.datasets import load_wine
+from sklearn.utils import Bunch
 
 from octopus.modules import Octo
 from octopus.study import OctoClassification
 
 ### Load and Preprocess Data
-wine = load_wine(as_frame=True)
+wine: Bunch = load_wine(as_frame=True)  # type: ignore[assignment]
 
 df = wine["frame"].reset_index()
 df.columns = df.columns.str.replace(" ", "_")

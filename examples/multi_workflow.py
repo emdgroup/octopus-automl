@@ -7,12 +7,13 @@
 import os
 
 from sklearn.datasets import load_diabetes
+from sklearn.utils import Bunch
 
 from octopus.modules import Mrmr, Octo
 from octopus.study import OctoRegression
 
 ### Load the diabetes dataset
-diabetes = load_diabetes(as_frame=True)
+diabetes: Bunch = load_diabetes(as_frame=True)  # type: ignore[assignment]
 
 ### Create and run OctoRegression with multi-step workflow
 study = OctoRegression(

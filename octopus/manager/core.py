@@ -2,6 +2,7 @@
 
 import math
 import os
+from collections.abc import Sequence
 
 from attrs import define, field, validators
 
@@ -133,8 +134,8 @@ class OctoManager:
     study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     """Frozen runtime context containing study configuration."""
 
-    workflow: list[Task] = field(validator=[validators.instance_of(list)])
-    """List of workflow tasks to execute."""
+    workflow: Sequence[Task] = field(validator=[validators.instance_of(list)])
+    """Workflow tasks to execute."""
 
     outer_parallelization: bool = field(validator=[validators.instance_of(bool)])
     """Whether to run outersplits in parallel."""

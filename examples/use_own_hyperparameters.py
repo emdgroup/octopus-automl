@@ -9,13 +9,14 @@
 import os
 
 from sklearn.datasets import load_diabetes
+from sklearn.utils import Bunch
 
 from octopus.models.hyperparameter import IntHyperparameter
 from octopus.modules import Octo
 from octopus.study import OctoRegression
 
 ### Load the diabetes dataset
-diabetes = load_diabetes(as_frame=True)
+diabetes: Bunch = load_diabetes(as_frame=True)  # type: ignore[assignment]
 
 ### Create and run OctoRegression with custom hyperparameters
 study = OctoRegression(

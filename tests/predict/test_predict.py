@@ -22,7 +22,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import pytest
 from sklearn.datasets import load_breast_cancer
+from sklearn.utils import Bunch
 
+from octopus.models import ModelName
 from octopus.modules import Octo
 from octopus.predict.notebook_utils import (
     display_table,
@@ -39,7 +41,7 @@ from octopus.predict.study_io import StudyLoader, StudyMetadata
 from octopus.predict.task_predictor import TaskPredictor
 from octopus.predict.task_predictor_test import TaskPredictorTest
 from octopus.study import OctoClassification
-from octopus.types import MLType
+from octopus.types import FIComputeMethod, FIType, MLType
 from octopus.utils import parquet_load
 
 # ── Prevent plotly from opening browser windows ─────────────────
@@ -66,7 +68,7 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
         Tuple of (study, data) for use in tests.
     """
     # Use breast cancer dataset (enough samples for nonzero FI)
-    bc = load_breast_cancer(as_frame=True)
+    bc: Bunch = load_breast_cancer(as_frame=True)  # type: ignore[assignment]
     df = bc["frame"].reset_index()
     df.columns = df.columns.str.replace(" ", "_")
     features = [c.replace(" ", "_") for c in bc["feature_names"][:5]]
@@ -90,11 +92,11 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
                 task_id=0,
                 depends_on=None,
                 n_folds_inner=3,
-                models=["ExtraTreesClassifier"],
+                models=[ModelName.ExtraTreesClassifier],
                 model_seed=0,
                 n_jobs=1,
                 max_outl=0,
-                fi_methods_bestbag=["permutation"],
+                fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
                 inner_parallelization=True,
                 n_workers=2,
                 optuna_seed=0,
@@ -286,7 +288,7 @@ class TestTaskPredictorTestFI:
 
     def test_fi_permutation(self, tpt):
         """Verify permutation FI returns DataFrame with per-split and ensemble rows."""
-        fi = tpt.calculate_fi(fi_type="permutation", n_repeats=2)
+        fi = tpt.calculate_fi(fi_type=FIType.PERMUTATION, n_repeats=2)
         assert isinstance(fi, pd.DataFrame)
         assert "feature" in fi.columns
         assert "importance_mean" in fi.columns
@@ -460,7 +462,7 @@ class TestNotebookUtilsTaskLevel:
 
     def test_show_overall_fi_table(self, tpt):
         """Verify overall FI table contains only ensemble rows."""
-        fi = tpt.calculate_fi(fi_type="permutation", n_repeats=2)
+        fi = tpt.calculate_fi(fi_type=FIType.PERMUTATION, n_repeats=2)
         ensemble_df = show_overall_fi_table(fi)
         assert isinstance(ensemble_df, pd.DataFrame)
         # All rows should be ensemble
@@ -469,7 +471,7 @@ class TestNotebookUtilsTaskLevel:
 
     def test_show_overall_fi_plot(self, tpt):
         """Verify overall FI plot renders without error."""
-        fi = tpt.calculate_fi(fi_type="permutation", n_repeats=2)
+        fi = tpt.calculate_fi(fi_type=FIType.PERMUTATION, n_repeats=2)
         # Should not raise (plotly fig.show() is a no-op in test)
         show_overall_fi_plot(fi, top_n=3)
 
@@ -526,7 +528,7 @@ class TestNotebookWorkflow:
 
         # Cell: permutation FI
         fi_perm = tpt_local.calculate_fi(
-            fi_type="permutation",
+            fi_type=FIType.PERMUTATION,
             n_repeats=2,
         )
         assert isinstance(fi_perm, pd.DataFrame)
