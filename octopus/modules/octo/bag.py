@@ -91,7 +91,7 @@ class FeatureImportanceWithLogging:
             elif self._fi_type == "shap":
                 self._training.calculate_fi_shap(partition=self._partition)
             elif self._fi_type == "permutation":
-                self._training.calculate_fi_group_permutation(partition=self._partition)
+                self._training.calculate_fi_permutation(partition=self._partition)
             elif self._fi_type == "lofo":
                 self._training.calculate_fi_lofo()
             elif self._fi_type == "constant":
@@ -576,7 +576,7 @@ class BagBase(BaseEstimator):
                 elif fi_type == "shap":
                     training.calculate_fi_shap(partition=partition)
                 elif fi_type == "permutation":
-                    training.calculate_fi_group_permutation(partition=partition)
+                    training.calculate_fi_permutation(partition=partition)
                 elif fi_type == "lofo":
                     training.calculate_fi_lofo()
                 elif fi_type == "constant":
