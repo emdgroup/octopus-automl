@@ -308,7 +308,6 @@ def compute_permutation_single(
     X_test: pd.DataFrame,
     X_train: pd.DataFrame,
     feature_cols: list[str],
-    target_col: str,
     target_metric: str,
     target_assignments: dict[str, str],
     positive_class: Any = None,
@@ -330,7 +329,6 @@ def compute_permutation_single(
         X_test: Test data (must contain feature columns + target columns).
         X_train: Training data used as the sampling pool.
         feature_cols: Feature column names used by the model.
-        target_col: Target column name (primary key in target_assignments).
         target_metric: Metric name for scoring.
         target_assignments: Dict mapping target roles to column names.
         positive_class: Positive class label for classification.
@@ -450,7 +448,6 @@ def calculate_fi_permutation(
             X_test=test_df,
             X_train=train_df,
             feature_cols=features,
-            target_col=target_col,
             target_metric=target_metric,
             target_assignments=target_assignments,
             positive_class=positive_class,

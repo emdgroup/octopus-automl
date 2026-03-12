@@ -465,24 +465,26 @@ class Training:
 
         target_cols = list(self.target_assignments.values())
         if partition == "dev":
-            data = pd.concat([self.x_dev_processed, self.data_dev[target_cols]], axis=1)
+            eval_data = pd.concat([self.x_dev_processed, self.data_dev[target_cols]], axis=1)
         elif partition == "test":
-            data = pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1)
+            eval_data = pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1)
         else:
             raise ValueError(f"Unsupported partition: {partition}")
 
-        if not set(self.feature_cols).issubset(data.columns):
+        if not set(self.feature_cols).issubset(eval_data.columns):
             raise ValueError("Features missing in provided dataset.")
+
+        # Build training pool for draw-from-pool permutation.
+        # Use x_train_processed (larger, more representative) as the sampling pool.
+        train_pool = pd.concat([self.x_train_processed, self.data_train[target_cols]], axis=1)
 
         feature_groups = self.feature_groups if use_groups else None
 
-        target_col = list(self.target_assignments.keys())[0]
         results_df = compute_permutation_single(
             model=self.model,
-            X_test=data,
-            X_train=data,
+            X_test=eval_data,
+            X_train=train_pool,
             feature_cols=self.feature_cols,
-            target_col=target_col,
             target_metric=self.target_metric,
             target_assignments=self.target_assignments,
             positive_class=self.config_training.get("positive_class"),
