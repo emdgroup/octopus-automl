@@ -8,19 +8,18 @@
 ### Necessary imports for this example
 import os
 
-from sklearn.datasets import load_breast_cancer
-from sklearn.utils import Bunch
-
+from octopus.example_data import load_breast_cancer_data
 from octopus.modules import Octo
 from octopus.study import OctoClassification
 
 ### Load and Preprocess Data
-breast_cancer: Bunch = load_breast_cancer(as_frame=True)  # type: ignore[assignment]
+df, features, targets = load_breast_cancer_data()
 
-df = breast_cancer["frame"].reset_index()
-df.columns = df.columns.str.replace(" ", "_")
-features = list(breast_cancer["feature_names"])
-features = [feature.replace(" ", "_") for feature in features]
+print("Dataset info:")
+print(f"  Features: {len(features)} - {features}")
+print(f"  Samples: {df.shape[0]}")
+print(f"  Classes: {len(targets)} - {targets}")
+print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict()}")
 
 ### Create and run OctoClassification
 study = OctoClassification(

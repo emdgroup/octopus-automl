@@ -6,21 +6,25 @@
 ### Necessary imports for this example
 import os
 
-from sklearn.datasets import load_diabetes
-from sklearn.utils import Bunch
-
+from octopus.example_data import load_diabetes_data
 from octopus.modules import Mrmr, Octo
 from octopus.study import OctoRegression
 
 ### Load the diabetes dataset
-diabetes: Bunch = load_diabetes(as_frame=True)  # type: ignore[assignment]
+df, features, targets = load_diabetes_data()
+
+print("Dataset info:")
+print(f"  Features: {len(features)} - {features}")
+print(f"  Samples: {df.shape[0]}")
+print(f"  Classes: {len(targets)} - {targets}")
+print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict()}")
 
 ### Create and run OctoRegression with multi-step workflow
 study = OctoRegression(
     name="example_multiworkflow",
     path=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="R2",
-    feature_cols=diabetes["feature_names"],
+    feature_cols=features,
     target_col="target",
     sample_id_col="index",
     ignore_data_health_warning=True,
@@ -53,6 +57,6 @@ study = OctoRegression(
     ],
 )
 
-study.fit(data=diabetes["frame"].reset_index())
+study.fit(data=df)
 
 print("Multi-workflow completed")
