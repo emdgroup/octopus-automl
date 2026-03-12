@@ -81,15 +81,23 @@ For maximum speed it is recommended to run Octopus on a compute node with $n\tim
 Package Installation works via `pip` or any other standard Python package manager:
 
 ```bash
-    pip install octopus-automl
+# Install with recommended dependencies (includes optional packages such as AutoGluon)
+pip install "octopus-automl[recommended]"
 
-    # Install with extras
-    pip install "octopus-automl[autogluon]"     # AutoGluon reference
-    pip install "octopus-automl[boruta]"        # Boruta feature selection
-    pip install "octopus-automl[sfs]"           # SequentialFeatureSelector feature selection
-    pip install "octopus-automl[survival]"      # Support time-to-event / survival analysis
-    pip install "octopus-automl[examples]"      # Dependencies for running examples
+# Explicitly specify optional dependencies
+pip install "octopus-automl[autogluon]"     # AutoGluon
+pip install "octopus-automl[boruta]"        # Boruta feature selection
+pip install "octopus-automl[sfs]"           # SequentialFeatureSelector feature selection
+pip install "octopus-automl[survival]"      # Support time-to-event / survival analysis
+pip install "octopus-automl[examples]"      # Dependencies for running examples
 
-    # Install with more than one extras, e.g.
-    pip install "octopus-automl[autogluon,examples]"
+# Install with more than one extras, e.g.
+pip install "octopus-automl[autogluon,examples]"
+```
+
+For contributors / octopus developers, a specific dependency group exists.
+It contains code sanitization and quality tools.
+
+```bash
+pip install "octopus-automl[dev]"
 ```
