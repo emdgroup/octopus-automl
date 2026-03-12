@@ -97,10 +97,10 @@ def compute_per_repeat_stats(
 
     return {
         "importance": mean_val,
-        "stddev": std_val if not np.isnan(std_val) else 0.0,
-        "p-value": p_value,
-        "ci_low_95": ci_lower,
-        "ci_high_95": ci_upper,
+        "importance_std": std_val if not np.isnan(std_val) else 0.0,
+        "p_value": p_value,
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
     }
 
 
@@ -128,7 +128,7 @@ def compute_internal_fi(
 
     # Time-to-event: not supported
     if ml_type == MLType.TIMETOEVENT:
-        logger.warning("Internal features importances not available for timetoevent.")
+        logger.warning("Internal feature importances not available for timetoevent.")
         return empty
 
     # Tree-based models
@@ -155,7 +155,7 @@ def compute_internal_fi(
         return pd.DataFrame({"feature": feature_names, "importance": importance})
 
     # Fallback
-    logger.warning("Internal features importances not available for this estimator.")
+    logger.warning("Internal feature importances not available for this estimator.")
     return empty
 
 
@@ -191,7 +191,14 @@ def compute_shap_single(
     Returns:
         DataFrame with columns ``["feature", "importance"]``.
     """
-    import shap  # noqa: PLC0415
+    try:
+        import shap  # noqa: PLC0415
+    except ImportError as exc:  # pragma: no cover - import error path
+        raise ImportError(
+            "The 'shap' package is required to compute SHAP feature "
+            "importance. Please install it (e.g. with 'pip install shap') "
+            "and try again."
+        ) from exc
 
     # Convert to numpy to avoid model attribute side-effects
     if isinstance(X, pd.DataFrame):
@@ -207,7 +214,16 @@ def compute_shap_single(
     n_features = x_arr.shape[1]
 
     # Build prediction function
-    if hasattr(model, "predict_proba") and ml_type in (MLType.BINARY, MLType.MULTICLASS, None):
+    # Classifiers: use predict_proba to give SHAP a continuous output.
+    # model.predict returns class labels which are not meaningful for SHAP.
+    # Regressors / time-to-event: use model.predict (scalar output).
+    # Note: we use ml_type (not hasattr(model, "classes_")) because some
+    # regressors (e.g. CatBoostRegressor) expose a classes_ attribute.
+    is_classifier = (
+        ml_type in (MLType.BINARY, MLType.MULTICLASS) if ml_type is not None else hasattr(model, "predict_proba")
+    )
+
+    if is_classifier:
 
         def predict_fn(x_in: np.ndarray, _m: Any = model) -> np.ndarray:
             return np.asarray(_m.predict_proba(np.asarray(x_in)))
@@ -243,7 +259,15 @@ def compute_shap_single(
             bg = x_arr[bg_idx]
         explainer = shap.KernelExplainer(predict_fn, bg)
         shap_values = explainer.shap_values(x_arr)
-        shap_values = np.asarray(shap_values)
+        # KernelExplainer.shap_values may return a list of per-class arrays for multi-class models.
+        # Stack such outputs into a numeric array so that downstream shape handling works correctly.
+        if isinstance(shap_values, (list, tuple)):
+            try:
+                shap_values = np.stack(shap_values, axis=-1)
+            except ValueError:
+                shap_values = np.asarray(shap_values)
+        else:
+            shap_values = np.asarray(shap_values)
     elif shap_type == "permutation":
         explainer = shap.explainers.Permutation(predict_fn, x_arr)
         sv = explainer(x_arr)
@@ -256,15 +280,17 @@ def compute_shap_single(
         raise ValueError(f"Unknown shap_type '{shap_type}'. Use 'auto', 'kernel', 'permutation', or 'exact'.")
 
     # Aggregate absolute SHAP to per-feature importances
+    # 2D (n_samples, n_features): regression / time-to-event, or classifier fallback
+    # 3D (n_samples, n_features, n_classes): classifier with predict_proba
     vals = shap_values
     if vals.ndim == 2 and vals.shape[1] == n_features:
+        # Regression / single-output: mean |SHAP| over samples
         importance = np.abs(vals).mean(axis=0)
     elif vals.ndim == 3:
-        feat_axes = [i for i in range(1, vals.ndim) if vals.shape[i] == n_features]
-        if len(feat_axes) != 1:
-            raise ValueError(f"Unexpected SHAP values shape {vals.shape} for {n_features} features")
-        reduce_axes = tuple(i for i in range(vals.ndim) if i != feat_axes[0])
-        importance = np.mean(np.abs(vals), axis=reduce_axes)
+        # Classification: mean |SHAP| per class, then average across classes
+        # vals shape: (n_samples, n_features, n_classes)
+        mean_abs_per_class = np.abs(vals).mean(axis=0)  # (n_features, n_classes)
+        importance = mean_abs_per_class.mean(axis=1)  # (n_features,)
     else:
         raise ValueError(f"Unexpected SHAP values shape {vals.shape}")
 
@@ -272,7 +298,7 @@ def compute_shap_single(
 
     # Apply threshold filter if requested
     if threshold_ratio is not None and not fi_df["importance"].empty:
-        fi_df = fi_df[fi_df["importance"] > fi_df["importance"].max() * threshold_ratio]
+        fi_df = fi_df[fi_df["importance"] >= fi_df["importance"].max() * threshold_ratio]
 
     return fi_df
 
@@ -314,7 +340,7 @@ def compute_permutation_single(
 
     Returns:
         DataFrame with columns:
-        ``["feature", "importance", "stddev", "p-value", "ci_low_95", "ci_high_95"]``.
+        ``["feature", "importance", "importance_std", "p_value", "ci_lower", "ci_upper"]``.
         Column ``"importance"`` holds the mean across repeats (compatible
         with Bag aggregation).
     """
@@ -355,7 +381,7 @@ def compute_permutation_single(
         results.append({"feature": item_name, **stats})
 
     if not results:
-        return pd.DataFrame(columns=["feature", "importance", "stddev", "p-value", "ci_low_95", "ci_high_95"])
+        return pd.DataFrame(columns=["feature", "importance", "importance_std", "p_value", "ci_lower", "ci_upper"])
 
     return pd.DataFrame(results)
 
@@ -443,10 +469,10 @@ def calculate_fi_permutation(
                         {
                             "feature": fc,
                             "importance": 0.0,
-                            "stddev": 0.0,
-                            "p-value": float("nan"),
-                            "ci_low_95": float("nan"),
-                            "ci_high_95": float("nan"),
+                            "importance_std": 0.0,
+                            "p_value": float("nan"),
+                            "ci_lower": float("nan"),
+                            "ci_upper": float("nan"),
                         }
                     )
             if zero_rows:
@@ -468,10 +494,10 @@ def calculate_fi_permutation(
                     "fi_source": split_id,
                     "feature": feat,
                     "importance_mean": imp_mean,
-                    "stddev": row["stddev"],
-                    "p-value": row["p-value"],
-                    "ci_low_95": row["ci_low_95"],
-                    "ci_high_95": row["ci_high_95"],
+                    "importance_std": row["importance_std"],
+                    "p_value": row["p_value"],
+                    "ci_lower": row["ci_lower"],
+                    "ci_upper": row["ci_upper"],
                 }
             )
             if feat not in per_split_means:
@@ -488,10 +514,10 @@ def calculate_fi_permutation(
                 "fi_source": "ensemble",
                 "feature": feature_name,
                 "importance_mean": ensemble_mean,
-                "stddev": ensemble_std,
-                "p-value": float("nan"),
-                "ci_low_95": float("nan"),
-                "ci_high_95": float("nan"),
+                "importance_std": ensemble_std,
+                "p_value": float("nan"),
+                "ci_lower": float("nan"),
+                "ci_upper": float("nan"),
             }
         )
 

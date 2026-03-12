@@ -34,9 +34,8 @@ FI_METHODS = [
     "calculate_fi_permutation",
     "calculate_fi_permutation_no_groups",
     "calculate_fi_lofo",
-    # SHAP methods excluded until #343 is resolved
-    # "calculate_fi_featuresused_shap",
-    # "calculate_fi_shap",
+    "calculate_fi_featuresused_shap",
+    "calculate_fi_shap",
 ]
 
 ML_TYPE_CONFIGS = {

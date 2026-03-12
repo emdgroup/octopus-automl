@@ -630,12 +630,22 @@ class Training:
 
         feature_names = list(self.feature_cols) if self.feature_cols else list(data.columns)
 
+        # Construct background set based on `background_size` for kernel SHAP
+        if shap_type == "kernel" and background_size is not None:
+            if len(data) > background_size:
+                indices = np.random.choice(len(data), size=background_size, replace=False)
+                X_background = data.iloc[indices]
+            else:
+                X_background = data
+        else:
+            X_background = None
+
         fi_df = compute_shap_single(
             model=self.model,
             X=data,
             feature_names=feature_names,
             shap_type=shap_type,
-            X_background=None,
+            X_background=X_background,
             max_samples=None,
             threshold_ratio=1.0 / 1000.0,
             ml_type=getattr(self, "ml_type", None),
