@@ -20,7 +20,7 @@ from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.objective_optuna import ObjectiveOptuna
 from octopus.modules.octo.training import Training
-from octopus.types import ResultType
+from octopus.types import LogGroup, ResultType
 from octopus.utils import joblib_load, parquet_save
 
 if TYPE_CHECKING:
