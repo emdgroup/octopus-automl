@@ -15,6 +15,7 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_sco
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
+from octopus.modules import StudyContext
 from octopus.modules.base import ModuleExecution, ModuleResult
 from octopus.types import FIDataset, FIResultLabel, MLType, ModelName, ResultType
 

@@ -16,7 +16,7 @@ from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
 from octopus.modules import Octo, StudyContext, Task
-from octopus.types import MLType
+from octopus.types import ImputationMethod, MLType
 from octopus.utils import csv_save, get_package_name, get_version, parquet_save
 
 from .data_preparator import OctoDataPreparator

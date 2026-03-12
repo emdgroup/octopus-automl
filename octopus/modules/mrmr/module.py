@@ -6,12 +6,7 @@ from typing import Literal
 
 from attrs import Factory, define, field, validators
 
-<<<<<<< HEAD
 from ..base import ModuleExecution, Task
-=======
-from octopus.modules.base import ModuleExecution, Task
-from octopus.types import FIComputeMethod
->>>>>>> f79ad8e (FIComputeMethod: Computation methods for feature importance calculation.)
 
 
 @define
@@ -55,12 +50,8 @@ class Mrmr(Task):
     )
     """Selection of feature importance type."""
 
-    feature_importance_method: FIComputeMethod = field(
-        converter=FIComputeMethod,
-        validator=validators.in_(
-            [FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.INTERNAL, FIComputeMethod.LOFO]
-        ),
-        default=FIComputeMethod.PERMUTATION,
+    feature_importance_method: Literal["permutation", "shap", "internal", "lofo"] = field(
+        validator=validators.in_(["permutation", "shap", "internal", "lofo"]), default="permutation"
     )
     """Selection of feature importance method."""
 

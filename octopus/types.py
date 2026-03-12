@@ -81,13 +81,6 @@ class ModelName(StrEnum):
     TabularNNRegressor = "TabularNNRegressor"
 
 
-class ResultType(StrEnum):
-    """Types of results produced by modules."""
-
-    BEST = "best"
-    ENSEMBLE_SELECTION = "ensemble_selection"
-
-
 class FIResultLabel(StrEnum):
     """Labels used in feature-importance result DataFrames.
 
