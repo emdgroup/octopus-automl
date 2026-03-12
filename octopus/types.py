@@ -3,10 +3,6 @@
 from enum import Enum, StrEnum, auto
 from typing import Any
 
-# ============================================================================
-# CORE MACHINE LEARNING TYPES
-# ============================================================================
-
 
 class ResultType(StrEnum):
     """Types of results produced by modules."""
@@ -22,11 +18,6 @@ class MLType(StrEnum):
     MULTICLASS = "multiclass"
     REGRESSION = "regression"
     TIMETOEVENT = "timetoevent"
-
-
-# ============================================================================
-# LOGGING AND INFRASTRUCTURE
-# ============================================================================
 
 
 class LogGroup(Enum):
@@ -45,22 +36,12 @@ class LogGroup(Enum):
     AUTOGLUON = auto()
 
 
-# ============================================================================
-# STUDY AND DATA PROCESSING
-# ============================================================================
-
-
 class ImputationMethod(str, Enum):
     """Imputation methods for handling missing data."""
 
     MEDIAN = "median"
     HALFMIN = "halfmin"
     MICE = "mice"
-
-
-# ============================================================================
-# MODEL SELECTION AND CONFIGURATION
-# ============================================================================
 
 
 class ModelName(StrEnum):
@@ -98,11 +79,6 @@ class ModelName(StrEnum):
     XGBRegressor = "XGBRegressor"
     HistGradientBoostingRegressor = "HistGradientBoostingRegressor"
     TabularNNRegressor = "TabularNNRegressor"
-
-
-# ============================================================================
-# MODULE EXECUTION AND RESULTS
-# ============================================================================
 
 
 class ResultType(StrEnum):
