@@ -21,6 +21,7 @@ from octopus.types import MLType
 
 __all__ = [
     "display_table",
+    "find_latest_study",
     "show_aucroc_plots",
     "show_confusionmatrix",
     "show_overall_fi_plot",
@@ -30,6 +31,44 @@ __all__ = [
     "show_target_metric_performance",
     "show_testset_performance",
 ]
+
+def find_latest_study(studies_root: str | UPath, prefix: str) -> str:
+    """Find the latest study directory matching a name prefix.
+
+    Study directories are named ``<prefix>-YYYYMMDD_HHMMSS``.  This function
+    finds all directories matching the given *prefix* and returns the one with
+    the most recent timestamp (lexicographic sort).  Falls back to an exact
+    match (no timestamp suffix) when no timestamped directories are found.
+
+    Args:
+        studies_root: Path to the parent directory containing study directories.
+        prefix: The study name prefix, e.g. ``"wf_octo_mrmr_octo"``.
+
+    Returns:
+        Path string to the latest matching study directory.
+
+    Raises:
+        FileNotFoundError: If no matching study directory is found.
+
+    Example:
+        >>> from octopus.predict.notebook_utils import find_latest_study
+        >>> study_dir = find_latest_study("./studies", "wf_octo_mrmr_octo")
+    """
+    root = UPath(studies_root)
+    # Match timestamped directories: prefix-YYYYMMDD_HHMMSS
+    candidates = sorted(
+        [d for d in root.glob(f"{prefix}-*") if d.is_dir()],
+        key=lambda p: p.name,
+        reverse=True,
+    )
+    if candidates:
+        return str(candidates[0])
+    # Fallback: exact match without timestamp
+    exact = root / prefix
+    if exact.is_dir():
+        return str(exact)
+    raise FileNotFoundError(f"No study directory found for prefix '{prefix}' in {root}")
+
 
 try:
     from IPython.display import display as ipython_display
