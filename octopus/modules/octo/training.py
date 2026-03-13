@@ -134,20 +134,12 @@ class Training:
     @property
     def x_dev_processed(self):
         """x_dev_processed."""
-        processed_data = self.preprocessing_pipeline.transform(self.data_dev[self.feature_cols])
-        # Convert back to DataFrame to preserve column names
-        if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            return pd.DataFrame(processed_data, columns=self.feature_cols, index=self.data_dev.index)
-        return processed_data
+        return self._transform_to_dataframe(self.data_dev[self.feature_cols], index=self.data_dev.index)
 
     @property
     def x_test_processed(self):
         """x_test_processed."""
-        processed_data = self.preprocessing_pipeline.transform(self.data_test[self.feature_cols])
-        # Convert back to DataFrame to preserve column names
-        if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            return pd.DataFrame(processed_data, columns=self.feature_cols, index=self.data_test.index)
-        return processed_data
+        return self._transform_to_dataframe(self.data_test[self.feature_cols], index=self.data_test.index)
 
     @property
     def y_train(self):
@@ -191,6 +183,69 @@ class Training:
     def __attrs_post_init__(self):
         # Set up preprocessing pipeline
         self._setup_preprocessing_pipeline()
+
+    def _relabel_processed_output(
+        self,
+        processed_data: np.ndarray,
+        index: pd.Index | None = None,
+    ) -> pd.DataFrame | np.ndarray:
+        """Convert pipeline output to a correctly-labeled DataFrame in self.feature_cols order.
+
+        Handles the ColumnTransformer column reordering issue: ColumnTransformer outputs columns
+        in transformer order (numerical first, then categorical), which may differ from
+        self.feature_cols order. This method uses get_feature_names_out() to correctly label
+        columns, then reorders to self.feature_cols order.
+
+        Args:
+            processed_data: Raw output from preprocessing_pipeline.transform() or fit_transform().
+            index: Optional index for the output DataFrame.
+
+        Returns:
+            DataFrame with columns in self.feature_cols order, correctly labeled.
+        """
+        if not (hasattr(processed_data, "shape") and len(processed_data.shape) == 2):
+            return processed_data
+
+        try:
+            output_cols = list(self.preprocessing_pipeline.get_feature_names_out())
+        except AttributeError:
+            # FunctionTransformer pipeline doesn't support get_feature_names_out()
+            # In this case, column order is preserved (no ColumnTransformer reordering)
+            output_cols = list(self.feature_cols)
+
+        if set(output_cols) != set(self.feature_cols):
+            logger.warning(
+                "Pipeline output columns %s do not match feature_cols %s. Falling back to positional labeling.",
+                output_cols,
+                self.feature_cols,
+            )
+            output_cols = list(self.feature_cols)
+
+        df = pd.DataFrame(processed_data, columns=output_cols, index=index)
+
+        # Reorder to self.feature_cols order if needed
+        if output_cols != list(self.feature_cols):
+            df = df[self.feature_cols]
+
+        return df
+
+    def _transform_to_dataframe(
+        self,
+        data: pd.DataFrame | np.ndarray,
+        index: pd.Index | None = None,
+    ) -> pd.DataFrame | np.ndarray:
+        """Transform data through preprocessing pipeline and return correctly-labeled DataFrame.
+
+        Args:
+            data: Input data to transform.
+            index: Optional index for the output DataFrame.
+
+        Returns:
+            DataFrame with columns in self.feature_cols order, correctly labeled.
+            Falls back to returning the raw array if it is not 2D.
+        """
+        processed_data = self.preprocessing_pipeline.transform(data)
+        return self._relabel_processed_output(processed_data, index=index)
 
     def _setup_preprocessing_pipeline(self):
         """Set up the preprocessing pipeline with conditional imputation and scaling.
@@ -289,11 +344,7 @@ class Training:
 
         # (2) Imputation and scaling (after outlier removal)
         processed_data = self.preprocessing_pipeline.fit_transform(x_train)
-        # Convert back to DataFrame to preserve column names
-        if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            self.x_train_processed = pd.DataFrame(processed_data, columns=self.feature_cols, index=x_train.index)
-        else:
-            self.x_train_processed = processed_data
+        self.x_train_processed = self._relabel_processed_output(processed_data, index=x_train.index)
 
         # (3) Model training
         self.model = Models.get_instance(self.ml_model_type, self.ml_model_params)
@@ -856,10 +907,7 @@ class Training:
             x = x.reset_index(drop=True)
 
         # Apply the same preprocessing pipeline used during training
-        x_processed = self.preprocessing_pipeline.transform(x)
-        # Convert pipeline output back to DataFrame to preserve feature names for sklearn models
-        if hasattr(x_processed, "shape") and len(x_processed.shape) == 2:
-            x_processed = pd.DataFrame(x_processed, columns=self.feature_cols)
+        x_processed = self._transform_to_dataframe(x)
         return self.model.predict(x_processed)  # type: ignore
 
     def predict_proba(self, x: pd.DataFrame) -> np.ndarray:
@@ -879,10 +927,7 @@ class Training:
             x = x.reset_index(drop=True)
 
         # Apply the same preprocessing pipeline used during training
-        x_processed = self.preprocessing_pipeline.transform(x)
-        # Convert pipeline output back to DataFrame to preserve feature names for sklearn models
-        if hasattr(x_processed, "shape") and len(x_processed.shape) == 2:
-            x_processed = pd.DataFrame(x_processed, columns=self.feature_cols)
+        x_processed = self._transform_to_dataframe(x)
         return self.model.predict_proba(x_processed)  # type: ignore
 
     def _validate_model_trained(self):
