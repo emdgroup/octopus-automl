@@ -142,6 +142,10 @@ def _create_test_data():
         }
     )
 
+    # Compute regression target BEFORE injecting NaN into features,
+    # so target_reg is always NaN-free.
+    data["target_reg"] = 0.5 * data["num_col1"] + 0.3 * data["num_col2"] + np.random.normal(0, 1, n_samples)
+
     # Inject some NaN values to test robustness
     nan_mask = np.random.random(n_samples) < 0.1
     data.loc[nan_mask, "num_col1"] = np.nan
@@ -154,7 +158,6 @@ def _create_test_data():
 
     data["target_class"] = np.random.choice([0, 1], n_samples)
     data["target_multiclass"] = np.random.choice([0, 1, 2], n_samples)
-    data["target_reg"] = 0.5 * data["num_col1"] + 0.3 * data["num_col2"] + np.random.normal(0, 1, n_samples)
     data["duration"] = np.random.exponential(10, n_samples)
     data["event"] = np.random.choice([True, False], n_samples, p=[0.7, 0.3])
 
