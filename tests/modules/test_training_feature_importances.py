@@ -1,6 +1,15 @@
 """Feature Importance Test Suite for Training Class.
 
-Tests all feature importance methods across all available models using pytest parametrize.
+Tests all feature importance methods across all available models.
+Each test is marked with ``@pytest.mark.forked`` so it runs in its own
+subprocess — this provides complete isolation between tests, preventing:
+
+- CatBoost's C++ destructor segfault when Python's GC finalizes objects
+- numba/llvmlite LLVM pass-manager crash from accumulated JIT compilations
+- Memory accumulation from session-scoped model caches
+
+See datasets_local/specifications_refactorfi/02_ci_segfault_investigation.md
+for details on why this structure was chosen.
 
 Usage:
     pytest test_training_feature_importances.py -v
@@ -34,7 +43,7 @@ FI_METHODS = [
     "calculate_fi_permutation",
     "calculate_fi_lofo",
     "calculate_fi_featuresused_shap",
-    # "calculate_fi_shap",  # Excluded: kernel SHAP is too slow/memory-heavy for CI (see 02_ci_segfault_investigation.md)
+    # "calculate_fi_shap",  # Excluded: kernel SHAP is too slow/memory-heavy for CI
 ]
 
 ML_TYPE_CONFIGS = {
@@ -74,21 +83,22 @@ def _get_available_models_by_type():
     return models_by_type
 
 
-def _generate_test_params():
-    """Generate (ml_type, model_name, fi_method) param combos for pytest."""
+def _generate_model_params():
+    """Generate (ml_type, model_name) param combos for pytest.
+
+    Each combo gets one test that runs ALL FI methods sequentially.
+    """
     available_models = _get_available_models_by_type()
     params = []
     for ml_type, model_names in available_models.items():
         for model_name in model_names:
-            for fi_method in FI_METHODS:
-                params.append(
-                    pytest.param(
-                        ml_type,
-                        model_name,
-                        fi_method,
-                        id=f"{ml_type.value}-{model_name}-{fi_method}",
-                    )
+            params.append(
+                pytest.param(
+                    ml_type,
+                    model_name,
+                    id=f"{ml_type.value}-{model_name}",
                 )
+            )
     return params
 
 
@@ -118,6 +128,49 @@ def _get_default_model_params(model_name: str) -> dict:
         params[model_config.model_seed] = 42
 
     return params
+
+
+def _create_test_data():
+    """Create test dataset with mixed data types."""
+    np.random.seed(TEST_CONFIG["random_seed"])
+    n_samples = TEST_CONFIG["n_samples"]
+
+    data = pd.DataFrame(
+        {
+            "num_col1": np.random.normal(10, 2, n_samples),
+            "num_col2": np.random.normal(50, 10, n_samples),
+        }
+    )
+
+    # Inject some NaN values to test robustness
+    nan_mask = np.random.random(n_samples) < 0.1
+    data.loc[nan_mask, "num_col1"] = np.nan
+
+    nominal_col = np.random.choice([1, 2, 3], n_samples).astype(float)
+    nominal_col[np.random.random(n_samples) < 0.05] = np.nan
+    data["nominal_col"] = nominal_col
+
+    data["row_id"] = range(n_samples)
+
+    data["target_class"] = np.random.choice([0, 1], n_samples)
+    data["target_multiclass"] = np.random.choice([0, 1, 2], n_samples)
+    data["target_reg"] = 0.5 * data["num_col1"] + 0.3 * data["num_col2"] + np.random.normal(0, 1, n_samples)
+    data["duration"] = np.random.exponential(10, n_samples)
+    data["event"] = np.random.choice([True, False], n_samples, p=[0.7, 0.3])
+
+    n_train = int(n_samples * (1 - TEST_CONFIG["test_split"] - TEST_CONFIG["dev_split"]))
+    n_dev = int(n_samples * TEST_CONFIG["dev_split"])
+
+    indices = np.random.permutation(n_samples)
+    train_idx = indices[:n_train]
+    dev_idx = indices[n_train : n_train + n_dev]
+    test_idx = indices[n_train + n_dev :]
+
+    return (
+        data.iloc[train_idx].reset_index(drop=True),
+        data.iloc[dev_idx].reset_index(drop=True),
+        data.iloc[test_idx].reset_index(drop=True),
+    )
 
 
 def _create_training_instance(
@@ -158,13 +211,13 @@ def _create_training_instance(
     )
 
 
-def _run_fi_method(training: Training, method_name: str):
+def _run_fi_method(training: Training, method_name: str) -> list[str]:
     """Run a feature importance method and return the expected result key(s)."""
     if method_name == "calculate_fi_internal":
         training.calculate_fi_internal()
         return ["internal"]
     elif method_name == "calculate_fi_permutation":
-        training.calculate_fi_permutation(partition="dev", n_repeats=1)  # use_groups=True (default)
+        training.calculate_fi_permutation(partition="dev", n_repeats=1)
         return ["permutation_dev"]
     elif method_name == "calculate_fi_lofo":
         training.calculate_fi_lofo()
@@ -179,84 +232,42 @@ def _run_fi_method(training: Training, method_name: str):
         raise ValueError(f"Unknown method: {method_name}")
 
 
-# Cache fitted Training instances across parameterized tests so each model is
-# only fitted once regardless of how many FI methods are tested against it.
-_fitted_training_cache: dict[tuple[MLType, str], Training] = {}
+@pytest.mark.forked
+@pytest.mark.parametrize("ml_type,model_name", _generate_model_params())
+def test_feature_importance(ml_type, model_name):
+    """Test all FI methods for a single model in an isolated subprocess.
 
+    Each test runs in its own forked process (``@pytest.mark.forked``),
+    providing complete isolation.  This prevents:
 
-@pytest.fixture(scope="session")
-def test_data():
-    """Create test dataset with mixed data types."""
-    np.random.seed(TEST_CONFIG["random_seed"])
-    n_samples = TEST_CONFIG["n_samples"]
+    - CatBoost C++ destructor segfaults during garbage collection
+    - numba/llvmlite LLVM pass-manager crashes from accumulated JIT state
+    - Memory accumulation across tests
 
-    data = pd.DataFrame(
-        {
-            "num_col1": np.random.normal(10, 2, n_samples),
-            "num_col2": np.random.normal(50, 10, n_samples),
-        }
-    )
-
-    data.loc[::10, "num_col1"] = np.nan
-
-    nominal_col = np.random.choice([1, 2, 3], n_samples).astype(float)
-    nominal_col[::15] = np.nan
-    data["nominal_col"] = nominal_col
-
-    data["row_id"] = range(n_samples)
-
-    data["target_class"] = np.random.choice([0, 1], n_samples)
-    data["target_multiclass"] = np.random.choice([0, 1, 2], n_samples)
-    data["target_reg"] = (
-        0.5 * data["num_col1"].fillna(data["num_col1"].mean())
-        + 0.3 * data["num_col2"].fillna(data["num_col2"].mean())
-        + np.random.normal(0, 1, n_samples)
-    )
-    data["duration"] = np.random.exponential(10, n_samples)
-    data["event"] = np.random.choice([True, False], n_samples, p=[0.7, 0.3])
-
-    n_train = int(n_samples * (1 - TEST_CONFIG["test_split"] - TEST_CONFIG["dev_split"]))
-    n_dev = int(n_samples * TEST_CONFIG["dev_split"])
-
-    indices = np.random.permutation(n_samples)
-    train_idx = indices[:n_train]
-    dev_idx = indices[n_train : n_train + n_dev]
-    test_idx = indices[n_train + n_dev :]
-
-    return (
-        data.iloc[train_idx].reset_index(drop=True),
-        data.iloc[dev_idx].reset_index(drop=True),
-        data.iloc[test_idx].reset_index(drop=True),
-    )
-
-
-@pytest.mark.parametrize("ml_type,model_name,fi_method", _generate_test_params())
-def test_feature_importance(test_data, ml_type, model_name, fi_method):
-    """Test a single feature importance method for a single model."""
+    The model is fitted once, all FI methods run sequentially, and the
+    entire process exits cleanly when the test completes.
+    """
     warnings.filterwarnings("ignore")
 
-    data_train, data_dev, data_test = test_data
+    data_train, data_dev, data_test = _create_test_data()
     feature_cols = ["num_col1", "num_col2", "nominal_col"]
     feature_groups = {
         "numerical_group": ["num_col1", "num_col2"],
         "categorical_group": ["nominal_col"],
     }
 
-    cache_key = (ml_type, model_name)
-    if cache_key not in _fitted_training_cache:
-        training = _create_training_instance(
-            data_train, data_dev, data_test, ml_type, model_name, feature_cols, feature_groups
-        )
-        training.fit()
-        _fitted_training_cache[cache_key] = training
+    training = _create_training_instance(
+        data_train, data_dev, data_test, ml_type, model_name, feature_cols, feature_groups
+    )
+    training.fit()
 
-    training = _fitted_training_cache[cache_key]
-    fi_keys = _run_fi_method(training, fi_method)
+    for fi_method in FI_METHODS:
+        fi_keys = _run_fi_method(training, fi_method)
 
-    for key in fi_keys:
-        fi_data = training.feature_importances.get(key)
-        assert fi_data is not None, f"Feature importance key '{key}' not found after {fi_method}"
-        # calculate_fi_internal legitimately returns empty for models without
-        # built-in feature importances (e.g. GaussianProcess, SVM with non-linear kernel)
-        if fi_method != "calculate_fi_internal":
-            assert len(fi_data) > 0, f"Feature importance '{key}' is empty after {fi_method}"
+        for key in fi_keys:
+            fi_data = training.feature_importances.get(key)
+            assert fi_data is not None, f"Feature importance key '{key}' not found after {fi_method}"
+            # calculate_fi_internal legitimately returns empty for models without
+            # built-in feature importances (e.g. GaussianProcess, SVM with non-linear kernel)
+            if fi_method != "calculate_fi_internal":
+                assert len(fi_data) > 0, f"Feature importance '{key}' is empty after {fi_method}"

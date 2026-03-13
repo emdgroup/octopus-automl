@@ -152,7 +152,12 @@ def catboost_classifier() -> ModelConfig:
     """CatBoost classification model config."""
     return ModelConfig(
         model_class=CatBoostClassifier,
-        ml_types=[MLType.BINARY, MLType.MULTICLASS],
+        # KNOWN ISSUE: CatBoost multiclass is disabled because shap.Explainer(model, bg)
+        # segfaults in SHAP <=0.51 when using TreeExplainer's interventional mode with
+        # CatBoost multiclass models.  Re-enable once SHAP fixes this upstream.
+        # See datasets_local/specifications_refactorfi/03_shap_catboost_segfault_proposal.md
+        # Original: ml_types=[MLType.BINARY, MLType.MULTICLASS],
+        ml_types=[MLType.BINARY],
         feature_method="internal",
         chpo_compatible=True,
         scaler=None,
