@@ -217,7 +217,15 @@ class Training:
             # In this case, column order is preserved (no ColumnTransformer reordering)
             output_cols = list(self.feature_cols)
 
+        n_cols = processed_data.shape[1]
         if set(output_cols) != set(self.feature_cols):
+            # If column count also mismatches, raise a clear error
+            if n_cols != len(self.feature_cols):
+                raise ValueError(
+                    f"Pipeline output has {n_cols} columns but expected {len(self.feature_cols)}. "
+                    f"Pipeline columns: {output_cols}, expected: {list(self.feature_cols)}. "
+                    f"This may indicate extra/unexpected columns were passed to the transformer."
+                )
             logger.warning(
                 "Pipeline output columns %s do not match feature_cols %s. Falling back to positional labeling.",
                 output_cols,
@@ -773,7 +781,7 @@ class Training:
             else:
                 feature_names = [f"f{i}" for i in range(n_features)]
 
-        # Build predict function that converts numpy to DataFrame for sklearn compatibility
+        # Build predict function as fallback for sklearn compatibility
         _feature_cols = self.feature_cols
 
         if getattr(self, "ml_type", None) in (MLType.BINARY, MLType.MULTICLASS) and hasattr(
@@ -787,14 +795,18 @@ class Training:
             def predict_fn(X):
                 return np.asarray(self.model.predict(pd.DataFrame(np.asarray(X), columns=_feature_cols)))
 
-        # Build explainer
+        # Build explainer: try model directly first for fast Tree/Linear explainers,
+        # fall back to callable wrapper if that fails
+        X_bg_df = pd.DataFrame(X_bg, columns=_feature_cols)
+        X_eval_df = pd.DataFrame(X_eval, columns=_feature_cols)
+
         try:
-            # Let SHAP auto-select the best explainer (Tree for tree models, Kernel otherwise)
-            explainer = shap.Explainer(predict_fn, X_bg)
-            sv = explainer(X_eval)
+            # Try model directly — SHAP can auto-detect Tree/Linear explainers for speed
+            explainer = shap.Explainer(self.model, X_bg_df)
+            sv = explainer(X_eval_df)
         except Exception as e1:
-            logger.debug(f"SHAP auto explainer failed: {e1}. Falling back to callable + Kernel.")
-            # Use the generic constructor so SHAP picks Kernel with the given background
+            logger.debug(f"SHAP auto explainer with model failed: {e1}. Falling back to callable wrapper.")
+            # Fall back to callable approach (always works, but uses slower KernelExplainer)
             explainer = shap.Explainer(predict_fn, X_bg)
             sv = explainer(X_eval)
 
@@ -911,8 +923,8 @@ class Training:
         if isinstance(x, np.ndarray):
             x = pd.DataFrame(x, columns=self.feature_cols)
         elif isinstance(x, pd.DataFrame):
-            # Reset index to avoid sklearn ColumnTransformer issues
-            x = x.reset_index(drop=True)
+            # Subset to feature_cols to prevent extra columns flowing through ColumnTransformer
+            x = x[self.feature_cols].reset_index(drop=True)
 
         # Apply the same preprocessing pipeline used during training
         x_processed = self._transform_to_dataframe(x)
@@ -931,8 +943,8 @@ class Training:
         if isinstance(x, np.ndarray):
             x = pd.DataFrame(x, columns=self.feature_cols)
         elif isinstance(x, pd.DataFrame):
-            # Reset index to avoid sklearn ColumnTransformer issues
-            x = x.reset_index(drop=True)
+            # Subset to feature_cols to prevent extra columns flowing through ColumnTransformer
+            x = x[self.feature_cols].reset_index(drop=True)
 
         # Apply the same preprocessing pipeline used during training
         x_processed = self._transform_to_dataframe(x)

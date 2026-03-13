@@ -7,6 +7,7 @@ Provides high-level analysis functions for Jupyter notebooks:
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -57,8 +58,9 @@ def find_latest_study(studies_root: str | UPath, prefix: str) -> str:
     """
     root = UPath(studies_root)
     # Match timestamped directories: prefix-YYYYMMDD_HHMMSS
+    _timestamp_pattern = re.compile(re.escape(prefix) + r"-\d{8}_\d{6}$")
     candidates = sorted(
-        [d for d in root.glob(f"{prefix}-*") if d.is_dir()],
+        [d for d in root.glob(f"{prefix}-*") if d.is_dir() and _timestamp_pattern.search(d.name)],
         key=lambda p: p.name,
         reverse=True,
     )

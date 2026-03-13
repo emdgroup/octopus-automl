@@ -8,10 +8,9 @@ Usage:
     pytest tests/modules/octo/test_column_ordering.py -v
 """
 
-import warnings
-
 import numpy as np
 import pandas as pd
+import pytest
 
 from octopus.models import Models
 from octopus.models.hyperparameter import (
@@ -171,12 +170,12 @@ def _create_training(
     )
 
 
+@pytest.mark.filterwarnings("ignore")
 class TestColumnOrdering:
     """Tests for ColumnTransformer column ordering with mixed types."""
 
     def test_x_train_processed_columns_match_feature_cols(self):
         """Verify x_train_processed has columns in feature_cols order after fit."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_mixed_type_data()
         data_train, data_dev, data_test = _split_data(data)
 
@@ -190,7 +189,6 @@ class TestColumnOrdering:
 
     def test_x_dev_processed_columns_match_feature_cols(self):
         """Verify x_dev_processed has columns in feature_cols order after fit."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_mixed_type_data()
         data_train, data_dev, data_test = _split_data(data)
 
@@ -201,7 +199,6 @@ class TestColumnOrdering:
 
     def test_x_test_processed_columns_match_feature_cols(self):
         """Verify x_test_processed has columns in feature_cols order after fit."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_mixed_type_data()
         data_train, data_dev, data_test = _split_data(data)
 
@@ -212,7 +209,6 @@ class TestColumnOrdering:
 
     def test_numerical_data_in_numerical_column(self):
         """Verify that numerical columns in x_train_processed contain actual numerical data."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_mixed_type_data()
         data_train, data_dev, data_test = _split_data(data)
 
@@ -228,7 +224,6 @@ class TestColumnOrdering:
 
     def test_categorical_data_in_categorical_column(self):
         """Verify that categorical columns in x_train_processed contain actual categorical data."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_mixed_type_data()
         data_train, data_dev, data_test = _split_data(data)
 
@@ -247,7 +242,6 @@ class TestColumnOrdering:
 
         Target is strongly correlated with num1, so num1 should have highest importance.
         """
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_mixed_type_data(n_samples=500)
         data_train, data_dev, data_test = _split_data(data)
 
@@ -267,7 +261,6 @@ class TestColumnOrdering:
 
     def test_permutation_fi_labels_correct_with_mixed_types(self):
         """Verify permutation FI labels are correct when mixed column types exist."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_mixed_type_data(n_samples=500)
         data_train, data_dev, data_test = _split_data(data)
 
@@ -287,7 +280,6 @@ class TestColumnOrdering:
 
     def test_all_numerical_columns_no_regression(self):
         """Verify all-numerical columns still work correctly (regression test)."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_numerical_only_data()
         data_train, data_dev, data_test = _split_data(data)
 
@@ -304,7 +296,6 @@ class TestColumnOrdering:
 
     def test_predict_works_with_mixed_types(self):
         """Verify predict() works correctly with mixed column types."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_mixed_type_data()
         data_train, data_dev, data_test = _split_data(data)
 
@@ -317,7 +308,6 @@ class TestColumnOrdering:
 
     def test_predict_classification_with_mixed_types(self):
         """Verify predict_proba() works correctly with mixed column types for classification."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_mixed_type_data()
         data_train, data_dev, data_test = _split_data(data)
 
@@ -341,7 +331,6 @@ class TestColumnOrdering:
 
     def test_relabel_fallback_when_get_feature_names_out_fails(self):
         """Verify fallback when get_feature_names_out() is not available."""
-        warnings.filterwarnings("ignore")
         data, feature_cols, feature_groups = _create_numerical_only_data()
         data_train, data_dev, data_test = _split_data(data)
 
