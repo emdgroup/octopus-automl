@@ -476,7 +476,10 @@ class Training:
 
         # Build training pool for draw-from-pool permutation.
         # Use x_train_processed (larger, more representative) as the sampling pool.
-        train_pool = pd.concat([self.x_train_processed, self.data_train[target_cols]], axis=1)
+        # Align targets to x_train_processed index to handle outl_reduction > 0,
+        # where self.data_train retains all rows but x_train_processed has outliers removed.
+        train_targets = self.data_train.loc[self.x_train_processed.index, target_cols]
+        train_pool = pd.concat([self.x_train_processed, train_targets], axis=1)
 
         feature_groups = self.feature_groups if use_groups else None
 
@@ -635,7 +638,8 @@ class Training:
         # Construct background set based on `background_size` for kernel SHAP
         if shap_type == "kernel" and background_size is not None:
             if len(data) > background_size:
-                indices = np.random.choice(len(data), size=background_size, replace=False)
+                rng = np.random.default_rng(42)
+                indices = rng.choice(len(data), size=background_size, replace=False)
                 X_background = data.iloc[indices]
             else:
                 X_background = data

@@ -318,8 +318,9 @@ def compute_permutation_single(
     """Compute permutation feature importance for a single model.
 
     Uses the custom draw-from-pool algorithm: replacement values are drawn
-    from *X_train* (larger, more representative pool) rather than shuffling
-    within the test set.
+    from the combined pool of *X_train* and *X_test* feature values,
+    providing a more representative approximation of the marginal
+    distribution than either partition alone.
 
     When ``feature_groups`` is provided, computes importance for **both**
     individual features and feature groups.
@@ -327,7 +328,9 @@ def compute_permutation_single(
     Args:
         model: A fitted model.
         X_test: Test data (must contain feature columns + target columns).
-        X_train: Training data used as the sampling pool.
+        X_train: Training data.  Feature values from both *X_train* and
+            *X_test* are combined to form the sampling pool for replacement
+            values.
         feature_cols: Feature column names used by the model.
         target_metric: Metric name for scoring.
         target_assignments: Dict mapping target roles to column names.
@@ -342,38 +345,55 @@ def compute_permutation_single(
         Column ``"importance"`` holds the mean across repeats (compatible
         with Bag aggregation).
     """
-    rng = np.random.RandomState(random_state)
+    rng = np.random.default_rng(random_state)
 
     # Baseline score
     baseline = get_score_from_model(
         model, X_test, feature_cols, target_metric, target_assignments, positive_class=positive_class
     )
 
+    # O(1) membership checks for feature_cols
+    feature_cols_set = set(feature_cols)
+
     # Build items to permute: individual features + groups
     items_to_permute: list[tuple[str, list[str]]] = [(f, [f]) for f in feature_cols]
     if feature_groups is not None:
         for group_name, group_features in feature_groups.items():
-            if any(f in feature_cols for f in group_features):
+            if any(f in feature_cols_set for f in group_features):
                 items_to_permute.append((group_name, group_features))
 
     results: list[dict[str, Any]] = []
+    n_test = len(X_test)
 
     for item_name, cols_to_permute in items_to_permute:
-        active_cols = [c for c in cols_to_permute if c in feature_cols and c in X_test.columns]
+        active_cols = [c for c in cols_to_permute if c in feature_cols_set and c in X_test.columns]
         if not active_cols:
             continue
 
+        # Precompute combined pool values (X_train + X_test) per column once
+        # to avoid repeated array conversions inside the permutation repeat loop.
+        pool_values_per_col = {
+            col: np.concatenate([np.asarray(X_train[col].values), np.asarray(X_test[col].values)])
+            for col in active_cols
+        }
+
+        # Single DataFrame copy; permuted columns are restored after each repeat
+        test_shuffled = X_test.copy()
+        originals = {col: test_shuffled[col].values.copy() for col in active_cols}
+
         repeat_scores: list[float] = []
         for _ in range(n_repeats):
-            test_shuffled = X_test.copy()
             for col in active_cols:
-                train_values = np.asarray(X_train[col].values)
-                test_shuffled[col] = rng.choice(train_values, size=len(test_shuffled), replace=True)
+                test_shuffled[col] = rng.choice(pool_values_per_col[col], size=n_test, replace=True)
 
             perm_score = get_score_from_model(
                 model, test_shuffled, feature_cols, target_metric, target_assignments, positive_class=positive_class
             )
             repeat_scores.append(baseline - perm_score)
+
+            # Restore original column values for the next repeat
+            for col in active_cols:
+                test_shuffled[col] = originals[col]
 
         stats = compute_per_repeat_stats(repeat_scores)
         results.append({"feature": item_name, **stats})
@@ -411,12 +431,21 @@ def calculate_fi_permutation(
     receive zero importance for that split, ensuring the result covers the
     union of all input features.
 
+    .. note::
+
+        This Layer 2 orchestrator only supports **single-target** tasks
+        (binary classification, multiclass, regression).  For time-to-event
+        tasks (which require multi-key ``target_assignments`` like
+        ``{"duration": ..., "event": ...}``), use the Layer 1 primitive
+        ``compute_permutation_single`` directly with full
+        ``target_assignments``.
+
     Args:
         models: Dict mapping outersplit_id to fitted model.
         selected_features: Dict mapping outersplit_id to feature list.
         test_data: Dict mapping outersplit_id to test DataFrame.
         train_data: Dict mapping outersplit_id to train DataFrame.
-        target_col: Target column name.
+        target_col: Target column name (single-target tasks only).
         target_metric: Metric name for scoring.
         positive_class: Positive class label for classification.
         n_repeats: Number of permutation repeats per feature.
