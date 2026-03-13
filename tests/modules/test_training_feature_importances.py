@@ -83,22 +83,25 @@ def _get_available_models_by_type():
     return models_by_type
 
 
-def _generate_model_params():
-    """Generate (ml_type, model_name) param combos for pytest.
+def _generate_model_fi_params():
+    """Generate (ml_type, model_name, fi_method) param combos for pytest.
 
-    Each combo gets one test that runs ALL FI methods sequentially.
+    Each combo gets its own test so that segfaults or crashes clearly
+    identify which (model, FI method) combination failed.
     """
     available_models = _get_available_models_by_type()
     params = []
     for ml_type, model_names in available_models.items():
         for model_name in model_names:
-            params.append(
-                pytest.param(
-                    ml_type,
-                    model_name,
-                    id=f"{ml_type.value}-{model_name}",
+            for fi_method in FI_METHODS:
+                params.append(
+                    pytest.param(
+                        ml_type,
+                        model_name,
+                        fi_method,
+                        id=f"{ml_type.value}-{model_name}-{fi_method}",
+                    )
                 )
-            )
     return params
 
 
@@ -236,19 +239,21 @@ def _run_fi_method(training: Training, method_name: str) -> list[str]:
 
 
 @pytest.mark.forked
-@pytest.mark.parametrize("ml_type,model_name", _generate_model_params())
-def test_feature_importance(ml_type, model_name):
-    """Test all FI methods for a single model in an isolated subprocess.
+@pytest.mark.parametrize("ml_type,model_name,fi_method", _generate_model_fi_params())
+def test_feature_importance(ml_type, model_name, fi_method):
+    """Test a single FI method for a single model in an isolated subprocess.
 
-    Each test runs in its own forked process (``@pytest.mark.forked``),
-    providing complete isolation.  This prevents:
+    Each (model, FI method) combination runs in its own forked process
+    (``@pytest.mark.forked``).  This means:
 
-    - CatBoost C++ destructor segfaults during garbage collection
-    - numba/llvmlite LLVM pass-manager crashes from accumulated JIT state
-    - Memory accumulation across tests
+    - A segfault clearly identifies the exact (model, method) that crashed
+    - Complete process isolation prevents CatBoost GC segfaults,
+      numba/llvmlite LLVM crashes, and memory accumulation
+    - The trade-off is fitting the model once per test (slightly slower)
 
-    The model is fitted once, all FI methods run sequentially, and the
-    entire process exits cleanly when the test completes.
+    Test IDs look like::
+
+        test_feature_importance[binary-CatBoostClassifier-calculate_fi_featuresused_shap]
     """
     warnings.filterwarnings("ignore")
 
@@ -264,13 +269,12 @@ def test_feature_importance(ml_type, model_name):
     )
     training.fit()
 
-    for fi_method in FI_METHODS:
-        fi_keys = _run_fi_method(training, fi_method)
+    fi_keys = _run_fi_method(training, fi_method)
 
-        for key in fi_keys:
-            fi_data = training.feature_importances.get(key)
-            assert fi_data is not None, f"Feature importance key '{key}' not found after {fi_method}"
-            # calculate_fi_internal legitimately returns empty for models without
-            # built-in feature importances (e.g. GaussianProcess, SVM with non-linear kernel)
-            if fi_method != "calculate_fi_internal":
-                assert len(fi_data) > 0, f"Feature importance '{key}' is empty after {fi_method}"
+    for key in fi_keys:
+        fi_data = training.feature_importances.get(key)
+        assert fi_data is not None, f"Feature importance key '{key}' not found after {fi_method}"
+        # calculate_fi_internal legitimately returns empty for models without
+        # built-in feature importances (e.g. GaussianProcess, SVM with non-linear kernel)
+        if fi_method != "calculate_fi_internal":
+            assert len(fi_data) > 0, f"Feature importance '{key}' is empty after {fi_method}"
