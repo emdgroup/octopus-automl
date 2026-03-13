@@ -72,10 +72,8 @@ sfs = [
     "mlxtend>=0.23.0",
 ]
 survival = [
+    "lifelines>=0.29.0",
 ]
-# NOTE: The 'survival' extra is intentionally kept as an empty placeholder.
-# It is referenced elsewhere (e.g. in test dependencies as `octopus-automl[survival]`)
-# and reserved for future survival-analysis backends without breaking that extra name.
 
 dev = [
     "octopus-automl[test]",
