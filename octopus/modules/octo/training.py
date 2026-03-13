@@ -3,7 +3,7 @@
 import copy
 import math
 import statistics
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -85,7 +85,7 @@ class Training:
     training_weight: int = field(default=1, validator=[validators.instance_of(int)])
     """Training weight for ensembling"""
 
-    model = field(default=None)
+    model: Any = field(default=None)
     """Model."""
 
     predictions: dict = field(default=Factory(dict), validator=[validators.instance_of(dict)])
@@ -100,16 +100,16 @@ class Training:
     """Features used."""
 
     outlier_samples: list = field(default=Factory(list), validator=[validators.instance_of(list)])
-    """Outlie samples identified."""
+    """Outlier samples identified."""
 
     is_fitted: bool = field(default=False, init=False)
     """Flag indicating whether the training has been completed."""
 
-    preprocessing_pipeline = field(init=False)
+    preprocessing_pipeline: ColumnTransformer | Pipeline = field(init=False)
     """Preprocessing pipeline for data scaling, imputation, and categorical encoding."""
 
-    x_train_processed = field(default=None, init=False)
-    """Training data after pre-processing (outlier, impuation, scaling)."""
+    x_train_processed: pd.DataFrame | None = field(default=None, init=False)
+    """Training data after pre-processing (outlier, imputation, scaling)."""
 
     @property
     def outl_reduction(self) -> int:
@@ -169,7 +169,7 @@ class Training:
 
     @property
     def y_test(self):
-        """y_dev."""
+        """y_test."""
         if self.ml_type == MLType.TIMETOEVENT:
             duration = self.data_test[self.target_assignments["duration"]]
             event = self.data_test[self.target_assignments["event"]]
@@ -186,9 +186,9 @@ class Training:
 
     def _relabel_processed_output(
         self,
-        processed_data: np.ndarray,
+        processed_data: Any,
         index: pd.Index | None = None,
-    ) -> pd.DataFrame | np.ndarray:
+    ) -> pd.DataFrame:
         """Convert pipeline output to a correctly-labeled DataFrame in self.feature_cols order.
 
         Handles the ColumnTransformer column reordering issue: ColumnTransformer outputs columns
@@ -203,8 +203,12 @@ class Training:
         Returns:
             DataFrame with columns in self.feature_cols order, correctly labeled.
         """
+        # Convert sparse matrices to dense arrays
+        if hasattr(processed_data, "toarray"):
+            processed_data = processed_data.toarray()
+
         if not (hasattr(processed_data, "shape") and len(processed_data.shape) == 2):
-            return processed_data
+            return pd.DataFrame(processed_data)
 
         try:
             output_cols = list(self.preprocessing_pipeline.get_feature_names_out())
@@ -233,7 +237,7 @@ class Training:
         self,
         data: pd.DataFrame | np.ndarray,
         index: pd.Index | None = None,
-    ) -> pd.DataFrame | np.ndarray:
+    ) -> pd.DataFrame:
         """Transform data through preprocessing pipeline and return correctly-labeled DataFrame.
 
         Args:
@@ -242,7 +246,6 @@ class Training:
 
         Returns:
             DataFrame with columns in self.feature_cols order, correctly labeled.
-            Falls back to returning the raw array if it is not 2D.
         """
         processed_data = self.preprocessing_pipeline.transform(data)
         return self._relabel_processed_output(processed_data, index=index)
@@ -536,7 +539,7 @@ class Training:
         logger.set_log_group(LogGroup.TRAINING, f"{self.training_id}")
 
         logger.info(f"Calculating permutation feature importances ({partition}). This may take a while...")
-        np.random.seed(42)  # reproducibility
+        rng = np.random.RandomState(42)  # local random state for reproducibility
         # fixed confidence level
         confidence_level = 0.95
         feature_cols = self.feature_cols
@@ -551,6 +554,8 @@ class Training:
             data = pd.concat([self.x_dev_processed, self.data_dev[target_cols]], axis=1)
         elif partition == "test":
             data = pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1)
+        else:
+            raise ValueError(f"Invalid partition: '{partition}'. Must be 'dev' or 'test'.")
 
         if not set(feature_cols).issubset(data.columns):
             raise ValueError("Features missing in provided dataset.")
@@ -581,7 +586,7 @@ class Training:
                 # replace column with random selection from that column of data_all
                 # we use data_all as the validation dataset may be small
                 for feat in feature:
-                    data_pfi[feat] = np.random.choice(data[feat], len(data_pfi), replace=False)
+                    data_pfi[feat] = rng.choice(data[feat], len(data_pfi), replace=False)
                 pfi_score = get_score_from_model(
                     model,
                     data_pfi,
@@ -625,7 +630,6 @@ class Training:
     def calculate_fi_permutation(self, partition="dev", n_repeats=10):
         """Permutation feature importance."""
         logger.info(f"Calculating permutation feature importances ({partition}). This may take a while...")
-        np.random.seed(42)  # reproducibility
         if self.ml_type == MLType.TIMETOEVENT:
             # sksurv models only provide inbuilt scorer (CI)
             # more work needed to support other metrics
@@ -641,6 +645,8 @@ class Training:
         elif partition == "test":
             x = self.x_test_processed
             y = self.y_test
+        else:
+            raise ValueError(f"Invalid partition: '{partition}'. Must be 'dev' or 'test'.")
 
         perm_importance = permutation_importance(
             self.model,
@@ -659,7 +665,6 @@ class Training:
 
     def calculate_fi_lofo(self):
         """LOFO feature importance."""
-        np.random.seed(42)  # reproducibility
         logger.info("Calculating LOFO feature importance. This may take a while...")
         # first, dev only
         feature_cols = self.feature_cols
@@ -689,6 +694,9 @@ class Training:
         # create features dict
         feature_cols_dict = {x: [x] for x in feature_cols}
         lofo_features = {**feature_cols_dict, **self.feature_groups}
+
+        if self.x_train_processed is None:
+            raise RuntimeError("x_train_processed is None — model must be fitted before calculating LOFO FI.")
 
         # lofo
         fi_dev: list[tuple[str, float]] = []

@@ -12,7 +12,6 @@ import warnings
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from octopus.models import Models
 from octopus.models.hyperparameter import (
@@ -222,9 +221,7 @@ class TestColumnOrdering:
 
         # num1 should contain scaled numerical data (floats), not categorical codes
         num1_values = training.x_train_processed["num1"].values
-        assert np.issubdtype(num1_values.dtype, np.floating), (
-            f"num1 should be float dtype but got {num1_values.dtype}"
-        )
+        assert np.issubdtype(num1_values.dtype, np.floating), f"num1 should be float dtype but got {num1_values.dtype}"
         # The values should be scaled (StandardScaler) from the original ~N(10,2) distribution
         # They should NOT be categorical string values
         assert not any(isinstance(v, str) for v in num1_values), "num1 contains string values — column mislabeled!"
@@ -243,9 +240,7 @@ class TestColumnOrdering:
         unique_vals = set(cat1_values)
         # Original cat1 values are {0, 1, 2} — they should NOT be StandardScaler-transformed
         # (categorical columns only get imputation, not scaling)
-        assert unique_vals.issubset({0.0, 1.0, 2.0}), (
-            f"cat1 should contain only {{0, 1, 2}} but got {unique_vals}"
-        )
+        assert unique_vals.issubset({0.0, 1.0, 2.0}), f"cat1 should contain only {{0, 1, 2}} but got {unique_vals}"
 
     def test_internal_fi_labels_correct_with_mixed_types(self):
         """Verify feature importance labels are correct when mixed column types exist.
@@ -327,8 +322,13 @@ class TestColumnOrdering:
         data_train, data_dev, data_test = _split_data(data)
 
         training = _create_training(
-            data_train, data_dev, data_test, feature_cols, feature_groups,
-            ml_type=MLType.BINARY, model_name="ExtraTreesClassifier",
+            data_train,
+            data_dev,
+            data_test,
+            feature_cols,
+            feature_groups,
+            ml_type=MLType.BINARY,
+            model_name="ExtraTreesClassifier",
         )
         training.fit()
 
@@ -355,10 +355,13 @@ class TestColumnOrdering:
         # Delete get_feature_names_out to trigger fallback
         class PipelineWithoutNames:
             """Mock pipeline without get_feature_names_out."""
+
             def __init__(self, pipeline):
                 self._pipeline = pipeline
+
             def transform(self, data):
                 return self._pipeline.transform(data)
+
             def fit_transform(self, data):
                 return self._pipeline.fit_transform(data)
 

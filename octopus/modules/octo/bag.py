@@ -794,7 +794,8 @@ class BagBase(BaseEstimator):
         # return mean of weighted predictions
         return np.sum(np.array(preds_lst), axis=0) / sum(weights_lst)
 
-    def _estimator_type(self):
+    @property
+    def _estimator_type(self) -> str:
         """Return the estimator type for sklearn compatibility."""
         if self.ml_type in (MLType.BINARY, MLType.MULTICLASS):
             return "classifier"
@@ -806,7 +807,8 @@ class BagBase(BaseEstimator):
 class BagClassifier(BagBase, ClassifierMixin):
     """Bag for classification tasks with sklearn ClassifierMixin."""
 
-    def _estimator_type(self):  # type: ignore[override]
+    @property
+    def _estimator_type(self) -> str:  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "classifier"
 
@@ -815,7 +817,8 @@ class BagClassifier(BagBase, ClassifierMixin):
 class BagRegressor(BagBase, RegressorMixin):
     """Bag for regression tasks with sklearn RegressorMixin."""
 
-    def _estimator_type(self):  # type: ignore[override]
+    @property
+    def _estimator_type(self) -> str:  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "regressor"
 
