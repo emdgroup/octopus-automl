@@ -750,8 +750,6 @@ class BagBase(BaseEstimator):
 
     def predict(self, x):
         """Predict with sklearn compatibility."""
-        # Import sklearn validation here to avoid auto-formatter issues
-
         # Check if the bag has fitted trainings
         if not self.trainings:
             raise ValueError("No trainings available in bag")
@@ -760,10 +758,6 @@ class BagBase(BaseEstimator):
         for training in self.trainings:
             if not getattr(training, "is_fitted", False):
                 raise ValueError(f"Training {training.training_id} is not fitted")
-
-        # Convert pandas DataFrame to numpy if needed for sklearn compatibility
-        if hasattr(x, "values"):
-            x = x.values
 
         preds_lst = []
         weights_lst = []
@@ -789,10 +783,6 @@ class BagBase(BaseEstimator):
         for training in self.trainings:
             if not getattr(training, "is_fitted", False):
                 raise ValueError(f"Training {training.training_id} is not fitted")
-
-        # Convert pandas DataFrame to numpy if needed for sklearn compatibility
-        if hasattr(x, "values"):
-            x = x.values
 
         preds_lst = []
         weights_lst = []

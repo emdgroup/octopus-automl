@@ -7,7 +7,7 @@ Provides high-level analysis functions for Jupyter notebooks:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -31,6 +31,7 @@ __all__ = [
     "show_target_metric_performance",
     "show_testset_performance",
 ]
+
 
 def find_latest_study(studies_root: str | UPath, prefix: str) -> str:
     """Find the latest study directory matching a name prefix.
@@ -74,8 +75,6 @@ try:
     from IPython.display import display as ipython_display
 except ImportError:
     ipython_display = None
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from octopus.predict.task_predictor_test import TaskPredictorTest

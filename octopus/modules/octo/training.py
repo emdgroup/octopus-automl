@@ -714,25 +714,27 @@ class Training:
             else:
                 feature_names = [f"f{i}" for i in range(n_features)]
 
+        # Build predict function that converts numpy to DataFrame for sklearn compatibility
+        _feature_cols = self.feature_cols
+
+        if getattr(self, "ml_type", None) in (MLType.BINARY, MLType.MULTICLASS) and hasattr(
+            self.model, "predict_proba"
+        ):
+
+            def predict_fn(X):
+                return np.asarray(self.model.predict_proba(pd.DataFrame(np.asarray(X), columns=_feature_cols)))
+        else:
+
+            def predict_fn(X):
+                return np.asarray(self.model.predict(pd.DataFrame(np.asarray(X), columns=_feature_cols)))
+
         # Build explainer
         try:
             # Let SHAP auto-select the best explainer (Tree for tree models, Kernel otherwise)
-            explainer = shap.Explainer(self.model, X_bg)
+            explainer = shap.Explainer(predict_fn, X_bg)
             sv = explainer(X_eval)
         except Exception as e1:
             logger.debug(f"SHAP auto explainer failed: {e1}. Falling back to callable + Kernel.")
-            # Fallback to a plain callable; do NOT pass string link (avoids 'link needs to be callable' errors)
-            if getattr(self, "ml_type", None) in (MLType.BINARY, MLType.MULTICLASS) and hasattr(
-                self.model, "predict_proba"
-            ):
-
-                def predict_fn(X):
-                    return np.asarray(self.model.predict_proba(np.asarray(X)))
-            else:
-
-                def predict_fn(X):
-                    return np.asarray(self.model.predict(np.asarray(X)))
-
             # Use the generic constructor so SHAP picks Kernel with the given background
             explainer = shap.Explainer(predict_fn, X_bg)
             sv = explainer(X_eval)
@@ -777,17 +779,19 @@ class Training:
             X = np.asarray(data)
             feature_names = [f"f{i}" for i in range(X.shape[1])]
 
-        # --- Prediction function as a plain callable (not a bound method)
+        # --- Prediction function that converts numpy to DataFrame for sklearn compatibility
+        _feature_cols = self.feature_cols
+
         if getattr(self, "ml_type", None) in (MLType.BINARY, MLType.MULTICLASS) and hasattr(
             self.model, "predict_proba"
         ):
 
             def predict_fn(X_in):
-                return np.asarray(self.model.predict_proba(np.asarray(X_in)))
+                return np.asarray(self.model.predict_proba(pd.DataFrame(np.asarray(X_in), columns=_feature_cols)))
         else:
 
             def predict_fn(X_in):
-                return np.asarray(self.model.predict(np.asarray(X_in)))
+                return np.asarray(self.model.predict(pd.DataFrame(np.asarray(X_in), columns=_feature_cols)))
 
         # --- Build explainer (no tree option)
         if shap_type == "kernel":
@@ -853,6 +857,9 @@ class Training:
 
         # Apply the same preprocessing pipeline used during training
         x_processed = self.preprocessing_pipeline.transform(x)
+        # Convert pipeline output back to DataFrame to preserve feature names for sklearn models
+        if hasattr(x_processed, "shape") and len(x_processed.shape) == 2:
+            x_processed = pd.DataFrame(x_processed, columns=self.feature_cols)
         return self.model.predict(x_processed)  # type: ignore
 
     def predict_proba(self, x: pd.DataFrame) -> np.ndarray:
@@ -873,6 +880,9 @@ class Training:
 
         # Apply the same preprocessing pipeline used during training
         x_processed = self.preprocessing_pipeline.transform(x)
+        # Convert pipeline output back to DataFrame to preserve feature names for sklearn models
+        if hasattr(x_processed, "shape") and len(x_processed.shape) == 2:
+            x_processed = pd.DataFrame(x_processed, columns=self.feature_cols)
         return self.model.predict_proba(x_processed)  # type: ignore
 
     def _validate_model_trained(self):
