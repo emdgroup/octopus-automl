@@ -38,3 +38,7 @@ class ModelName(StrEnum):
     XGBRegressor = "XGBRegressor"
     HistGradientBoostingRegressor = "HistGradientBoostingRegressor"
     TabularNNRegressor = "TabularNNRegressor"
+
+    # Time-to-event (survival) models
+    CatBoostCoxSurvival = "CatBoostCoxSurvival"
+    XGBoostCoxSurvival = "XGBoostCoxSurvival"

@@ -1,17 +1,16 @@
 """Test workflow for Octopus time-to-event (survival analysis) example."""
 
 import tempfile
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from octopus.models import ModelName
 from octopus.modules import Octo
 from octopus.study import OctoTimeToEvent
 
 
-@pytest.mark.skip(reason="Temporarily disabled")
 class TestOctoTimeToEvent:
     """Test suite for Octopus time-to-event workflow."""
 
@@ -83,7 +82,8 @@ class TestOctoTimeToEvent:
                 ignore_data_health_warning=True,
             )
 
-            assert study.target_cols == ["duration", "event"]
+            assert study.duration_col == "duration"
+            assert study.event_col == "event"
             assert len(study.feature_cols) == 5
             assert study.sample_id_col == "index"
             assert study.target_assignments == {"duration": "duration", "event": "event"}
@@ -94,7 +94,7 @@ class TestOctoTimeToEvent:
             task_id=0,
             depends_on=None,
             description="step_1",
-            models=["ExtraTreesSurv"],
+            models=[ModelName.CatBoostCoxSurvival],
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
@@ -109,26 +109,42 @@ class TestOctoTimeToEvent:
         assert octo_task.max_features == 6
         assert octo_task.ensemble_selection is True
         assert octo_task.ensel_n_save_trials == 10
-        assert octo_task.models == ["ExtraTreesSurv"]
+        assert octo_task.models == [ModelName.CatBoostCoxSurvival]
 
-    def test_single_model_configuration(self):
-        """Test configuration with ExtraTreesSurv model."""
+    @pytest.mark.parametrize("model_name", [ModelName.CatBoostCoxSurvival, ModelName.XGBoostCoxSurvival])
+    def test_single_model_configuration(self, model_name):
+        """Test configuration with each survival model individually."""
         octo_task = Octo(
             task_id=0,
             depends_on=None,
             description="step_1",
-            models=["ExtraTreesSurv"],
+            models=[model_name],
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
             ensel_n_save_trials=10,
         )
 
-        assert octo_task.models == ["ExtraTreesSurv"]
+        assert octo_task.models == [model_name]
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
         assert octo_task.ensemble_selection is True
         assert octo_task.ensel_n_save_trials == 10
+
+    def test_multi_model_configuration(self):
+        """Test configuration with both survival models."""
+        octo_task = Octo(
+            task_id=0,
+            depends_on=None,
+            description="step_1",
+            models=[ModelName.CatBoostCoxSurvival, ModelName.XGBoostCoxSurvival],
+            n_trials=12,
+            max_features=6,
+            ensemble_selection=True,
+            ensel_n_save_trials=10,
+        )
+
+        assert {str(m) for m in octo_task.models} == {ModelName.CatBoostCoxSurvival, ModelName.XGBoostCoxSurvival}
 
     def test_ensemble_selection_configuration(self):
         """Test ensemble selection configuration."""
@@ -136,7 +152,7 @@ class TestOctoTimeToEvent:
             task_id=0,
             depends_on=None,
             description="step_1",
-            models=["ExtraTreesSurv"],
+            models=[ModelName.CatBoostCoxSurvival],
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
@@ -152,7 +168,7 @@ class TestOctoTimeToEvent:
             task_id=0,
             depends_on=None,
             description="step_1",
-            models=["ExtraTreesSurv"],
+            models=[ModelName.CatBoostCoxSurvival],
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
@@ -162,7 +178,7 @@ class TestOctoTimeToEvent:
             penalty_factor=1.5,
         )
 
-        assert "ExtraTreesSurv" in octo_task.models
+        assert ModelName.CatBoostCoxSurvival in octo_task.models
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
         assert octo_task.ensemble_selection is True
@@ -196,14 +212,14 @@ class TestOctoTimeToEvent:
                         task_id=0,
                         depends_on=None,
                         description="step_1",
-                        models=["ExtraTreesSurv"],
+                        models=[ModelName.CatBoostCoxSurvival],
                         n_trials=12,
                         max_features=6,
                         ensemble_selection=True,
                         ensel_n_save_trials=10,
                         model_seed=0,
                         n_jobs=1,
-                        fi_methods_bestbag=["shap"],
+                        fi_methods_bestbag=["permutation"],
                         inner_parallelization=True,
                         n_workers=2,
                         optuna_seed=0,
@@ -217,7 +233,7 @@ class TestOctoTimeToEvent:
             study.fit(data=df)
 
             # Verify that the study was created and files exist
-            study_path = Path(temp_dir) / "test_octo_t2e_execution"
+            study_path = study.output_path
             assert study_path.exists(), "Study directory should be created"
 
             assert (study_path / "study.log").exists(), "Study log file should exist"
@@ -243,7 +259,7 @@ class TestOctoTimeToEvent:
             task_id=0,
             depends_on=None,
             description="step_1",
-            models=["ExtraTreesSurv"],
+            models=[ModelName.CatBoostCoxSurvival],
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
@@ -264,7 +280,7 @@ class TestOctoTimeToEvent:
         assert octo_task.task_id == 0
         assert octo_task.depends_on is None
         assert octo_task.description == "step_1"
-        assert octo_task.models == ["ExtraTreesSurv"]
+        assert octo_task.models == [ModelName.CatBoostCoxSurvival]
         assert octo_task.model_seed == 0
         assert octo_task.n_jobs == 1
         assert octo_task.max_outl == 0

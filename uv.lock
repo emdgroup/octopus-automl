@@ -387,6 +387,28 @@ all = [
 ]
 
 [[package]]
+name = "autograd"
+version = "1.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/67/1c/3c24ec03c8ba4decc742b1df5a10c52f98c84ca8797757f313e7bdcdf276/autograd-1.8.0.tar.gz", hash = "sha256:107374ded5b09fc8643ac925348c0369e7b0e73bbed9565ffd61b8fd04425683", size = 2562146, upload-time = "2025-05-05T12:49:02.502Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/ea/e16f0c423f7d83cf8b79cae9452040fb7b2e020c7439a167ee7c317de448/autograd-1.8.0-py3-none-any.whl", hash = "sha256:4ab9084294f814cf56c280adbe19612546a35574d67c574b04933c7d2ecb7d78", size = 51478, upload-time = "2025-05-05T12:49:00.585Z" },
+]
+
+[[package]]
+name = "autograd-gamma"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "autograd" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/85/ae/7f2031ea76140444b2453fa139041e5afd4a09fc5300cfefeb1103291f80/autograd-gamma-0.5.0.tar.gz", hash = "sha256:f27abb7b8bb9cffc8badcbf59f3fe44a9db39e124ecacf1992b6d952934ac9c4", size = 3952, upload-time = "2020-10-15T16:51:06.785Z" }
+
+[[package]]
 name = "aws-sam-translator"
 version = "1.103.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1237,6 +1259,24 @@ wheels = [
 ]
 
 [[package]]
+name = "formulaic"
+version = "1.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "interface-meta" },
+    { name = "narwhals" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "scipy" },
+    { name = "typing-extensions" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6a/8b/8038d2af289a5cc194fa0a255fe964a1a04e0e6ca4426aed8841a4b571e6/formulaic-1.2.1.tar.gz", hash = "sha256:dc79476baa2d811b35798893eb2f2c1e51edee8d7a9c1429b400e56f4e0beccc", size = 655266, upload-time = "2025-09-21T05:27:31.488Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/9d/c2c8b51b32f829a16fe042db30ad1dcef7947bf1dcf77c2cfd7b6f37b83a/formulaic-1.2.1-py3-none-any.whl", hash = "sha256:661d6d2467aa961b9afb3a1e2a187494239793c63eb729e422d1307afa98b43b", size = 117290, upload-time = "2025-09-21T05:27:30.025Z" },
+]
+
+[[package]]
 name = "fqdn"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1553,6 +1593,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
+]
+
+[[package]]
+name = "interface-meta"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/75/10526292b332f3479c246750a96f6ec11a28e297839a9c25583b2aadc119/interface_meta-1.3.0.tar.gz", hash = "sha256:8a4493f8bdb73fb9655dcd5115bc897e207319e36c8835f39c516a2d7e9d79a1", size = 15007, upload-time = "2022-04-04T01:12:46.517Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/02/3f/a6ec28c88e2d8e54d32598a1e0b5208a4baa72a8e7f6e241beab5731eb9d/interface_meta-1.3.0-py3-none-any.whl", hash = "sha256:de35dc5241431886e709e20a14d6597ed07c9f1e8b4bfcffde2190ca5b700ee8", size = 14854, upload-time = "2022-04-04T01:12:45.183Z" },
 ]
 
 [[package]]
@@ -2067,6 +2116,24 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5a/36/2ea057fb11e7f4918bfaffd4eb135f715dd8cdc653fba516b9e2453d16bd/licensecheck-2025.1.0.tar.gz", hash = "sha256:411a1d81606b8be695794c1e7e79cc899b51fe5c501164155361cd2d6f3c5969", size = 79797, upload-time = "2025-03-26T22:58:04.777Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/65/bd/606e2f7eb0da042bffd8711a7427f7a28ca501aa6b1e3367ae3c7d4dc489/licensecheck-2025.1.0-py3-none-any.whl", hash = "sha256:eb20131cd8f877e5396958fd7b00cdb2225436c37a59dba4cf36d36079133a17", size = 26681, upload-time = "2025-03-26T22:58:03.145Z" },
+]
+
+[[package]]
+name = "lifelines"
+version = "0.30.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "autograd" },
+    { name = "autograd-gamma" },
+    { name = "formulaic" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a0/4b/f92ca958b11284f9e80075d6b80b8150a3a231edb55e73a42878f786a54a/lifelines-0.30.3.tar.gz", hash = "sha256:acd1e0ecada4280c7bb2948f39c760a0f9158a57d752c8ca29f984a86c698b7f", size = 690663, upload-time = "2026-03-05T16:54:44.365Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/fb/5ed80a8932630d4ae33af186a87008c9b48f02bc515380acc1a4b1fec162/lifelines-0.30.3-py3-none-any.whl", hash = "sha256:44802480a28d6cb836c7fea4a54ec0ba220eb31c6d7444589637a8bd66066e8c", size = 409055, upload-time = "2026-03-05T16:54:42.414Z" },
 ]
 
 [[package]]
@@ -2932,6 +2999,7 @@ dev = [
     { name = "joblib-stubs" },
     { name = "jupytext" },
     { name = "licensecheck" },
+    { name = "lifelines" },
     { name = "mkdocs" },
     { name = "mkdocs-gen-files" },
     { name = "mkdocs-literate-nav" },
@@ -2973,6 +3041,7 @@ docs = [
     { name = "ipywidgets" },
     { name = "jupytext" },
     { name = "licensecheck" },
+    { name = "lifelines" },
     { name = "mkdocs" },
     { name = "mkdocs-gen-files" },
     { name = "mkdocs-literate-nav" },
@@ -3025,6 +3094,9 @@ mypy = [
 sfs = [
     { name = "mlxtend" },
 ]
+survival = [
+    { name = "lifelines" },
+]
 test = [
     { name = "altair" },
     { name = "autogluon-tabular", extra = ["all"] },
@@ -3035,6 +3107,7 @@ test = [
     { name = "ipykernel" },
     { name = "ipywidgets" },
     { name = "licensecheck" },
+    { name = "lifelines" },
     { name = "mlxtend" },
     { name = "moto", extra = ["s3", "server"] },
     { name = "nbconvert" },
@@ -3073,6 +3146,7 @@ requires-dist = [
     { name = "joblib-stubs", marker = "extra == 'mypy'", specifier = ">=1.5.2.0.20250831" },
     { name = "jupytext", marker = "extra == 'docs'", specifier = ">=1.19.0" },
     { name = "licensecheck", marker = "extra == 'lint'", specifier = ">=2025.1.0" },
+    { name = "lifelines", marker = "extra == 'survival'", specifier = ">=0.29.0" },
     { name = "llvmlite", specifier = "<0.46" },
     { name = "lz4", specifier = ">=4.4" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6.1" },
