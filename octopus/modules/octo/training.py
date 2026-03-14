@@ -1,7 +1,7 @@
 """Octo Training."""
 
 import copy
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -79,7 +79,7 @@ class Training:
     training_weight: int = field(default=1, validator=[validators.instance_of(int)])
     """Training weight for ensembling"""
 
-    model = field(default=None)
+    model: Any = field(default=None)
     """Model."""
 
     predictions: dict = field(default=Factory(dict), validator=[validators.instance_of(dict)])
@@ -94,16 +94,16 @@ class Training:
     """Features used."""
 
     outlier_samples: list = field(default=Factory(list), validator=[validators.instance_of(list)])
-    """Outlie samples identified."""
+    """Outlier samples identified."""
 
     is_fitted: bool = field(default=False, init=False)
     """Flag indicating whether the training has been completed."""
 
-    preprocessing_pipeline = field(init=False)
+    preprocessing_pipeline: ColumnTransformer | Pipeline = field(init=False)
     """Preprocessing pipeline for data scaling, imputation, and categorical encoding."""
 
-    x_train_processed = field(default=None, init=False)
-    """Training data after pre-processing (outlier, impuation, scaling)."""
+    x_train_processed: pd.DataFrame | None = field(default=None, init=False)
+    """Training data after pre-processing (outlier, imputation, scaling)."""
 
     @property
     def outl_reduction(self) -> int:
@@ -128,20 +128,12 @@ class Training:
     @property
     def x_dev_processed(self):
         """x_dev_processed."""
-        processed_data = self.preprocessing_pipeline.transform(self.data_dev[self.feature_cols])
-        # Convert back to DataFrame to preserve column names
-        if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            return pd.DataFrame(processed_data, columns=self.feature_cols, index=self.data_dev.index)
-        return processed_data
+        return self._transform_to_dataframe(self.data_dev[self.feature_cols], index=self.data_dev.index)
 
     @property
     def x_test_processed(self):
         """x_test_processed."""
-        processed_data = self.preprocessing_pipeline.transform(self.data_test[self.feature_cols])
-        # Convert back to DataFrame to preserve column names
-        if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            return pd.DataFrame(processed_data, columns=self.feature_cols, index=self.data_test.index)
-        return processed_data
+        return self._transform_to_dataframe(self.data_test[self.feature_cols], index=self.data_test.index)
 
     @property
     def y_train(self):
@@ -171,7 +163,7 @@ class Training:
 
     @property
     def y_test(self):
-        """y_dev."""
+        """y_test."""
         if self.ml_type == MLType.TIMETOEVENT:
             duration = self.data_test[self.target_assignments["duration"]]
             event = self.data_test[self.target_assignments["event"]]
@@ -185,6 +177,80 @@ class Training:
     def __attrs_post_init__(self):
         # Set up preprocessing pipeline
         self._setup_preprocessing_pipeline()
+
+    def _relabel_processed_output(
+        self,
+        processed_data: Any,
+        index: pd.Index | None = None,
+    ) -> pd.DataFrame:
+        """Convert pipeline output to a correctly-labeled DataFrame in self.feature_cols order.
+
+        Handles the ColumnTransformer column reordering issue: ColumnTransformer outputs columns
+        in transformer order (numerical first, then categorical), which may differ from
+        self.feature_cols order. This method uses get_feature_names_out() to correctly label
+        columns, then reorders to self.feature_cols order.
+
+        Args:
+            processed_data: Raw output from preprocessing_pipeline.transform() or fit_transform().
+            index: Optional index for the output DataFrame.
+
+        Returns:
+            DataFrame with columns in self.feature_cols order, correctly labeled.
+        """
+        # Convert sparse matrices to dense arrays
+        if hasattr(processed_data, "toarray"):
+            processed_data = processed_data.toarray()
+
+        if not (hasattr(processed_data, "shape") and len(processed_data.shape) == 2):
+            return pd.DataFrame(processed_data)
+
+        try:
+            output_cols = list(self.preprocessing_pipeline.get_feature_names_out())
+        except AttributeError:
+            # FunctionTransformer pipeline doesn't support get_feature_names_out()
+            # In this case, column order is preserved (no ColumnTransformer reordering)
+            output_cols = list(self.feature_cols)
+
+        n_cols = processed_data.shape[1]
+        if set(output_cols) != set(self.feature_cols):
+            # If column count also mismatches, raise a clear error
+            if n_cols != len(self.feature_cols):
+                raise ValueError(
+                    f"Pipeline output has {n_cols} columns but expected {len(self.feature_cols)}. "
+                    f"Pipeline columns: {output_cols}, expected: {list(self.feature_cols)}. "
+                    f"This may indicate extra/unexpected columns were passed to the transformer."
+                )
+            logger.warning(
+                "Pipeline output columns %s do not match feature_cols %s. Falling back to positional labeling.",
+                output_cols,
+                self.feature_cols,
+            )
+            output_cols = list(self.feature_cols)
+
+        df = pd.DataFrame(processed_data, columns=output_cols, index=index)
+
+        # Reorder to self.feature_cols order if needed
+        if output_cols != list(self.feature_cols):
+            df = df[self.feature_cols]
+
+        return df
+
+    def _transform_to_dataframe(
+        self,
+        data: pd.DataFrame | np.ndarray,
+        index: pd.Index | None = None,
+    ) -> pd.DataFrame:
+        """Transform data through preprocessing pipeline and return correctly-labeled DataFrame.
+
+        Args:
+            data: Input data to transform.
+            index: Optional index for the output DataFrame.
+
+        Returns:
+            DataFrame with columns in self.feature_cols order, correctly labeled.
+        """
+        processed_data = self.preprocessing_pipeline.transform(data)
+        return self._relabel_processed_output(processed_data, index=index)
 
     def _setup_preprocessing_pipeline(self):
         """Set up the preprocessing pipeline with conditional imputation and scaling.
@@ -283,11 +349,7 @@ class Training:
 
         # (2) Imputation and scaling (after outlier removal)
         processed_data = self.preprocessing_pipeline.fit_transform(x_train)
-        # Convert back to DataFrame to preserve column names
-        if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            self.x_train_processed = pd.DataFrame(processed_data, columns=self.feature_cols, index=x_train.index)
-        else:
-            self.x_train_processed = processed_data
+        self.x_train_processed = self._relabel_processed_output(processed_data, index=x_train.index)
 
         # (3) Model training
         self.model = Models.get_instance(self.ml_model_type, self.ml_model_params)
@@ -478,6 +540,7 @@ class Training:
         # Use x_train_processed (larger, more representative) as the sampling pool.
         # Align targets to x_train_processed index to handle outl_reduction > 0,
         # where self.data_train retains all rows but x_train_processed has outliers removed.
+        assert self.x_train_processed is not None, "Model must be fitted before computing permutation FI."
         train_targets = self.data_train.loc[self.x_train_processed.index, target_cols]
         train_pool = pd.concat([self.x_train_processed, train_targets], axis=1)
 
@@ -540,6 +603,7 @@ class Training:
             selected_features = copy.deepcopy(feature_cols)
             model = copy.deepcopy(self.model)
             selected_features = [x for x in selected_features if x not in lofo_feature]
+            assert self.x_train_processed is not None, "Model must be fitted before computing LOFO FI."
             # retrain model
             if len(self.target_assignments) == 1:
                 # standard sklearn single target models
