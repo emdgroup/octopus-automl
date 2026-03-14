@@ -1,21 +1,37 @@
 """Feature Importance Test Suite for Training Class.
 
 Tests all feature importance methods across all available models.
-Each test is marked with ``@pytest.mark.forked`` so it runs in its own
-subprocess — this provides complete isolation between tests, preventing:
+
+SHAP-based tests (``calculate_fi_featuresused_shap``) run in isolated
+subprocesses via ``subprocess.run()`` to prevent:
 
 - CatBoost's C++ destructor segfault when Python's GC finalizes objects
 - numba/llvmlite LLVM pass-manager crash from accumulated JIT compilations
-- Memory accumulation from session-scoped model caches
+- SHAP + CatBoost + NaN background data segfaults
 
-See datasets_local/specifications_refactorfi/02_ci_segfault_investigation.md
-for details on why this structure was chosen.
+All other FI methods (internal, permutation, LOFO) run directly in the
+pytest process — they are safe, faster, and maintain normal pytest protocol
+(fixture setup/teardown, SetupState tracking, etc.).
+
+This replaces the previous ``@pytest.mark.forked`` approach, which bypassed
+pytest's ``SetupState`` for every test and caused fixture teardown errors
+(``AssertionError: previous item was not torn down properly``) when
+transitioning to non-forked tests in CI.
+
+See:
+- datasets_local/specifications_refactorfi/02_ci_segfault_investigation.md
+- datasets_local/specifications_refactorfi/07_ci_warnings_error_report_proposal.md §2.1.6
 
 Usage:
     pytest test_training_feature_importances.py -v
 """
 
+import gc
+import signal
+import subprocess
+import sys
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -45,6 +61,14 @@ FI_METHODS = [
     "calculate_fi_featuresused_shap",
     # "calculate_fi_shap",  # Excluded: kernel SHAP is too slow/memory-heavy for CI
 ]
+
+# Methods that require subprocess isolation due to segfault risk
+_SUBPROCESS_FI_METHODS = frozenset(
+    {
+        "calculate_fi_featuresused_shap",
+        "calculate_fi_shap",
+    }
+)
 
 ML_TYPE_CONFIGS = {
     MLType.BINARY: {
@@ -238,22 +262,13 @@ def _run_fi_method(training: Training, method_name: str) -> list[str]:
         raise ValueError(f"Unknown method: {method_name}")
 
 
-@pytest.mark.forked
-@pytest.mark.parametrize("ml_type,model_name,fi_method", _generate_model_fi_params())
-def test_feature_importance(ml_type, model_name, fi_method):
-    """Test a single FI method for a single model in an isolated subprocess.
+def _run_test_body(ml_type: MLType, model_name: str, fi_method: str) -> None:
+    """Core test logic — called in-process or from subprocess entry point.
 
-    Each (model, FI method) combination runs in its own forked process
-    (``@pytest.mark.forked``).  This means:
-
-    - A segfault clearly identifies the exact (model, method) that crashed
-    - Complete process isolation prevents CatBoost GC segfaults,
-      numba/llvmlite LLVM crashes, and memory accumulation
-    - The trade-off is fitting the model once per test (slightly slower)
-
-    Test IDs look like::
-
-        test_feature_importance[binary-CatBoostClassifier-calculate_fi_featuresused_shap]
+    Args:
+        ml_type: The machine learning task type.
+        model_name: Name of the model to test.
+        fi_method: Name of the feature importance method to run.
     """
     warnings.filterwarnings("ignore")
 
@@ -278,3 +293,101 @@ def test_feature_importance(ml_type, model_name, fi_method):
         # built-in feature importances (e.g. GaussianProcess, SVM with non-linear kernel)
         if fi_method != "calculate_fi_internal":
             assert len(fi_data) > 0, f"Feature importance '{key}' is empty after {fi_method}"
+
+
+def _run_in_subprocess(ml_type: MLType, model_name: str, fi_method: str) -> None:
+    """Run a single FI test in an isolated subprocess.
+
+    Invokes this module's ``__main__`` block in a fresh Python interpreter
+    via ``subprocess.run()``.  This provides complete process isolation
+    without using ``os.fork()`` (which is deprecated in multi-threaded
+    processes on Python 3.12+).
+
+    Args:
+        ml_type: The machine learning task type.
+        model_name: Name of the model to test.
+        fi_method: Name of the feature importance method to run.
+
+    Raises:
+        pytest.fail: If the subprocess exits with a non-zero code or crashes.
+    """
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__)),
+            "--ml-type",
+            ml_type.value,
+            "--model-name",
+            model_name,
+            "--fi-method",
+            fi_method,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        # Truncate output to avoid overwhelming the test report
+        stdout_tail = result.stdout[-2000:] if result.stdout else "(empty)"
+        stderr_tail = result.stderr[-2000:] if result.stderr else "(empty)"
+
+        if result.returncode < 0:
+            # Negative return code means the process was killed by a signal
+            try:
+                sig_name = signal.Signals(-result.returncode).name
+            except (ValueError, AttributeError):
+                sig_name = f"signal {-result.returncode}"
+            header = f"Subprocess CRASHED ({sig_name})"
+        else:
+            header = "Subprocess test failed"
+
+        pytest.fail(
+            f"{header} for {ml_type.value}-{model_name}-{fi_method}\n"
+            f"Exit code: {result.returncode}\n"
+            f"stdout:\n{stdout_tail}\n"
+            f"stderr:\n{stderr_tail}"
+        )
+
+
+@pytest.mark.parametrize("ml_type,model_name,fi_method", _generate_model_fi_params())
+def test_feature_importance(ml_type, model_name, fi_method):
+    """Test a single FI method for a single model.
+
+    SHAP-based methods run in isolated subprocesses to prevent segfaults
+    from CatBoost GC, numba/LLVM crashes, and memory accumulation.
+    All other FI methods run directly in the pytest process for speed
+    and proper pytest protocol compliance.
+
+    Test IDs look like::
+
+        test_feature_importance[binary-CatBoostClassifier-calculate_fi_featuresused_shap]
+    """
+    if fi_method in _SUBPROCESS_FI_METHODS:
+        _run_in_subprocess(ml_type, model_name, fi_method)
+    else:
+        _run_test_body(ml_type, model_name, fi_method)
+        gc.collect()
+
+
+# ---------------------------------------------------------------------------
+# Subprocess entry point
+# ---------------------------------------------------------------------------
+# When this module is executed as a script (via _run_in_subprocess), it runs
+# a single (ml_type, model_name, fi_method) combination and exits.  A non-zero
+# exit code (including signal-based crashes) is detected by the parent pytest
+# process and reported as a test failure with full diagnostics.
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Run a single feature-importance test in isolation.",
+    )
+    parser.add_argument("--ml-type", required=True, help="MLType enum value")
+    parser.add_argument("--model-name", required=True, help="Model registry name")
+    parser.add_argument("--fi-method", required=True, help="FI method name")
+    args = parser.parse_args()
+
+    _run_test_body(MLType(args.ml_type), args.model_name, args.fi_method)
