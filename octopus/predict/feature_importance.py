@@ -414,7 +414,7 @@ def calculate_fi_permutation(
     selected_features: dict[int, list[str]],
     test_data: dict[int, pd.DataFrame],
     train_data: dict[int, pd.DataFrame],
-    target_col: str,
+    target_assignments: dict[str, str],
     target_metric: str,
     positive_class: Any = None,
     n_repeats: int = 10,
@@ -431,21 +431,14 @@ def calculate_fi_permutation(
     receive zero importance for that split, ensuring the result covers the
     union of all input features.
 
-    .. note::
-
-        This Layer 2 orchestrator only supports **single-target** tasks
-        (binary classification, multiclass, regression).  For time-to-event
-        tasks (which require multi-key ``target_assignments`` like
-        ``{"duration": ..., "event": ...}``), use the Layer 1 primitive
-        ``compute_permutation_single`` directly with full
-        ``target_assignments``.
-
     Args:
         models: Dict mapping outersplit_id to fitted model.
         selected_features: Dict mapping outersplit_id to feature list.
         test_data: Dict mapping outersplit_id to test DataFrame.
         train_data: Dict mapping outersplit_id to train DataFrame.
-        target_col: Target column name (single-target tasks only).
+        target_assignments: Dict mapping semantic target roles to column
+            names.  For single-target tasks: ``{"default": "target_col"}``.
+            For time-to-event: ``{"duration": "...", "event": "..."}``.
         target_metric: Metric name for scoring.
         positive_class: Positive class label for classification.
         n_repeats: Number of permutation repeats per feature.
@@ -461,9 +454,6 @@ def calculate_fi_permutation(
         full statistics; ensemble rows have NaN for p_value/ci_lower/ci_upper.
         Sorted by fi_source then importance_mean descending.
     """
-    # Build target_assignments from target_col
-    target_assignments = {target_col: target_col}
-
     # Per-split: call compute_permutation_single, collect results
     per_split_dfs: dict[int, pd.DataFrame] = {}
 

@@ -180,8 +180,6 @@ class TaskPredictorTest(TaskPredictor):
         if metrics is None:
             metrics = [self.target_metric]
 
-        target_col = self._resolve_target_col()
-
         rows = []
         for split_id in self._outersplits:
             model = self._models[split_id]
@@ -189,13 +187,12 @@ class TaskPredictorTest(TaskPredictor):
             test = self._test_data[split_id]
 
             for metric_name in metrics:
-                target_assignments = {target_col: target_col}
                 score = get_performance_from_model(
                     model=model,
                     data=test,
                     feature_cols=features,
                     target_metric=metric_name,
-                    target_assignments=target_assignments,
+                    target_assignments=self.target_assignments,
                     threshold=threshold,
                     positive_class=self.positive_class,
                 )
@@ -249,8 +246,6 @@ class TaskPredictorTest(TaskPredictor):
             calculate_fi_shap,
         )
 
-        target_col = self._resolve_target_col()
-
         if fi_type in ("permutation", "group_permutation"):
             resolved_groups = None
             if fi_type == "group_permutation":
@@ -264,7 +259,7 @@ class TaskPredictorTest(TaskPredictor):
                 selected_features=self._selected_features,
                 test_data=self._test_data,
                 train_data=self._train_data,
-                target_col=target_col,
+                target_assignments=self.target_assignments,
                 target_metric=self.target_metric,
                 positive_class=self.positive_class,
                 n_repeats=n_repeats,

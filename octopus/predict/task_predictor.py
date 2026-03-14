@@ -340,21 +340,18 @@ class TaskPredictor:
         if metrics is None:
             metrics = [self.target_metric]
 
-        target_col = self._target_col_resolved
-
         rows = []
         for split_id in self._outersplits:
             model = self._models[split_id]
             features = self._selected_features[split_id]
 
             for metric_name in metrics:
-                target_assignments = {target_col: target_col}
                 score = get_performance_from_model(
                     model=model,
                     data=data,
                     feature_cols=features,
                     target_metric=metric_name,
-                    target_assignments=target_assignments,
+                    target_assignments=self.target_assignments,
                     threshold=threshold,
                     positive_class=self.positive_class,
                 )
@@ -411,8 +408,6 @@ class TaskPredictor:
             calculate_fi_shap,
         )
 
-        target_col = self._target_col_resolved
-
         # Build per-split data dicts (same data for all splits)
         test_data = dict.fromkeys(self._outersplits, data)
         train_data = dict.fromkeys(self._outersplits, data)
@@ -430,7 +425,7 @@ class TaskPredictor:
                 selected_features=self._selected_features,
                 test_data=test_data,
                 train_data=train_data,
-                target_col=target_col,
+                target_assignments=self.target_assignments,
                 target_metric=self.target_metric,
                 positive_class=self.positive_class,
                 n_repeats=n_repeats,
