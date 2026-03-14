@@ -750,8 +750,6 @@ class BagBase(BaseEstimator):
 
     def predict(self, x):
         """Predict with sklearn compatibility."""
-        # Import sklearn validation here to avoid auto-formatter issues
-
         # Check if the bag has fitted trainings
         if not self.trainings:
             raise ValueError("No trainings available in bag")
@@ -760,10 +758,6 @@ class BagBase(BaseEstimator):
         for training in self.trainings:
             if not getattr(training, "is_fitted", False):
                 raise ValueError(f"Training {training.training_id} is not fitted")
-
-        # Convert pandas DataFrame to numpy if needed for sklearn compatibility
-        if hasattr(x, "values"):
-            x = x.values
 
         preds_lst = []
         weights_lst = []
@@ -790,10 +784,6 @@ class BagBase(BaseEstimator):
             if not getattr(training, "is_fitted", False):
                 raise ValueError(f"Training {training.training_id} is not fitted")
 
-        # Convert pandas DataFrame to numpy if needed for sklearn compatibility
-        if hasattr(x, "values"):
-            x = x.values
-
         preds_lst = []
         weights_lst = []
         for training in self.trainings:
@@ -804,7 +794,8 @@ class BagBase(BaseEstimator):
         # return mean of weighted predictions
         return np.sum(np.array(preds_lst), axis=0) / sum(weights_lst)
 
-    def _estimator_type(self):
+    @property
+    def _estimator_type(self) -> str:
         """Return the estimator type for sklearn compatibility."""
         if self.ml_type in (MLType.BINARY, MLType.MULTICLASS):
             return "classifier"
@@ -816,7 +807,8 @@ class BagBase(BaseEstimator):
 class BagClassifier(BagBase, ClassifierMixin):
     """Bag for classification tasks with sklearn ClassifierMixin."""
 
-    def _estimator_type(self):  # type: ignore[override]
+    @property
+    def _estimator_type(self) -> str:  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "classifier"
 
@@ -825,7 +817,8 @@ class BagClassifier(BagBase, ClassifierMixin):
 class BagRegressor(BagBase, RegressorMixin):
     """Bag for regression tasks with sklearn RegressorMixin."""
 
-    def _estimator_type(self):  # type: ignore[override]
+    @property
+    def _estimator_type(self) -> str:  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "regressor"
 

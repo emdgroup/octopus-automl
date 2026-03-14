@@ -565,7 +565,6 @@ class Training:
 
     def calculate_fi_lofo(self):
         """LOFO feature importance."""
-        np.random.seed(42)  # reproducibility
         logger.info("Calculating LOFO feature importance. This may take a while...")
         # first, dev only
         feature_cols = self.feature_cols
@@ -596,6 +595,9 @@ class Training:
         feature_cols_dict = {x: [x] for x in feature_cols}
         lofo_features = {**feature_cols_dict, **self.feature_groups}
 
+        if self.x_train_processed is None:
+            raise RuntimeError("Model must be fitted before computing LOFO FI.")
+
         # lofo
         fi_dev: list[tuple[str, float]] = []
         fi_test: list[tuple[str, float]] = []
@@ -603,7 +605,6 @@ class Training:
             selected_features = copy.deepcopy(feature_cols)
             model = copy.deepcopy(self.model)
             selected_features = [x for x in selected_features if x not in lofo_feature]
-            assert self.x_train_processed is not None, "Model must be fitted before computing LOFO FI."
             # retrain model
             if len(self.target_assignments) == 1:
                 # standard sklearn single target models
@@ -735,11 +736,10 @@ class Training:
         if isinstance(x, np.ndarray):
             x = pd.DataFrame(x, columns=self.feature_cols)
         elif isinstance(x, pd.DataFrame):
-            # Reset index to avoid sklearn ColumnTransformer issues
-            x = x.reset_index(drop=True)
+            x = x[self.feature_cols].reset_index(drop=True)
 
         # Apply the same preprocessing pipeline used during training
-        x_processed = self.preprocessing_pipeline.transform(x)
+        x_processed = self._transform_to_dataframe(x)
         return self.model.predict(x_processed)  # type: ignore
 
     def predict_proba(self, x: pd.DataFrame) -> np.ndarray:
@@ -755,11 +755,10 @@ class Training:
         if isinstance(x, np.ndarray):
             x = pd.DataFrame(x, columns=self.feature_cols)
         elif isinstance(x, pd.DataFrame):
-            # Reset index to avoid sklearn ColumnTransformer issues
-            x = x.reset_index(drop=True)
+            x = x[self.feature_cols].reset_index(drop=True)
 
         # Apply the same preprocessing pipeline used during training
-        x_processed = self.preprocessing_pipeline.transform(x)
+        x_processed = self._transform_to_dataframe(x)
         return self.model.predict_proba(x_processed)  # type: ignore
 
     def _validate_model_trained(self):

@@ -225,12 +225,12 @@ def compute_shap_single(
 
     if is_classifier:
 
-        def predict_fn(x_in: np.ndarray, _m: Any = model) -> np.ndarray:
-            return np.asarray(_m.predict_proba(np.asarray(x_in)))
+        def predict_fn(x_in: np.ndarray, _m: Any = model, _cols: list[str] = feature_names) -> np.ndarray:
+            return np.asarray(_m.predict_proba(pd.DataFrame(np.asarray(x_in), columns=_cols)))
     else:
 
-        def predict_fn(x_in: np.ndarray, _m: Any = model) -> np.ndarray:
-            return np.asarray(_m.predict(np.asarray(x_in)))
+        def predict_fn(x_in: np.ndarray, _m: Any = model, _cols: list[str] = feature_names) -> np.ndarray:
+            return np.asarray(_m.predict(pd.DataFrame(np.asarray(x_in), columns=_cols)))
 
     # Prepare background data
     if X_background is not None:
@@ -240,12 +240,17 @@ def compute_shap_single(
 
     # Build explainer based on shap_type
     if shap_type == "auto":
+        bg_data = bg if bg is not None else x_arr
+        bg_df = pd.DataFrame(bg_data, columns=feature_names)
+        x_df = pd.DataFrame(x_arr, columns=feature_names)
         try:
-            explainer = shap.Explainer(model, bg if bg is not None else x_arr)
-            sv = explainer(x_arr)
+            # Try model directly — SHAP can auto-detect Tree/Linear explainers for speed
+            explainer = shap.Explainer(model, bg_df)
+            sv = explainer(x_df)
             shap_values = np.asarray(sv.values)
         except Exception as e1:
-            logger.debug("SHAP auto explainer failed: %s. Falling back to callable + Kernel.", e1)
+            logger.debug("SHAP auto explainer with model failed: %s. Falling back to callable wrapper.", e1)
+            # Fall back to callable approach (predict_fn wraps numpy→DataFrame internally)
             if bg is None:
                 bg = x_arr
             explainer = shap.Explainer(predict_fn, bg)

@@ -7,7 +7,8 @@ Provides high-level analysis functions for Jupyter notebooks:
 
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -31,6 +32,7 @@ __all__ = [
     "show_target_metric_performance",
     "show_testset_performance",
 ]
+
 
 def find_latest_study(studies_root: str | UPath, prefix: str) -> str:
     """Find the latest study directory matching a name prefix.
@@ -56,8 +58,9 @@ def find_latest_study(studies_root: str | UPath, prefix: str) -> str:
     """
     root = UPath(studies_root)
     # Match timestamped directories: prefix-YYYYMMDD_HHMMSS
+    timestamp_pattern = re.compile(re.escape(prefix) + r"-\d{8}_\d{6}$")
     candidates = sorted(
-        [d for d in root.glob(f"{prefix}-*") if d.is_dir()],
+        [d for d in root.glob(f"{prefix}-*") if d.is_dir() and timestamp_pattern.match(d.name)],
         key=lambda p: p.name,
         reverse=True,
     )
@@ -74,8 +77,6 @@ try:
     from IPython.display import display as ipython_display
 except ImportError:
     ipython_display = None
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from octopus.predict.task_predictor_test import TaskPredictorTest
