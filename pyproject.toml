@@ -216,3 +216,10 @@ testpaths = ["tests"]
 markers = ["slow: mark test as slow.", "windows: mark test to run in windows."]
 addopts = ["--cov=octopus", "--durations=15"]
 tmp_path_retention_policy = "none"
+filterwarnings = [
+    "default",
+    # Ray: unclosed file handles in node management (third-party bug)
+    "ignore::ResourceWarning:ray",
+    # Ray subprocess cleanup (third-party)
+    "ignore:subprocess.*is still running:ResourceWarning",
+]
