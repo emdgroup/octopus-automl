@@ -438,6 +438,7 @@ class TaskPredictor:
                 models=self._models,
                 selected_features=self._selected_features,
                 test_data=test_data,
+                ml_type=self.ml_type,
                 **kwargs,
             )
         else:

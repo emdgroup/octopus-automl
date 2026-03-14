@@ -561,6 +561,7 @@ def calculate_fi_shap(
     shap_type: str = "kernel",
     max_samples: int = 100,
     background_size: int = 200,
+    ml_type: MLType | None = None,
 ) -> pd.DataFrame:
     """Calculate SHAP feature importance across all outer splits.
 
@@ -575,6 +576,8 @@ def calculate_fi_shap(
             ``'exact'``).
         max_samples: Maximum number of evaluation samples per split.
         background_size: Maximum background dataset size for kernel explainer.
+        ml_type: ML task type.  Passed through to ``compute_shap_single``
+            to correctly choose ``predict`` vs ``predict_proba``.
 
     Returns:
         DataFrame with columns: fi_source, feature, importance_mean,
@@ -606,6 +609,7 @@ def calculate_fi_shap(
             X_background=X_background,
             max_samples=max_samples,
             threshold_ratio=None,  # Keep all for predict
+            ml_type=ml_type,
         )
 
         for _, row in fi_df.iterrows():
