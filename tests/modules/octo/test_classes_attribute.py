@@ -96,7 +96,7 @@ def test_classification_model_has_classes_attribute(sample_data, model_name):
         training = Training(
             training_id=f"test_{model_name}",
             ml_type=MLType.BINARY,
-            target_assignments={"target": "target"},
+            target_assignments={"default": "target"},
             feature_cols=["x1", "x2"],
             row_id_col="row_id",
             data_train=train,

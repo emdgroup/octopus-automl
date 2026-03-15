@@ -442,8 +442,8 @@ def calculate_fi_permutation(
         test_data: Dict mapping outersplit_id to test DataFrame.
         train_data: Dict mapping outersplit_id to train DataFrame.
         target_assignments: Dict mapping semantic target roles to column
-            names.  For single-target tasks: ``{"default": "target_col"}``.
-            For time-to-event: ``{"duration": "...", "event": "..."}``.
+            names.  For single-target tasks: ``{"default": "y"}``.
+            For time-to-event: ``{"duration": "time_col", "event": "event_col"}``.
         target_metric: Metric name for scoring.
         positive_class: Positive class label for classification.
         n_repeats: Number of permutation repeats per feature.

@@ -139,10 +139,10 @@ def _create_training(
 ) -> Training:
     """Create a Training instance."""
     if ml_type == MLType.REGRESSION:
-        target_assignments = {"target": "target_reg"}
+        target_assignments = {"default": "target_reg"}
         target_metric = "R2"
     else:
-        target_assignments = {"target": "target_class"}
+        target_assignments = {"default": "target_class"}
         target_metric = "AUCROC"
 
     ml_model_params = _get_default_model_params(model_name)

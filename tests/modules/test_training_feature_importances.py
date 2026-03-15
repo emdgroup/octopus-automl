@@ -72,11 +72,11 @@ _SUBPROCESS_FI_METHODS = frozenset(
 
 ML_TYPE_CONFIGS = {
     MLType.BINARY: {
-        "target_assignments": {"target": "target_class"},
+        "target_assignments": {"default": "target_class"},
         "target_metric": "AUCROC",
     },
     MLType.REGRESSION: {
-        "target_assignments": {"target": "target_reg"},
+        "target_assignments": {"default": "target_reg"},
         "target_metric": "R2",
     },
     MLType.TIMETOEVENT: {
@@ -84,7 +84,7 @@ ML_TYPE_CONFIGS = {
         "target_metric": "CI",
     },
     MLType.MULTICLASS: {
-        "target_assignments": {"target": "target_multiclass"},
+        "target_assignments": {"default": "target_multiclass"},
         "target_metric": "ACCBAL_MC",
     },
 }
@@ -92,19 +92,7 @@ ML_TYPE_CONFIGS = {
 
 def _get_available_models_by_type():
     """Get all available models dynamically from the registry, grouped by ML type."""
-    all_models = Models._config_factories.keys()
-    models_by_type = {ml_type: [] for ml_type in MLType}
-
-    for model_name in all_models:
-        try:
-            model_config = Models.get_config(model_name)
-            for ml_type in MLType:
-                if model_config.supports_ml_type(ml_type):
-                    models_by_type[ml_type].append(model_name)
-        except Exception:
-            continue
-
-    return models_by_type
+    return {ml_type: list(Models.get_models_for_type(ml_type)) for ml_type in MLType}
 
 
 def _generate_model_fi_params():
