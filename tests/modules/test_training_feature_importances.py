@@ -91,8 +91,27 @@ ML_TYPE_CONFIGS = {
 
 
 def _get_available_models_by_type():
-    """Get all available models dynamically from the registry, grouped by ML type."""
-    return {ml_type: list(Models.get_models_for_type(ml_type)) for ml_type in MLType}
+    """Get all available models dynamically from the registry, grouped by ML type.
+
+    Gracefully skips models whose factory functions fail to import
+    (e.g. TabularNN models that require ``torch``, which may not be
+    available on all platforms such as Windows CI).
+    """
+    all_models = Models._config_factories.keys()
+    models_by_type: dict[MLType, list[str]] = {ml_type: [] for ml_type in MLType}
+
+    for model_name in all_models:
+        try:
+            model_config = Models.get_config(model_name)
+            for ml_type in MLType:
+                if model_config.supports_ml_type(ml_type):
+                    models_by_type[ml_type].append(model_name)
+        except Exception:
+            # Skip models whose dependencies can't be loaded
+            # (e.g. torch DLL failure on Windows)
+            continue
+
+    return models_by_type
 
 
 def _generate_model_fi_params():
