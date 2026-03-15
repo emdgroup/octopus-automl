@@ -198,6 +198,17 @@ class OctoDataHealthChecker:
     issues: list[dict] = field(factory=list)
     """List to store detected health issues."""
 
+    _null_mean_col: pd.Series | None = field(init=False, default=None, repr=False, eq=False)
+    _null_mean_row: pd.Series | None = field(init=False, default=None, repr=False, eq=False)
+
+    def _compute_null_stats(self) -> tuple[pd.Series, pd.Series]:
+        """Compute and cache null statistics. Returns (null_mean_col, null_mean_row)."""
+        if self._null_mean_col is None or self._null_mean_row is None:
+            null_mask = self.data.isnull()
+            self._null_mean_col = null_mask.mean(axis=0)
+            self._null_mean_row = null_mask.mean(axis=1)
+        return self._null_mean_col, self._null_mean_row
+
     def add_issue(
         self,
         category: str,
@@ -273,7 +284,7 @@ class OctoDataHealthChecker:
             Missing values in critical columns can cause failures in downstream
             modeling processes.
         """
-        missing_value_share_col = self.data.isnull().mean()
+        missing_value_share_col, _ = self._compute_null_stats()
 
         critical_cols = [
             c
@@ -344,7 +355,7 @@ class OctoDataHealthChecker:
             config.missing_value_column_threshold to distinguish between high and
             low missing value proportions.
         """
-        missing_value_share_col = self.data.isnull().mean(axis=0)
+        missing_value_share_col, _ = self._compute_null_stats()
 
         threshold = self.config.missing_value_column_threshold
         high_missing_cols = [col for col in self.feature_cols if missing_value_share_col.get(col, 0) > threshold]
@@ -381,7 +392,7 @@ class OctoDataHealthChecker:
             config.missing_value_row_threshold to distinguish between high and
             low missing value proportions.
         """
-        missing_value_share_row = self.data.isnull().mean(axis=1)
+        _, missing_value_share_row = self._compute_null_stats()
 
         threshold = self.config.missing_value_row_threshold
         high_missing_rows = missing_value_share_row[missing_value_share_row > threshold]
@@ -425,11 +436,12 @@ class OctoDataHealthChecker:
             already handled elsewhere.
         """
         threshold = self.config.int_few_uniques_threshold
-        int_cols_with_few_uniques = {
-            col: self.data[col].nunique()
-            for col in self.feature_cols
-            if pd.api.types.is_integer_dtype(self.data[col]) and 2 < self.data[col].nunique() <= threshold
-        }
+        int_cols_with_few_uniques = {}
+        for col in self.feature_cols:
+            if pd.api.types.is_integer_dtype(self.data[col]):
+                n_unique = self.data[col].nunique()
+                if 2 < n_unique <= threshold:
+                    int_cols_with_few_uniques[col] = n_unique
 
         if int_cols_with_few_uniques:
             affected_items = list(int_cols_with_few_uniques.keys())
@@ -511,15 +523,15 @@ class OctoDataHealthChecker:
         corr_matrix = self.data[numeric_features].corr(method=method)
 
         highly_correlated: dict[str, set[str]] = {}
-        for col in corr_matrix.columns:
-            for row in corr_matrix.index:
-                if col != row and abs(corr_matrix.loc[row, col]) > threshold:
-                    if col not in highly_correlated:
-                        highly_correlated[col] = set()
-                    if row not in highly_correlated:
-                        highly_correlated[row] = set()
-                    highly_correlated[col].add(row)
-                    highly_correlated[row].add(col)
+        corr_values = corr_matrix.values
+        mask = np.abs(corr_values) > threshold
+        np.fill_diagonal(mask, False)
+        rows_idx, cols_idx = np.where(np.triu(mask))
+        col_names = corr_matrix.columns
+        for r, c in zip(rows_idx, cols_idx, strict=True):
+            rn, cn = col_names[r], col_names[c]
+            highly_correlated.setdefault(rn, set()).add(cn)
+            highly_correlated.setdefault(cn, set()).add(rn)
 
         merged_groups: list[set[str]] = []
         for feature, correlated_features in highly_correlated.items():
@@ -562,26 +574,39 @@ class OctoDataHealthChecker:
             This check is more strict than correlation checking - it identifies
             features that are 100% identical, not just highly correlated.
         """
-        identical_features: dict[str, list[str]] = {col: [] for col in self.feature_cols}
-
+        # Hash columns to avoid O(n²) comparisons — only compare within same-hash buckets
+        col_hashes: dict[int, list[str]] = {}
         for col in self.feature_cols:
-            for other_col in self.feature_cols:
-                if col != other_col and self.data[col].equals(self.data[other_col]):
-                    identical_features[col].append(other_col)
+            h = hash(pd.util.hash_pandas_object(self.data[col], index=False).sum())
+            col_hashes.setdefault(h, []).append(col)
 
-        identical_features = {k: v for k, v in identical_features.items() if v}
-
-        for feature, identical_list in identical_features.items():
-            self.add_issue(
-                category="features",
-                issue_type="identical_features",
-                affected_items=[feature, *identical_list],
-                severity="Warning",
-                description=(
-                    f"The feature '{feature}' is identical to the following feature(s): {', '.join(identical_list)}"
-                ),
-                action=("Consider removing redundant features to simplify the dataset and improve model performance."),
-            )
+        # Build deduplicated groups of identical columns
+        seen: set[str] = set()
+        for cols_with_same_hash in col_hashes.values():
+            if len(cols_with_same_hash) < 2:
+                continue
+            for i, col in enumerate(cols_with_same_hash):
+                if col in seen:
+                    continue
+                identical_list = []
+                for other_col in cols_with_same_hash[i + 1 :]:
+                    if other_col not in seen and self.data[col].equals(self.data[other_col]):
+                        identical_list.append(other_col)
+                if identical_list:
+                    seen.add(col)
+                    seen.update(identical_list)
+                    self.add_issue(
+                        category="features",
+                        issue_type="identical_features",
+                        affected_items=[col, *identical_list],
+                        severity="Warning",
+                        description=(
+                            f"The feature '{col}' is identical to the following feature(s): {', '.join(identical_list)}"
+                        ),
+                        action=(
+                            "Consider removing redundant features to simplify the dataset and improve model performance."
+                        ),
+                    )
 
     def _check_duplicated_rows(self):
         """Check for completely duplicated rows.
@@ -618,11 +643,11 @@ class OctoDataHealthChecker:
         and can cause issues in modeling algorithms.
 
         Note:
-            Non-numeric columns are coerced to numeric before checking, with errors
-            being ignored. This ensures robust checking across mixed data types.
+            Only numeric-dtype feature columns are checked. Non-numeric columns
+            (object, category, etc.) are skipped.
         """
-        numeric_df = self.data[self.feature_cols].apply(pd.to_numeric, errors="coerce")
-        infinity_mask = numeric_df.map(np.isinf)
+        numeric_df = self.data[self.feature_cols].select_dtypes(include=[np.number])
+        infinity_mask = np.isinf(numeric_df)
         infinity_value_share = infinity_mask.mean()
         infinity_value_dict = {col: share for col, share in infinity_value_share.items() if share > 0}
 
@@ -933,16 +958,9 @@ class OctoDataHealthChecker:
             return
 
         for target_col in numeric_targets:
-            suspicious_features = {}
-
-            for feature in numeric_features:
-                try:
-                    correlation: float = self.data[[feature, target_col]].corr().loc[feature, target_col]  # type: ignore
-
-                    if pd.notna(correlation) and abs(correlation) > threshold:
-                        suspicious_features[feature] = correlation
-                except Exception:
-                    continue
+            correlations = self.data[numeric_features].corrwith(self.data[target_col])
+            suspicious_mask = correlations.abs() > threshold
+            suspicious_features = correlations[suspicious_mask].dropna().to_dict()
 
             if suspicious_features:
                 sorted_features = sorted(suspicious_features.items(), key=lambda x: abs(x[1]), reverse=True)
@@ -952,7 +970,7 @@ class OctoDataHealthChecker:
                 self.add_issue(
                     category="features",
                     issue_type="target_leakage",
-                    affected_items=[feat for feat, _ in sorted_features],
+                    affected_items=[str(feat) for feat, _ in sorted_features],
                     severity="Warning",
                     description=(
                         f"The following features have suspiciously high correlation (>{threshold}) "
@@ -1113,9 +1131,8 @@ class OctoDataHealthChecker:
         if not self.feature_cols:
             return
 
-        all_null_features = [
-            col for col in self.feature_cols if col in self.data.columns and self.data[col].isnull().all()
-        ]
+        null_mean_col, _ = self._compute_null_stats()
+        all_null_features = [col for col in self.feature_cols if col in self.data.columns and null_mean_col[col] == 1.0]
 
         if all_null_features:
             self.add_issue(

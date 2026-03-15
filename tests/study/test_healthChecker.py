@@ -161,6 +161,17 @@ def test_check_identical_features(health_checker):
     assert any(issue["Issue Type"] == "identical_features" for issue in health_checker.issues)
 
 
+def test_check_identical_features_string_columns(health_checker):
+    """Test identical features check detects identical string/object columns."""
+    health_checker.data["str_copy"] = health_checker.data["feature3"].copy()
+    health_checker.feature_cols.append("str_copy")
+    health_checker._check_identical_features()
+    identical_issues = [issue for issue in health_checker.issues if issue["Issue Type"] == "identical_features"]
+    assert len(identical_issues) == 1
+    assert "feature3" in identical_issues[0]["Affected Items"]
+    assert "str_copy" in identical_issues[0]["Affected Items"]
+
+
 def test_check_duplicated_rows(health_checker):
     """Test duplicated rows check."""
     health_checker.data = pd.concat([health_checker.data.iloc[:5]] * 2).reset_index(drop=True)
