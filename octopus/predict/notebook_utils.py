@@ -277,7 +277,9 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
     }
 
 
-def show_target_metric_performance(study_info: dict, details: bool = False) -> list[pd.DataFrame]:
+def show_target_metric_performance(
+    study_info: dict, details: bool = False, report_test: bool = False
+) -> list[pd.DataFrame]:
     """Display performance metrics for all workflow tasks in a study.
 
     Delegates data loading to ``StudyLoader.build_performance_summary()``.
@@ -285,6 +287,9 @@ def show_target_metric_performance(study_info: dict, details: bool = False) -> l
     Args:
         study_info: Dictionary returned by show_study_details().
         details: If True, shows detailed information for each outersplit.
+        report_test: If True, includes test-set performance columns
+            (``test_avg``, ``test_pool``) in the output.  Default is False
+            to prevent accidental data leakage during model selection.
 
     Returns:
         List of DataFrames, one for each task/key combination with performance metrics.
@@ -312,6 +317,11 @@ def show_target_metric_performance(study_info: dict, details: bool = False) -> l
             result_df = result_df.select_dtypes(include="number")
             result_df.insert(0, "Task", _item["task_id"])
             result_df.insert(1, "Key", _key)
+
+            # Filter out test-set columns when report_test is False
+            if not report_test:
+                test_cols = [c for c in result_df.columns if c.startswith("test_")]
+                result_df = result_df.drop(columns=test_cols)
 
             mean_values = {}
             for column in result_df.columns:
