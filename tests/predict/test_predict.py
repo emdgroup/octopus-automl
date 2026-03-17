@@ -99,7 +99,6 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
                 n_workers=2,
                 optuna_seed=0,
                 n_optuna_startup_trials=3,
-                resume_optimization=False,
                 n_trials=5,
                 max_features=5,
                 penalty_factor=1.0,

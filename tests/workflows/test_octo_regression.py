@@ -226,7 +226,6 @@ class TestOctoRegression:
                         n_workers=2,
                         optuna_seed=0,
                         n_optuna_startup_trials=3,
-                        resume_optimization=False,
                         penalty_factor=1.0,
                     )
                 ],
@@ -281,7 +280,6 @@ class TestOctoRegression:
             n_workers=5,
             optuna_seed=0,
             n_optuna_startup_trials=10,
-            resume_optimization=False,
             penalty_factor=1.0,
             n_folds_inner=5,
         )
@@ -308,7 +306,6 @@ class TestOctoRegression:
         assert octo_task.n_workers == 5
         assert octo_task.optuna_seed == 0
         assert octo_task.n_optuna_startup_trials == 10
-        assert octo_task.resume_optimization is False
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
         assert octo_task.penalty_factor == 1.0
