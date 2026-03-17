@@ -286,7 +286,7 @@ class TaskPredictorTest(TaskPredictor):
                 f"Unknown fi_type '{fi_type}'. Use FIType.PERMUTATION, FIType.GROUP_PERMUTATION, or FIType.SHAP."
             )
 
-        result.insert(0, "fi_type", fi_type)
+        result.insert(0, "fi_type", fi_type.value)
         return result
 
     # ── Serialization — not supported ───────────────────────────
