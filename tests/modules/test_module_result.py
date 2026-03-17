@@ -6,7 +6,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from upath import UPath
 
-from octopus.modules.base import ModuleResult
+from octopus.modules import ModuleResult
 from octopus.types import ResultType
 from octopus.utils import parquet_load
 
