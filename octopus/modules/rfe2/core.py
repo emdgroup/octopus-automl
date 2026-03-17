@@ -196,8 +196,6 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         elif fi_method == FIComputeMethod.SHAP:
             feature_importances["fi_method"] = FIResultLabel.SHAP
             feature_importances["fi_dataset"] = DataPartition.DEV
-        else:
-            feature_importances["fi_method"] = fi_method
             feature_importances["fi_dataset"] = DataPartition.DEV
         feature_importances["training_id"] = "rfe2"
         feature_importances["result_type"] = ResultType.BEST
