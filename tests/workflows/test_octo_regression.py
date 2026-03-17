@@ -8,6 +8,7 @@ from sklearn.datasets import make_regression
 
 from octopus.modules import Octo
 from octopus.study import OctoRegression
+from octopus.types import FIComputeMethod, ModelName
 
 
 class TestOctoRegression:
@@ -76,12 +77,12 @@ class TestOctoRegression:
             depends_on=None,
             description="step_1",
             models=[
-                "RandomForestRegressor",
-                "XGBRegressor",
-                "ExtraTreesRegressor",
-                "ElasticNetRegressor",
-                "GradientBoostingRegressor",
-                "CatBoostRegressor",
+                ModelName.RandomForestRegressor,
+                ModelName.XGBRegressor,
+                ModelName.ExtraTreesRegressor,
+                ModelName.ElasticNetRegressor,
+                ModelName.GradientBoostingRegressor,
+                ModelName.CatBoostRegressor,
             ],
             n_trials=12,
             max_features=6,
@@ -99,12 +100,12 @@ class TestOctoRegression:
         assert octo_task.ensel_n_save_trials == 10
 
         expected_models = {
-            "RandomForestRegressor",
-            "XGBRegressor",
-            "ExtraTreesRegressor",
-            "ElasticNetRegressor",
-            "GradientBoostingRegressor",
-            "CatBoostRegressor",
+            ModelName.RandomForestRegressor,
+            ModelName.XGBRegressor,
+            ModelName.ExtraTreesRegressor,
+            ModelName.ElasticNetRegressor,
+            ModelName.GradientBoostingRegressor,
+            ModelName.CatBoostRegressor,
         }
         assert octo_task.models is not None
         assert set(octo_task.models) == expected_models
@@ -112,12 +113,12 @@ class TestOctoRegression:
     @pytest.mark.parametrize(
         "model",
         [
-            "RandomForestRegressor",
-            "XGBRegressor",
-            "ExtraTreesRegressor",
-            "ElasticNetRegressor",
-            "GradientBoostingRegressor",
-            "CatBoostRegressor",
+            ModelName.RandomForestRegressor,
+            ModelName.XGBRegressor,
+            ModelName.ExtraTreesRegressor,
+            ModelName.ElasticNetRegressor,
+            ModelName.GradientBoostingRegressor,
+            ModelName.CatBoostRegressor,
         ],
     )
     def test_single_model_configuration(self, model):
@@ -141,7 +142,7 @@ class TestOctoRegression:
 
     def test_multiple_models_configuration(self):
         """Test configuration with multiple models."""
-        models = ["RandomForestRegressor", "XGBRegressor", "ExtraTreesRegressor"]
+        models = [ModelName.RandomForestRegressor, ModelName.XGBRegressor, ModelName.ExtraTreesRegressor]
         octo_task = Octo(
             task_id=0,
             depends_on=None,
@@ -161,7 +162,7 @@ class TestOctoRegression:
             task_id=0,
             depends_on=None,
             description="step_1",
-            models=["RandomForestRegressor", "XGBRegressor"],
+            models=[ModelName.RandomForestRegressor, ModelName.XGBRegressor],
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
@@ -177,7 +178,7 @@ class TestOctoRegression:
             task_id=0,
             depends_on=None,
             description="step_1",
-            models=["RandomForestRegressor"],
+            models=[ModelName.RandomForestRegressor],
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
@@ -216,7 +217,7 @@ class TestOctoRegression:
                         task_id=0,
                         depends_on=None,
                         description="step_1",
-                        models=["RandomForestRegressor", "XGBRegressor"],
+                        models=[ModelName.RandomForestRegressor, ModelName.XGBRegressor],
                         n_trials=12,
                         max_features=6,
                         ensemble_selection=True,
@@ -262,12 +263,12 @@ class TestOctoRegression:
             depends_on=None,
             description="step_1",
             models=[
-                "RandomForestRegressor",
-                "XGBRegressor",
-                "ExtraTreesRegressor",
-                "ElasticNetRegressor",
-                "GradientBoostingRegressor",
-                "CatBoostRegressor",
+                ModelName.RandomForestRegressor,
+                ModelName.XGBRegressor,
+                ModelName.ExtraTreesRegressor,
+                ModelName.ElasticNetRegressor,
+                ModelName.GradientBoostingRegressor,
+                ModelName.CatBoostRegressor,
             ],
             n_trials=12,
             max_features=6,
@@ -276,7 +277,7 @@ class TestOctoRegression:
             model_seed=0,
             n_jobs=1,
             max_outl=0,
-            fi_methods_bestbag=["permutation"],
+            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
             inner_parallelization=True,
             n_workers=5,
             optuna_seed=0,
@@ -291,19 +292,19 @@ class TestOctoRegression:
         assert octo_task.description == "step_1"
 
         expected_models = {
-            "RandomForestRegressor",
-            "XGBRegressor",
-            "ExtraTreesRegressor",
-            "ElasticNetRegressor",
-            "GradientBoostingRegressor",
-            "CatBoostRegressor",
+            ModelName.RandomForestRegressor,
+            ModelName.XGBRegressor,
+            ModelName.ExtraTreesRegressor,
+            ModelName.ElasticNetRegressor,
+            ModelName.GradientBoostingRegressor,
+            ModelName.CatBoostRegressor,
         }
         assert octo_task.models is not None
         assert set(octo_task.models) == expected_models
         assert octo_task.model_seed == 0
         assert octo_task.n_jobs == 1
         assert octo_task.max_outl == 0
-        assert octo_task.fi_methods_bestbag == ["permutation"]
+        assert octo_task.fi_methods_bestbag == [FIComputeMethod.PERMUTATION]
         assert octo_task.inner_parallelization is True
         assert octo_task.n_workers == 5
         assert octo_task.optuna_seed == 0

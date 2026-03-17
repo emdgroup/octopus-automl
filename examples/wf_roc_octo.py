@@ -11,6 +11,7 @@ import os
 from octopus.example_data import load_breast_cancer_data
 from octopus.modules import Octo, Roc
 from octopus.study import OctoClassification
+from octopus.types import CorrelationType, FIComputeMethod, ModelName, ROCFilterMethod
 
 ### Load and Preprocess Data
 
@@ -47,8 +48,8 @@ study = OctoClassification(
             task_id=0,
             depends_on=None,  # First step, no input dependency
             threshold=0.85,  # Remove features with correlation > 0.85
-            correlation_type="spearmanr",  # Use Spearman correlation
-            filter_type="f_statistics",  # Apply F-statistics filtering
+            correlation_type=CorrelationType.SPEARMAN,  # Use Spearman correlation
+            filter_type=ROCFilterMethod.F_STATISTICS,  # Apply F-statistics filtering
         ),
         # Step 1: Octo - Train models on filtered features from ROC step
         Octo(
@@ -59,13 +60,13 @@ study = OctoClassification(
             n_folds_inner=5,
             # Model selection
             models=[
-                "ExtraTreesClassifier",
-                # "RandomForestClassifier",
+                ModelName.ExtraTreesClassifier,
+                # ModelName.RandomForestClassifier,
             ],
             model_seed=0,
             n_jobs=1,
             max_outl=0,  # No outlier removal
-            fi_methods_bestbag=["permutation"],  # Feature importance method
+            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],  # Feature importance method
             # Parallelization settings
             inner_parallelization=True,
             n_workers=5,

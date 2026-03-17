@@ -9,7 +9,7 @@ from sklearn.datasets import make_classification
 
 from octopus.modules import Octo
 from octopus.study import OctoClassification
-from octopus.types import MLType
+from octopus.types import FIComputeMethod, MLType, ModelName
 
 
 class TestOctoMulticlass:
@@ -94,15 +94,15 @@ class TestOctoMulticlass:
             depends_on=None,
             n_folds_inner=5,
             models=[
-                "ExtraTreesClassifier",
-                "RandomForestClassifier",
-                "XGBClassifier",
-                "CatBoostClassifier",
+                ModelName.ExtraTreesClassifier,
+                ModelName.RandomForestClassifier,
+                ModelName.XGBClassifier,
+                ModelName.CatBoostClassifier,
             ],
             model_seed=0,
             n_jobs=1,
             max_outl=0,
-            fi_methods_bestbag=["permutation"],
+            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
             inner_parallelization=True,
             n_workers=5,
             n_trials=20,
@@ -115,14 +115,20 @@ class TestOctoMulticlass:
         assert octo_task.n_folds_inner == 5
         assert octo_task.models is not None
         assert set(octo_task.models) == {
-            "ExtraTreesClassifier",
-            "RandomForestClassifier",
-            "XGBClassifier",
-            "CatBoostClassifier",
+            ModelName.ExtraTreesClassifier,
+            ModelName.RandomForestClassifier,
+            ModelName.XGBClassifier,
+            ModelName.CatBoostClassifier,
         }
 
     @pytest.mark.parametrize(
-        "model", ["ExtraTreesClassifier", "RandomForestClassifier", "XGBClassifier", "CatBoostClassifier"]
+        "model",
+        [
+            ModelName.ExtraTreesClassifier,
+            ModelName.RandomForestClassifier,
+            ModelName.XGBClassifier,
+            ModelName.CatBoostClassifier,
+        ],
     )
     def test_multiclass_single_model_configuration(self, model):
         """Test configuration with different single multiclass models."""
@@ -139,7 +145,12 @@ class TestOctoMulticlass:
 
     def test_multiclass_multiple_models_configuration(self):
         """Test configuration with multiple multiclass models."""
-        models = ["ExtraTreesClassifier", "RandomForestClassifier", "XGBClassifier", "CatBoostClassifier"]
+        models = [
+            ModelName.ExtraTreesClassifier,
+            ModelName.RandomForestClassifier,
+            ModelName.XGBClassifier,
+            ModelName.CatBoostClassifier,
+        ]
         octo_task = Octo(
             description="step_1_octo_multiclass",
             task_id=0,
@@ -153,12 +164,12 @@ class TestOctoMulticlass:
 
     def test_feature_importance_configuration(self):
         """Test feature importance method configuration for multiclass."""
-        fi_methods = ["permutation"]
+        fi_methods = [FIComputeMethod.PERMUTATION]
         octo_task = Octo(
             description="step_1_octo_multiclass",
             task_id=0,
             depends_on=None,
-            models=["ExtraTreesClassifier"],
+            models=[ModelName.ExtraTreesClassifier],
             fi_methods_bestbag=fi_methods,
             n_trials=5,
         )
@@ -171,7 +182,7 @@ class TestOctoMulticlass:
             description="step_1_octo_multiclass",
             task_id=0,
             depends_on=None,
-            models=["ExtraTreesClassifier"],
+            models=[ModelName.ExtraTreesClassifier],
             n_trials=25,
             n_folds_inner=5,
         )
@@ -204,11 +215,11 @@ class TestOctoMulticlass:
                         task_id=0,
                         depends_on=None,
                         n_folds_inner=3,
-                        models=["ExtraTreesClassifier"],
+                        models=[ModelName.ExtraTreesClassifier],
                         model_seed=0,
                         n_jobs=1,
                         max_outl=0,
-                        fi_methods_bestbag=["permutation"],
+                        fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
                         inner_parallelization=True,
                         n_workers=3,
                         n_trials=12,
@@ -247,15 +258,15 @@ class TestOctoMulticlass:
             depends_on=None,
             n_folds_inner=5,
             models=[
-                "ExtraTreesClassifier",
-                "RandomForestClassifier",
-                "XGBClassifier",
-                "CatBoostClassifier",
+                ModelName.ExtraTreesClassifier,
+                ModelName.RandomForestClassifier,
+                ModelName.XGBClassifier,
+                ModelName.CatBoostClassifier,
             ],
             model_seed=0,
             n_jobs=1,
             max_outl=0,
-            fi_methods_bestbag=["permutation"],
+            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
             inner_parallelization=True,
             n_workers=5,
             n_trials=20,
@@ -269,15 +280,15 @@ class TestOctoMulticlass:
         assert octo_task.n_folds_inner == 5
         assert octo_task.models is not None
         assert set(octo_task.models) == {
-            "ExtraTreesClassifier",
-            "RandomForestClassifier",
-            "XGBClassifier",
-            "CatBoostClassifier",
+            ModelName.ExtraTreesClassifier,
+            ModelName.RandomForestClassifier,
+            ModelName.XGBClassifier,
+            ModelName.CatBoostClassifier,
         }
         assert octo_task.model_seed == 0
         assert octo_task.n_jobs == 1
         assert octo_task.max_outl == 0
-        assert octo_task.fi_methods_bestbag == ["permutation"]
+        assert octo_task.fi_methods_bestbag == [FIComputeMethod.PERMUTATION]
         assert octo_task.inner_parallelization is True
         assert octo_task.n_workers == 5
         assert octo_task.n_trials == 20

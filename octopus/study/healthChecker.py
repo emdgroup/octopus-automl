@@ -3,12 +3,13 @@
 import logging
 import re
 from itertools import combinations
-from typing import Literal
 
 import numpy as np
 import pandas as pd
 from attrs import define, field, validators
 from rapidfuzz import fuzz
+
+from octopus.types import CorrelationType
 
 from .data_preparator import DEFAULT_NULL_VALUES
 
@@ -499,7 +500,7 @@ class OctoDataHealthChecker:
                 ),
             )
 
-    def _check_feature_feature_correlation(self, method: Literal["pearson", "kendall", "spearman"] = "spearman"):
+    def _check_feature_feature_correlation(self, method: CorrelationType = CorrelationType.SPEARMAN):
         """Detect highly correlated feature pairs.
 
         Calculates pairwise correlations between all numeric features and identifies
@@ -520,7 +521,7 @@ class OctoDataHealthChecker:
         """
         threshold = self.config.feature_correlation_threshold
         numeric_features = self.data[self.feature_cols].select_dtypes(include=[float, int]).columns
-        corr_matrix = self.data[numeric_features].corr(method=method)
+        corr_matrix = self.data[numeric_features].corr(method=method)  # type: ignore[arg-type]
 
         highly_correlated: dict[str, set[str]] = {}
         corr_values = corr_matrix.values

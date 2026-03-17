@@ -9,7 +9,7 @@ from attrs import Factory, define, field, validators
 from octopus.logger import get_logger
 from octopus.models import Models
 from octopus.modules import ModuleExecution, Task
-from octopus.types import FIComputeMethod, ModelName
+from octopus.types import FIComputeMethod, ModelName, OptunaReturnType
 
 logger = get_logger()
 
@@ -113,7 +113,11 @@ class Octo(Task):
     mrmr_feature_numbers: list = field(validator=[validators.instance_of(list)], default=Factory(list))
     """List of feature numbers to be investigated by mrmr."""
 
-    optuna_return: str = field(default="pool", validator=[validators.in_(["pool", "average"])])
+    optuna_return: OptunaReturnType = field(
+        default=OptunaReturnType.POOL,
+        converter=OptunaReturnType,
+        validator=validators.in_(list(OptunaReturnType)),
+    )
     """How to calculate the bag performance for the optuna optimization target."""
 
     def __attrs_post_init__(self):

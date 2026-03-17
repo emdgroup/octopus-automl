@@ -11,6 +11,7 @@ import os
 from octopus.example_data import load_breast_cancer_data
 from octopus.modules import Octo
 from octopus.study import OctoClassification
+from octopus.types import ModelName
 
 ### Load and Preprocess Data
 df, features, targets = load_breast_cancer_data()
@@ -35,7 +36,7 @@ study = OctoClassification(
             description="step1_octo_full",
             task_id=0,
             depends_on=None,  # First task, depends on input
-            models=["ExtraTreesClassifier"],
+            models=[ModelName.ExtraTreesClassifier],
             n_trials=100,  # 100 trials for hyperparameter optimization
             n_folds_inner=5,  # 5 inner folds
             max_features=30,  # Use all 30 features

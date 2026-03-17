@@ -9,6 +9,7 @@ from sklearn.datasets import make_classification
 
 from octopus.modules import Octo, Roc
 from octopus.study import OctoClassification
+from octopus.types import CorrelationType, FIComputeMethod, ModelName, ROCFilterMethod
 
 
 class TestRocOctoRocWorkflow:
@@ -58,19 +59,19 @@ class TestRocOctoRocWorkflow:
                 task_id=0,
                 depends_on=None,
                 threshold=0.85,
-                correlation_type="spearmanr",
-                filter_type="f_statistics",
+                correlation_type=CorrelationType.SPEARMAN,
+                filter_type=ROCFilterMethod.F_STATISTICS,
             ),
             Octo(
                 description="step_1_octo",
                 task_id=1,
                 depends_on=0,
                 n_folds_inner=3,
-                models=["ExtraTreesClassifier"],
+                models=[ModelName.ExtraTreesClassifier],
                 model_seed=0,
                 n_jobs=1,
                 max_outl=0,
-                fi_methods_bestbag=["permutation"],
+                fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
                 inner_parallelization=True,
                 n_trials=6,
             ),
@@ -79,8 +80,8 @@ class TestRocOctoRocWorkflow:
                 task_id=2,
                 depends_on=1,
                 threshold=0.5,
-                correlation_type="spearmanr",
-                filter_type="mutual_info",
+                correlation_type=CorrelationType.SPEARMAN,
+                filter_type=ROCFilterMethod.MUTUAL_INFO,
             ),
         ]
 
@@ -130,15 +131,15 @@ class TestRocOctoRocWorkflow:
                         task_id=0,
                         depends_on=None,
                         threshold=0.85,
-                        correlation_type="spearmanr",
-                        filter_type="f_statistics",
+                        correlation_type=CorrelationType.SPEARMAN,
+                        filter_type=ROCFilterMethod.F_STATISTICS,
                     ),
                     Octo(
                         description="step_1_octo",
                         task_id=1,
                         depends_on=0,
                         n_folds_inner=3,
-                        models=["ExtraTreesClassifier"],
+                        models=[ModelName.ExtraTreesClassifier],
                         model_seed=0,
                         n_jobs=1,
                         n_trials=15,
@@ -148,8 +149,8 @@ class TestRocOctoRocWorkflow:
                         task_id=2,
                         depends_on=1,
                         threshold=0.5,
-                        correlation_type="spearmanr",
-                        filter_type="mutual_info",
+                        correlation_type=CorrelationType.SPEARMAN,
+                        filter_type=ROCFilterMethod.MUTUAL_INFO,
                     ),
                 ],
             )
@@ -160,7 +161,7 @@ class TestRocOctoRocWorkflow:
         """Test that the sequence dependency chain is correctly configured."""
         workflow = [
             Roc(task_id=0, depends_on=None, threshold=0.85),
-            Octo(task_id=1, depends_on=0, models=["ExtraTreesClassifier"], n_trials=6),
+            Octo(task_id=1, depends_on=0, models=[ModelName.ExtraTreesClassifier], n_trials=6),
             Roc(task_id=2, depends_on=1, threshold=0.5),
         ]
 
@@ -188,8 +189,8 @@ class TestRocOctoRocWorkflow:
         # Verify that final ROC has more aggressive filtering
         assert second_roc.threshold < first_roc.threshold
 
-    @pytest.mark.parametrize("correlation_type", ["spearmanr", "rdc"])
-    @pytest.mark.parametrize("filter_type", ["f_statistics", "mutual_info"])
+    @pytest.mark.parametrize("correlation_type", [CorrelationType.SPEARMAN, CorrelationType.RDC])
+    @pytest.mark.parametrize("filter_type", [ROCFilterMethod.F_STATISTICS, ROCFilterMethod.MUTUAL_INFO])
     def test_roc_configuration_variations(self, correlation_type, filter_type):
         """Test ROC configuration with different correlation and filter types."""
         first_roc = Roc(
@@ -211,7 +212,7 @@ class TestRocOctoRocWorkflow:
             Octo(
                 task_id=1,
                 depends_on=0,
-                models=["ExtraTreesClassifier", "RandomForestClassifier"],
+                models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
                 n_trials=10,
                 max_features=15,
                 n_folds_inner=5,
@@ -224,7 +225,7 @@ class TestRocOctoRocWorkflow:
 
         assert isinstance(octo_step, Octo)
         assert octo_step.models is not None
-        assert set(octo_step.models) == {"ExtraTreesClassifier", "RandomForestClassifier"}
+        assert set(octo_step.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
         assert octo_step.n_trials == 10
         assert octo_step.max_features == 15
         assert octo_step.n_folds_inner == 5
@@ -234,7 +235,7 @@ class TestRocOctoRocWorkflow:
         """Test that the workflow sequence is properly validated."""
         workflow = [
             Roc(task_id=0, depends_on=None, threshold=0.85),
-            Octo(task_id=1, depends_on=0, models=["ExtraTreesClassifier"], n_trials=6),
+            Octo(task_id=1, depends_on=0, models=[ModelName.ExtraTreesClassifier], n_trials=6),
             Roc(task_id=2, depends_on=1, threshold=0.5),
         ]
 
@@ -273,28 +274,28 @@ class TestRocOctoRocWorkflow:
                         task_id=0,
                         depends_on=None,
                         threshold=0.9,
-                        correlation_type="spearmanr",
-                        filter_type="f_statistics",
+                        correlation_type=CorrelationType.SPEARMAN,
+                        filter_type=ROCFilterMethod.F_STATISTICS,
                     ),
                     Octo(
                         description="step_1_octo",
                         task_id=1,
                         depends_on=0,
                         n_folds_inner=5,
-                        models=["ExtraTreesClassifier"],
+                        models=[ModelName.ExtraTreesClassifier],
                         model_seed=0,
                         n_jobs=1,
                         n_trials=13,
                         inner_parallelization=True,
-                        fi_methods_bestbag=["permutation"],
+                        fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
                     ),
                     Roc(
                         description="step_2_roc_final",
                         task_id=2,
                         depends_on=1,
                         threshold=0.5,
-                        correlation_type="spearmanr",
-                        filter_type="f_statistics",
+                        correlation_type=CorrelationType.SPEARMAN,
+                        filter_type=ROCFilterMethod.F_STATISTICS,
                     ),
                 ],
             )

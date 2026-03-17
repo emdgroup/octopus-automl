@@ -36,14 +36,6 @@ class LogGroup(Enum):
     AUTOGLUON = auto()
 
 
-class ImputationMethod(str, Enum):
-    """Imputation methods for handling missing data."""
-
-    MEDIAN = "median"
-    HALFMIN = "halfmin"
-    MICE = "mice"
-
-
 class ModelName(StrEnum):
     """Available model names.
 
@@ -51,9 +43,7 @@ class ModelName(StrEnum):
 
         Octo(task_id=0, models=[ModelName.XGBClassifier, ModelName.CatBoostClassifier])
 
-    Plain strings still work too::
-
-        Octo(task_id=0, models=["XGBClassifier", "CatBoostClassifier"])
+    Plain strings still work too, but `ModelName` keeps call sites consistent.
     """
 
     # Classification models
@@ -150,6 +140,148 @@ class ShapType(StrEnum):
     KERNEL = "kernel"
     PERMUTATION = "permutation"
     EXACT = "exact"
+
+
+class CorrelationType(StrEnum):
+    """Correlation method used for measuring feature-feature or feature-target relationships.
+
+    Used in:
+    - ``Mrmr.correlation_type``: redundancy measure between features
+    - ``Roc.correlation_type``: grouping correlated features for removal
+    - ``HealthChecker._check_feature_feature_correlation``: data health report
+    """
+
+    PEARSON = "pearson"
+    SPEARMAN = "spearman"
+    KENDALL = "kendall"
+    RDC = "rdc"
+
+
+class MRMRRelevance(StrEnum):
+    """Method used to compute feature relevance to the target in MRMR.
+
+    Used in ``Mrmr.relevance_type``:
+    - ``PERMUTATION``: re-uses permutation importances from a prior workflow module
+    - ``F_STATISTICS``: computes F-statistics (f_classif / f_regression) from scratch
+    """
+
+    PERMUTATION = "permutation"
+    F_STATISTICS = "f-statistics"
+
+
+class AutoGluonFitStrategy(StrEnum):
+    """Controls whether AutoGluon trains models sequentially or in parallel.
+
+    Used in ``AutoGluon.fit_strategy``, passed directly to ``TabularPredictor.fit()``.
+    """
+
+    SEQUENTIAL = "sequential"
+    PARALLEL = "parallel"
+
+
+class RFE2SelectionMethod(StrEnum):
+    """Strategy for picking the final feature set from the RFE2 scan results.
+
+    Used in ``Rfe2.selection_method``:
+    - ``BEST``: selects the step with the highest mean cross-validation performance
+    - ``PARSIMONIOUS``: selects the smallest feature set whose performance is within
+      one standard error of the best (bias-variance trade-off)
+    """
+
+    BEST = "best"
+    PARSIMONIOUS = "parsimonious"
+
+
+class ROCFilterMethod(StrEnum):
+    """Scoring method used to rank features within a correlated group in the ROC module.
+
+    The highest-scoring feature in each group is kept; the rest are removed.
+    Used in ``Roc.filter_type``.
+    """
+
+    MUTUAL_INFO = "mutual_info"
+    F_STATISTICS = "f_statistics"
+
+
+class SFSDirection(StrEnum):
+    """Search direction for Sequential Feature Selection (mlxtend SequentialFeatureSelector).
+
+    Used in ``Sfs.sfs_type``. Forward variants add features; backward variants remove them.
+    Floating variants allow backtracking after each add/remove step.
+    """
+
+    FORWARD = "forward"
+    BACKWARD = "backward"
+    FLOATING_FORWARD = "floating_forward"
+    FLOATING_BACKWARD = "floating_backward"
+
+
+class RFEMode(StrEnum):
+    """Execution mode for the RFE module.
+
+    Used in ``Rfe.mode``:
+    - ``FIXED``: runs RFE with the already-optimised model (faster)
+    - ``REFIT``: re-optimises the model at each elimination step (slower, potentially better)
+    """
+
+    FIXED = "fixed"
+    REFIT = "refit"
+
+
+class OptunaReturnType(StrEnum):
+    """Determines which bag performance statistic is used as the Optuna optimisation target.
+
+    Used in ``Octo.optuna_return``:
+    - ``POOL``: uses the pooled dev score across all inner folds (dev_pool)
+    - ``AVERAGE``: uses the average of per-fold dev scores (dev_avg)
+    """
+
+    POOL = "pool"
+    AVERAGE = "average"
+
+
+class MetricDirection(StrEnum):
+    """Optimisation direction passed to Optuna and used for sorting scan/ensemble results.
+
+    Derived from ``Metric.higher_is_better`` via ``Metric.direction`` and ``Metrics.get_direction()``.
+    Used in EFS scan/ensemble optimisation and diagnostics plots.
+    """
+
+    MAXIMIZE = "maximize"
+    MINIMIZE = "minimize"
+
+
+class PredictionType(StrEnum):
+    """The format in which a metric expects its predictions.
+
+    - ``PREDICTIONS``: the metric receives hard class labels (0/1 for binary,
+      integer class indices for multiclass, continuous values for regression).
+      For binary classification, these are derived by thresholding
+      ``predict_proba`` output — ``predict`` is not called directly.
+    - ``PROBABILITIES``: the metric receives raw probability scores or
+      continuous outputs directly from ``predict_proba``.
+
+    Used in:
+    - ``Metric.prediction_type``: declared per metric in the registry
+    - ``metrics/utils.py``: used to prepare the correct input before calling
+      the metric function
+    - ``EfsModule``: selects the correct column from the CV predictions table
+    """
+
+    PREDICTIONS = "predictions"
+    PROBABILITIES = "probabilities"
+
+
+class MRMRFIAggregation(StrEnum):
+    """How per-training feature importances are aggregated before MRMR relevance scoring.
+
+    Used in ``Mrmr.feature_importance_type``:
+    - ``MEAN``: averages importance values across training runs
+    - ``COUNT``: counts how often a feature has non-zero importance
+    """
+
+    MEAN = "mean"
+    COUNT = "count"
 
 
 ML_TYPES = [e.value for e in MLType]

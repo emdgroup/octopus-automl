@@ -684,7 +684,7 @@ class Training:
     def calculate_fi_featuresused_shap(self, partition="dev", bg_max=200):
         """SHAP feature importance (for calc_features_used) with robust fallbacks.
 
-        Used when model property: feature_method = "shap". The shap method used is automatically determined
+        Used when model property: feature_method = FIComputeMethod.SHAP. The shap method used is automatically determined
         by shap. The main advantage is that for linear and tree model the feature importances are calculated
         much faster.
         """

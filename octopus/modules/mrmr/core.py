@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -12,7 +12,7 @@ from sklearn.feature_selection import f_classif, f_regression
 from octopus.logger import get_logger
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import FIResultLabel, LogGroup, MLType, ResultType
+from octopus.types import CorrelationType, FIResultLabel, LogGroup, MLType, MRMRRelevance, ResultType
 
 if TYPE_CHECKING:
     from octopus.modules import StudyContext
@@ -82,7 +82,7 @@ class MrmrModule(ModuleExecution["Mrmr"]):
 
     def _validate_configuration(self, prior_results: dict) -> None:
         """Validate MRMR configuration."""
-        if self.config.relevance_type == "permutation":
+        if self.config.relevance_type == MRMRRelevance.PERMUTATION:
             if self.config.task_id == 0:
                 raise ValueError("MRMR module should not be the first workflow task.")
             fi_df = prior_results.get("feature_importances", pd.DataFrame())
@@ -116,9 +116,9 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         prior_results: dict,
     ) -> pd.DataFrame:
         """Get relevance data based on relevance type."""
-        if self.config.relevance_type == "permutation":
+        if self.config.relevance_type == MRMRRelevance.PERMUTATION:
             return self._get_permutation_relevance(feature_cols, prior_results)
-        elif self.config.relevance_type == "f-statistics":
+        elif self.config.relevance_type == MRMRRelevance.F_STATISTICS:
             return self._get_fstats_relevance(x_traindev, y_traindev, feature_cols, ml_type)
         else:
             raise ValueError(f"Relevance type {self.config.relevance_type} not supported for MRMR.")
@@ -175,8 +175,7 @@ def _maxrminr(
     features: pd.DataFrame,
     relevance: pd.DataFrame,
     requested_feature_counts: list[int],
-    correlation_type: Literal["pearson", "spearman", "rdc"] = "pearson",
-    method: Literal["ratio", "difference"] = "ratio",
+    correlation_type: CorrelationType = CorrelationType.PEARSON,
 ) -> dict[int, list[str]]:
     """Perform mRMR feature selection.
 
@@ -187,8 +186,7 @@ def _maxrminr(
         features: Dataset with columns as feature names
         relevance: DataFrame with "feature" and "importance" columns
         requested_feature_counts: List of feature counts for partial snapshots
-        correlation_type: Correlation method ("pearson", "spearman", or "rdc")
-        method: Score method ("ratio" or "difference")
+        correlation_type: Correlation method (CorrelationType.PEARSON, CorrelationType.SPEARMAN, or CorrelationType.RDC)
 
     Returns:
         Dictionary mapping feature counts to lists of selected features
@@ -199,10 +197,6 @@ def _maxrminr(
     MIN_RED = 1e-6  # minimum redundancy to avoid division by zero
 
     # Validate arguments
-    if correlation_type not in {"pearson", "spearman", "rdc"}:
-        raise ValueError("correlation_type must be one of {'pearson','spearman','rdc'}")
-    if method not in {"ratio", "difference"}:
-        raise ValueError("method must be 'ratio' or 'difference'")
     if "feature" not in relevance.columns or "importance" not in relevance.columns:
         raise ValueError("relevance must contain 'feature' and 'importance' columns")
 
@@ -236,7 +230,7 @@ def _maxrminr(
         raise ValueError(f"Some relevant feature columns contain non-numeric/NaN values: {bad_cols}")
 
     # Calculate correlation matrix
-    if correlation_type in {"pearson", "spearman"}:
+    if correlation_type in (CorrelationType.PEARSON, CorrelationType.SPEARMAN):
         corr = feats.corr(method=correlation_type).abs()
     else:  # rdc
         corr_vals = rdc_correlation_matrix(feats)
@@ -264,10 +258,7 @@ def _maxrminr(
             mean_red = mean_red.fillna(LARGE_RED).clip(lower=MIN_RED)
 
             candidates["redundancy"] = mean_red.values
-            if method == "ratio":
-                candidates["score"] = candidates["importance"] / candidates["redundancy"]
-            else:
-                candidates["score"] = candidates["importance"] - candidates["redundancy"]
+            candidates["score"] = candidates["importance"] / candidates["redundancy"]
 
         # Replace infinite scores with NaN
         candidates["score"] = candidates["score"].replace([np.inf, -np.inf], np.nan)

@@ -6,7 +6,7 @@ from attrs import define, field, validators
 
 from octopus.modules import ModuleExecution
 from octopus.modules.octo.module import Octo
-from octopus.types import FIComputeMethod
+from octopus.types import FIComputeMethod, RFE2SelectionMethod
 
 
 @define
@@ -34,7 +34,11 @@ class Rfe2(Octo):
     )
     """Feature importance method for RFE."""
 
-    selection_method: str = field(validator=[validators.in_(["best", "parsimonious"])], default="best")
+    selection_method: RFE2SelectionMethod = field(
+        converter=RFE2SelectionMethod,
+        validator=validators.in_(list(RFE2SelectionMethod)),
+        default=RFE2SelectionMethod.BEST,
+    )
     """Method to select best solution. Parsimonious: smallest solutions within sem."""
 
     abs_on_fi: bool = field(validator=[validators.instance_of(bool)], default=False)

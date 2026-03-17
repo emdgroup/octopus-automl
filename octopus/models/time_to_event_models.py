@@ -1,6 +1,6 @@
 """Time to event models."""
 
-from octopus.types import MLType
+from octopus.types import FIComputeMethod, MLType, ModelName
 
 from .config import ModelConfig
 from .core import Models
@@ -9,13 +9,13 @@ from .wrapper_models.CatBoostCoxSurvival import CatBoostCoxSurvival
 from .wrapper_models.XGBoostCoxSurvival import XGBoostCoxSurvival
 
 
-@Models.register("CatBoostCoxSurvival")
+@Models.register(ModelName.CatBoostCoxSurvival)
 def catboost_cox_survival() -> ModelConfig:
     """CatBoost Cox survival model config."""
     return ModelConfig(
         model_class=CatBoostCoxSurvival,  # type: ignore[arg-type]
         ml_types=[MLType.TIMETOEVENT],
-        feature_method="internal",
+        feature_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,
@@ -37,13 +37,13 @@ def catboost_cox_survival() -> ModelConfig:
     )
 
 
-@Models.register("XGBoostCoxSurvival")
+@Models.register(ModelName.XGBoostCoxSurvival)
 def xgboost_cox_survival() -> ModelConfig:
     """XGBoost Cox survival model config."""
     return ModelConfig(
         model_class=XGBoostCoxSurvival,  # type: ignore[arg-type]
         ml_types=[MLType.TIMETOEVENT],
-        feature_method="internal",
+        feature_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,

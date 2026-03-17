@@ -15,6 +15,7 @@ from sklearn.datasets import make_classification
 
 from octopus.modules import AutoGluon, Octo
 from octopus.study import OctoClassification
+from octopus.types import FIComputeMethod, ModelName
 
 ### Generate Synthetic Binary Classification Dataset
 n_informative = 30
@@ -85,9 +86,9 @@ study = OctoClassification(
             n_folds_inner=5,
             # Model selection - using tree-based models for feature importance
             models=[
-                "ExtraTreesClassifier",
+                ModelName.ExtraTreesClassifier,
             ],
-            fi_methods_bestbag=["permutation"],  # Feature importance method
+            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],  # Feature importance method
             # Parallelization settings
             inner_parallelization=True,
             n_workers=5,

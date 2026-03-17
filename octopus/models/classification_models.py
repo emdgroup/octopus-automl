@@ -10,7 +10,7 @@ from sklearn.ensemble import (
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 
-from octopus.types import FIComputeMethod, MLType
+from octopus.types import FIComputeMethod, MLType, ModelName
 
 from .config import ModelConfig
 from .core import Models
@@ -18,7 +18,7 @@ from .hyperparameter import CategoricalHyperparameter, FixedHyperparameter, Floa
 from .wrapper_models.GaussianProcessClassifier import GPClassifierWrapper
 
 
-@Models.register("ExtraTreesClassifier")
+@Models.register(ModelName.ExtraTreesClassifier)
 def extra_trees_classifier() -> ModelConfig:
     """ExtraTrees classification model config."""
     return ModelConfig(
@@ -45,7 +45,7 @@ def extra_trees_classifier() -> ModelConfig:
     )
 
 
-@Models.register("HistGradientBoostingClassifier")
+@Models.register(ModelName.HistGradientBoostingClassifier)
 def hist_gradient_boosting_classifier() -> ModelConfig:
     """Histogram-based gradient boosting classification model config (scikit-learn 1.6.1)."""
     return ModelConfig(
@@ -72,7 +72,7 @@ def hist_gradient_boosting_classifier() -> ModelConfig:
     )
 
 
-@Models.register("GradientBoostingClassifier")
+@Models.register(ModelName.GradientBoostingClassifier)
 def gradient_boosting_classifier() -> ModelConfig:
     """Gradient boosting classification model config."""
     return ModelConfig(
@@ -97,7 +97,7 @@ def gradient_boosting_classifier() -> ModelConfig:
     )
 
 
-@Models.register("RandomForestClassifier")
+@Models.register(ModelName.RandomForestClassifier)
 def random_forest_classifier() -> ModelConfig:
     """Random forest classification model config."""
     return ModelConfig(
@@ -122,7 +122,7 @@ def random_forest_classifier() -> ModelConfig:
     )
 
 
-@Models.register("XGBClassifier")
+@Models.register(ModelName.XGBClassifier)
 def xgb_classifier() -> ModelConfig:
     """XGBoost classification model config."""
     return ModelConfig(
@@ -147,7 +147,7 @@ def xgb_classifier() -> ModelConfig:
     )
 
 
-@Models.register("CatBoostClassifier")
+@Models.register(ModelName.CatBoostClassifier)
 def catboost_classifier() -> ModelConfig:
     """CatBoost classification model config."""
     return ModelConfig(
@@ -177,7 +177,7 @@ def catboost_classifier() -> ModelConfig:
     )
 
 
-@Models.register("LogisticRegressionClassifier")
+@Models.register(ModelName.LogisticRegressionClassifier)
 def logistic_regression_classifier() -> ModelConfig:
     """Logistic regression classification model config."""
     return ModelConfig(
@@ -204,7 +204,7 @@ def logistic_regression_classifier() -> ModelConfig:
     )
 
 
-@Models.register("GaussianProcessClassifier")
+@Models.register(ModelName.GaussianProcessClassifier)
 def gaussian_process_classifier() -> ModelConfig:
     """Gaussian process classification model config."""
     return ModelConfig(

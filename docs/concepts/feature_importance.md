@@ -69,11 +69,12 @@ This method extracts the built-in `feature_importances_` attribute from tree-bas
 **Example:**
 ```python
 from octopus.modules import Octo
+from octopus.types import ModelName
 
 # Configure Octo with RandomForest
 octo = Octo(
     task_id=0,
-    models=["RandomForestClassifier"],
+    models=[ModelName.RandomForestClassifier],
     n_trials=50,
 )
 
@@ -151,11 +152,12 @@ This method extracts and ranks features by the absolute magnitude of their coeff
 **Example:**
 ```python
 from octopus.modules import Octo
+from octopus.types import ModelName
 
 # Configure Octo with LogisticRegression
 octo = Octo(
     task_id=0,
-    models=["LogisticRegression"],
+    models=[ModelName.LogisticRegressionClassifier],
     n_trials=30,
 )
 
@@ -207,10 +209,11 @@ except ValueError as e:
 
 ```python
 from octopus.modules import Octo
+from octopus.types import ModelName
 
 octo = Octo(
     task_id=0,
-    models=["RandomForestClassifier", "XGBClassifier"],
+    models=[ModelName.RandomForestClassifier, ModelName.XGBClassifier],
     n_trials=100,
 )
 
@@ -242,7 +245,7 @@ from octopus.modules import Roc
 roc = Roc(
     task_id=0,
     threshold=0.8,
-    correlation_type="spearmanr",
+    correlation_type=CorrelationType.SPEARMAN,
 )
 
 selected_features, results = roc.fit(...)
@@ -256,10 +259,11 @@ selected_features, results = roc.fit(...)
 
 ```python
 from octopus.modules import Boruta
+from octopus.types import ModelName
 
 boruta = Boruta(
     task_id=0,
-    model="RandomForestClassifier",
+    model=ModelName.RandomForestClassifier,
     perc=100,
 )
 
@@ -338,10 +342,11 @@ Feature importances are automatically calculated and saved during workflow execu
 ```python
 from octopus.manager.workflow_runner import WorkflowTaskRunner
 from octopus.modules import Octo, Rfe
+from octopus.types import ModelName
 
 # Define workflow
 workflow = [
-    Octo(task_id=0, models=["RandomForestClassifier"]),
+    Octo(task_id=0, models=[ModelName.RandomForestClassifier]),
     Rfe(task_id=1, depends_on=0, n_features_to_select=20),
 ]
 
@@ -375,9 +380,10 @@ The feature importance methods automatically unwrap `GridSearchCV` objects:
 ```python
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
+from octopus.types import ModelName
 
 # Octo internally uses GridSearchCV
-octo = Octo(task_id=0, models=["RandomForestClassifier"])
+octo = Octo(task_id=0, models=[ModelName.RandomForestClassifier])
 octo.fit(...)
 
 # This automatically extracts best_estimator_ from GridSearchCV

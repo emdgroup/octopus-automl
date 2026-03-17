@@ -6,6 +6,8 @@ from typing import Literal
 
 from attrs import define, field, validators
 
+from octopus.types import AutoGluonFitStrategy
+
 from ..base import ModuleExecution, Task
 
 
@@ -43,8 +45,10 @@ class AutoGluon(Task):
     )
     """Memory limit in GB."""
 
-    fit_strategy: Literal["sequential", "parallel"] = field(
-        default="sequential", validator=validators.in_(["sequential", "parallel"])
+    fit_strategy: AutoGluonFitStrategy = field(
+        default=AutoGluonFitStrategy.SEQUENTIAL,
+        converter=AutoGluonFitStrategy,
+        validator=validators.in_(list(AutoGluonFitStrategy)),
     )
     """Model fitting strategy."""
 

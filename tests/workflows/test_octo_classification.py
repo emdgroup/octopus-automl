@@ -8,6 +8,7 @@ from sklearn.datasets import make_classification
 
 from octopus.modules import Octo
 from octopus.study import OctoClassification
+from octopus.types import FIComputeMethod, ModelName
 
 
 @pytest.mark.windows
@@ -83,8 +84,8 @@ class TestOctoIntroClassification:
             task_id=0,
             depends_on=None,
             n_folds_inner=3,
-            models=["ExtraTreesClassifier", "RandomForestClassifier"],
-            fi_methods_bestbag=["permutation"],
+            models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
+            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
             inner_parallelization=True,
             n_workers=3,
             optuna_seed=0,
@@ -102,9 +103,9 @@ class TestOctoIntroClassification:
         assert octo_task.description == "step_1_octo"
         assert octo_task.n_folds_inner == 3
         assert octo_task.models is not None
-        assert set(octo_task.models) == {"ExtraTreesClassifier", "RandomForestClassifier"}
+        assert set(octo_task.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
 
-    @pytest.mark.parametrize("model", ["ExtraTreesClassifier", "RandomForestClassifier"])
+    @pytest.mark.parametrize("model", [ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier])
     def test_single_model_configuration(self, model):
         """Test configuration with different single models."""
         octo_task = Octo(
@@ -120,7 +121,7 @@ class TestOctoIntroClassification:
 
     def test_multiple_models_configuration(self):
         """Test configuration with multiple models."""
-        models = ["ExtraTreesClassifier", "RandomForestClassifier"]
+        models = [ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier]
         octo_task = Octo(
             description="step_1_octo",
             task_id=0,
@@ -134,12 +135,12 @@ class TestOctoIntroClassification:
 
     def test_feature_importance_configuration(self):
         """Test feature importance method configuration."""
-        fi_methods = ["permutation"]
+        fi_methods = [FIComputeMethod.PERMUTATION]
         octo_task = Octo(
             description="step_1_octo",
             task_id=0,
             depends_on=None,
-            models=["ExtraTreesClassifier"],
+            models=[ModelName.ExtraTreesClassifier],
             fi_methods_bestbag=fi_methods,
             n_trials=3,
         )
@@ -152,7 +153,7 @@ class TestOctoIntroClassification:
             description="step_1_octo",
             task_id=0,
             depends_on=None,
-            models=["ExtraTreesClassifier", "RandomForestClassifier"],
+            models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
             ensemble_selection=True,
             ensel_n_save_trials=15,
             n_trials=5,
@@ -167,7 +168,7 @@ class TestOctoIntroClassification:
             description="step_1_octo",
             task_id=0,
             depends_on=None,
-            models=["ExtraTreesClassifier"],
+            models=[ModelName.ExtraTreesClassifier],
             optuna_seed=42,
             n_optuna_startup_trials=5,
             n_trials=5,
@@ -206,11 +207,11 @@ class TestOctoIntroClassification:
                         task_id=0,
                         depends_on=None,
                         n_folds_inner=3,
-                        models=["ExtraTreesClassifier"],
+                        models=[ModelName.ExtraTreesClassifier],
                         model_seed=0,
                         n_jobs=1,
                         max_outl=0,
-                        fi_methods_bestbag=["permutation"],
+                        fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
                         inner_parallelization=True,
                         n_workers=2,
                         optuna_seed=0,
@@ -253,11 +254,11 @@ class TestOctoIntroClassification:
             task_id=0,
             depends_on=None,
             n_folds_inner=5,
-            models=["ExtraTreesClassifier", "RandomForestClassifier"],
+            models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
             model_seed=0,
             n_jobs=1,
             max_outl=0,
-            fi_methods_bestbag=["permutation"],
+            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
             inner_parallelization=True,
             n_workers=5,
             optuna_seed=0,
@@ -276,11 +277,11 @@ class TestOctoIntroClassification:
 
         assert octo_task.n_folds_inner == 5
         assert octo_task.models is not None
-        assert set(octo_task.models) == {"ExtraTreesClassifier", "RandomForestClassifier"}
+        assert set(octo_task.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
         assert octo_task.model_seed == 0
         assert octo_task.n_jobs == 1
         assert octo_task.max_outl == 0
-        assert octo_task.fi_methods_bestbag == ["permutation"]
+        assert octo_task.fi_methods_bestbag == [FIComputeMethod.PERMUTATION]
         assert octo_task.inner_parallelization is True
         assert octo_task.n_workers == 5
         assert octo_task.optuna_seed == 0

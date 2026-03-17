@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from octopus.types import MLType
+from octopus.types import MLType, PredictionType
 
 from .config import Metric
 from .core import Metrics
@@ -292,7 +292,7 @@ def cindex_metric() -> Metric:
         metric_function=_harrell_concordance_index,
         ml_types=[MLType.TIMETOEVENT],
         higher_is_better=True,
-        prediction_type="predict",
+        prediction_type=PredictionType.PREDICTIONS,
         scorer_string="concordance_index",
     )
 
@@ -305,6 +305,6 @@ def cindex_uno_metric() -> Metric:
         metric_function=_uno_concordance_index,
         ml_types=[MLType.TIMETOEVENT],
         higher_is_better=True,
-        prediction_type="predict",
+        prediction_type=PredictionType.PREDICTIONS,
         scorer_string="concordance_index_uno",
     )

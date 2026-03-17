@@ -17,7 +17,7 @@ from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
 from octopus.modules import Octo, StudyContext, Task
-from octopus.types import ImputationMethod, MLType
+from octopus.types import MLType
 from octopus.utils import csv_save, get_package_name, get_version, parquet_save
 
 from .data_preparator import OctoDataPreparator
@@ -61,12 +61,6 @@ class OctoStudy(ABC):
 
     datasplit_seed_outer: int = field(default=0, validator=[validators.instance_of(int)])
     """The seed used for data splitting in outer cross-validation. Defaults to 0."""
-
-    imputation_method: ImputationMethod = field(
-        default=ImputationMethod.MEDIAN,
-        converter=lambda x: ImputationMethod(x.lower()) if isinstance(x, str) else x,
-        validator=validators.instance_of(ImputationMethod),
-    )
 
     ignore_data_health_warning: bool = field(default=Factory(lambda: False), validator=[validators.instance_of(bool)])
     """Ignore data health checks warning and run machine learning workflow."""

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from attrs import define, field, validators
 
+from octopus.types import SFSDirection
+
 from ..base import ModuleExecution, Task
 
 
@@ -26,9 +28,8 @@ class Sfs(Task):
     cv: int = field(validator=[validators.instance_of(int)], default=5)
     """Number of CV folds for SFS."""
 
-    sfs_type: str = field(
-        validator=[validators.in_(["forward", "backward", "floating_forward", "floating_backward"])],
-        default="backward",
+    sfs_type: SFSDirection = field(
+        converter=SFSDirection, validator=validators.in_(list(SFSDirection)), default=SFSDirection.BACKWARD
     )
     """SFS type used."""
 

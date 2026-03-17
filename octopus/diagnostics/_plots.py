@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.metrics import confusion_matrix
 
-from octopus.types import FIResultLabel
+from octopus.types import FIResultLabel, MetricDirection
 
 
 def plot_feature_importance_chart(
@@ -308,7 +308,7 @@ def plot_optuna_trials_chart(
     *,
     outersplit_id: int | str = 0,
     task_id: int | str = 0,
-    direction: str = "minimize",
+    direction: MetricDirection = MetricDirection.MINIMIZE,
 ) -> go.Figure:
     """Create scatter + best-value line plot for Optuna trials.
 
@@ -332,7 +332,7 @@ def plot_optuna_trials_chart(
     trial_values = filtered.groupby("trial")["value"].first().reset_index().sort_values("trial")
 
     # Cumulative best
-    if direction == "maximize":
+    if direction == MetricDirection.MAXIMIZE:
         trial_values["best"] = trial_values["value"].cummax()
     else:
         trial_values["best"] = trial_values["value"].cummin()

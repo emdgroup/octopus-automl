@@ -30,7 +30,7 @@ from octopus.diagnostics._plots import (
     plot_optuna_trials_chart,
     plot_predictions_vs_truth_chart,
 )
-from octopus.types import FIResultLabel, MLType
+from octopus.types import FIResultLabel, MetricDirection, MLType
 
 
 def _has_ipywidgets() -> bool:
@@ -295,7 +295,7 @@ class StudyDiagnostics:
         self,
         outersplit_id: int | None = None,
         task_id: int | None = None,
-        direction: str = "minimize",
+        direction: MetricDirection = MetricDirection.MINIMIZE,
     ) -> None:
         """Plot Optuna trial scatter + cumulative best line.
 

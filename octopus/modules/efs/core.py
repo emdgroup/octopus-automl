@@ -7,7 +7,7 @@ import itertools
 import json
 import random
 from collections import Counter
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,7 @@ from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, cross_
 from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult, StudyContext
-from octopus.types import DataPartition, FIResultLabel, MLType, ModelName, ResultType
+from octopus.types import DataPartition, FIResultLabel, MetricDirection, MLType, ModelName, PredictionType, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -87,9 +87,7 @@ class EfsModule(ModuleExecution["Efs"]):
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
         row_traindev = data_traindev[study_context.row_id_col]
 
-        metric_input: Literal["predictions", "probabilities"] = (
-            "probabilities" if study_context.target_metric in ["AUCROC", "LOGLOSS"] else "predictions"
-        )
+        metric_input = Metrics.get_instance(study_context.target_metric).prediction_type
         direction = Metrics.get_direction(study_context.target_metric)
 
         self._create_modeltable(
@@ -154,8 +152,8 @@ class EfsModule(ModuleExecution["Efs"]):
         y_traindev: pd.DataFrame,
         row_traindev: pd.Series,
         feature_cols: list[str],
-        metric_input: Literal["predictions", "probabilities"],
-        direction: Literal["maximize", "minimize"],
+        metric_input: PredictionType,
+        direction: MetricDirection,
     ):
         """Create model table."""
         print("Creating model table.")
@@ -241,7 +239,7 @@ class EfsModule(ModuleExecution["Efs"]):
 
             # ensemble metric
             metric = Metrics.get_instance(study_context.target_metric)
-            if metric_input == "probabilities":
+            if metric_input == PredictionType.PROBABILITIES:
                 best_ensel_performance = metric.calculate(y, cv_preds_df["probabilities"])  # type: ignore[arg-type]
             else:
                 best_ensel_performance = metric.calculate(y, cv_preds_df["predictions"])  # type: ignore[arg-type]
@@ -268,7 +266,7 @@ class EfsModule(ModuleExecution["Efs"]):
 
         # order of table is important, depending on metric,
         # (a) direction (b) dev_pool_soft or dev_pool_hard
-        ascending = direction != "maximize"
+        ascending = direction != MetricDirection.MAXIMIZE
 
         self.model_table_ = self.model_table_.sort_values(by="performance", ascending=ascending).reset_index(drop=True)
 
@@ -276,7 +274,7 @@ class EfsModule(ModuleExecution["Efs"]):
         self,
         study_context: StudyContext,
         y_traindev: pd.DataFrame,
-        metric_input: Literal["predictions", "probabilities"],
+        metric_input: PredictionType,
         model_ids,
     ) -> float:
         """Ensemble predictions of models in model_table."""
@@ -299,7 +297,7 @@ class EfsModule(ModuleExecution["Efs"]):
         y = y_traindev.squeeze(axis=1)
         ensel_performance = (
             metric.calculate(y, model_predictions)  # type: ignore[arg-type]
-            if metric_input == "predictions"
+            if metric_input == PredictionType.PREDICTIONS
             else metric.calculate(y, groupby_df["probabilities"])  # type: ignore[arg-type]
         )
 
@@ -309,8 +307,8 @@ class EfsModule(ModuleExecution["Efs"]):
         self,
         study_context: StudyContext,
         y_traindev: pd.DataFrame,
-        metric_input: Literal["predictions", "probabilities"],
-        direction: Literal["maximize", "minimize"],
+        metric_input: PredictionType,
+        direction: MetricDirection,
     ):
         """Perform ensemble scan."""
         # (B) perform ensemble scan, hillclimb
@@ -328,7 +326,7 @@ class EfsModule(ModuleExecution["Efs"]):
                 self._ensemble_models(study_context, y_traindev, metric_input, model_ids),
             ]
 
-        if direction == "maximize":
+        if direction == MetricDirection.MAXIMIZE:
             n_best_models = self.scan_table_.loc[self.scan_table_["performance"].idxmax()]["#models"]
             best_performance = self.scan_table_.loc[self.scan_table_["performance"].idxmax()]["performance"]
         else:  # minimize
@@ -343,14 +341,16 @@ class EfsModule(ModuleExecution["Efs"]):
         self,
         study_context: StudyContext,
         y_traindev: pd.DataFrame,
-        metric_input: Literal["predictions", "probabilities"],
-        direction: Literal["maximize", "minimize"],
+        metric_input: PredictionType,
+        direction: MetricDirection,
     ):
         """Ensembling optimization with replacement."""
         # we start with an best N models example derived from self.scan_table_,
         # assuming that is sorted correctly
         best_performance = (
-            self.scan_table_["performance"].max() if direction == "maximize" else self.scan_table_["performance"].min()
+            self.scan_table_["performance"].max()
+            if direction == MetricDirection.MAXIMIZE
+            else self.scan_table_["performance"].min()
         )
         # get the last index with best performance
         best_rows = self.scan_table_[self.scan_table_["performance"] == best_performance]
@@ -393,7 +393,7 @@ class EfsModule(ModuleExecution["Efs"]):
                 df.loc[len(df)] = [model, perf]
             df["model"] = df["model"].astype(int)
 
-            if direction == "maximize":
+            if direction == MetricDirection.MAXIMIZE:
                 best_performance = df["performance"].max()
                 best_rows = df[df["performance"] == best_performance]
                 random_best_row = best_rows.sample(n=1, random_state=42)

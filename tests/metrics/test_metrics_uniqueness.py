@@ -10,7 +10,7 @@ import pytest
 
 from octopus.metrics import Metrics
 from octopus.metrics.config import Metric
-from octopus.types import ML_TYPES, MLType
+from octopus.types import ML_TYPES, MLType, PredictionType
 
 
 class TestMetricsUniqueness:
@@ -121,7 +121,7 @@ class TestMetricsUniqueness:
 
     def test_all_metrics_have_valid_prediction_types(self):
         """Test that all metrics have valid prediction_type values."""
-        valid_prediction_types = {"predict", "predict_proba"}
+        valid_prediction_types = set(PredictionType)
         invalid_metrics = []
 
         for registry_key in self.all_metrics:

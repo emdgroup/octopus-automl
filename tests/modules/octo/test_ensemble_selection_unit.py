@@ -7,11 +7,10 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 from upath import UPath
 
-from octopus.models.model_name import ModelName
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.training import Training
-from octopus.types import MLType
+from octopus.types import MLType, ModelName
 from octopus.utils import joblib_save
 
 # Utility functions for creating mock data and bags

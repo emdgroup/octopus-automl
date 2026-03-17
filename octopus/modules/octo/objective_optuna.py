@@ -8,7 +8,7 @@ from octopus.datasplit import InnerSplits
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.types import LogGroup, MLType, ModelName
+from octopus.types import LogGroup, MetricDirection, MLType, ModelName, OptunaReturnType
 from octopus.utils import joblib_save
 
 from .bag import Bag, BagClassifier, BagRegressor
@@ -182,14 +182,14 @@ class ObjectiveOptuna:
         self._log_trial_scores(bag_performance)
 
         # define optuna target
-        if self.config.optuna_return == "pool":
+        if self.config.optuna_return == OptunaReturnType.POOL:
             optuna_target = bag_performance["dev_pool"]
         else:
             optuna_target = bag_performance["dev_avg"]
 
         # adjust direction, optuna in octofull always minimizes
         target_metric = self.target_metric
-        if Metrics.get_direction(target_metric) == "minimize":
+        if Metrics.get_direction(target_metric) == MetricDirection.MINIMIZE:
             optuna_target = -optuna_target
 
         # add penaltiy for n_features > max_features if configured
