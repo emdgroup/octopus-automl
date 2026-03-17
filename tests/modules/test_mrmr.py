@@ -1,6 +1,7 @@
 """Test MRMR."""
 
 import time
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -13,7 +14,7 @@ from octopus.modules.mrmr.core import _maxrminr as maxrminr
 def generate_sample_data(n_samples, n_features, random_state):
     """Generate sample data."""
     np.random.seed(42)
-    X, _y = make_regression(n_samples=n_samples, n_features=n_features, random_state=random_state)
+    X, _y, _ = make_regression(n_samples=n_samples, n_features=n_features, random_state=random_state, coef=True)
     df_features = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(n_features)])
     df_feature_importances = pd.DataFrame(
         {
@@ -108,7 +109,8 @@ def test_mrmr_scalability(scalability_data):
     execution_times = {}
 
     # Test different correlation types: pearson only
-    for corr_type in ["pearson"]:
+    types: list[Literal["pearson", "spearman", "rdc"]] = ["pearson"]
+    for corr_type in types:
         start_time = time.time()
 
         # Select top 20 features

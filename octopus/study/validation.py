@@ -1,5 +1,6 @@
 """Validation functions for OctoStudy attributes."""
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from attrs import Attribute
@@ -10,7 +11,7 @@ if TYPE_CHECKING:
     from octopus.study.core import OctoStudy
 
 
-def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: list[Task]) -> None:
+def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Sequence[Task]) -> None:
     """Validate the `workflow` attribute.
 
     Ensures that the value is a non-empty list where each item is an
@@ -109,9 +110,7 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: list[
         if depends_on is not None:
             if depends_on not in task_id_to_index:
                 raise ValueError(
-                    f"Item '{item.description}' (position {idx + 1}) has "
-                    f"'depends_on={depends_on}', which does not"
-                    " correspond to any 'task_id' in the workflow."
+                    f"Item '{item.description}' (position {idx + 1}) has 'depends_on={depends_on}', which does not correspond to any 'task_id' in the workflow."
                 )
             depends_on_idx = task_id_to_index[depends_on]
             if depends_on_idx >= idx:

@@ -71,8 +71,11 @@ class TestModuleResultSaveLoad:
         assert loaded.result_type == ResultType.BEST
         assert loaded.module == "octo"
         assert loaded.selected_features == ["f1", "f2"]
+        assert loaded.scores is not None
         assert not loaded.scores.empty
+        assert loaded.predictions is not None
         assert not loaded.predictions.empty
+        assert loaded.feature_importances is not None
         assert not loaded.feature_importances.empty
         assert loaded.model is not None
 
@@ -169,7 +172,7 @@ class TestModuleResultSaveLoad:
         result_dir = UPath(tmp_path / "best")
         result.save(result_dir)
 
-        with open(result_dir / "model" / "predictor.json") as f:
+        with (result_dir / "model" / "predictor.json").open() as f:
             data = json.load(f)
 
         assert data["selected_features"] == ["a", "b", "c"]
@@ -189,4 +192,5 @@ class TestModuleResultSaveLoad:
         loaded = ModuleResult.load(result_dir, result_type=ResultType.ENSEMBLE_SELECTION, module="octo")
         assert loaded.result_type == ResultType.ENSEMBLE_SELECTION
         assert loaded.selected_features == ["f1"]
+        assert loaded.scores is not None
         assert not loaded.scores.empty

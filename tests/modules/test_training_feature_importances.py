@@ -7,6 +7,8 @@ Usage:
 """
 
 import warnings
+from collections import defaultdict
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -19,50 +21,51 @@ from octopus.models.hyperparameter import (
     FloatHyperparameter,
     IntHyperparameter,
 )
-from octopus.modules.octo.training import Training
+from octopus.models.model_name import ModelName
+from octopus.modules.octo.training import Training, TrainingConfig
 from octopus.types import MLType
 
-TEST_CONFIG = {
-    "n_samples": 30,
-    "test_split": 0.3,
-    "dev_split": 0.2,
-    "random_seed": 42,
-}
+
+class TEST_CONFIG:
+    """Test data configuration."""
+
+    n_samples = 30
+    test_split = 0.3
+    dev_split = 0.2
+    random_seed = 42
+
 
 FI_METHODS = [
     "calculate_fi_internal",
     "calculate_fi_group_permutation",
     "calculate_fi_permutation",
     "calculate_fi_lofo",
-    # SHAP methods excluded until #343 is resolved
+    # TODO: SHAP methods excluded until [#343](https://github.com/emdgroup/octopus/issues/343) is resolved
     # "calculate_fi_featuresused_shap",
     # "calculate_fi_shap",
 ]
 
+
+@dataclass
+class MLTypeConfig:
+    """Configuration for each ML type."""
+
+    target_assignments: dict[str, str]
+    target_metric: str
+
+
 ML_TYPE_CONFIGS = {
-    MLType.BINARY: {
-        "target_assignments": {"target": "target_class"},
-        "target_metric": "AUCROC",
-    },
-    MLType.REGRESSION: {
-        "target_assignments": {"target": "target_reg"},
-        "target_metric": "R2",
-    },
-    MLType.TIMETOEVENT: {
-        "target_assignments": {"duration": "duration", "event": "event"},
-        "target_metric": "CI",
-    },
-    MLType.MULTICLASS: {
-        "target_assignments": {"target": "target_multiclass"},
-        "target_metric": "ACCBAL_MC",
-    },
+    MLType.BINARY: MLTypeConfig({"target": "target_class"}, "AUCROC"),
+    MLType.REGRESSION: MLTypeConfig({"target": "target_reg"}, "R2"),
+    MLType.TIMETOEVENT: MLTypeConfig({"duration": "duration", "event": "event"}, "CI"),
+    MLType.MULTICLASS: MLTypeConfig({"target": "target_multiclass"}, "ACCBAL_MC"),
 }
 
 
 def _get_available_models_by_type():
     """Get all available models dynamically from the registry, grouped by ML type."""
-    all_models = Models._config_factories.keys()
-    models_by_type = {ml_type: [] for ml_type in MLType}
+    all_models = Models._get_registered_models()
+    models_by_type = defaultdict(list)
 
     for model_name in all_models:
         try:
@@ -94,7 +97,7 @@ def _generate_test_params():
     return params
 
 
-def _get_default_model_params(model_name: str) -> dict:
+def _get_default_model_params(model_name: ModelName) -> dict:
     """Get default parameters for a model from its hyperparameter configuration."""
     model_config = Models.get_config(model_name)
     params = {}
@@ -127,7 +130,7 @@ def _create_training_instance(
     data_dev: pd.DataFrame,
     data_test: pd.DataFrame,
     ml_type: MLType,
-    model_name: str,
+    model_name: ModelName,
     feature_cols: list[str],
     feature_groups: dict[str, list[str]],
 ) -> Training:
@@ -135,7 +138,7 @@ def _create_training_instance(
     config = ML_TYPE_CONFIGS[ml_type]
     ml_model_params = _get_default_model_params(model_name)
 
-    training_config = {
+    training_config: TrainingConfig = {
         "ml_model_type": model_name,
         "ml_model_params": ml_model_params,
         "outl_reduction": 0,
@@ -147,13 +150,13 @@ def _create_training_instance(
     return Training(
         training_id=f"test_{ml_type}_{model_name}",
         ml_type=ml_type,
-        target_assignments=config["target_assignments"],
+        target_assignments=config.target_assignments,
         feature_cols=feature_cols,
         row_id_col="row_id",
         data_train=data_train,
         data_dev=data_dev,
         data_test=data_test,
-        target_metric=config["target_metric"],
+        target_metric=config.target_metric,
         max_features=0,
         feature_groups=feature_groups,
         config_training=training_config,
@@ -192,8 +195,8 @@ _fitted_training_cache: dict[tuple[MLType, str], Training] = {}
 @pytest.fixture(scope="session")
 def test_data():
     """Create test dataset with mixed data types."""
-    np.random.seed(TEST_CONFIG["random_seed"])
-    n_samples = TEST_CONFIG["n_samples"]
+    np.random.seed(TEST_CONFIG.random_seed)
+    n_samples = TEST_CONFIG.n_samples
 
     data = pd.DataFrame(
         {
@@ -220,8 +223,8 @@ def test_data():
     data["duration"] = np.random.exponential(10, n_samples)
     data["event"] = np.random.choice([True, False], n_samples, p=[0.7, 0.3])
 
-    n_train = int(n_samples * (1 - TEST_CONFIG["test_split"] - TEST_CONFIG["dev_split"]))
-    n_dev = int(n_samples * TEST_CONFIG["dev_split"])
+    n_train = int(n_samples * (1 - TEST_CONFIG.test_split - TEST_CONFIG.dev_split))
+    n_dev = int(n_samples * TEST_CONFIG.dev_split)
 
     indices = np.random.permutation(n_samples)
     train_idx = indices[:n_train]

@@ -101,6 +101,7 @@ class TestOctoIntroClassification:
         assert octo_task.depends_on is None
         assert octo_task.description == "step_1_octo"
         assert octo_task.n_folds_inner == 3
+        assert octo_task.models is not None
         assert set(octo_task.models) == {"ExtraTreesClassifier", "RandomForestClassifier"}
 
     @pytest.mark.parametrize("model", ["ExtraTreesClassifier", "RandomForestClassifier"])
@@ -128,7 +129,7 @@ class TestOctoIntroClassification:
             n_trials=5,
             n_folds_inner=3,
         )
-
+        assert octo_task.models is not None
         assert set(octo_task.models) == set(models)
 
     def test_feature_importance_configuration(self):
@@ -275,6 +276,7 @@ class TestOctoIntroClassification:
         assert octo_task.depends_on is None
 
         assert octo_task.n_folds_inner == 5
+        assert octo_task.models is not None
         assert set(octo_task.models) == {"ExtraTreesClassifier", "RandomForestClassifier"}
         assert octo_task.model_seed == 0
         assert octo_task.n_jobs == 1

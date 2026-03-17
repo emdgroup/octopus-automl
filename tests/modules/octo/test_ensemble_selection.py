@@ -1,5 +1,7 @@
 """Test ensemble selection functionality."""
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
@@ -8,6 +10,7 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import KFold
 from upath import UPath
 
+from octopus.models.model_name import ModelName
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.training import Training
@@ -27,7 +30,7 @@ def create_synthetic_data_and_models(n_samples=500):
     X = np.random.randn(n_samples, 12)
 
     # Create models with fixed parameters for consistency
-    models = {
+    models: dict[str, Any] = {
         "linear": LinearRegression(),
         "rf": RandomForestRegressor(n_estimators=20, random_state=42),  # Fewer trees for speed
         "gb": GradientBoostingRegressor(n_estimators=20, random_state=42),
@@ -158,7 +161,11 @@ def create_fake_training(trained_model, model_name, feature_indices, fold_data, 
     test_df["target"] = splits["y_test"]
 
     # Map model names to valid octopus model names
-    model_name_mapping = {"linear": "RidgeRegressor", "rf": "RandomForestRegressor", "gb": "GradientBoostingRegressor"}
+    model_name_mapping: dict[str, ModelName] = {
+        "linear": ModelName.RidgeRegressor,
+        "rf": ModelName.RandomForestRegressor,
+        "gb": ModelName.GradientBoostingRegressor,
+    }
 
     training = Training(
         training_id=training_id,

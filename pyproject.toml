@@ -165,7 +165,7 @@ show_error_codes = true
 no_implicit_optional = true
 warn_return_any = true
 warn_unused_ignores = true
-exclude = ["examples", "docs", "tests", "studies"]
+exclude = ["docs", "studies"]
 
 
 [[tool.mypy.overrides]]

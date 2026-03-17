@@ -9,6 +9,7 @@ from collections import Counter, defaultdict
 import pytest
 
 from octopus.metrics import Metrics
+from octopus.metrics.config import Metric
 from octopus.types import ML_TYPES, MLType
 
 
@@ -28,8 +29,7 @@ class TestMetricsUniqueness:
         unique_keys = set(registry_keys)
 
         assert len(registry_keys) == len(unique_keys), (
-            f"Registry keys are not unique. Found {len(registry_keys)} keys but only "
-            f"{len(unique_keys)} unique keys. Keys: {sorted(registry_keys)}"
+            f"Registry keys are not unique. Found {len(registry_keys)} keys but only {len(unique_keys)} unique keys. Keys: {sorted(registry_keys)}"
         )
 
     def test_metric_config_names_are_unique(self):
@@ -38,19 +38,14 @@ class TestMetricsUniqueness:
         This is critical for the utils functions that deduce ml_type from metrics.
         """
         config_names = []
-        config_name_to_registry_key = {}
+        config_name_to_registry_key = defaultdict(list)
 
         for registry_key in self.all_metrics:
             try:
                 config = Metrics.get_instance(registry_key)
                 config_name = config.name
                 config_names.append(config_name)
-
-                if config_name in config_name_to_registry_key:
-                    config_name_to_registry_key[config_name].append(registry_key)
-                else:
-                    config_name_to_registry_key[config_name] = [registry_key]
-
+                config_name_to_registry_key[config_name].append(registry_key)
             except Exception as e:
                 pytest.fail(f"Failed to get config for metric '{registry_key}': {e}")
 
@@ -120,9 +115,9 @@ class TestMetricsUniqueness:
 
         # Print distribution for documentation
         print("\n=== ML Type Distribution ===")
-        for ml_type in sorted(ml_type_distribution):
-            metrics = sorted(ml_type_distribution[ml_type])
-            print(f"{ml_type} ({len(metrics)}): {metrics}")
+        for ml_type_s in sorted(ml_type_distribution):
+            metrics = sorted(ml_type_distribution[ml_type_s])
+            print(f"{ml_type_s} ({len(metrics)}): {metrics}")
 
     def test_all_metrics_have_valid_prediction_types(self):
         """Test that all metrics have valid prediction_type values."""
@@ -164,14 +159,12 @@ class TestMetricsUniqueness:
         missing_types = expected_ml_types - ml_types
 
         assert not missing_types, (
-            f"Missing expected ML types: {missing_types}. "
-            f"Found ML types: {sorted(ml_types)}. "
-            f"This suggests some metric modules may not be imported properly."
+            f"Missing expected ML types: {missing_types}. Found ML types: {sorted(ml_types)}. This suggests some metric modules may not be imported properly."
         )
 
     def test_no_metric_config_attribute_conflicts(self):
         """Test that metric configs don't have conflicting attributes for same names."""
-        configs_by_name = {}
+        configs_by_name: dict[str, Metric] = {}
         conflicts = []
 
         for registry_key in self.all_metrics:
@@ -190,14 +183,12 @@ class TestMetricsUniqueness:
 
                     if existing_config.prediction_type != config.prediction_type:
                         conflicts.append(
-                            f"'{config_name}': prediction_type conflict - "
-                            f"'{existing_config.prediction_type}' vs '{config.prediction_type}'"
+                            f"'{config_name}': prediction_type conflict - '{existing_config.prediction_type}' vs '{config.prediction_type}'"
                         )
 
                     if existing_config.higher_is_better != config.higher_is_better:
                         conflicts.append(
-                            f"'{config_name}': higher_is_better conflict - "
-                            f"'{existing_config.higher_is_better}' vs '{config.higher_is_better}'"
+                            f"'{config_name}': higher_is_better conflict - '{existing_config.higher_is_better}' vs '{config.higher_is_better}'"
                         )
                 else:
                     configs_by_name[config_name] = config

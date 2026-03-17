@@ -144,7 +144,10 @@ class TestOctoTimeToEvent:
             ensel_n_save_trials=10,
         )
 
-        assert {str(m) for m in octo_task.models} == {ModelName.CatBoostCoxSurvival, ModelName.XGBoostCoxSurvival}
+        assert octo_task.models is not None
+        assert len(octo_task.models) == 2
+        assert ModelName.CatBoostCoxSurvival in octo_task.models
+        assert ModelName.XGBoostCoxSurvival in octo_task.models
 
     def test_ensemble_selection_configuration(self):
         """Test ensemble selection configuration."""
@@ -178,6 +181,8 @@ class TestOctoTimeToEvent:
             penalty_factor=1.5,
         )
 
+        assert octo_task.models is not None
+        assert len(octo_task.models) == 1
         assert ModelName.CatBoostCoxSurvival in octo_task.models
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6

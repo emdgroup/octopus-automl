@@ -1,18 +1,20 @@
 """Test hyperparameter."""
 
+from typing import cast
 from unittest.mock import MagicMock
 
 import optuna
 import pytest
 
 from octopus.models import Models
-from octopus.models.config import ModelConfig
+from octopus.models.config import BaseModel, ModelConfig
 from octopus.models.hyperparameter import (
     CategoricalHyperparameter,
     FixedHyperparameter,
     FloatHyperparameter,
     IntHyperparameter,
 )
+from octopus.models.model_name import ModelName
 from octopus.types import FIComputeMethod, MLType
 
 
@@ -133,12 +135,17 @@ def test_create_trial_parameters():
         FixedHyperparameter(name="fixed_param", value=42),
     ]
 
+    class DummyModel(BaseModel):
+        """Dummy model for testing."""
+
+        pass
+
     # Register a test model for this test
     @Models.register("TestModel")
     def test_model() -> ModelConfig:
         """Test model config."""
         return ModelConfig(
-            model_class=object,
+            model_class=DummyModel,
             feature_method=FIComputeMethod.INTERNAL,
             ml_types=[MLType.BINARY, MLType.MULTICLASS],
             hyperparameters=hyperparameters,
@@ -148,7 +155,11 @@ def test_create_trial_parameters():
 
     try:
         result = Models.create_trial_parameters(
-            trial=mock_trial, model_name="TestModel", custom_hyperparameters=None, n_jobs=2, model_seed=123
+            trial=mock_trial,
+            model_name=cast("ModelName", "TestModel"),
+            custom_hyperparameters=None,
+            n_jobs=2,
+            model_seed=123,
         )
 
         mock_trial.suggest_int.assert_called_once_with(name="int_param_TestModel", low=1, high=10, log=False)

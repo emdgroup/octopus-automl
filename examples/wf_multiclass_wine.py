@@ -10,23 +10,17 @@
 
 import os
 
-from sklearn.datasets import load_wine
-
+from octopus.example_data import load_wine_data
 from octopus.modules import Octo
 from octopus.study import OctoClassification
 
 ### Load and Preprocess Data
-wine = load_wine(as_frame=True)
-
-df = wine["frame"].reset_index()
-df.columns = df.columns.str.replace(" ", "_")
-features = list(wine["feature_names"])
-features = [feature.replace(" ", "_") for feature in features]
+df, features, targets = load_wine_data()
 
 print("Dataset info:")
-print(f"  Features: {len(features)}")
+print(f"  Features: {len(features)} - {features}")
 print(f"  Samples: {df.shape[0]}")
-print(f"  Classes: {len(wine.target_names)} - {wine.target_names}")
+print(f"  Classes: {len(targets)} - {targets}")
 print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict()}")
 
 ### Create and run OctoClassification for multiclass classification

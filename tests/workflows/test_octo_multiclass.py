@@ -113,6 +113,7 @@ class TestOctoMulticlass:
         assert octo_task.depends_on is None
         assert octo_task.description == "step_1_octo_multiclass"
         assert octo_task.n_folds_inner == 5
+        assert octo_task.models is not None
         assert set(octo_task.models) == {
             "ExtraTreesClassifier",
             "RandomForestClassifier",
@@ -147,7 +148,7 @@ class TestOctoMulticlass:
             n_trials=10,
             n_folds_inner=3,
         )
-
+        assert octo_task.models is not None
         assert set(octo_task.models) == set(models)
 
     def test_multiclass_metrics_configuration(self):
@@ -286,6 +287,7 @@ class TestOctoMulticlass:
         assert octo_task.depends_on is None
 
         assert octo_task.n_folds_inner == 5
+        assert octo_task.models is not None
         assert set(octo_task.models) == {
             "ExtraTreesClassifier",
             "RandomForestClassifier",

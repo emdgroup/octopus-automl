@@ -133,7 +133,7 @@ class TestResourceConfig:
             num_outersplits=4,
         )
         with pytest.raises(attrs.exceptions.FrozenInstanceError):
-            config.num_cpus = 8
+            config.num_cpus = 8  # type: ignore[misc]
 
     def test_create_single_outersplit_gets_all_cpus(self):
         """Test that when running a single outersplit, it gets all CPUs.

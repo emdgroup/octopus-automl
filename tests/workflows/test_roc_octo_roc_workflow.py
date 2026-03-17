@@ -179,14 +179,8 @@ class TestRocOctoRocWorkflow:
 
     def test_roc_threshold_configuration(self):
         """Test that ROC thresholds are configured correctly in the sequence."""
-        workflow = [
-            Roc(task_id=0, depends_on=None, threshold=0.85),
-            Octo(task_id=1, depends_on=0, models=["ExtraTreesClassifier"], n_trials=6),
-            Roc(task_id=2, depends_on=1, threshold=0.5),
-        ]
-
-        first_roc = workflow[0]
-        second_roc = workflow[2]
+        first_roc = Roc(task_id=0, depends_on=None, threshold=0.85)
+        second_roc = Roc(task_id=2, depends_on=1, threshold=0.5)
 
         assert first_roc.threshold == 0.85
         assert second_roc.threshold == 0.5
@@ -198,26 +192,12 @@ class TestRocOctoRocWorkflow:
     @pytest.mark.parametrize("filter_type", ["f_statistics", "mutual_info"])
     def test_roc_configuration_variations(self, correlation_type, filter_type):
         """Test ROC configuration with different correlation and filter types."""
-        workflow = [
-            Roc(
-                task_id=0,
-                depends_on=None,
-                threshold=0.85,
-                correlation_type=correlation_type,
-                filter_type=filter_type,
-            ),
-            Octo(task_id=1, depends_on=0, models=["ExtraTreesClassifier"], n_trials=6),
-            Roc(
-                task_id=2,
-                depends_on=1,
-                threshold=0.5,
-                correlation_type=correlation_type,
-                filter_type=filter_type,
-            ),
-        ]
-
-        first_roc = workflow[0]
-        second_roc = workflow[2]
+        first_roc = Roc(
+            task_id=0, depends_on=None, threshold=0.85, correlation_type=correlation_type, filter_type=filter_type
+        )
+        second_roc = Roc(
+            task_id=2, depends_on=1, threshold=0.5, correlation_type=correlation_type, filter_type=filter_type
+        )
 
         assert first_roc.correlation_type == correlation_type
         assert first_roc.filter_type == filter_type
@@ -243,6 +223,7 @@ class TestRocOctoRocWorkflow:
         octo_step = workflow[1]
 
         assert isinstance(octo_step, Octo)
+        assert octo_step.models is not None
         assert set(octo_step.models) == {"ExtraTreesClassifier", "RandomForestClassifier"}
         assert octo_step.n_trials == 10
         assert octo_step.max_features == 15
