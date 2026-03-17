@@ -114,7 +114,7 @@ class FIComputeMethod(StrEnum):
     CONSTANT = "constant"
 
 
-class FIDataset(StrEnum):
+class DataPartition(StrEnum):
     """Dataset partitions for feature importance computation."""
 
     TRAIN = "train"

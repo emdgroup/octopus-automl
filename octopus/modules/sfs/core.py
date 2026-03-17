@@ -15,7 +15,7 @@ from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
 from octopus.modules.base import ModuleExecution, ModuleResult
-from octopus.types import FIDataset, FIResultLabel, MLType, ModelName, ResultType
+from octopus.types import DataPartition, FIResultLabel, MLType, ModelName, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -250,7 +250,7 @@ class SfsModule(ModuleExecution["Sfs"]):
         # Build standard feature_importances DataFrame
         feature_importances = fi_df[["feature", "importance"]].copy()
         feature_importances["fi_method"] = FIResultLabel.INTERNAL
-        feature_importances["fi_dataset"] = FIDataset.TRAIN
+        feature_importances["fi_dataset"] = DataPartition.TRAIN
         feature_importances["training_id"] = "sfs"
         feature_importances["result_type"] = ResultType.BEST
 

@@ -18,7 +18,7 @@ except ImportError:
             )
 
 
-from octopus.types import FIDataset, FIResultLabel
+from octopus.types import DataPartition, FIResultLabel
 
 from .base import ModuleExecution, Task
 from .boruta import Boruta
@@ -36,8 +36,8 @@ from .utils import rdc_correlation_matrix
 __all__ = [
     "AutoGluon",
     "Boruta",
+    "DataPartition",
     "Efs",
-    "FIDataset",
     "FIResultLabel",
     "ModuleExecution",
     "ModuleResult",
