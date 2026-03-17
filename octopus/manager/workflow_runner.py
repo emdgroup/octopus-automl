@@ -11,8 +11,7 @@ from upath import UPath
 
 from octopus.datasplit import OuterSplit
 from octopus.logger import get_logger
-from octopus.modules import StudyContext
-from octopus.modules.base import ModuleResult, Task
+from octopus.modules import ModuleResult, StudyContext, Task
 from octopus.types import ResultType
 from octopus.utils import calculate_feature_groups, parquet_save
 

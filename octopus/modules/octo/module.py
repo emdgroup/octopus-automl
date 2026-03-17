@@ -8,7 +8,7 @@ from attrs import Factory, define, field, validators
 
 from octopus.logger import get_logger
 from octopus.models import Models
-from octopus.modules.base import ModuleExecution, Task
+from octopus.modules import ModuleExecution, Task
 from octopus.types import FIComputeMethod, ModelName
 
 logger = get_logger()

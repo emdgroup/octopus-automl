@@ -29,8 +29,7 @@ from octopus._optional.autogluon import (
 from octopus.logger import get_logger
 from octopus.manager.ray_parallel import setup_ray_for_external_library
 from octopus.metrics.utils import get_score_from_model
-from octopus.modules import StudyContext
-from octopus.modules.base import ModuleExecution, ModuleResult
+from octopus.modules import ModuleExecution, ModuleResult, StudyContext
 from octopus.types import DataPartition, FIResultLabel, LogGroup, MLType, ResultType
 from octopus.utils import csv_save
 

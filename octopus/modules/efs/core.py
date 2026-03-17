@@ -16,8 +16,7 @@ from sklearn.model_selection import GridSearchCV, KFold, StratifiedKFold, cross_
 
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.modules import StudyContext
-from octopus.modules.base import ModuleExecution, ModuleResult
+from octopus.modules import ModuleExecution, ModuleResult, StudyContext
 from octopus.types import DataPartition, FIResultLabel, MLType, ModelName, ResultType
 
 if TYPE_CHECKING:

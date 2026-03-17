@@ -14,7 +14,7 @@ from sklearn.model_selection import BaseCrossValidator, GridSearchCV, Stratified
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.modules.base import ModuleExecution, ModuleResult
+from octopus.modules import ModuleExecution, ModuleResult
 from octopus.types import DataPartition, FIResultLabel, MLType, ModelName, ResultType
 
 if TYPE_CHECKING:

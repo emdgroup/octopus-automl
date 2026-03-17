@@ -14,7 +14,7 @@ from upath import UPath
 from octopus.datasplit import DataSplit, InnerSplits
 from octopus.logger import get_logger
 from octopus.models import Models
-from octopus.modules.base import ModuleExecution, ModuleResult
+from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel

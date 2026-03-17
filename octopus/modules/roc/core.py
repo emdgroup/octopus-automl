@@ -18,7 +18,7 @@ from sklearn.feature_selection import (
 )
 
 from octopus.logger import get_logger
-from octopus.modules.base import ModuleExecution, ModuleResult
+from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.utils import rdc_correlation_matrix
 from octopus.types import MLType, ResultType
 
