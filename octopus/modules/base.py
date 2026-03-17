@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from enum import StrEnum
 
 import pandas as pd
 from attrs import define, field, validators
@@ -11,26 +10,6 @@ from upath import UPath
 
 from .context import StudyContext
 from .result import ModuleResult, ResultType
-
-
-class FIMethod(StrEnum):
-    """Feature importance computation methods."""
-
-    INTERNAL = "internal"
-    PERMUTATION = "permutation"
-    SHAP = "shap"
-    LOFO = "lofo"
-    CONSTANT = "constant"
-    COUNTS = "counts"
-    COUNTS_RELATIVE = "counts_relative"
-
-
-class FIDataset(StrEnum):
-    """Dataset partitions for feature importance computation."""
-
-    TRAIN = "train"
-    DEV = "dev"
-    TEST = "test"
 
 
 @define
