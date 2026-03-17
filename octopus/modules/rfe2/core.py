@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 from octopus.modules import StudyContext
 from octopus.modules.octo.bag import BagBase
-from octopus.types import FIComputeMethod, FIDataset, FIResultLabel, ResultType
+from octopus.types import DataPartition, FIComputeMethod, FIResultLabel, ResultType
 
 
 @define
@@ -192,13 +192,13 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         fi_method = self.config.fi_method_rfe
         if fi_method == FIComputeMethod.PERMUTATION:
             feature_importances["fi_method"] = FIResultLabel.PERMUTATION
-            feature_importances["fi_dataset"] = FIDataset.DEV
+            feature_importances["fi_dataset"] = DataPartition.DEV
         elif fi_method == FIComputeMethod.SHAP:
             feature_importances["fi_method"] = FIResultLabel.SHAP
-            feature_importances["fi_dataset"] = FIDataset.DEV
+            feature_importances["fi_dataset"] = DataPartition.DEV
         else:
             feature_importances["fi_method"] = fi_method
-            feature_importances["fi_dataset"] = FIDataset.DEV
+            feature_importances["fi_dataset"] = DataPartition.DEV
         feature_importances["training_id"] = "rfe2"
         feature_importances["result_type"] = ResultType.BEST
 

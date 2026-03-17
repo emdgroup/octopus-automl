@@ -31,7 +31,7 @@ from octopus.manager.ray_parallel import setup_ray_for_external_library
 from octopus.metrics.utils import get_score_from_model
 from octopus.modules import StudyContext
 from octopus.modules.base import ModuleExecution, ModuleResult
-from octopus.types import FIDataset, FIResultLabel, LogGroup, MLType, ResultType
+from octopus.types import DataPartition, FIResultLabel, LogGroup, MLType, ResultType
 from octopus.utils import csv_save
 
 if TYPE_CHECKING:
@@ -239,7 +239,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                     else temp
                 )
                 temp["fi_method"] = FIResultLabel.PERMUTATION
-                temp["fi_dataset"] = FIDataset.TEST
+                temp["fi_dataset"] = DataPartition.TEST
                 temp["training_id"] = "autogluon"
                 temp["result_type"] = ResultType.BEST
                 fi_dfs.append(temp)

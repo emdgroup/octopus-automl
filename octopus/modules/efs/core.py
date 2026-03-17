@@ -18,7 +18,7 @@ from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules import StudyContext
 from octopus.modules.base import ModuleExecution, ModuleResult
-from octopus.types import FIDataset, FIResultLabel, MLType, ModelName, ResultType
+from octopus.types import DataPartition, FIResultLabel, MLType, ModelName, ResultType
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -130,10 +130,10 @@ class EfsModule(ModuleExecution["Efs"]):
                 temp = temp[["feature", "importance"]].copy()
                 if fi_key == "Efs_counts":
                     temp["fi_method"] = FIResultLabel.COUNTS
-                    temp["fi_dataset"] = FIDataset.TRAIN
+                    temp["fi_dataset"] = DataPartition.TRAIN
                 elif fi_key == "Efs_counts_relative":
                     temp["fi_method"] = FIResultLabel.COUNTS_RELATIVE
-                    temp["fi_dataset"] = FIDataset.TRAIN
+                    temp["fi_dataset"] = DataPartition.TRAIN
                 temp["training_id"] = "efs"
                 temp["result_type"] = ResultType.BEST
                 fi_dfs.append(temp)
