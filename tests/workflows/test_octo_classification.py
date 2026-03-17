@@ -89,7 +89,6 @@ class TestOctoIntroClassification:
             n_workers=3,
             optuna_seed=0,
             n_optuna_startup_trials=5,
-            resume_optimization=False,
             n_trials=6,
             max_features=5,
             penalty_factor=1.0,
@@ -216,7 +215,6 @@ class TestOctoIntroClassification:
                         n_workers=2,
                         optuna_seed=0,
                         n_optuna_startup_trials=3,
-                        resume_optimization=False,
                         n_trials=5,
                         max_features=5,
                         penalty_factor=1.0,
@@ -264,7 +262,6 @@ class TestOctoIntroClassification:
             n_workers=5,
             optuna_seed=0,
             n_optuna_startup_trials=10,
-            resume_optimization=False,
             n_trials=5,
             max_features=5,
             penalty_factor=1.0,
@@ -287,7 +284,6 @@ class TestOctoIntroClassification:
         assert octo_task.n_workers == 5
         assert octo_task.optuna_seed == 0
         assert octo_task.n_optuna_startup_trials == 10
-        assert octo_task.resume_optimization is False
         assert octo_task.n_trials == 5
         assert octo_task.max_features == 5
         assert octo_task.penalty_factor == 1.0

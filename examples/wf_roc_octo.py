@@ -73,7 +73,6 @@ study = OctoClassification(
             # Hyperparameter optimization with Optuna
             optuna_seed=0,
             n_optuna_startup_trials=10,
-            resume_optimization=False,
             n_trials=12,  # Number of hyperparameter optimization trials
             max_features=12,  # Maximum number of features to select
             penalty_factor=1.0,

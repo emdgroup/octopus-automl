@@ -111,9 +111,6 @@ class Octo(Task):
     mrmr_feature_numbers: list = field(validator=[validators.instance_of(list)], default=Factory(list))
     """List of feature numbers to be investigated by mrmr."""
 
-    resume_optimization: bool = field(validator=[validators.instance_of(bool)], default=False)
-    """Resume HPO, use existing optuna.db, don't delete optuna.db"""
-
     optuna_return: str = field(default="pool", validator=[validators.in_(["pool", "average"])])
     """How to calculate the bag performance for the optuna optimization target."""
 
