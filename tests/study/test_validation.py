@@ -6,6 +6,7 @@ import pytest
 
 from octopus.modules import Mrmr, Octo
 from octopus.study import OctoClassification
+from octopus.types import ModelName
 
 
 @pytest.fixture
@@ -15,7 +16,7 @@ def octo_task():
         task_id=0,
         depends_on=None,
         description="step_1",
-        models=["RandomForestRegressor", "XGBRegressor"],
+        models=[ModelName.RandomForestRegressor, ModelName.XGBRegressor],
     )
 
 

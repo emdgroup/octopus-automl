@@ -15,6 +15,7 @@ from sklearn.datasets import make_classification
 
 from octopus.modules import Mrmr, Octo
 from octopus.study import OctoClassification
+from octopus.types import CorrelationType, ModelName
 
 # Set random seed for reproducibility
 np.random.seed(42)
@@ -70,7 +71,7 @@ study = OctoClassification(
             description="step1_octo_full",
             task_id=0,
             depends_on=None,  # First task, depends on input
-            models=["ExtraTreesClassifier"],
+            models=[ModelName.ExtraTreesClassifier],
             n_trials=100,  # 100 trials for hyperparameter optimization
             n_folds_inner=5,  # 5 inner folds
             max_features=30,  # Use all 30 features
@@ -81,14 +82,14 @@ study = OctoClassification(
             task_id=1,
             depends_on=0,
             n_features=15,  # Select top 15 features
-            correlation_type="spearman",
+            correlation_type=CorrelationType.SPEARMAN,
         ),
         # Task 2: Octo with reduced features
         Octo(
             description="step3_octo_reduced",
             task_id=2,
             depends_on=1,
-            models=["ExtraTreesClassifier"],
+            models=[ModelName.ExtraTreesClassifier],
             n_trials=100,
             n_folds_inner=5,
             ensemble_selection=True,

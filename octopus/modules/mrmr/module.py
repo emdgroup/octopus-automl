@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from attrs import Factory, define, field, validators
 
-from octopus.types import FIComputeMethod
+from octopus.types import CorrelationType, FIComputeMethod, MRMRFIAggregation, MRMRRelevance
 
 from ..base import ModuleExecution, Task
 
@@ -22,22 +20,24 @@ class Mrmr(Task):
     Configuration:
         n_features: Number of features to select
         correlation_type: Type of correlation to measure redundancy
-        relevance_type: Method to calculate relevance ("permutation" or "f-statistics")
+        relevance_type: Method to calculate relevance (MRMRRelevance.PERMUTATION or MRMRRelevance.INTERNAL)
         results_module: Module name to filter prior results' feature importances (for permutation relevance)
-        feature_importance_type: Type of FI aggregation ("mean" or "count")
-        feature_importance_method: FI calculation method
+        feature_importance_type: Type of FI aggregation (MRMRFIAggregation.MEAN or MRMRFIAggregation.COUNT)
+        feature_importance_method: FI calculation method (FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.INTERNAL, FIComputeMethod.LOFO)
     """
 
     n_features: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 30))
     """Number of features selected by MRMR."""
 
-    correlation_type: Literal["pearson", "rdc", "spearman"] = field(
-        validator=validators.in_(["pearson", "rdc", "spearman"]), default="spearman"
+    correlation_type: CorrelationType = field(
+        converter=CorrelationType,
+        validator=validators.in_([CorrelationType.PEARSON, CorrelationType.SPEARMAN, CorrelationType.RDC]),
+        default=CorrelationType.SPEARMAN,
     )
     """Selection of correlation type."""
 
-    relevance_type: Literal["permutation", "f-statistics"] = field(
-        validator=validators.in_(["permutation", "f-statistics"]), default="permutation"
+    relevance_type: MRMRRelevance = field(
+        converter=MRMRRelevance, validator=validators.in_(list(MRMRRelevance)), default=MRMRRelevance.PERMUTATION
     )
     """Selection of relevance measure."""
 
@@ -47,8 +47,8 @@ class Mrmr(Task):
     )
     """Module name from which feature importances were created."""
 
-    feature_importance_type: Literal["mean", "count"] = field(
-        validator=validators.in_(["mean", "count"]), default="mean"
+    feature_importance_type: MRMRFIAggregation = field(
+        converter=MRMRFIAggregation, validator=validators.in_(list(MRMRFIAggregation)), default=MRMRFIAggregation.MEAN
     )
     """Selection of feature importance type."""
 

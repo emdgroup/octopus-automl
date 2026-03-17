@@ -49,6 +49,7 @@ df = pd.DataFrame({
 ```python
 from octopus.study import OctoTimeToEvent
 from octopus.modules import Octo
+from octopus.types import ModelName
 
 study = OctoTimeToEvent(
     name="my_survival_study",
@@ -64,7 +65,7 @@ study = OctoTimeToEvent(
             task_id=0,
             depends_on=None,
             description="survival_step",
-            models=["CatBoostCoxSurvival"],
+            models=[ModelName.CatBoostCoxSurvival],
             n_trials=20,
             max_features=5,
             ensemble_selection=True,
@@ -126,7 +127,7 @@ Octo(
     task_id=0,
     depends_on=None,
     description="compare_models",
-    models=["CatBoostCoxSurvival", "XGBoostCoxSurvival"],
+    models=[ModelName.CatBoostCoxSurvival, ModelName.XGBoostCoxSurvival],
     n_trials=20,
     max_features=5,
     ensemble_selection=True,

@@ -5,8 +5,8 @@ from typing import Any
 
 from attrs import define, field, validators
 
-from octopus.models.config import PRED_TYPES, OctoArrayLike, PredType
-from octopus.types import MLType, to_ml_types_frozenset, validate_ml_types
+from octopus.models.config import OctoArrayLike
+from octopus.types import MetricDirection, MLType, PredictionType, to_ml_types_frozenset, validate_ml_types
 
 # Type alias for metric functions
 # Metric functions should accept (y_true, y_pred, **kwargs) and return a numeric value.
@@ -28,7 +28,7 @@ class Metric:
     metric_function: MetricFunction = field(validator=validators.is_callable())
     ml_types: frozenset[MLType] = field(converter=to_ml_types_frozenset, validator=validate_ml_types)
     higher_is_better: bool = field(validator=validators.instance_of(bool))
-    prediction_type: PredType = field(validator=validators.in_(PRED_TYPES))
+    prediction_type: PredictionType = field(converter=PredictionType, validator=validators.in_(list(PredictionType)))
     scorer_string: str = field(validator=validators.instance_of(str))  # needed for some sklearn functionalities
     metric_params: dict[str, Any] = field(factory=dict)
 
@@ -37,9 +37,9 @@ class Metric:
         return ml_type in self.ml_types
 
     @property
-    def direction(self) -> str:
+    def direction(self) -> MetricDirection:
         """Optimization direction for Optuna ('maximize' or 'minimize')."""
-        return "maximize" if self.higher_is_better else "minimize"
+        return MetricDirection.MAXIMIZE if self.higher_is_better else MetricDirection.MINIMIZE
 
     def calculate(self, y_true: OctoArrayLike, y_pred: OctoArrayLike, **kwargs) -> float:
         """Calculate metric for classification/regression tasks.

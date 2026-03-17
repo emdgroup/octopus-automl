@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
     from octopus.modules import StudyContext
     from octopus.modules.octo.bag import BagBase
-from octopus.types import DataPartition, FIComputeMethod, FIResultLabel, ResultType
+from octopus.types import DataPartition, FIComputeMethod, FIResultLabel, ResultType, RFE2SelectionMethod
 
 
 @define
@@ -147,9 +147,9 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             self._print_step_information()
 
         # (4) Analyze results and select best model
-        if self.config.selection_method == "best":
+        if self.config.selection_method == RFE2SelectionMethod.BEST:
             selected_row = self.rfe_results_.loc[self.rfe_results_["performance_mean"].idxmax()]
-        elif self.config.selection_method == "parsimonious":
+        elif self.config.selection_method == RFE2SelectionMethod.PARSIMONIOUS:
             # best performance mean and sem
             best_performance_mean = self.rfe_results_["performance_mean"].max()
             best_performance_sem = self.rfe_results_.loc[

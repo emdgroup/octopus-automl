@@ -17,7 +17,7 @@ from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
-from octopus.types import LogGroup, ResultType
+from octopus.types import CorrelationType, LogGroup, MetricDirection, ResultType
 from octopus.utils import joblib_load, parquet_save
 
 from .bag import Bag
@@ -220,7 +220,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             features=x_traindev,
             relevance=re_df,
             requested_feature_counts=feature_numbers,
-            correlation_type="spearman",
+            correlation_type=CorrelationType.SPEARMAN,
         )
         # add original features
         self.mrmr_features_[len(feature_cols)] = feature_cols
@@ -375,7 +375,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         # create study with in-memory storage
         study = optuna.create_study(
             study_name=study_name,
-            direction="maximize",  # metric adjustment in optuna objective
+            direction=MetricDirection.MAXIMIZE,  # metric adjustment in optuna objective
             sampler=sampler,
         )
 

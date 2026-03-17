@@ -20,7 +20,7 @@ from sklearn.feature_selection import (
 from octopus.logger import get_logger
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import MLType, ResultType
+from octopus.types import CorrelationType, MLType, ResultType, ROCFilterMethod
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,13 +33,13 @@ if TYPE_CHECKING:
 logger = get_logger()
 
 # Filter functions for feature selection
-filter_inventory: dict[str, dict[MLType, Callable]] = {
-    "mutual_info": {
+filter_inventory: dict[ROCFilterMethod, dict[MLType, Callable]] = {
+    ROCFilterMethod.MUTUAL_INFO: {
         MLType.BINARY: mutual_info_classif,
         MLType.MULTICLASS: mutual_info_classif,
         MLType.REGRESSION: mutual_info_regression,
     },
-    "f_statistics": {
+    ROCFilterMethod.F_STATISTICS: {
         MLType.BINARY: f_classif,
         MLType.MULTICLASS: f_classif,
         MLType.REGRESSION: f_regression,
@@ -79,13 +79,13 @@ class RocModule(ModuleExecution["Roc"]):
         logger.info("Calculating dependency to target")
         if study_context.ml_type == MLType.TIMETOEVENT:
             logger.info("Time2Event: Note, that the first group element is selected.")
-        elif self.config.filter_type == "mutual_info":
+        elif self.config.filter_type == ROCFilterMethod.MUTUAL_INFO:
             # Set random state
             values = filter_inventory[self.config.filter_type][study_context.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel(), random_state=0
             )
             dependency = pd.Series(values, index=feature_cols)
-        elif self.config.filter_type == "f_statistics":
+        elif self.config.filter_type == ROCFilterMethod.F_STATISTICS:
             # Ignoring p-values
             values, _ = filter_inventory[self.config.filter_type][study_context.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel()
@@ -94,10 +94,10 @@ class RocModule(ModuleExecution["Roc"]):
 
         # Calculate correlation matrix
         logger.info("Calculating feature groups.")
-        if self.config.correlation_type == "spearmanr":
+        if self.config.correlation_type == CorrelationType.SPEARMAN:
             pos_corr_matrix, _ = scipy.stats.spearmanr(np.nan_to_num(x_traindev.values))
             pos_corr_matrix = np.abs(pos_corr_matrix)
-        elif self.config.correlation_type == "rdc":
+        elif self.config.correlation_type == CorrelationType.RDC:
             pos_corr_matrix = np.abs(rdc_correlation_matrix(x_traindev))
         else:
             raise ValueError(f"Correlation type {self.config.correlation_type} not supported")

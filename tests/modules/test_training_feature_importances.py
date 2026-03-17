@@ -21,9 +21,8 @@ from octopus.models.hyperparameter import (
     FloatHyperparameter,
     IntHyperparameter,
 )
-from octopus.models.model_name import ModelName
 from octopus.modules.octo.training import Training, TrainingConfig
-from octopus.types import MLType
+from octopus.types import MLType, ModelName, ShapType
 
 
 class TEST_CONFIG:
@@ -181,7 +180,7 @@ def _run_fi_method(training: Training, method_name: str):
         training.calculate_fi_featuresused_shap(partition="dev")
         return ["shap_dev"]
     elif method_name == "calculate_fi_shap":
-        training.calculate_fi_shap(partition="dev", shap_type="permutation")
+        training.calculate_fi_shap(partition="dev", shap_type=ShapType.PERMUTATION)
         return ["shap_dev"]
     else:
         raise ValueError(f"Unknown method: {method_name}")

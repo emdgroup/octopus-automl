@@ -13,6 +13,7 @@ import os
 from octopus.example_data import load_wine_data
 from octopus.modules import Octo
 from octopus.study import OctoClassification
+from octopus.types import FIComputeMethod, ModelName
 
 ### Load and Preprocess Data
 df, features, targets = load_wine_data()
@@ -44,15 +45,15 @@ study = OctoClassification(
             description="step_1_octo_multiclass",
             n_folds_inner=5,
             models=[
-                "ExtraTreesClassifier",
-                "RandomForestClassifier",
-                "XGBClassifier",
-                "CatBoostClassifier",
+                ModelName.ExtraTreesClassifier,
+                ModelName.RandomForestClassifier,
+                ModelName.XGBClassifier,
+                ModelName.CatBoostClassifier,
             ],
             model_seed=0,
             n_jobs=1,
             max_outl=0,
-            fi_methods_bestbag=["permutation"],
+            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
             inner_parallelization=True,
             n_workers=5,
             n_trials=20,

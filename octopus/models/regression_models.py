@@ -11,7 +11,7 @@ from sklearn.linear_model import ARDRegression, ElasticNet, Ridge
 from sklearn.svm import SVR
 from xgboost import XGBRegressor
 
-from octopus.types import FIComputeMethod, MLType
+from octopus.types import FIComputeMethod, MLType, ModelName
 
 from .config import ModelConfig
 from .core import Models
@@ -19,7 +19,7 @@ from .hyperparameter import CategoricalHyperparameter, FixedHyperparameter, Floa
 from .wrapper_models.GaussianProcessRegressor import GPRegressorWrapper
 
 
-@Models.register("ARDRegressor")
+@Models.register(ModelName.ARDRegressor)
 def ard_regressor() -> ModelConfig:
     """ARD regression model class."""
     return ModelConfig(
@@ -45,7 +45,7 @@ def ard_regressor() -> ModelConfig:
     )
 
 
-@Models.register("CatBoostRegressor")
+@Models.register(ModelName.CatBoostRegressor)
 def catboost_regressor() -> ModelConfig:
     """Cat boost regression model class."""
     return ModelConfig(
@@ -74,7 +74,7 @@ def catboost_regressor() -> ModelConfig:
     )
 
 
-@Models.register("ElasticNetRegressor")
+@Models.register(ModelName.ElasticNetRegressor)
 def elastic_net_regressor() -> ModelConfig:
     """ElasticNet regression model class."""
     return ModelConfig(
@@ -99,7 +99,7 @@ def elastic_net_regressor() -> ModelConfig:
     )
 
 
-@Models.register("ExtraTreesRegressor")
+@Models.register(ModelName.ExtraTreesRegressor)
 def extra_trees_regressor() -> ModelConfig:
     """ExtraTrees regression model class."""
     return ModelConfig(
@@ -123,7 +123,7 @@ def extra_trees_regressor() -> ModelConfig:
     )
 
 
-@Models.register("GaussianProcessRegressor")
+@Models.register(ModelName.GaussianProcessRegressor)
 def gaussian_process_regressor() -> ModelConfig:
     """Gaussian process regression model class."""
     return ModelConfig(
@@ -148,7 +148,7 @@ def gaussian_process_regressor() -> ModelConfig:
     )
 
 
-@Models.register("GradientBoostingRegressor")
+@Models.register(ModelName.GradientBoostingRegressor)
 def gradient_boosting_regressor() -> ModelConfig:
     """Gradient boost regression model class."""
     return ModelConfig(
@@ -173,7 +173,7 @@ def gradient_boosting_regressor() -> ModelConfig:
     )
 
 
-@Models.register("RandomForestRegressor")
+@Models.register(ModelName.RandomForestRegressor)
 def random_forest_regressor() -> ModelConfig:
     """Random forrest regression model class."""
     return ModelConfig(
@@ -197,7 +197,7 @@ def random_forest_regressor() -> ModelConfig:
     )
 
 
-@Models.register("RidgeRegressor")
+@Models.register(ModelName.RidgeRegressor)
 def ridge_regressor() -> ModelConfig:
     """Ridge regression model class."""
     return ModelConfig(
@@ -218,7 +218,7 @@ def ridge_regressor() -> ModelConfig:
     )
 
 
-@Models.register("SvrRegressor")
+@Models.register(ModelName.SvrRegressor)
 def svr_regressor() -> ModelConfig:
     """Svr regression model class."""
     return ModelConfig(
@@ -240,7 +240,7 @@ def svr_regressor() -> ModelConfig:
     )
 
 
-@Models.register("XGBRegressor")
+@Models.register(ModelName.XGBRegressor)
 def xgb_regressor() -> ModelConfig:
     """XGBoost regression model class."""
     return ModelConfig(
@@ -266,7 +266,7 @@ def xgb_regressor() -> ModelConfig:
     )
 
 
-@Models.register("HistGradientBoostingRegressor")
+@Models.register(ModelName.HistGradientBoostingRegressor)
 def hist_gradient_boosting_regressor() -> ModelConfig:
     """Histogram-based gradient boosting regression model class (scikit-learn 1.6.1)."""
     return ModelConfig(
@@ -292,7 +292,7 @@ def hist_gradient_boosting_regressor() -> ModelConfig:
     )
 
 
-@Models.register("TabularNNRegressor")
+@Models.register(ModelName.TabularNNRegressor)
 def tabular_nn_regressor() -> ModelConfig:
     """Tabular Neural Network regression model class with categorical embeddings."""
     from .wrapper_models.TabularNNRegressor import TabularNNRegressor  # noqa: PLC0415

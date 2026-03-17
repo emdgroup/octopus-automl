@@ -710,12 +710,12 @@ class BagBase(BaseEstimator):
         # internal, permutation_dev, shap_dev only
         # save in bag
         for method in fi_methods:
-            if method == "internal":
+            if method == FIComputeMethod.INTERNAL:
                 method_str = "internal"
-            elif method == "constant":
+            elif method == FIComputeMethod.CONSTANT:
                 method_str = "constant"
             else:
-                method_str = method + "_dev"
+                method_str = method.value + "_dev"
             fi_pool = []
             for training in self.trainings:
                 fi_pool.append(training.feature_importances[method_str])

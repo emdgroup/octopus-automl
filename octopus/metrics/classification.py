@@ -13,7 +13,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-from octopus.types import MLType
+from octopus.types import MLType, PredictionType
 
 from .config import Metric
 from .core import Metrics
@@ -27,7 +27,7 @@ def aucroc_metric() -> Metric:
         metric_function=roc_auc_score,
         ml_types=[MLType.BINARY],
         higher_is_better=True,
-        prediction_type="predict_proba",
+        prediction_type=PredictionType.PROBABILITIES,
         scorer_string="roc_auc",
     )
 
@@ -40,7 +40,7 @@ def acc_metric() -> Metric:
         metric_function=accuracy_score,
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
         higher_is_better=True,
-        prediction_type="predict",
+        prediction_type=PredictionType.PREDICTIONS,
         scorer_string="accuracy",
     )
 
@@ -53,7 +53,7 @@ def accbal_metric() -> Metric:
         metric_function=balanced_accuracy_score,
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
         higher_is_better=True,
-        prediction_type="predict",
+        prediction_type=PredictionType.PREDICTIONS,
         scorer_string="balanced_accuracy",
     )
 
@@ -66,7 +66,7 @@ def logloss_metric() -> Metric:
         metric_function=log_loss,
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
         higher_is_better=True,
-        prediction_type="predict_proba",
+        prediction_type=PredictionType.PROBABILITIES,
         scorer_string="neg_log_loss",
     )
 
@@ -79,7 +79,7 @@ def f1_metric() -> Metric:
         metric_function=f1_score,
         ml_types=[MLType.BINARY],
         higher_is_better=True,
-        prediction_type="predict",
+        prediction_type=PredictionType.PREDICTIONS,
         scorer_string="f1",
     )
 
@@ -92,7 +92,7 @@ def negbrierscore_metric() -> Metric:
         metric_function=brier_score_loss,
         ml_types=[MLType.BINARY],
         higher_is_better=True,
-        prediction_type="predict_proba",
+        prediction_type=PredictionType.PROBABILITIES,
         scorer_string="neg_brier_score",
     )
 
@@ -105,7 +105,7 @@ def aucpr_metric() -> Metric:
         metric_function=average_precision_score,
         ml_types=[MLType.BINARY],
         higher_is_better=True,
-        prediction_type="predict_proba",
+        prediction_type=PredictionType.PROBABILITIES,
         scorer_string="average_precision",
     )
 
@@ -118,7 +118,7 @@ def mcc_metric() -> Metric:
         metric_function=matthews_corrcoef,
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
         higher_is_better=True,
-        prediction_type="predict",
+        prediction_type=PredictionType.PREDICTIONS,
         scorer_string="matthews_corrcoef",
     )
 
@@ -131,7 +131,7 @@ def precision_metric() -> Metric:
         metric_function=precision_score,
         ml_types=[MLType.BINARY],
         higher_is_better=True,
-        prediction_type="predict",
+        prediction_type=PredictionType.PREDICTIONS,
         scorer_string="precision",
     )
 
@@ -144,6 +144,6 @@ def recall_metric() -> Metric:
         metric_function=recall_score,
         ml_types=[MLType.BINARY],
         higher_is_better=True,
-        prediction_type="predict",
+        prediction_type=PredictionType.PREDICTIONS,
         scorer_string="recall",
     )

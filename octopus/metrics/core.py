@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar
 
 from octopus.exceptions import UnknownMetricError
+from octopus.types import MetricDirection
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -99,16 +100,16 @@ class Metrics:
         return config
 
     @classmethod
-    def get_direction(cls, name: str) -> Literal["maximize", "minimize"]:
+    def get_direction(cls, name: str) -> MetricDirection:
         """Get the optuna direction by name.
 
         Args:
             name: The name of the metric.
 
         Returns:
-            "maximize" if higher_is_better is True, else "minimize".
+            MetricDirection.MAXIMIZE if higher_is_better is True, else MetricDirection.MINIMIZE.
         """
-        return "maximize" if cls.get_instance(name).higher_is_better else "minimize"
+        return MetricDirection.MAXIMIZE if cls.get_instance(name).higher_is_better else MetricDirection.MINIMIZE
 
     @classmethod
     def get_by_type(cls, *ml_types: MLType) -> list[str]:

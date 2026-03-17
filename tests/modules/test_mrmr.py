@@ -1,7 +1,6 @@
 """Test MRMR."""
 
 import time
-from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -9,6 +8,7 @@ import pytest
 from sklearn.datasets import make_regression
 
 from octopus.modules.mrmr.core import _maxrminr as maxrminr
+from octopus.types import CorrelationType
 
 
 def generate_sample_data(n_samples, n_features, random_state):
@@ -43,9 +43,9 @@ def test_mrmr_feature_selection_order(sample_data):
     (df_features, df_feature_importances), data_name = sample_data
 
     results = {
-        "pearson": maxrminr(df_features, df_feature_importances, [5], correlation_type="pearson"),
-        "spearman": maxrminr(df_features, df_feature_importances, [5], correlation_type="spearman"),
-        "rdc": maxrminr(df_features, df_feature_importances, [5], correlation_type="rdc"),
+        "pearson": maxrminr(df_features, df_feature_importances, [5], correlation_type=CorrelationType.PEARSON),
+        "spearman": maxrminr(df_features, df_feature_importances, [5], correlation_type=CorrelationType.SPEARMAN),
+        "rdc": maxrminr(df_features, df_feature_importances, [5], correlation_type=CorrelationType.RDC),
     }
 
     if data_name == "sample_data_1":
@@ -109,8 +109,7 @@ def test_mrmr_scalability(scalability_data):
     execution_times = {}
 
     # Test different correlation types: pearson only
-    types: list[Literal["pearson", "spearman", "rdc"]] = ["pearson"]
-    for corr_type in types:
+    for corr_type in [CorrelationType.PEARSON]:
         start_time = time.time()
 
         # Select top 20 features

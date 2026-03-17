@@ -9,7 +9,7 @@ import pytest
 from octopus.modules import Octo
 from octopus.study import OctoClassification, OctoRegression
 from octopus.study.core import _RUNNING_IN_TESTSUITE
-from octopus.types import ImputationMethod, MLType
+from octopus.types import MLType
 
 
 @pytest.fixture
@@ -52,30 +52,18 @@ def test_initialization(basic_study):
     assert basic_study.sample_id_col == "sample_id_col"
 
 
-@pytest.mark.parametrize(
-    "study_class,param_name,param_value,expected_enum,kwargs",
-    [
-        (OctoRegression, "ml_type", "regression", MLType.REGRESSION, {"target_metric": "R2", "target_col": "target"}),
-        (
-            OctoClassification,
-            "imputation_method",
-            "halfmin",
-            ImputationMethod.HALFMIN,
-            {"target_metric": "AUCROC", "imputation_method": "halfmin", "target_col": "target"},
-        ),
-    ],
-)
-def test_string_to_enum_conversion(study_class, param_name, param_value, expected_enum, kwargs):
-    """Test that parameters accept strings and convert to enum types."""
+def test_regression_ml_type():
+    """Test that OctoRegression sets ml_type to regression."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        study = study_class(
+        study = OctoRegression(
             name="test",
+            target_metric="R2",
             feature_cols=["f1"],
+            target_col="target",
             sample_id_col="id",
             path=temp_dir,
-            **kwargs,
         )
-        assert getattr(study, param_name) == expected_enum
+        assert study.ml_type == MLType.REGRESSION
 
 
 def test_default_workflow():
@@ -110,7 +98,6 @@ def test_default_values():
         assert study.positive_class is None  # positive_class is determined during data validation
         assert study.n_folds_outer == 5 if not _RUNNING_IN_TESTSUITE else 2
         assert study.datasplit_seed_outer == 0
-        assert study.imputation_method == ImputationMethod.MEDIAN
         assert study.ignore_data_health_warning is False
         assert study.outer_parallelization is True
         assert study.run_single_outersplit_num == -1

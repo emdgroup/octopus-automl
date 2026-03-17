@@ -15,7 +15,7 @@ from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult
-from octopus.types import DataPartition, FIResultLabel, MLType, ModelName, ResultType
+from octopus.types import DataPartition, FIResultLabel, MLType, ModelName, ResultType, SFSDirection
 
 if TYPE_CHECKING:
     from upath import UPath
@@ -141,16 +141,16 @@ class SfsModule(ModuleExecution["Sfs"]):
         print(f"Number of features before SFS: {x_traindev.shape[1]}")
 
         # Select type of SFS
-        if self.config.sfs_type == "forward":
+        if self.config.sfs_type == SFSDirection.FORWARD:
             forward = True
             floating = False
-        elif self.config.sfs_type == "backward":
+        elif self.config.sfs_type == SFSDirection.BACKWARD:
             forward = False
             floating = False
-        elif self.config.sfs_type == "floating_forward":
+        elif self.config.sfs_type == SFSDirection.FLOATING_FORWARD:
             forward = True
             floating = True
-        elif self.config.sfs_type == "floating_backward":
+        elif self.config.sfs_type == SFSDirection.FLOATING_BACKWARD:
             forward = False
             floating = True
         else:

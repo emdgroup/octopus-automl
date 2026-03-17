@@ -20,6 +20,7 @@ from upath import UPath
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_performance_from_predictions
+from octopus.types import MetricDirection
 from octopus.utils import joblib_load
 
 logger = get_logger()
@@ -50,7 +51,7 @@ class EnSel:
     bags: dict[UPath, dict[str, Any]] = field(init=False, validator=[validators.instance_of(dict)])
 
     @property
-    def direction(self) -> str:
+    def direction(self) -> MetricDirection:
         """Optuna direction."""
         return Metrics.get_direction(self.target_metric)
 
@@ -98,7 +99,7 @@ class EnSel:
 
         # order of table is important, depending on metric,
         # (a) direction
-        ascending = self.direction != "maximize"
+        ascending = self.direction != MetricDirection.MAXIMIZE
 
         self.model_table = self.model_table.sort_values(by="dev_pool", ascending=ascending).reset_index(drop=True)
 
@@ -185,7 +186,7 @@ class EnSel:
         assuming that it is sorted correctly. When there are multiple rows
         with the same best value, we take the last one (more models).
         """
-        if self.direction == "maximize":
+        if self.direction == MetricDirection.MAXIMIZE:
             # Get all indices with the max value, then take the last one
             best_value = self.scan_table["dev_pool"].max()
             best_idx = self.scan_table[self.scan_table["dev_pool"] == best_value].index[-1]
@@ -226,7 +227,7 @@ class EnSel:
                 perf = self._ensemble_models(bags_lst)
                 df.loc[len(df)] = [model, perf["dev_pool"], perf["test_pool"]]
 
-            if self.direction == "maximize":
+            if self.direction == MetricDirection.MAXIMIZE:
                 idx_best = df["performance_dev"].idxmax()
                 best_model: UPath = df.loc[idx_best]["model"]
                 best_performance: float = df.loc[idx_best]["performance_dev"]  # type: ignore[assignment]

@@ -12,6 +12,7 @@ from upath import UPath
 
 from octopus.modules import Octo
 from octopus.study import OctoClassification
+from octopus.types import FIComputeMethod, ModelName
 from octopus.utils import joblib_load, joblib_save
 
 
@@ -174,11 +175,11 @@ class TestFSSpecIntegration:
                             task_id=0,
                             depends_on=None,
                             n_folds_inner=3,
-                            models=["ExtraTreesClassifier"],
+                            models=[ModelName.ExtraTreesClassifier],
                             model_seed=0,
                             n_jobs=1,
                             max_outl=0,
-                            fi_methods_bestbag=["permutation"],
+                            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
                             inner_parallelization=True,
                             n_workers=2,
                             optuna_seed=0,

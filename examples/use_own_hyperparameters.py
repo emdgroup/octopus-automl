@@ -16,6 +16,7 @@ from octopus.example_data import load_diabetes_data
 from octopus.models.hyperparameter import IntHyperparameter
 from octopus.modules import Octo
 from octopus.study import OctoRegression
+from octopus.types import ModelName
 
 ### Load the diabetes dataset
 df, features, targets = load_diabetes_data()
@@ -40,10 +41,10 @@ study = OctoRegression(
     workflow=[
         Octo(
             task_id=0,
-            models=["RandomForestRegressor"],
+            models=[ModelName.RandomForestRegressor],
             n_trials=3,
             hyperparameters={
-                "RandomForestRegressor": [
+                ModelName.RandomForestRegressor: [
                     IntHyperparameter(name="max_depth", low=2, high=32),
                     IntHyperparameter(name="min_samples_split", low=2, high=100),
                 ]

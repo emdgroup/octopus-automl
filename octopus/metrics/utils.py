@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from octopus.metrics import Metrics
-from octopus.types import MLType
+from octopus.types import MetricDirection, MLType, PredictionType
 
 
 def _to_numpy(data: Any) -> np.ndarray:
@@ -104,7 +104,7 @@ def get_performance_from_model(
 
         probabilities = _to_numpy(model.predict_proba(input_data))[:, positive_class_idx]
 
-        if metric.prediction_type == "predict_proba":
+        if metric.prediction_type == PredictionType.PROBABILITIES:
             return metric.calculate(target, probabilities)
 
         predictions = (probabilities >= threshold).astype(int)
@@ -112,7 +112,7 @@ def get_performance_from_model(
 
     # Multiclass classification: no positive_class means multiclass context
     if metric.supports_ml_type(MLType.MULTICLASS) and positive_class is None:
-        if metric.prediction_type == "predict_proba":
+        if metric.prediction_type == PredictionType.PROBABILITIES:
             probabilities = _to_numpy(model.predict_proba(input_data))
             return metric.calculate(target, probabilities)
 
@@ -121,7 +121,7 @@ def get_performance_from_model(
 
     # Regression
     if metric.supports_ml_type(MLType.REGRESSION):
-        if metric.prediction_type == "predict_proba":
+        if metric.prediction_type == PredictionType.PROBABILITIES:
             raise ValueError("predict_proba not supported for regression")
 
         predictions = _to_numpy(model.predict(input_data))
@@ -184,7 +184,7 @@ def get_performance_from_predictions(
                 if positive_class is not None and metric.supports_ml_type(MLType.BINARY):
                     probabilities = pred_df[positive_class]
 
-                    if metric.prediction_type == "predict_proba":
+                    if metric.prediction_type == PredictionType.PROBABILITIES:
                         perf_value = metric.calculate(target, probabilities)
                     else:
                         predictions_binary = (probabilities >= threshold).astype(int)
@@ -192,7 +192,7 @@ def get_performance_from_predictions(
 
                 # Multiclass classification: no positive_class means multiclass context
                 elif metric.supports_ml_type(MLType.MULTICLASS) and positive_class is None:
-                    if metric.prediction_type == "predict_proba":
+                    if metric.prediction_type == PredictionType.PROBABILITIES:
                         prob_columns = _get_probability_columns(pred_df, target_col)
                         probabilities = pred_df[prob_columns].values
                         perf_value = metric.calculate(target, probabilities)
@@ -202,7 +202,7 @@ def get_performance_from_predictions(
 
                 # Regression
                 elif metric.supports_ml_type(MLType.REGRESSION):
-                    if metric.prediction_type == "predict_proba":
+                    if metric.prediction_type == PredictionType.PROBABILITIES:
                         raise ValueError("predict_proba not supported for regression")
 
                     predictions_reg = pred_df["prediction"]
@@ -261,7 +261,7 @@ def get_score_from_prediction(
     for training_id, partitions in performance.items():
         scores[training_id] = {}
         for part, perf_value in partitions.items():
-            if metric.direction == "maximize":
+            if metric.direction == MetricDirection.MAXIMIZE:
                 scores[training_id][part] = perf_value
             else:
                 scores[training_id][part] = -perf_value
@@ -299,4 +299,4 @@ def get_score_from_model(
 
     # Apply optimization direction
     metric = Metrics.get_instance(target_metric)
-    return performance if metric.direction == "maximize" else -performance
+    return performance if metric.direction == MetricDirection.MAXIMIZE else -performance
