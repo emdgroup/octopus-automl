@@ -45,7 +45,7 @@ class ImputationMethod(str, Enum):
 
 
 class ModelName(StrEnum):
-    """Available model names for user-friendly model selection with IDE autocomplete.
+    """Available model names.
 
     Use this enum for IDE autocomplete when specifying models, e.g.::
 
@@ -79,6 +79,10 @@ class ModelName(StrEnum):
     XGBRegressor = "XGBRegressor"
     HistGradientBoostingRegressor = "HistGradientBoostingRegressor"
     TabularNNRegressor = "TabularNNRegressor"
+
+    # Time-to-event (survival) models
+    CatBoostCoxSurvival = "CatBoostCoxSurvival"
+    XGBoostCoxSurvival = "XGBoostCoxSurvival"
 
 
 class FIResultLabel(StrEnum):
