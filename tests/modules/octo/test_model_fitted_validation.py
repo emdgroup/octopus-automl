@@ -57,7 +57,7 @@ class ModelCache:
             return self._cached_models_by_type
 
         # Get all models from the registry
-        all_models = Models.get_registered_models()
+        all_models = Models._get_registered_models()
 
         models_by_type: dict[MLType, list[ModelName]] = {
             MLType.BINARY: [],

@@ -11,6 +11,7 @@ from octopus.models.hyperparameter import (
     FloatHyperparameter,
     IntHyperparameter,
 )
+from octopus.models.model_name import ModelName
 from octopus.modules.octo.training import Training
 from octopus.types import MLType
 
@@ -23,7 +24,7 @@ def get_classification_models():
     excluded_models = {}
 
     # Get all models from the registry
-    for model_name in Models.get_registered_models():
+    for model_name in Models._get_registered_models():
         try:
             config = Models.get_config(model_name)
             if config.supports_ml_type(MLType.BINARY) and model_name not in excluded_models:
@@ -88,7 +89,7 @@ def sample_data():
 
 
 @pytest.mark.parametrize("model_name", get_classification_models())
-def test_classification_model_has_classes_attribute(sample_data, model_name):
+def test_classification_model_has_classes_attribute(sample_data, model_name: ModelName):
     """Test that classification model has classes_ attribute after fitting."""
     train, dev, test = sample_data
 

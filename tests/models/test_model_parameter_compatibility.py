@@ -20,7 +20,7 @@ from octopus.types import ML_TYPES
 def get_all_models() -> list[ModelName]:
     """Get all available models from registry."""
     # Get all registered model names from Models class
-    all_models: list[ModelName] = sorted(Models.get_registered_models(), key=lambda x: x.value)
+    all_models: list[ModelName] = sorted(Models._get_registered_models(), key=lambda x: x.value)
     return [name for name in all_models if "TabPFN" not in name]
 
 

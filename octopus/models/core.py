@@ -45,7 +45,7 @@ class Models:
         return decorator
 
     @classmethod
-    def get_registered_models(cls) -> list[ModelName]:
+    def _get_registered_models(cls) -> list[ModelName]:
         """Get a list of all registered model names."""
         return [ModelName(name) for name in cls._config_factories]
 

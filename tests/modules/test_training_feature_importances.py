@@ -64,7 +64,7 @@ ML_TYPE_CONFIGS = {
 
 def _get_available_models_by_type():
     """Get all available models dynamically from the registry, grouped by ML type."""
-    all_models = Models.get_registered_models()
+    all_models = Models._get_registered_models()
     models_by_type = defaultdict(list)
 
     for model_name in all_models:
