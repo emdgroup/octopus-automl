@@ -240,7 +240,7 @@ def calculate_fi_shap(
     models: dict[int, Any],
     selected_features: dict[int, list[str]],
     test_data: dict[int, pd.DataFrame],
-    shap_type: ShapType | str = ShapType.KERNEL,
+    shap_type: ShapType = ShapType.KERNEL,
     max_samples: int = 100,
     background_size: int = 200,
 ) -> pd.DataFrame:
