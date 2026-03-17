@@ -30,7 +30,7 @@ from octopus.diagnostics._plots import (
     plot_optuna_trials_chart,
     plot_predictions_vs_truth_chart,
 )
-from octopus.types import MLType
+from octopus.types import FIResultLabel, MLType
 
 
 def _has_ipywidgets() -> bool:
@@ -154,7 +154,7 @@ class StudyDiagnostics:
         outersplit_id: int | None = None,
         task_id: int | None = None,
         training_id: str | None = None,
-        fi_method: str | None = None,
+        fi_method: str | FIResultLabel | None = None,
     ) -> None:
         """Plot feature importance bar chart.
 
