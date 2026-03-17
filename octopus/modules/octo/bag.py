@@ -624,7 +624,8 @@ class BagBase(BaseEstimator):
 
         The list of selected features will be derived only from one feature
         importance method out of the ones specified in fi_methods,
-        with the following ranking: (1) permutation (2) shap (3) internal.
+        with the following ranking: (1) permutation (2) shap (3) internal,
+        (4) constant.
         """
         # we assume that feature_importances were previously calculated
         if fi_methods is None:
