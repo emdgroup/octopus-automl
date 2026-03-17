@@ -21,9 +21,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import pytest
-from sklearn.datasets import load_breast_cancer
-from sklearn.utils import Bunch
 
+from octopus.example_data import load_breast_cancer_data
 from octopus.models import ModelName
 from octopus.modules import Octo
 from octopus.predict.notebook_utils import (
@@ -68,10 +67,8 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
         Tuple of (study, data) for use in tests.
     """
     # Use breast cancer dataset (enough samples for nonzero FI)
-    bc: Bunch = load_breast_cancer(as_frame=True)  # type: ignore[assignment]
-    df = bc["frame"].reset_index()
-    df.columns = df.columns.str.replace(" ", "_")
-    features = [c.replace(" ", "_") for c in bc["feature_names"][:5]]
+    df, features, _targets = load_breast_cancer_data()
+    features = features[:5]  # Use only first 5 features for faster testing
 
     study = OctoClassification(
         name="predict_test_study",

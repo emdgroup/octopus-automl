@@ -253,7 +253,9 @@ class TestOctoTimeToEvent:
             experiment_path = study_path / "outersplit0"
             workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("task")]
 
-            assert len(workflow_dirs) >= 1, f"Should have at least 1 workflow directory, found: {[d.name for d in workflow_dirs]}"
+            assert len(workflow_dirs) >= 1, (
+                f"Should have at least 1 workflow directory, found: {[d.name for d in workflow_dirs]}"
+            )
 
     def test_full_configuration_parameters(self):
         """Test that all configuration parameters are supported."""
