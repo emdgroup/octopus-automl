@@ -7,6 +7,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.metrics import confusion_matrix
 
+from octopus.types import FIResultLabel
+
 
 def plot_feature_importance_chart(
     df: pd.DataFrame,
@@ -14,7 +16,7 @@ def plot_feature_importance_chart(
     outersplit_id: int | str = 0,
     task_id: int | str = 0,
     training_id: str = "",
-    fi_method: str = "",
+    fi_method: str | FIResultLabel = "",
 ) -> go.Figure:
     """Create a feature importance bar chart.
 
