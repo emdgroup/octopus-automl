@@ -135,7 +135,7 @@ class FIType(StrEnum):
     SHAP = "shap"
 
 
-class ShapExplainerType(StrEnum):
+class ShapType(StrEnum):
     """SHAP explainer implementations.
 
     Selects which SHAP explainer algorithm to use when computing

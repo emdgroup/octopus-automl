@@ -22,7 +22,7 @@ from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.types import FIComputeMethod, LogGroup, MLType, ModelName, ShapExplainerType
+from octopus.types import FIComputeMethod, LogGroup, MLType, ModelName, ShapType
 
 # # TOBEDONE pipeline
 # - implement cat encoding on module level
@@ -757,9 +757,9 @@ class Training:
 
         self.feature_importances[f"shap_{partition}"] = fi_df
 
-    def calculate_fi_shap(self, partition="dev", shap_type=ShapExplainerType.KERNEL, background_size=200):
+    def calculate_fi_shap(self, partition="dev", shap_type=ShapType.KERNEL, background_size=200):
         """Compute SHAP feature importance with a model-agnostic explainer (kernel/permutation/exact)."""
-        shap_type = ShapExplainerType(shap_type)
+        shap_type = ShapType(shap_type)
         logger.info(f"Calculating SHAP feature importances ({partition}, mode={shap_type})...")
 
         # --- Select data
@@ -791,7 +791,7 @@ class Training:
                 return np.asarray(self.model.predict(np.asarray(X_in)))
 
         # --- Build explainer (no tree option)
-        if shap_type == ShapExplainerType.KERNEL:
+        if shap_type == ShapType.KERNEL:
             # Kernel expects a background dataset (array or DataFrame), not a masker
             # Sample a manageable background for speed
             try:
@@ -803,10 +803,10 @@ class Training:
                 bg = X[idx]
             explainer = shap.explainers.Kernel(predict_fn, bg)
 
-        elif shap_type == ShapExplainerType.PERMUTATION:
+        elif shap_type == ShapType.PERMUTATION:
             explainer = shap.explainers.Permutation(predict_fn, X)
 
-        elif shap_type == ShapExplainerType.EXACT:
+        elif shap_type == ShapType.EXACT:
             explainer = shap.explainers.Exact(predict_fn, X)
 
         else:
