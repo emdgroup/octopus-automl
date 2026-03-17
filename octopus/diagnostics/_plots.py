@@ -1,236 +1,10 @@
-"""Plotly chart functions for diagnostics — replaces Altair charts from evaluation notebooks."""
+"""Plotly chart functions for Optuna diagnostics."""
 
 from __future__ import annotations
 
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from sklearn.metrics import confusion_matrix
-
-
-def plot_feature_importance_chart(
-    df: pd.DataFrame,
-    *,
-    outersplit_id: int | str = 0,
-    task_id: int | str = 0,
-    training_id: str = "",
-    fi_method: str = "",
-) -> go.Figure:
-    """Create a feature importance bar chart.
-
-    Args:
-        df: Feature importances DataFrame with columns:
-            feature, importance, fi_method, training_id, outersplit_id, task_id.
-        outersplit_id: Outer split to filter on.
-        task_id: Task to filter on.
-        training_id: Training ID to filter on. If empty, uses first available.
-        fi_method: FI method to filter on. If empty, uses first available.
-
-    Returns:
-        Plotly Figure.
-    """
-    mask = (df["outersplit_id"] == int(outersplit_id)) & (df["task_id"] == int(task_id))
-    if training_id:
-        mask &= df["training_id"] == training_id
-    if fi_method:
-        mask &= df["fi_method"] == fi_method
-
-    filtered = df[mask].copy()
-    if filtered.empty:
-        fig = go.Figure()
-        fig.update_layout(title="No data for selected filters")
-        return fig
-
-    filtered = filtered.sort_values("importance", ascending=False)
-
-    fig = go.Figure(
-        data=go.Bar(
-            x=filtered["feature"],
-            y=filtered["importance"],
-            marker={"color": "royalblue"},
-            hovertemplate="Feature: %{x}<br>Importance: %{y:.4f}<extra></extra>",
-        )
-    )
-    fig.update_layout(
-        title="Feature Importance",
-        xaxis_title="Feature",
-        yaxis_title="Importance",
-        xaxis={"tickangle": -45, "tickfont": {"size": 10}},
-        width=700,
-        height=450,
-    )
-    return fig
-
-
-def plot_confusion_matrix_chart(
-    df_predictions: pd.DataFrame,
-    *,
-    outersplit_id: int | str = 0,
-    task_id: int | str = 0,
-    training_id: str = "",
-) -> go.Figure:
-    """Create a confusion matrix heatmap from saved predictions.
-
-    Args:
-        df_predictions: Predictions DataFrame with columns:
-            prediction, target, partition, outersplit_id, task_id, inner_split_id.
-        outersplit_id: Outer split to filter on.
-        task_id: Task to filter on.
-        training_id: Training ID / inner_split_id to filter on.
-
-    Returns:
-        Plotly Figure with absolute and relative confusion matrices.
-    """
-    mask = (
-        (df_predictions["outersplit_id"] == int(outersplit_id))
-        & (df_predictions["task_id"] == int(task_id))
-        & (df_predictions["partition"] == "test")
-    )
-    if training_id and "inner_split_id" in df_predictions.columns:
-        mask &= df_predictions["inner_split_id"].astype(str) == str(training_id)
-
-    filtered = df_predictions[mask]
-    if filtered.empty:
-        fig = go.Figure()
-        fig.update_layout(title="No test data for selected filters")
-        return fig
-
-    y_true = filtered["target"].to_numpy()
-    y_pred = filtered["prediction"].astype(int).to_numpy()
-    class_labels = sorted(set(y_true) | set(y_pred))
-    class_names = [str(c) for c in class_labels]
-
-    cm_abs = confusion_matrix(y_true, y_pred, labels=class_labels)
-    cm_rel = confusion_matrix(y_true, y_pred, labels=class_labels, normalize="true")
-
-    fig = make_subplots(
-        rows=1,
-        cols=2,
-        subplot_titles=["Confusion Matrix (Absolute)", "Confusion Matrix (Relative %)"],
-        horizontal_spacing=0.25,
-    )
-
-    cm_rel_text = [[f"{val:.1f}%" for val in row] for row in cm_rel * 100]
-    cm_abs_max = float(cm_abs.max()) if cm_abs.size > 0 else 1
-
-    fig.add_trace(
-        go.Heatmap(
-            z=cm_abs,
-            x=class_names,  # type: ignore[arg-type]
-            y=class_names,  # type: ignore[arg-type]
-            text=cm_abs,
-            texttemplate="%{text}",
-            textfont={"size": 12},
-            colorscale="Blues",
-            showscale=True,
-            zmin=0,
-            zmax=cm_abs_max,
-            colorbar={"x": 0.42, "len": 0.75, "thickness": 15},
-        ),
-        row=1,
-        col=1,
-    )
-
-    fig.add_trace(
-        go.Heatmap(
-            z=cm_rel * 100,
-            x=class_names,  # type: ignore[arg-type]
-            y=class_names,  # type: ignore[arg-type]
-            text=cm_rel_text,  # type: ignore[arg-type]
-            texttemplate="%{text}",
-            textfont={"size": 12},
-            colorscale="Blues",
-            showscale=True,
-            zmin=0,
-            zmax=100,
-            colorbar={"x": 1.05, "len": 0.75, "thickness": 15},
-        ),
-        row=1,
-        col=2,
-    )
-
-    fig.update_xaxes(title_text="Predicted Label", row=1, col=1, side="bottom")
-    fig.update_yaxes(title_text="True Label", row=1, col=1, autorange="reversed")
-    fig.update_xaxes(title_text="Predicted Label", row=1, col=2, side="bottom")
-    fig.update_yaxes(title_text="True Label", row=1, col=2, autorange="reversed")
-
-    fig.update_layout(
-        title_text=f"Confusion Matrix — outersplit {outersplit_id}, task {task_id}",
-        width=900,
-        height=420,
-        showlegend=False,
-    )
-    return fig
-
-
-def plot_predictions_vs_truth_chart(
-    df_predictions: pd.DataFrame,
-    *,
-    outersplit_id: int | str = 0,
-    task_id: int | str = 0,
-    training_id: str = "",
-) -> go.Figure:
-    """Create a prediction vs ground truth scatter plot (regression).
-
-    Args:
-        df_predictions: Predictions DataFrame.
-        outersplit_id: Outer split to filter on.
-        task_id: Task to filter on.
-        training_id: Training ID / inner_split_id to filter on.
-
-    Returns:
-        Plotly Figure.
-    """
-    mask = (df_predictions["outersplit_id"] == int(outersplit_id)) & (df_predictions["task_id"] == int(task_id))
-    if training_id and "inner_split_id" in df_predictions.columns:
-        mask &= df_predictions["inner_split_id"].astype(str) == str(training_id)
-
-    filtered = df_predictions[mask]
-    if filtered.empty:
-        fig = go.Figure()
-        fig.update_layout(title="No data for selected filters")
-        return fig
-
-    # Color by partition (train/test/dev)
-    partitions = filtered["partition"].unique() if "partition" in filtered.columns else ["all"]
-    colors = {"train": "blue", "test": "red", "dev": "green"}
-
-    fig = go.Figure()
-
-    for part in sorted(partitions):
-        part_data = filtered[filtered["partition"] == part] if "partition" in filtered.columns else filtered
-        fig.add_trace(
-            go.Scatter(
-                x=part_data["target"],
-                y=part_data["prediction"],
-                mode="markers",
-                name=str(part),
-                marker={"color": colors.get(str(part), "gray"), "size": 5, "opacity": 0.6},
-                hovertemplate="Target: %{x:.3f}<br>Prediction: %{y:.3f}<extra></extra>",
-            )
-        )
-
-    # Diagonal reference line
-    all_vals = pd.concat([filtered["target"], filtered["prediction"]])
-    val_min, val_max = float(all_vals.min()), float(all_vals.max())
-    fig.add_trace(
-        go.Scatter(
-            x=[val_min, val_max],
-            y=[val_min, val_max],
-            mode="lines",
-            name="Perfect",
-            line={"dash": "dash", "color": "black", "width": 1},
-        )
-    )
-
-    fig.update_layout(
-        title=f"Prediction vs Ground Truth — outersplit {outersplit_id}, task {task_id}",
-        xaxis_title="Ground Truth",
-        yaxis_title="Prediction",
-        width=650,
-        height=500,
-    )
-    return fig
 
 
 def plot_optuna_trial_counts_chart(df_optuna: pd.DataFrame) -> go.Figure:
@@ -319,6 +93,11 @@ def plot_optuna_trials_chart(
     Returns:
         Plotly Figure.
     """
+    if df_optuna.empty:
+        fig = go.Figure()
+        fig.update_layout(title="No Optuna data for selected filters")
+        return fig
+
     mask = (df_optuna["outersplit_id"] == int(outersplit_id)) & (df_optuna["task_id"] == int(task_id))
     filtered = df_optuna[mask]
     if filtered.empty:
@@ -406,6 +185,11 @@ def plot_optuna_hyperparameters_chart(
     Returns:
         Plotly Figure with subplots per hyperparameter.
     """
+    if df_optuna.empty:
+        fig = go.Figure()
+        fig.update_layout(title="No Optuna data for selected filters")
+        return fig
+
     mask = (df_optuna["outersplit_id"] == int(outersplit_id)) & (df_optuna["task_id"] == int(task_id))
     if model_type:
         mask &= df_optuna["model_type"] == model_type
