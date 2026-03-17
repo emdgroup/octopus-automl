@@ -23,19 +23,19 @@ if TYPE_CHECKING:
     from octopus.modules.octo.training import Training
 
 # Adjust this import path as needed depending on your package layout
-from octopus.types import FIComputeMethod, LogGroup, MLType
+from octopus.types import FIComputeMethod, FIResultLabel, LogGroup, MLType
 
 logger = get_logger()
 
 
-def _parse_fi_key(key: str) -> tuple[str, str]:
-    """Parse a FI dict key like 'permutation_dev' into (method, dataset)."""
+def _parse_fi_key(key: str) -> tuple[FIResultLabel, str]:
+    """Parse a FI dict key like 'permutation_dev' into (FIResultLabel, dataset)."""
     known_methods = {FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.LOFO}
     for method in known_methods:
         if key.startswith(method + "_"):
-            return method, key[len(method) + 1 :]
+            return FIResultLabel(method), key[len(method) + 1 :]
     # Keys without partition suffix: "internal", "constant"
-    return key, "train"
+    return FIResultLabel(key), "train"
 
 
 class TrainingWithLogging:
