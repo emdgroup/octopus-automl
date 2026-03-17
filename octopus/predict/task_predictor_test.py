@@ -207,7 +207,7 @@ class TaskPredictorTest(TaskPredictor):
 
     def calculate_fi(  # type: ignore[override]
         self,
-        fi_type: FIType | str = FIType.PERMUTATION,
+        fi_type: FIType = FIType.PERMUTATION,
         *,
         n_repeats: int = 10,
         feature_groups: dict[str, list[str]] | None = None,

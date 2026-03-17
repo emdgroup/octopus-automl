@@ -367,7 +367,7 @@ class TaskPredictor:
     def calculate_fi(
         self,
         data: pd.DataFrame,
-        fi_type: FIType | str = FIType.PERMUTATION,
+        fi_type: FIType = FIType.PERMUTATION,
         *,
         n_repeats: int = 10,
         feature_groups: dict[str, list[str]] | None = None,
