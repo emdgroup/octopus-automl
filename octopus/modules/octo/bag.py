@@ -692,17 +692,12 @@ class BagBase(BaseEstimator):
 
         for method in fi_methods:
             if method == FIComputeMethod.INTERNAL:
-                pass  # already done
-            elif method == FIComputeMethod.SHAP:
+                continue  # already done
+            elif method in (FIComputeMethod.SHAP, FIComputeMethod.PERMUTATION):
                 for partition in partitions:
-                    self._calculate_fi(fi_type=FIComputeMethod.SHAP, partition=partition)
-            elif method == FIComputeMethod.PERMUTATION:
-                for partition in partitions:
-                    self._calculate_fi(fi_type=FIComputeMethod.PERMUTATION, partition=partition)
-            elif method == FIComputeMethod.LOFO:
-                self._calculate_fi(fi_type=FIComputeMethod.LOFO)
-            elif method == FIComputeMethod.CONSTANT:
-                self._calculate_fi(fi_type=FIComputeMethod.CONSTANT)
+                    self._calculate_fi(fi_type=method, partition=partition)
+            elif method in (FIComputeMethod.LOFO, FIComputeMethod.CONSTANT):
+                self._calculate_fi(fi_type=method)
             else:
                 raise ValueError(f"Feature importance method {method} not supported.")
 
