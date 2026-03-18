@@ -94,32 +94,6 @@ def test_default_workflow():
         assert study.workflow[0].task_id == 0
 
 
-@pytest.mark.parametrize(
-    "metrics_input,expected_metrics",
-    [
-        (None, ["AUCROC"]),  # default metrics
-        (["AUCROC", "ACCBAL", "F1"], ["AUCROC", "ACCBAL", "F1"]),  # custom metrics
-    ],
-)
-def test_metrics(metrics_input, expected_metrics):
-    """Test metrics list with default and custom values."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        kwargs = {}
-        if metrics_input is not None:
-            kwargs["metrics"] = metrics_input
-
-        study = OctoClassification(
-            name="test",
-            target_metric="AUCROC",
-            feature_cols=["f1"],
-            target_col="target",
-            sample_id_col="id",
-            path=temp_dir,
-            **kwargs,
-        )
-        assert study.metrics == expected_metrics
-
-
 def test_default_values():
     """Test default values are set correctly."""
     with tempfile.TemporaryDirectory() as temp_dir:

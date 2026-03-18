@@ -36,7 +36,6 @@ study = OctoClassification(
     target_col="target",
     sample_id_col="index",
     stratification_col="target",
-    metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS"],
     datasplit_seed_outer=1234,
     ignore_data_health_warning=True,
     outer_parallelization=True,

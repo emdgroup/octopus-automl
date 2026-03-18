@@ -100,12 +100,6 @@ class OctoStudy(ABC):
 
     @property
     @abstractmethod
-    def metrics(self) -> list:
-        """Get metrics list. Must be implemented in subclasses."""
-        ...
-
-    @property
-    @abstractmethod
     def target_assignments(self) -> dict[str, str]:
         """Get target assignments dict. Must be implemented in subclasses."""
         ...
@@ -312,7 +306,6 @@ class OctoStudy(ABC):
         return StudyContext(
             ml_type=ml_type,
             target_metric=self.target_metric,
-            metrics=self.metrics,
             target_assignments=self.target_assignments,
             positive_class=positive_class,
             stratification_col=self.stratification_col,
@@ -376,18 +369,6 @@ class OctoRegression(OctoStudy):
     )
     """The primary metric used for model evaluation. Defaults to RMSE."""
 
-    metrics: list = field(
-        default=Factory(lambda self: [self.target_metric], takes_self=True),
-        validator=[
-            validators.instance_of(list),
-            validators.deep_iterable(
-                member_validator=validators.in_(Metrics.get_by_type(MLType.REGRESSION)),
-                iterable_validator=validators.instance_of(list),
-            ),
-        ],
-    )
-    """A list of metrics to be calculated. Defaults to target_metric value."""
-
     @property
     def target_assignments(self) -> dict[str, str]:
         """Get target assignments dict."""
@@ -413,18 +394,6 @@ class OctoClassification(OctoStudy):
         validator=validators.in_(Metrics.get_by_type(MLType.BINARY, MLType.MULTICLASS)),
     )
     """The primary metric used for model evaluation. Defaults to AUCROC."""
-
-    metrics: list = field(
-        default=Factory(lambda self: [self.target_metric], takes_self=True),
-        validator=[
-            validators.instance_of(list),
-            validators.deep_iterable(
-                member_validator=validators.in_(Metrics.get_by_type(MLType.BINARY, MLType.MULTICLASS)),
-                iterable_validator=validators.instance_of(list),
-            ),
-        ],
-    )
-    """A list of metrics to be calculated. Defaults to target_metric value."""
 
     positive_class: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
     """The positive class label for binary classification. Defaults to None. Not used for multiclass."""
@@ -473,18 +442,6 @@ class OctoTimeToEvent(OctoStudy):
         validator=validators.in_(Metrics.get_by_type(MLType.TIMETOEVENT)),
     )
     """The primary metric used for model evaluation. Defaults to CI (Concordance Index)."""
-
-    metrics: list = field(
-        default=Factory(lambda self: [self.target_metric], takes_self=True),
-        validator=[
-            validators.instance_of(list),
-            validators.deep_iterable(
-                member_validator=validators.in_(Metrics.get_by_type(MLType.TIMETOEVENT)),
-                iterable_validator=validators.instance_of(list),
-            ),
-        ],
-    )
-    """A list of metrics to be calculated. Defaults to target_metric value."""
 
     @property
     def target_assignments(self) -> dict[str, str]:

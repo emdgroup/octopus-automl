@@ -71,7 +71,6 @@ study = OctoClassification(
     target_col="target",
     sample_id_col="index",
     stratification_col="target",  # Ensure balanced splits
-    metrics=["AUCROC", "ACCBAL", "ACC", "LOGLOSS", "F1"],
     n_folds_outer=5,  # 5-fold outer cross-validation
     ignore_data_health_warning=True,
     outer_parallelization=True,
