@@ -13,7 +13,7 @@ from octopus.datasplit import OuterSplit
 from octopus.logger import get_logger
 from octopus.modules import ModuleResult, StudyContext, Task
 from octopus.types import ResultType
-from octopus.utils import calculate_feature_groups, parquet_save, rmtree
+from octopus.utils import calculate_feature_groups, rmtree
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -46,13 +46,17 @@ class WorkflowTaskRunner:
             outersplit: OuterSplit containing traindev and test DataFrames
             num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
         """
-        # Save split data
+        # Save split row IDs (not full datasets) for reproducibility
         outer_split_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
         outer_split_dir.mkdir(parents=True, exist_ok=True)
-        train_path = outer_split_dir / "data_traindev.parquet"
-        parquet_save(outersplit.traindev, train_path)
-        test_path = outer_split_dir / "data_test.parquet"
-        parquet_save(outersplit.test, test_path)
+        row_id_col = self.study_context.row_id_col
+        split_ids = {
+            "row_id_col": row_id_col,
+            "traindev_row_ids": outersplit.traindev[row_id_col].tolist(),
+            "test_row_ids": outersplit.test[row_id_col].tolist(),
+        }
+        with (outer_split_dir / "split_row_ids.json").open("w") as f:
+            json.dump(split_ids, f)
 
         # task_results: dict[task_id -> dict[ResultType, ModuleResult]]
         task_results: dict[int, dict[ResultType, ModuleResult]] = {}

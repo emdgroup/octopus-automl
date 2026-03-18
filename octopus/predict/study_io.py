@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 from attrs import field, frozen
@@ -105,7 +105,7 @@ class TaskOutersplitLoader:
     """Load data for a single outersplit from disk.
 
     Matches actual disk structure:
-    - data_test.parquet, data_traindev.parquet at outersplit level
+    - split_row_ids.json at outersplit level (row IDs into data_prepared.parquet)
     - feature_cols.json, feature_groups.json inside task/config/
     - model.joblib, predictor.json inside task/results/{result_type}/model/
     - selected_features.json, scores.parquet, predictions.parquet,
@@ -185,33 +185,49 @@ class TaskOutersplitLoader:
             feature_groups=self.load_feature_groups(),
         )
 
-    def load_test_data(self) -> pd.DataFrame:
-        """Load test data (at outersplit level).
+    def load_partition(self, partition: Literal["traindev", "test"]) -> pd.DataFrame:
+        """Load one data partition by filtering prepared data with stored row IDs.
+
+        Rows are returned in the order they were stored in split_row_ids.json,
+        matching the original split order. Raises if any stored row IDs are
+        missing from the prepared data.
+
+        Args:
+            partition: Which partition to load — ``"traindev"`` or ``"test"``.
 
         Returns:
-            DataFrame with test data.
+            DataFrame for the requested partition.
 
         Raises:
-            FileNotFoundError: If test data file is missing.
+            FileNotFoundError: If split_row_ids.json or data_prepared.parquet is missing.
+            KeyError: If any stored row IDs are not found in data_prepared.parquet.
         """
-        path = self.fold_dir / "data_test.parquet"
-        if not path.exists():
-            raise FileNotFoundError(f"Test data not found: {path}")
-        return parquet_load(path)
+        if partition not in ("traindev", "test"):
+            raise ValueError(f"partition must be 'traindev' or 'test', got {partition!r}")
 
-    def load_train_data(self) -> pd.DataFrame:
-        """Load train data (at outersplit level).
+        split_ids_path = self.fold_dir / "split_row_ids.json"
+        if not split_ids_path.exists():
+            raise FileNotFoundError(f"Split row IDs not found: {split_ids_path}")
 
-        Returns:
-            DataFrame with train data.
+        prepared_path = self.study_path / "data_prepared.parquet"
+        if not prepared_path.exists():
+            raise FileNotFoundError(f"Prepared data not found: {prepared_path}")
 
-        Raises:
-            FileNotFoundError: If train data file is missing.
-        """
-        path = self.fold_dir / "data_traindev.parquet"
-        if not path.exists():
-            raise FileNotFoundError(f"Train data not found: {path}")
-        return parquet_load(path)
+        with split_ids_path.open() as f:
+            split_info: dict[str, Any] = json.load(f)
+        row_ids: list = split_info[f"{partition}_row_ids"]
+        row_id_col: str = split_info["row_id_col"]
+
+        prepared_data = parquet_load(prepared_path)
+
+        indexed = prepared_data.set_index(row_id_col)
+        missing = set(row_ids) - set(indexed.index)
+        if missing:
+            raise KeyError(
+                f"{len(missing)} {partition} row IDs not found in data_prepared.parquet "
+                f"(first 5: {sorted(missing)[:5]})"
+            )
+        return indexed.loc[row_ids].reset_index()
 
     def load_model(self) -> Any:
         """Load fitted model from result_dir/model/model.joblib.
@@ -354,7 +370,10 @@ class StudyLoader:
         """
         row_id_col = config.get("prepared", {}).get("row_id_col")
         if not row_id_col:
-            row_id_col = config.get("row_id_col") or "row_id"
+            raise ValueError(
+                "row_id_col not found in study config under 'prepared.row_id_col'. "
+                "The study config may be from an incompatible version."
+            )
 
         return StudyMetadata(
             ml_type=MLType(config["ml_type"]),
@@ -363,7 +382,7 @@ class StudyLoader:
             target_assignments=config.get("prepared", {}).get("target_assignments", {}),
             positive_class=config.get("positive_class"),
             row_id_col=row_id_col,
-            feature_cols=config.get("feature_cols", []),
+            feature_cols=config.get("prepared", {}).get("feature_cols", []),
             n_outersplits=config.get("n_folds_outer", 0),
         )
 
