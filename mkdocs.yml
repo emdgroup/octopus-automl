@@ -28,7 +28,7 @@ theme:
     - search.highlight
     #- content.action.edit
     - content.code.copy
-  logo: assets/logo.png
+  logo: assets/logo.svg
   favicon: assets/favicon.png
   palette:
     # Palette toggle for automatic mode
