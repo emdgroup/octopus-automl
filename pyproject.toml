@@ -89,7 +89,7 @@ dev = [
 docs = [
     "octopus-automl[examples]", # docs cannot be built without running examples
     "octopus-automl[test]", # creating docs requires importing the package and all (even optional) dependencies
-    "mkdocs>=1.6.1",
+    "mkdocs>=1.6.1,<2",
     "mkdocs-material>=9.7.1",
     "mkdocstrings-python>=2.0.1",
     "mkdocs-gen-files>=0.6.0",
