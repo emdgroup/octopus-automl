@@ -64,7 +64,6 @@ study = OctoClassification(
     stratification_col="target",
     n_folds_outer=5,  # 5 outer folds
     ignore_data_health_warning=True,
-    outer_parallelization=True,  # Run all outer folds in parallel
     workflow=[
         # Task 0: Initial Octo with all features
         Octo(

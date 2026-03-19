@@ -27,7 +27,6 @@ from octopus._optional.autogluon import (
     root_mean_squared_error,
 )
 from octopus.logger import get_logger
-from octopus.manager.ray_parallel import setup_ray_for_external_library
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.modules import ModuleExecution, ModuleResult, StudyContext
@@ -140,19 +139,6 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         # Set up logging and resources
         logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outersplit_id}")
 
-        # Allocate CPUs
-        if self.config.num_cpus == "auto":
-            num_cpus_allocated = num_assigned_cpus
-        else:
-            num_cpus_allocated = min(num_assigned_cpus, self.config.num_cpus)
-
-        logger.info(
-            f"CPU Resources | Available: {num_assigned_cpus} | Requested: {self.config.num_cpus} | Allocated: {num_cpus_allocated}"
-        )
-
-        # Ensure AutoGluon uses existing Ray instance if available
-        setup_ray_for_external_library()
-
         # Get target column
         if len(study_context.target_assignments) == 1:
             target = next(iter(study_context.target_assignments.values()))
@@ -160,7 +146,9 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             raise ValueError(f"Single target expected. Got keys: {study_context.target_assignments.keys()}")
 
         # Get scoring metric
-        assert study_context.target_metric is not None, "target_metric should be set during fit()"
+        if study_context.target_metric is None:
+            raise ValueError("target_metric should be set during fit()")
+
         scoring_type = metrics_inventory_autogluon[study_context.target_metric]
 
         # Initialize TabularPredictor (store temporarily for fit operations)
@@ -181,6 +169,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             fit_strategy=self.config.fit_strategy,
             num_bag_folds=self.config.num_bag_folds,
             included_model_types=self.config.included_model_types,
+            num_cpus=num_assigned_cpus,
         )
 
         logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outersplit_id}")

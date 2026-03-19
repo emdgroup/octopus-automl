@@ -6,7 +6,6 @@ import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
-import ray
 from attrs import asdict, define, field, validators
 from upath import UPath
 
@@ -24,39 +23,30 @@ logger = get_logger()
 
 @define
 class WorkflowTaskRunner:
-    """Runs workflow tasks for a single fold.
+    """Runs workflow tasks for a single outer split.
 
     Handles the lifecycle of processing workflow tasks:
-    - Saving fold data
+    - Saving split data
     - Running tasks with dependencies
     - Saving task results
 
     Attributes:
         study_context: Frozen runtime context containing study configuration.
         workflow: List of workflow tasks to execute.
-        cpus_per_outersplit: Number of CPUs allocated to each task.
     """
 
     study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     workflow: Sequence[Task] = field(validator=[validators.instance_of(list)])
-    cpus_per_outersplit: int = field(validator=[validators.instance_of(int)])
 
-    def run(self, outersplit_id: int, outersplit: OuterSplit) -> None:
-        """Process all workflow tasks for a single fold.
+    def run(self, outersplit_id: int, outersplit: OuterSplit, num_assigned_cpus: int) -> None:
+        """Process all workflow tasks for a single outer split.
 
         Args:
-            outersplit_id: Current fold ID
+            outersplit_id: Current outer split ID
             outersplit: OuterSplit containing traindev and test DataFrames
-
-        Raises:
-            RuntimeError: If Ray is not initialized.
+            num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
         """
-        if not ray.is_initialized():
-            raise RuntimeError(
-                "Ray is not initialized. WorkflowTaskRunner.run() must be called after Ray initialization by OctoManager.run_outersplits()."
-            )
-
-        # Save fold data
+        # Save split data
         fold_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
         fold_dir.mkdir(parents=True, exist_ok=True)
         train_path = fold_dir / "data_traindev.parquet"
@@ -70,7 +60,7 @@ class WorkflowTaskRunner:
         for task in self.workflow:
             self._log_task_info(task)
 
-            result = self._run_task(outersplit_id, outersplit, task, task_results)
+            result = self._run_task(outersplit_id, outersplit, task, num_assigned_cpus, task_results)
             task_results[task.task_id] = result
 
     def _run_task(
@@ -78,14 +68,16 @@ class WorkflowTaskRunner:
         outersplit_id: int,
         outersplit: OuterSplit,
         task: Task,
+        num_assigned_cpus: int,
         task_results: dict[int, dict[ResultType, ModuleResult]],
     ) -> dict[ResultType, ModuleResult]:
         """Run a single workflow task.
 
         Args:
-            outersplit_id: Current fold ID
+            outersplit_id: Current outer split ID
             outersplit: OuterSplit containing traindev and test DataFrames
             task: Task to run
+            num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
             task_results: Dictionary of results from previous tasks
 
         Returns:
@@ -127,7 +119,7 @@ class WorkflowTaskRunner:
         scratch_dir = output_dir / "scratch"
         scratch_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Running task {task.task_id} for fold {outersplit_id}")
+        logger.info(f"Running task {task.task_id} for outer split {outersplit_id}")
 
         # Create execution module from config and run fit()
         module = task.create_module()
@@ -139,7 +131,7 @@ class WorkflowTaskRunner:
             outersplit_id=outersplit_id,
             results_dir=results_dir,
             scratch_dir=scratch_dir,
-            num_assigned_cpus=self.cpus_per_outersplit,
+            num_assigned_cpus=num_assigned_cpus,
             feature_groups=feature_groups,
             prior_results=prior_results,
         )

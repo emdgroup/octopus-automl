@@ -137,8 +137,6 @@ def create_mock_bag(log_dir, bag_id, target_dev_mae, target_test_mae, n_training
         row_id_col="row_id",
         target_metric="MAE",
         ml_type=MLType.REGRESSION,
-        parallel_execution=False,
-        num_workers=1,
         log_dir=log_dir,
     )
 
@@ -194,6 +192,7 @@ def create_partial_ensel(trials_path, target_metric="MAE", methods_to_run=None):
         path_trials=trials_path,
         max_n_iterations=10,
         row_id_col="row_id",
+        num_assigned_cpus=1,
     )
 
 

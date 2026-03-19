@@ -210,7 +210,6 @@ class TestOctoRegression:
                 n_folds_outer=2,
                 path=temp_dir,
                 ignore_data_health_warning=True,
-                outer_parallelization=False,
                 run_single_outersplit_num=0,
                 workflow=[
                     Octo(
@@ -223,9 +222,6 @@ class TestOctoRegression:
                         ensemble_selection=True,
                         ensel_n_save_trials=10,
                         model_seed=0,
-                        n_jobs=1,
-                        inner_parallelization=True,
-                        n_workers=2,
                         optuna_seed=0,
                         n_optuna_startup_trials=3,
                         penalty_factor=1.0,
@@ -275,11 +271,8 @@ class TestOctoRegression:
             ensemble_selection=True,
             ensel_n_save_trials=10,
             model_seed=0,
-            n_jobs=1,
             max_outl=0,
             fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-            inner_parallelization=True,
-            n_workers=5,
             optuna_seed=0,
             n_optuna_startup_trials=10,
             penalty_factor=1.0,
@@ -302,11 +295,8 @@ class TestOctoRegression:
         assert octo_task.models is not None
         assert set(octo_task.models) == expected_models
         assert octo_task.model_seed == 0
-        assert octo_task.n_jobs == 1
         assert octo_task.max_outl == 0
         assert octo_task.fi_methods_bestbag == [FIComputeMethod.PERMUTATION]
-        assert octo_task.inner_parallelization is True
-        assert octo_task.n_workers == 5
         assert octo_task.optuna_seed == 0
         assert octo_task.n_optuna_startup_trials == 10
         assert octo_task.n_trials == 12

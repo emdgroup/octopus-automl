@@ -99,8 +99,7 @@ def test_default_values():
         assert study.n_folds_outer == 5 if not _RUNNING_IN_TESTSUITE else 2
         assert study.datasplit_seed_outer == 0
         assert study.ignore_data_health_warning is False
-        assert study.outer_parallelization is True
-        assert study.run_single_outersplit_num == -1
+        assert study.run_single_outersplit_num is None
 
 
 def test_ml_type_values():

@@ -74,8 +74,6 @@ study = OctoClassification(
     stratification_col="target",  # Ensure balanced splits
     n_folds_outer=5,  # 5-fold outer cross-validation
     ignore_data_health_warning=True,
-    outer_parallelization=True,
-    run_single_outersplit_num=-1,  # process all outersplits
     workflow=[
         # Step 0: octo
         Octo(
@@ -89,9 +87,6 @@ study = OctoClassification(
                 ModelName.ExtraTreesClassifier,
             ],
             fi_methods_bestbag=[FIComputeMethod.PERMUTATION],  # Feature importance method
-            # Parallelization settings
-            inner_parallelization=True,
-            n_workers=5,
             n_trials=100,  # Number of hyperparameter optimization trials
             # Constrained hyperparameter optimization
             # max_features=60,  # Maximum number of features to select

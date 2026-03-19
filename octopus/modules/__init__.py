@@ -1,10 +1,5 @@
 """Init modules."""
 
-import os
-import platform
-
-import threadpoolctl
-
 try:
     from .autogluon import AutoGluon
 except ImportError:
@@ -52,34 +47,3 @@ __all__ = [
     "Task",
     "rdc_correlation_matrix",
 ]
-
-_PARALLELIZATION_ENV_VARS = (
-    "OMP_NUM_THREADS",
-    "OPENBLAS_NUM_THREADS",
-    "MKL_NUM_THREADS",
-    "BLIS_NUM_THREADS",
-    "VECLIB_MAXIMUM_THREADS",
-    "NUMEXPR_NUM_THREADS",
-)
-
-for env_var in _PARALLELIZATION_ENV_VARS:
-    if (num_threads := os.environ.setdefault(env_var, "1")) != "1":
-        if platform.system() == "Darwin":
-            print(
-                f"Warning: {env_var} is set to {num_threads} on macOS. "
-                "This may lead to issues/crashes in some libraries. "
-                f"Consider setting {env_var}=1 for better stability."
-            )
-        else:
-            print(
-                f"Warning: {env_var} is set to {num_threads}. "
-                "This may lead to resource oversubscription and slow execution. "
-                f"Consider setting {env_var}=1 or at least perform "
-                "a thorough threading performance evaluation."
-            )
-
-_THREADPOOL_LIMIT = threadpoolctl.threadpool_limits(limits=1)
-
-del os
-del platform
-del threadpoolctl

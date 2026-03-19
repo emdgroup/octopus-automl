@@ -1,56 +1,109 @@
 import os
 import subprocess
-import sys
-from pathlib import Path
 
+import pandas as pd
 import pytest
+import ray
 import threadpoolctl
+from upath import UPath
 
-import octopus  # noqa: F401
-from octopus.modules import _PARALLELIZATION_ENV_VARS
-
-
-def test_parallelization_inactive_in_threadpoolctl():
-    threadpool_info = threadpoolctl.threadpool_info()
-
-    # we expect the following openmp libraries to be loaded: shipped with torch, shipped with sklearn, system openmp
-    assert len(threadpool_info) >= 2
-
-    for lib in threadpool_info:
-        assert lib["num_threads"] == 1
+from octopus.datasplit import OuterSplit
+from octopus.manager import ray_parallel
 
 
-def test_parallelization_limited_by_env():
-    # these vars are being set in octopus/modules/__init__.py
+@pytest.fixture
+def outersplits():
+    return {
+        0: OuterSplit(traindev=pd.DataFrame(), test=pd.DataFrame()),
+        1: OuterSplit(traindev=pd.DataFrame(), test=pd.DataFrame()),
+        2: OuterSplit(traindev=pd.DataFrame(), test=pd.DataFrame()),
+        3: OuterSplit(traindev=pd.DataFrame(), test=pd.DataFrame()),
+    }
 
-    for env_var in _PARALLELIZATION_ENV_VARS:
-        assert os.environ.get(env_var, None) == "1"
 
-
-@pytest.mark.skip
-def test_ray_workers_detect_active_parallelization():
-    """Test that ray workers abort if they detect active parallelization.
-
-    This test spawns a subprocess that runs a test workflow with OMP_NUM_THREADS set to 42
-    to make sure the modification of the ENV var is not accidentally carried over to
-    other tests.
-    """
-    env = os.environ.copy()
-    env["OMP_NUM_THREADS"] = "42"  # Activate thread-level parallelization
-
-    res = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            Path(__file__).parent.parent / "workflows" / "test_ag_workflows.py",
-            "-k",
-            "full_regression_workflow",
-        ],
-        check=False,
-        env=env,
-        capture_output=True,
+def test_inner_parallelization_setup_in_workers(tmp_path, outersplits):
+    resources = ray_parallel.init(
+        num_cpus_user=0,
+        num_outersplits=len(outersplits),
+        run_single_outersplit=False,
+        namespace="test_namespace",
     )
 
-    assert res.returncode == 1  # Expecting failure due to active thread-level parallelization
-    assert b"RuntimeError: Environment variable OMP_NUM_THREADS is set to 42." in res.stdout
+    def run_fn(outersplit_id: int, outersplit: OuterSplit, num_cpus_per_worker: int):
+        assert num_cpus_per_worker == resources.cpus_per_worker
+
+        for var in ray_parallel._PARALLELIZATION_ENV_VARS:
+            assert os.environ.get(var, None) == str(resources.cpus_per_worker), (
+                f"Expected {var}={resources.cpus_per_worker} in worker environment, but got {os.environ.get(var, None)}"
+            )
+
+        threadpool_info = threadpoolctl.threadpool_info()
+
+        # we expect the following openmp libraries to be loaded: shipped with torch, shipped with sklearn, system openmp
+        assert len(threadpool_info) >= 2
+
+        for lib in threadpool_info:
+            assert lib["num_threads"] == 1
+
+    ray_parallel.run_parallel_outer(
+        outersplit_data=outersplits,
+        run_fn=run_fn,
+        log_dir=UPath(tmp_path),
+        num_cpus_per_worker=resources.cpus_per_worker,
+    )
+
+    ray_parallel.shutdown()
+
+
+@pytest.mark.skip(reason="Deadlock in Github CI to be investigated")
+@pytest.mark.parametrize("num_nodes", [1, 2, 3], ids=lambda n: f"{n}_node(s)")
+def test_connect_to_running_ray_cluster(tmp_path, outersplits, num_nodes):
+    HOST = "127.0.0.1"
+    PORT = 6379
+    CPUS_PER_NODE = 4
+
+    # 1. Start a Ray head node as a subprocess (separate process, survives ray.shutdown())
+    subprocess.run(
+        [
+            "ray",
+            "start",
+            "--head",
+            f"--num-cpus={CPUS_PER_NODE}",
+            f"--port={PORT}",
+            f"--dashboard-host={HOST}",
+        ],
+        check=True,
+    )
+
+    for _ in range(1, num_nodes):
+        subprocess.run(
+            [
+                "ray",
+                "start",
+                f"--address={HOST}:{PORT}",
+                f"--num-cpus={CPUS_PER_NODE}",
+            ],
+            check=True,
+        )
+
+    try:
+        resources = ray_parallel.init(
+            num_cpus_user=0,
+            num_outersplits=len(outersplits),
+            run_single_outersplit=False,
+            address=f"{HOST}:{PORT}",
+            namespace="test_namespace",
+        )
+
+        def run_fn(outersplit_id: int, outersplit: OuterSplit, num_cpus_per_worker: int):
+            assert num_cpus_per_worker == resources.cpus_per_worker
+
+        ray_parallel.run_parallel_outer(
+            outersplit_data=outersplits,
+            run_fn=run_fn,
+            log_dir=UPath(tmp_path),
+            num_cpus_per_worker=resources.cpus_per_worker,
+        )
+    finally:
+        ray.shutdown()
+        subprocess.run(["ray", "stop"], check=True)

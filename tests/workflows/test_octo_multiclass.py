@@ -100,11 +100,8 @@ class TestOctoMulticlass:
                 ModelName.CatBoostClassifier,
             ],
             model_seed=0,
-            n_jobs=1,
             max_outl=0,
             fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-            inner_parallelization=True,
-            n_workers=5,
             n_trials=20,
         )
 
@@ -207,7 +204,6 @@ class TestOctoMulticlass:
                 n_folds_outer=2,
                 path=temp_dir,
                 ignore_data_health_warning=True,
-                outer_parallelization=False,
                 run_single_outersplit_num=0,
                 workflow=[
                     Octo(
@@ -217,11 +213,8 @@ class TestOctoMulticlass:
                         n_folds_inner=3,
                         models=[ModelName.ExtraTreesClassifier],
                         model_seed=0,
-                        n_jobs=1,
                         max_outl=0,
                         fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-                        inner_parallelization=True,
-                        n_workers=3,
                         n_trials=12,
                     )
                 ],
@@ -264,11 +257,8 @@ class TestOctoMulticlass:
                 ModelName.CatBoostClassifier,
             ],
             model_seed=0,
-            n_jobs=1,
             max_outl=0,
             fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-            inner_parallelization=True,
-            n_workers=5,
             n_trials=20,
         )
 
@@ -286,11 +276,8 @@ class TestOctoMulticlass:
             ModelName.CatBoostClassifier,
         }
         assert octo_task.model_seed == 0
-        assert octo_task.n_jobs == 1
         assert octo_task.max_outl == 0
         assert octo_task.fi_methods_bestbag == [FIComputeMethod.PERMUTATION]
-        assert octo_task.inner_parallelization is True
-        assert octo_task.n_workers == 5
         assert octo_task.n_trials == 20
 
     def test_multiclass_target_metric_options(self):

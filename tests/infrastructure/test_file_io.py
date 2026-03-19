@@ -28,7 +28,7 @@ _CASES = [
     ([1, 2, 3], "StringDtype"),
     ([1.2, 2.3, 3.4], "StringDtype"),
     (["a", "b", "c"], "StringDtype"),
-    pytest.param(["a", 1, 1.2, True], "StringDtype", marks=pytest.mark.xfail),
+    (["a", 1, 1.2, True], "StringDtype"),
     # category
     ([True, False, False], "category"),
     ([1, 2, 3], "category"),

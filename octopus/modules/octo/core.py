@@ -18,10 +18,10 @@ from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
-from octopus.types import CorrelationType, LogGroup, MetricDirection, ResultType
+from octopus.types import CorrelationType, FIComputeMethod, LogGroup, MetricDirection, ResultType
 from octopus.utils import joblib_load, parquet_save, rmtree
 
-from .bag import Bag
+from .bag import Bag, BagBase
 from .enssel import EnSel
 from .objective_optuna import ObjectiveOptuna
 from .training import Training
@@ -72,7 +72,6 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             y_traindev,
             feature_cols,
             outersplit_id,
-            num_assigned_cpus,
             scratch_dir,
             results_dir,
         )
@@ -82,20 +81,21 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         # (1) model training and optimization
         best_selected_features = self._run_globalhp_optimization(
-            study_context,
-            data_test,
-            feature_cols,
-            feature_groups,
-            outersplit_id,
-            results_dir,
-            results,
+            study_context=study_context,
+            data_test=data_test,
+            feature_cols=feature_cols,
+            feature_groups=feature_groups,
+            outersplit_id=outersplit_id,
+            num_assigned_cpus=num_assigned_cpus,
+            results_dir=results_dir,
+            results=results,
         )
 
         # Build best ModuleResult
-        best_bag = results["best"]["_bag"]
+        best_bag: BagBase = results["best"]["_bag"]
         all_metrics = Metrics.get_by_type(study_context.ml_type)
         best_scores = pd.concat(
-            [best_bag.get_performance_df(metric=m) for m in all_metrics],
+            [best_bag.get_performance_df(metric=m, num_assigned_cpus=num_assigned_cpus) for m in all_metrics],
             ignore_index=True,
         )
         best_result = ModuleResult(
@@ -103,7 +103,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             module=self.config.module,
             selected_features=best_selected_features,
             scores=best_scores,
-            predictions=best_bag.get_predictions_df(),
+            predictions=best_bag.get_predictions_df(num_assigned_cpus=num_assigned_cpus),
             feature_importances=best_bag.get_feature_importances_df(),
             model=best_bag,
         )
@@ -113,14 +113,18 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         # (2) ensemble selection
         if self.config.ensemble_selection:
             ensel_selected_features = self._run_ensemble_selection(
-                study_context, outersplit_id, scratch_dir, results_dir, results
+                study_context=study_context,
+                outersplit_id=outersplit_id,
+                num_assigned_cpus=num_assigned_cpus,
+                scratch_dir=scratch_dir,
+                results=results,
             )
 
             # Always save ensemble result if it was produced
             if "ensel" in results:
-                ensel_bag = results["ensel"]["_bag"]
+                ensel_bag: BagBase = results["ensel"]["_bag"]
                 ensel_scores = pd.concat(
-                    [ensel_bag.get_performance_df(metric=m) for m in all_metrics],
+                    [ensel_bag.get_performance_df(metric=m, num_assigned_cpus=num_assigned_cpus) for m in all_metrics],
                     ignore_index=True,
                 )
                 ensel_result = ModuleResult(
@@ -128,7 +132,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
                     module=self.config.module,
                     selected_features=ensel_selected_features or best_selected_features,
                     scores=ensel_scores,
-                    predictions=ensel_bag.get_predictions_df(),
+                    predictions=ensel_bag.get_predictions_df(num_assigned_cpus=num_assigned_cpus),
                     feature_importances=ensel_bag.get_feature_importances_df(),
                     model=ensel_bag,
                 )
@@ -144,7 +148,6 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         y_traindev: pd.DataFrame,
         feature_cols: list[str],
         outersplit_id: int,
-        num_assigned_cpus: int,
         scratch_dir: UPath,
         results_dir: UPath,
     ):
@@ -180,9 +183,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             rmtree(directory)
             directory.mkdir(parents=True, exist_ok=True)
 
-        # check if there is a mismatch between configured resources
-        # and resources assigned to the outersplit
-        self._check_resources(outersplit_id, num_assigned_cpus)
+        logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"OUTER {outersplit_id} SQE TBD")
 
         # Create MRMR feature lists
         self._create_mrmr_features(study_context, x_traindev, y_traindev, feature_cols)
@@ -225,22 +226,8 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         # add original features
         self.mrmr_features_[len(feature_cols)] = feature_cols
 
-    def _check_resources(self, outersplit_id: int, num_assigned_cpus: int):
-        """Check resources, assigned vs requested."""
-        logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"OUTER {outersplit_id} SQE TBD")
-
-        if self.config.inner_parallelization is True:
-            num_requested_cpus = self.config.n_workers * self.config.n_jobs
-        else:
-            num_requested_cpus = self.config.n_jobs
-        logger.info(
-            f"""CPU Resources | \
-        Available: {num_assigned_cpus} | \
-        Requested: {num_requested_cpus} | """
-        )
-
     def _run_ensemble_selection(
-        self, study_context: StudyContext, outersplit_id: int, scratch_dir: UPath, results_dir: UPath, results: dict
+        self, study_context: StudyContext, outersplit_id: int, num_assigned_cpus: int, scratch_dir: UPath, results: dict
     ) -> list[str]:
         """Run ensemble selection."""
         ensel = EnSel(
@@ -250,15 +237,16 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             row_id_col=study_context.row_id_col,
             target_assignments=study_context.target_assignments,
             positive_class=study_context.positive_class,
+            num_assigned_cpus=num_assigned_cpus,
         )
         ensemble_paths_dict = ensel.start_ensemble
-        return self._create_ensemble_bag(study_context, outersplit_id, results_dir, ensemble_paths_dict, results)
+        return self._create_ensemble_bag(study_context, outersplit_id, num_assigned_cpus, ensemble_paths_dict, results)
 
     def _create_ensemble_bag(
         self,
         study_context: StudyContext,
         outersplit_id: int,
-        results_dir: UPath,
+        num_assigned_cpus: int,
         ensemble_paths_dict: dict,
         results: dict,
     ) -> list[str]:
@@ -288,15 +276,13 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             trainings=trainings,
             train_status=True,
             target_assignments=study_context.target_assignments,
-            parallel_execution=self.config.inner_parallelization,
-            num_workers=self.config.n_workers,
             target_metric=study_context.target_metric,
             row_id_col=study_context.row_id_col,
             ml_type=study_context.ml_type,
             log_dir=study_context.log_dir,
         )
         # save performance values of best bag
-        ensel_scores = ensel_bag.get_performance()
+        ensel_scores = ensel_bag.get_performance(num_assigned_cpus=num_assigned_cpus)
         target_metric = study_context.target_metric
         # show and save test results
         logger.set_log_group(LogGroup.RESULTS)
@@ -306,16 +292,18 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         )
 
         # calculate feature importances of best bag
-        fi_methods = None  # disable calculation of pfi for ensel_bag
-        ensel_bag_fi = ensel_bag.calculate_feature_importances(fi_methods, partitions=["dev"])
+        fi_methods: list[FIComputeMethod] = []  # disable calculation of pfi for ensel_bag
+        ensel_bag_fi = ensel_bag.calculate_feature_importances(
+            fi_methods=fi_methods, partitions=["dev"], num_assigned_cpus=num_assigned_cpus
+        )
 
         # calculate selected features
-        selected_features = ensel_bag.get_selected_features(fi_methods)
+        selected_features = ensel_bag.get_selected_features(fi_methods=fi_methods)
 
         # save best bag and results to local dict
         results["ensel"] = {
             "scores": ensel_scores,
-            "predictions": ensel_bag.get_predictions(),
+            "predictions": ensel_bag.get_predictions(num_assigned_cpus=num_assigned_cpus),
             "feature_importances": ensel_bag_fi,
             "_bag": ensel_bag,
         }
@@ -329,6 +317,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         feature_cols: list[str],
         feature_groups: dict,
         outersplit_id: int,
+        num_assigned_cpus: int,
         results_dir: UPath,
         results: dict[str, dict],
     ) -> list[str]:
@@ -361,6 +350,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             top_trials=self.top_trials_,
             mrmr_features=self.mrmr_features_,
             log_dir=study_context.log_dir,
+            num_assigned_cpus=num_assigned_cpus,
         )
 
         # multivariate sampler with group option
@@ -464,8 +454,6 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             bag_id=training_id + "_best",
             trainings=best_trainings,
             target_assignments=study_context.target_assignments,
-            parallel_execution=self.config.inner_parallelization,
-            num_workers=self.config.n_workers,
             target_metric=study_context.target_metric,
             row_id_col=study_context.row_id_col,
             ml_type=study_context.ml_type,
@@ -473,10 +461,10 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         )
 
         # train all models in best_bag
-        best_bag.fit()
+        best_bag.fit(num_assigned_cpus=num_assigned_cpus)
 
         # save performance values of best bag
-        best_bag_performance = best_bag.get_performance()
+        best_bag_performance = best_bag.get_performance(num_assigned_cpus=num_assigned_cpus)
         logger.info(f"Best bag performance {best_bag_performance}")
         target_metric = study_context.target_metric
 
@@ -492,7 +480,9 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         # calculate feature importances of best bag
         fi_methods = self.config.fi_methods_bestbag
-        best_bag_fi = best_bag.calculate_feature_importances(fi_methods, partitions=["dev"])
+        best_bag_fi = best_bag.calculate_feature_importances(
+            fi_methods, partitions=["dev"], num_assigned_cpus=num_assigned_cpus
+        )
 
         # calculate selected features
         selected_features = best_bag.get_selected_features(fi_methods)
@@ -500,7 +490,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         # save best bag and results to local dict
         results["best"] = {
             "scores": best_bag_performance,
-            "predictions": best_bag.get_predictions(),
+            "predictions": best_bag.get_predictions(num_assigned_cpus=num_assigned_cpus),
             "feature_importances": best_bag_fi,
             "_bag": best_bag,
         }

@@ -531,7 +531,7 @@ class Training:
     # (4) model predictions
     # (5) calculate feature importance, on request
 
-    def fit(self):
+    def fit(self) -> "Training":
         """Preprocess and fit model."""
         # use copy of all train variables, as they may be change due to outlier detec.
         data_train = self.data_train.copy()

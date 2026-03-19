@@ -2,6 +2,7 @@
 
 import heapq
 
+from optuna.trial import Trial
 from upath import UPath
 
 from octopus.datasplit import InnerSplits
@@ -43,6 +44,7 @@ class ObjectiveOptuna:
         top_trials,
         mrmr_features,
         log_dir: UPath,
+        num_assigned_cpus: int,
     ):
         self.outersplit_task_id = outersplit_task_id
         self.outersplit_id = outersplit_id
@@ -72,13 +74,11 @@ class ObjectiveOptuna:
         self.hyper_parameters = self.config.hyperparameters
         # fixed parameters
         self.ml_seed = self.config.model_seed
-        self.ml_jobs = self.config.n_jobs
         # training parameters
-        self.parallel_execution = self.config.inner_parallelization
-        self.num_workers = self.config.n_workers
         self.log_dir = log_dir
+        self.num_assigned_cpus = num_assigned_cpus
 
-    def __call__(self, trial):
+    def __call__(self, trial: Trial) -> float:
         """Call.
 
         We have different types of parameters:
@@ -115,7 +115,7 @@ class ObjectiveOptuna:
             trial,
             ml_model_type,
             self.hyper_parameters,
-            n_jobs=self.ml_jobs,
+            n_jobs=1,  # inner parallelization happens over inner splits, so we do not allow any further parallelization here.  # TODO: how about setting parallelization over inner splits and then compute n_jobs accordingly?
             model_seed=self.ml_seed,
         )
 
@@ -152,8 +152,6 @@ class ObjectiveOptuna:
             bag_id=self.outersplit_task_id + "_" + str(trial.number),
             trainings=trainings,
             target_assignments=self.target_assignments,
-            parallel_execution=self.parallel_execution,
-            num_workers=self.num_workers,
             target_metric=self.target_metric,
             row_id_col=self.row_id_col,
             ml_type=self.ml_type,
@@ -162,11 +160,10 @@ class ObjectiveOptuna:
         )
 
         # train all models in bag
-        # print("config_training", config_training)
-        bag_trainings.fit()
+        bag_trainings.fit(num_assigned_cpus=self.num_assigned_cpus)
 
         # evaluate trainings using target metric
-        bag_performance = bag_trainings.get_performance()
+        bag_performance = bag_trainings.get_performance(num_assigned_cpus=self.num_assigned_cpus)
 
         # get number of features used in bag
         n_features_mean = bag_trainings.n_features_used_mean
@@ -183,7 +180,7 @@ class ObjectiveOptuna:
 
         # define optuna target
         if self.config.optuna_return == OptunaReturnType.POOL:
-            optuna_target = bag_performance["dev_pool"]
+            optuna_target: float = bag_performance["dev_pool"]
         else:
             optuna_target = bag_performance["dev_avg"]
 

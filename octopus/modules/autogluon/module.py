@@ -18,17 +18,6 @@ class AutoGluon(Task):
     Uses AutoGluon's TabularPredictor to automatically train and select
     the best model from an ensemble of models. Provides automatic feature
     engineering, hyperparameter optimization, and model selection.
-
-    Configuration:
-        verbosity: Logging verbosity (0=exceptions only, 4=maximum)
-        time_limit: Training time limit in seconds
-        infer_limit: Inference time limit per row
-        memory_limit: Memory limit in GB
-        fit_strategy: Sequential or parallel fitting
-        presets: AutoGluon quality presets
-        num_cpus: Number of CPUs to use
-        num_bag_folds: Number of cross-validation folds
-        included_model_types: Specific model types to include
     """
 
     verbosity: int = field(default=2, validator=validators.instance_of(int))
@@ -50,7 +39,7 @@ class AutoGluon(Task):
         converter=AutoGluonFitStrategy,
         validator=validators.in_(list(AutoGluonFitStrategy)),
     )
-    """Model fitting strategy."""
+    """Model fitting strategy: Sequential or parallel fitting."""
 
     presets: list[str] = field(
         default=["medium_quality"],
@@ -74,11 +63,6 @@ class AutoGluon(Task):
         ),
     )
     """AutoGluon quality presets."""
-
-    num_cpus: int | Literal["auto"] = field(
-        default="auto", validator=validators.or_(validators.instance_of(int), validators.in_(["auto"]))
-    )
-    """Number of CPUs to use."""
 
     num_bag_folds: int = field(default=5, validator=[validators.instance_of(int), validators.gt(1)])
     """Number of bagging/cross-validation folds."""

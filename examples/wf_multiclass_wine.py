@@ -36,7 +36,6 @@ study = OctoClassification(
     stratification_col="target",
     datasplit_seed_outer=1234,
     ignore_data_health_warning=True,
-    outer_parallelization=True,
     run_single_outersplit_num=0,  # only process first outersplit, for quick testing
     workflow=[
         Octo(
@@ -51,11 +50,8 @@ study = OctoClassification(
                 ModelName.CatBoostClassifier,
             ],
             model_seed=0,
-            n_jobs=1,
             max_outl=0,
             fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-            inner_parallelization=True,
-            n_workers=5,
             n_trials=20,
         ),
     ],
