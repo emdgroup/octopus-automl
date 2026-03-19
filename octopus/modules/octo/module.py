@@ -62,9 +62,6 @@ class Octo(Task):
     model_seed: int = field(validator=[validators.instance_of(int)], default=0)
     """Model seed."""
 
-    n_jobs: int = field(validator=[validators.instance_of(int)], default=1)
-    """Number of CPUs used for every model training."""
-
     max_outl: int = field(validator=[validators.instance_of(int)], default=3)
     """Maximum number of outliers, optimized by Optuna"""
 
@@ -79,12 +76,6 @@ class Octo(Task):
         ),
     )
     """Feature importance methods for best bag."""
-
-    inner_parallelization: bool = field(validator=[validators.instance_of(bool)], default=True)
-    """Enable inner parallelization. Defaults is True."""
-
-    n_workers: int = field(default=None)
-    """Number of workers."""
 
     optuna_seed: int = field(validator=[validators.instance_of(int)], default=0)
     """Seed for Optuna TPESampler, default=0"""
@@ -121,14 +112,7 @@ class Octo(Task):
     """How to calculate the bag performance for the optuna optimization target."""
 
     def __attrs_post_init__(self):
-        # (1) set default of n_workers to n_folds_inner
-        if self.n_workers is None:
-            self.n_workers = self.n_folds_inner
-        if self.n_workers != self.n_folds_inner:
-            logger.warning(
-                f"Octofull Warning: n_workers ({self.n_workers}) does not match n_folds_inner ({self.n_folds_inner})",
-            )
-        # (2) Only enforce constrained-HPO compatibility when max_features > 0 and models are specified
+        # Only enforce constrained-HPO compatibility when max_features > 0 and models are specified
         if self.max_features > 0 and self.models is not None:
             incompatible_models: list[ModelName] = []
 

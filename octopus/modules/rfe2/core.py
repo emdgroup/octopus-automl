@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
@@ -68,7 +68,6 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             y_traindev,
             feature_cols,
             outersplit_id,
-            num_assigned_cpus,
             scratch_dir,
             results_dir,
         )
@@ -80,13 +79,14 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
 
         # (1) model training and optimization
         self._run_globalhp_optimization(
-            study_context,
-            data_test,
-            feature_cols,
-            feature_groups,
-            outersplit_id,
-            results_dir,
-            results,
+            study_context=study_context,
+            data_test=data_test,
+            feature_cols=feature_cols,
+            feature_groups=feature_groups,
+            outersplit_id=outersplit_id,
+            num_assigned_cpus=num_assigned_cpus,
+            results_dir=results_dir,
+            results=results,
         )
 
         # (2) Get best bag from Octo results
@@ -125,10 +125,12 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
                 break
 
             # retrain bag and calculate feature importances
-            bag = self._retrain_and_calc_fi(bag, data_traindev, new_features)
+            bag = self._retrain_and_calc_fi(
+                bag=bag, data_traindev=data_traindev, new_features=new_features, num_assigned_cpus=num_assigned_cpus
+            )
 
             # get scores
-            bag_scores = bag.get_performance()
+            bag_scores = bag.get_performance(num_assigned_cpus=num_assigned_cpus)
 
             # record performance
             dev_lst = bag_scores["dev_lst"]
@@ -166,7 +168,7 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
                 selected_row = self.rfe_results_.loc[self.rfe_results_["performance_mean"].idxmax()]
 
         # save results
-        best_model = selected_row["model"]
+        best_model = cast("BagBase", selected_row["model"])
         selected_features = best_model.get_selected_features(fi_methods=[self.config.fi_method_rfe])
 
         print("RFE solution:")
@@ -178,11 +180,11 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         print("Selected features:", selected_row["features"])
 
         # Build flat scores DataFrame from best_model
-        scores = best_model.get_performance_df(metric=study_context.target_metric)
+        scores = best_model.get_performance_df(metric=study_context.target_metric, num_assigned_cpus=num_assigned_cpus)
         scores["result_type"] = ResultType.BEST
 
         # Build flat predictions DataFrame
-        predictions = best_model.get_predictions_df()
+        predictions = best_model.get_predictions_df(num_assigned_cpus=num_assigned_cpus)
         if not predictions.empty:
             predictions["result_type"] = ResultType.BEST
 
@@ -221,7 +223,9 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             f", Perf_sem: {last_row['performance_sem']:.4f}"
         )
 
-    def _retrain_and_calc_fi(self, bag: BagBase, data_traindev: pd.DataFrame, new_features: list) -> BagBase:
+    def _retrain_and_calc_fi(
+        self, bag: BagBase, data_traindev: pd.DataFrame, new_features: list[str], num_assigned_cpus: int
+    ) -> BagBase:
         """Retrain bag using new feature set and calculate feature importances."""
         bag = copy.deepcopy(bag)
 
@@ -232,10 +236,12 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             training.feature_groups = feature_groups
 
         # retrain bag
-        bag.fit()
+        bag.fit(num_assigned_cpus=num_assigned_cpus)
 
         # calculate feature importances
-        bag.calculate_feature_importances([self.config.fi_method_rfe], partitions=["dev"])
+        bag.calculate_feature_importances(
+            [self.config.fi_method_rfe], partitions=["dev"], num_assigned_cpus=num_assigned_cpus
+        )
 
         return bag
 

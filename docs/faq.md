@@ -31,7 +31,7 @@ Setting `num_cpus` to 1 disables all parallel processing and runs the study sequ
 
 Internally, the `ResourceConfig` class is responsible for handling these constraints. Therein, nomenclature is as follows:
 
-* `num_cpus` is the user-defined number of CPUs to be used as described above.
+* `num_cpus`, `num_cpus_user` is the user-defined number of CPUs to be used as described above.
 * `available_cpus` is the absolute total number of CPUs available for `octopus` (no negative values, zero, None). Deduced from `num_cpus` and the hardware capabilities of the machine.
 * `num_workers` is the number of parallel processes for the outer parallelization, i.e. the number of outer splits to be performed in parallel.
 * `cpus_per_worker` is the number of CPUs available for inner parallelization, i.e. within an outer split.
@@ -61,14 +61,11 @@ More complex setups (distributed compute, existing [ray clusters](https://docs.r
 export RAY_ADDRESS=127.0.0.1:6379
 ```
 
-Then, `octopus` will not initialize ray by itself but will instead check whether required resources are available on the cluster and make use of them.
-
-In order to properly manage the number of parallel workers, `octopus` uses a custom resource called `outer_parallelization_workers`.
-It defines the number of workers that are allowed to run on the ray node.
-Thus, in order to start one local node that can accommodate up to four parallel workers with two cpus per worker, you can use the following command.
+Then, `octopus` will not initialize ray by itself but will instead check which resources are available on the cluster and make use of them.
+Thus, in order to start one local node with 8 CPUs reserved for parallel processing, you can use the following command.
 
 ```bash
-ray start --head --port=6379 --num-cpus=8 --resources='{"outer_parallelization_workers": 4}'
+ray start --head --port=6379 --num-cpus=8
 ```
 
 Then, this ray cluster can be used for `octopus` studies as follows:
@@ -77,6 +74,8 @@ Then, this ray cluster can be used for `octopus` studies as follows:
 RAY_ADDRESS=127.0.0.1:6379 python examples/wf_octo_autogluon.py
 ```
 
+If you set `RAY_ADDRESS=auto`, `octopus` will try to connect to a running ray cluster, see [`ray.init`](https://docs.ray.io/en/latest/ray-core/api/doc/ray.init.html#ray-init) for details.
+
 ## Does `octopus` support distributed memory parallelization, e.g. on an HPC system?
 
 Via [Ray](https://docs.ray.io/en/latest/ray-core/walkthrough.html), distributed compute is supported by `octopus`.
@@ -84,9 +83,9 @@ Currently, we do not test this extensively, but something like the following sho
 
 ```bash
 # start the head node
-RAY_ENABLE_WINDOWS_OR_OSX_CLUSTER=1 ray start --head --port=6379 --num-cpus=8 --resources='{"outer_parallelization_workers": 4}'
+RAY_ENABLE_WINDOWS_OR_OSX_CLUSTER=1 ray start --head --port=6379 --num-cpus=8
 # start some workers (e.g. on different distributed memory nodes)
-RAY_ENABLE_WINDOWS_OR_OSX_CLUSTER=1 ray start --address='<HEAD_NODE_IP>:6379' --num-cpus=8 --resources='{"outer_parallelization_workers": 4}'
+RAY_ENABLE_WINDOWS_OR_OSX_CLUSTER=1 ray start --address='<HEAD_NODE_IP>:6379' --num-cpus=8
 ...
 
 # run octopus

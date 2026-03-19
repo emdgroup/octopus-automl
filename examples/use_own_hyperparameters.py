@@ -36,7 +36,6 @@ study = OctoRegression(
     target_col="target",
     sample_id_col="index",
     ignore_data_health_warning=True,
-    outer_parallelization=False,
     run_single_outersplit_num=0,
     workflow=[
         Octo(

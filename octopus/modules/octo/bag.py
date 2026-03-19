@@ -3,7 +3,7 @@
 # import concurrent.futures
 # import logging
 from statistics import mean
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -13,16 +13,9 @@ from upath import UPath
 
 # sklearn imports for compatibility
 from octopus.logger import get_logger
-from octopus.manager.ray_parallel import (
-    init_ray,
-    run_parallel_inner,
-)
+from octopus.manager import ray_parallel
 from octopus.metrics.utils import get_performance_from_predictions
-
-if TYPE_CHECKING:
-    from octopus.modules.octo.training import Training
-
-from octopus.modules.octo.training import fi_storage_key, parse_fi_storage_key
+from octopus.modules.octo.training import Training, fi_storage_key, parse_fi_storage_key
 
 # Adjust this import path as needed depending on your package layout
 from octopus.types import DataPartition, FIComputeMethod, LogGroup, MLType
@@ -33,14 +26,14 @@ logger = get_logger()
 class TrainingWithLogging:
     """Logging class for trainings."""
 
-    def __init__(self, inner_training, idx, logger, log_group_cls, log_prefix="EXP"):
+    def __init__(self, inner_training: Training, idx: int, logger, log_group_cls, log_prefix: str = "EXP"):
         self._inner = inner_training
         self._idx = idx
         self._logger = logger
         self._log_group_cls = log_group_cls
         self._log_prefix = log_prefix
 
-    def fit(self):
+    def fit(self) -> Training:
         """Fit function."""
         # Your logging policy lives here
         self._logger.set_log_group(self._log_group_cls.PROCESSING, f"{self._log_prefix} {self._idx}")
@@ -52,14 +45,13 @@ class TrainingWithLogging:
             return result
         except Exception as e:
             self._logger.exception(f"Exception occurred while executing training {self._idx}: {e!s}")
-            # Decide your policy: raise to fail-fast, or return a sentinel to continue.
-            return None  # or: raise
+            raise e
 
 
 class FeatureImportanceWithLogging:
     """Logging wrapper for feature importance calculations."""
 
-    def __init__(self, training, idx, fi_type, partition, logger, log_group_cls, log_prefix="FI"):
+    def __init__(self, training: Training, idx, fi_type, partition, logger, log_group_cls, log_prefix="FI"):
         self._training = training
         self._idx = idx
         self._fi_type = fi_type
@@ -68,7 +60,7 @@ class FeatureImportanceWithLogging:
         self._log_group_cls = log_group_cls
         self._log_prefix = log_prefix
 
-    def fit(self):
+    def fit(self) -> Training:
         """Calculate feature importance for the training.
 
         Uses fit() method for Ray compatibility.
@@ -101,10 +93,6 @@ class BagBase(BaseEstimator):
 
     bag_id: str = field(validator=[validators.instance_of(str)])
     trainings: list["Training"] = field(validator=[validators.instance_of(list)])
-    # same config parameters (execution type, num_workers) also used for
-    # parallelization of optuna optimizations of individual inner loop trainings
-    parallel_execution: bool = field(validator=[validators.instance_of(bool)])
-    num_workers: int = field(validator=[validators.instance_of(int)])
     target_metric: str = field(validator=[validators.instance_of(str)])
     target_assignments: dict = field(validator=[validators.instance_of(dict)])
     row_id_col: str = field(validator=[validators.instance_of(str)])
@@ -222,8 +210,6 @@ class BagBase(BaseEstimator):
         """Get parameters for this estimator (sklearn requirement)."""
         return {
             "bag_id": self.bag_id,
-            "parallel_execution": self.parallel_execution,
-            "num_workers": self.num_workers,
             "target_metric": self.target_metric,
             "ml_type": self.ml_type,
         }
@@ -246,18 +232,24 @@ class BagBase(BaseEstimator):
             },
         }
 
-    def _train_parallel(self):
+    def _train_parallel(self, num_assigned_cpus: int):
         """Run trainings in parallel using Ray (delegated to ray_parallel)."""
-        # Ensure Ray is initialized before parallel execution
-        init_ray(start_local_if_missing=True)
-
-        # Prepare wrapped trainings with logging
-        wrapped = [
-            TrainingWithLogging(t, idx, logger, LogGroup, log_prefix="EXP") for idx, t in enumerate(self.trainings)
-        ]
         # Orchestrate with Ray; exceptions propagate only if your wrapper re-raises.
-        results = run_parallel_inner(wrapped, log_dir=self.log_dir)
-        self.trainings = results
+        self.trainings = ray_parallel.run_parallel_inner(
+            self.bag_id,
+            trainings=[
+                TrainingWithLogging(
+                    inner_training=t,
+                    idx=idx,
+                    logger=logger,
+                    log_group_cls=LogGroup,
+                    log_prefix="EXP",
+                )
+                for idx, t in enumerate(self.trainings)
+            ],
+            log_dir=self.log_dir,
+            num_assigned_cpus=num_assigned_cpus,
+        )
 
     def _train_sequential(self):
         """Run trainings sequentially in the current process."""
@@ -294,10 +286,10 @@ class BagBase(BaseEstimator):
 
         self.trainings = successful_trainings
 
-    def fit(self):
+    def fit(self, num_assigned_cpus: int):
         """Run all available trainings."""
-        if self.parallel_execution is True:
-            self._train_parallel()
+        if num_assigned_cpus > 1:
+            self._train_parallel(num_assigned_cpus)
         else:
             self._train_sequential()
 
@@ -313,8 +305,11 @@ class BagBase(BaseEstimator):
 
         self.n_features_used_mean = mean(n_feat_lst)
 
-    def get_predictions(self):
+    def get_predictions(self, num_assigned_cpus: int):
         """Extract bag predictions for train, dev, and test.
+
+        Args:
+            num_assigned_cpus: Number of CPUs to use for parallel processing.
 
         Returns:
             dict: Dictionary containing predictions for each training and ensemble.
@@ -323,7 +318,7 @@ class BagBase(BaseEstimator):
         if not self.train_status:
             logger.set_log_group(LogGroup.TRAINING)
             logger.info("Running trainings first to be able to get scores")
-            self.fit()
+            self.fit(num_assigned_cpus)
 
         predictions = {}
         pool: dict[str, list[pd.DataFrame]] = {key: [] for key in ["train", "dev", "test"]}
@@ -370,10 +365,11 @@ class BagBase(BaseEstimator):
 
         return predictions
 
-    def get_performance(self, metric: str | None = None):
+    def get_performance(self, num_assigned_cpus: int, metric: str | None = None):
         """Get performance using get_performance_from_predictions utility.
 
         Args:
+            num_assigned_cpus: Number of CPUs to use for parallel processing when getting predictions.
             metric: The metric to evaluate. Defaults to self.target_metric when None.
 
         Returns:
@@ -383,7 +379,7 @@ class BagBase(BaseEstimator):
             metric = self.target_metric
 
         # Get predictions from the bag
-        predictions = self.get_predictions()
+        predictions = self.get_predictions(num_assigned_cpus=num_assigned_cpus)
 
         # Calculate performance using the utility function
         performance = get_performance_from_predictions(
@@ -423,16 +419,17 @@ class BagBase(BaseEstimator):
 
         return performance_output
 
-    def get_performance_df(self, metric: str) -> pd.DataFrame:
+    def get_performance_df(self, num_assigned_cpus: int, metric: str) -> pd.DataFrame:
         """Convert get_performance() dict to standard scores DataFrame.
 
         Args:
+            num_assigned_cpus: Number of CPUs to use for parallel processing.
             metric: The metric name (e.g. "MAE", "accuracy").
 
         Returns:
             DataFrame with columns: metric, partition, aggregation, fold, value
         """
-        perf = self.get_performance(metric=metric)
+        perf = self.get_performance(num_assigned_cpus=num_assigned_cpus, metric=metric)
         rows = []
 
         # Per-fold scores
@@ -475,13 +472,16 @@ class BagBase(BaseEstimator):
 
         return pd.DataFrame(rows)
 
-    def get_predictions_df(self) -> pd.DataFrame:
+    def get_predictions_df(self, num_assigned_cpus: int) -> pd.DataFrame:
         """Concat all training predictions into a single DataFrame.
+
+        Args:
+            num_assigned_cpus: Number of CPUs to use for parallel processing.
 
         Returns:
             DataFrame with all predictions from get_predictions().
         """
-        predictions = self.get_predictions()
+        predictions = self.get_predictions(num_assigned_cpus=num_assigned_cpus)
         all_dfs = []
         for _split_id, partitions in predictions.items():
             if isinstance(partitions, dict):
@@ -519,33 +519,32 @@ class BagBase(BaseEstimator):
             return pd.concat(all_dfs, ignore_index=True)
         return pd.DataFrame()
 
-    def _calculate_fi_parallel(self, fi_type=FIComputeMethod.INTERNAL, partition=DataPartition.DEV):
+    def _calculate_fi_parallel(self, fi_type: FIComputeMethod, partition: str, num_assigned_cpus: int):
         """Calculate feature importance in parallel using Ray."""
-        # Ensure Ray is initialized before parallel execution
-        init_ray(start_local_if_missing=True)
-
-        # Prepare wrapped trainings with logging for feature importance calculation
-        wrapped = [
-            FeatureImportanceWithLogging(
-                training=t,
-                idx=idx,
-                fi_type=fi_type,
-                partition=partition,
-                logger=logger,
-                log_group_cls=LogGroup,
-                log_prefix="FI",
-            )
-            for idx, t in enumerate(self.trainings)
-        ]
-
         # Execute feature importance calculations in parallel
         # Use the same pattern as training execution
-        results = run_parallel_inner(wrapped, log_dir=self.log_dir, num_cpus=1)
+        results = ray_parallel.run_parallel_inner(
+            bag_id=self.bag_id,
+            trainings=[
+                FeatureImportanceWithLogging(
+                    training=t,
+                    idx=idx,
+                    fi_type=fi_type,
+                    partition=partition,
+                    logger=logger,
+                    log_group_cls=LogGroup,
+                    log_prefix="FI",
+                )
+                for idx, t in enumerate(self.trainings)
+            ],
+            log_dir=self.log_dir,
+            num_assigned_cpus=num_assigned_cpus,
+        )
 
         # Update trainings with results (should be the same objects with FI calculated)
         self.trainings = results
 
-    def _calculate_fi_sequential(self, fi_type=FIComputeMethod.INTERNAL, partition=DataPartition.DEV):
+    def _calculate_fi_sequential(self, fi_type: FIComputeMethod, partition: str):
         """Calculate feature importance sequentially."""
         successful_calculations = []
         failed_calculations = []
@@ -583,10 +582,10 @@ class BagBase(BaseEstimator):
 
         self.trainings = successful_calculations
 
-    def _calculate_fi(self, fi_type=FIComputeMethod.INTERNAL, partition=DataPartition.DEV):
+    def _calculate_fi(self, fi_type: FIComputeMethod, num_assigned_cpus: int, partition=DataPartition.DEV):
         """Calculate feature importance using parallel or sequential execution."""
-        if self.parallel_execution:
-            self._calculate_fi_parallel(fi_type=fi_type, partition=partition)
+        if num_assigned_cpus > 1:
+            self._calculate_fi_parallel(fi_type=fi_type, partition=partition, num_assigned_cpus=num_assigned_cpus)
         else:
             self._calculate_fi_sequential(fi_type=fi_type, partition=partition)
 
@@ -650,7 +649,10 @@ class BagBase(BaseEstimator):
         return sorted(feat_all, key=lambda x: (len(x), sorted(x)))
 
     def calculate_feature_importances(
-        self, fi_methods: list[FIComputeMethod] | None = None, partitions: list[DataPartition | str] | None = None
+        self,
+        fi_methods: list[FIComputeMethod] | None,
+        partitions: list[DataPartition | str] | None,
+        num_assigned_cpus: int,
     ):
         """Extract feature importances of all models in bag."""
         # we always extract internal feature importances, if available
@@ -659,16 +661,16 @@ class BagBase(BaseEstimator):
         if partitions is None:
             partitions = [DataPartition.DEV, DataPartition.TEST]
 
-        self._calculate_fi(fi_type=FIComputeMethod.INTERNAL)
+        self._calculate_fi(fi_type=FIComputeMethod.INTERNAL, num_assigned_cpus=num_assigned_cpus)
 
         for method in fi_methods:
             if method == FIComputeMethod.INTERNAL:
                 continue  # already done
             elif method in (FIComputeMethod.SHAP, FIComputeMethod.PERMUTATION):
                 for partition in partitions:
-                    self._calculate_fi(fi_type=method, partition=partition)
+                    self._calculate_fi(fi_type=method, partition=partition, num_assigned_cpus=num_assigned_cpus)
             elif method in (FIComputeMethod.LOFO, FIComputeMethod.CONSTANT):
-                self._calculate_fi(fi_type=method)
+                self._calculate_fi(fi_type=method, num_assigned_cpus=num_assigned_cpus)
             else:
                 raise ValueError(f"Feature importance method {method} not supported.")
 

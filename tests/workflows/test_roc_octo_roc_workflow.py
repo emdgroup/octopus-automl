@@ -69,10 +69,8 @@ class TestRocOctoRocWorkflow:
                 n_folds_inner=3,
                 models=[ModelName.ExtraTreesClassifier],
                 model_seed=0,
-                n_jobs=1,
                 max_outl=0,
                 fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-                inner_parallelization=True,
                 n_trials=6,
             ),
             Roc(
@@ -141,7 +139,6 @@ class TestRocOctoRocWorkflow:
                         n_folds_inner=3,
                         models=[ModelName.ExtraTreesClassifier],
                         model_seed=0,
-                        n_jobs=1,
                         n_trials=15,
                     ),
                     Roc(
@@ -266,7 +263,6 @@ class TestRocOctoRocWorkflow:
                 n_folds_outer=2,
                 path=temp_dir,
                 ignore_data_health_warning=True,
-                outer_parallelization=False,
                 run_single_outersplit_num=0,
                 workflow=[
                     Roc(
@@ -284,9 +280,7 @@ class TestRocOctoRocWorkflow:
                         n_folds_inner=5,
                         models=[ModelName.ExtraTreesClassifier],
                         model_seed=0,
-                        n_jobs=1,
                         n_trials=13,
-                        inner_parallelization=True,
                         fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
                     ),
                     Roc(

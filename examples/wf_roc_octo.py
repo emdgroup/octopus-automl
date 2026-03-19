@@ -39,7 +39,6 @@ study = OctoClassification(
     stratification_col="target",
     datasplit_seed_outer=1234,
     ignore_data_health_warning=True,
-    outer_parallelization=True,
     run_single_outersplit_num=0,  # Process only first outersplit for quick testing
     workflow=[
         # Step 0: ROC - Remove highly correlated features and apply statistical filtering
@@ -64,12 +63,8 @@ study = OctoClassification(
                 # ModelName.RandomForestClassifier,
             ],
             model_seed=0,
-            n_jobs=1,
             max_outl=0,  # No outlier removal
             fi_methods_bestbag=[FIComputeMethod.PERMUTATION],  # Feature importance method
-            # Parallelization settings
-            inner_parallelization=True,
-            n_workers=5,
             # Hyperparameter optimization with Optuna
             optuna_seed=0,
             n_optuna_startup_trials=10,

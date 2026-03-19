@@ -191,7 +191,6 @@ class TestFSSpecIntegration:
                     n_folds_outer=2,
                     path=root_dir,
                     ignore_data_health_warning=True,
-                    outer_parallelization=False,
                     run_single_outersplit_num=0,
                     workflow=[
                         Octo(
@@ -201,11 +200,8 @@ class TestFSSpecIntegration:
                             n_folds_inner=3,
                             models=[ModelName.ExtraTreesClassifier],
                             model_seed=0,
-                            n_jobs=1,
                             max_outl=0,
                             fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-                            inner_parallelization=False,
-                            n_workers=1,
                             optuna_seed=0,
                             n_optuna_startup_trials=3,
                             n_trials=2,

@@ -80,7 +80,6 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
         n_folds_outer=2,
         path=tmp_path,
         ignore_data_health_warning=True,
-        outer_parallelization=False,
         workflow=[
             Octo(
                 description="step_1_octo",
@@ -89,11 +88,8 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
                 n_folds_inner=3,
                 models=[ModelName.ExtraTreesClassifier],
                 model_seed=0,
-                n_jobs=1,
                 max_outl=0,
                 fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-                inner_parallelization=True,
-                n_workers=2,
                 optuna_seed=0,
                 n_optuna_startup_trials=3,
                 n_trials=5,

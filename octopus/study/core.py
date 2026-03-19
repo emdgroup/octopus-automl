@@ -65,11 +65,15 @@ class OctoStudy(ABC):
     ignore_data_health_warning: bool = field(default=Factory(lambda: False), validator=[validators.instance_of(bool)])
     """Ignore data health checks warning and run machine learning workflow."""
 
-    outer_parallelization: bool = field(default=Factory(lambda: True), validator=[validators.instance_of(bool)])
-    """Indicates whether outer parallelization is enabled. Defaults to True."""
+    num_cpus: int = field(default=0, validator=validators.instance_of(int))
+    """Number of CPUs to use for parallel processing. Default value 0 uses all available CPUs.
+       Negative values indicate abs(num_cpus) to leave free, e.g. -1 means use all but one CPU.
+       Set to 1 to disable all parallel processing and run sequentially."""
 
-    run_single_outersplit_num: int = field(default=Factory(lambda: -1), validator=[validators.instance_of(int)])
-    """Select a single outersplit to execute. Defaults to -1 to run all outersplits"""
+    run_single_outersplit_num: int | None = field(
+        default=None, validator=validators.optional(validators.instance_of(int))
+    )
+    """Select a single outersplit to execute. Defaults to None to run all outersplits"""
 
     workflow: Sequence[Task] = field(
         default=Factory(lambda: [Octo(task_id=0)]),
@@ -344,7 +348,7 @@ class OctoStudy(ABC):
             outersplit_data=outersplit_data,
             study_context=study_context,
             workflow=self.workflow,
-            outer_parallelization=self.outer_parallelization,
+            num_cpus=self.num_cpus,
             run_single_outersplit_num=self.run_single_outersplit_num,
         )
         manager.run_outersplits()

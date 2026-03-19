@@ -57,7 +57,6 @@ class TestAutogluonWorkflows:
             n_folds_outer=5,
             path=self.studies_path,
             ignore_data_health_warning=True,
-            outer_parallelization=True,
             run_single_outersplit_num=0,
             workflow=[
                 AutoGluon(
@@ -123,7 +122,6 @@ class TestAutogluonWorkflows:
             n_folds_outer=2,
             path=self.studies_path,
             ignore_data_health_warning=True,
-            outer_parallelization=False,
             run_single_outersplit_num=0,
             workflow=[
                 AutoGluon(
