@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 
 from attrs import Attribute
 
-from octopus.modules import Mrmr, Roc, Task
-from octopus.types import RelevanceMethod
+from octopus.modules import Task
+from octopus.modules.mrmr import Mrmr
+from octopus.types import FIComputeMethod, MLType, MRMRRelevance
 
 if TYPE_CHECKING:
     from octopus.study.core import OctoStudy
@@ -55,8 +56,9 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Seque
     if value[0].task_id != 0:
         raise ValueError(f"The first task must have 'task_id=0', but got 'task_id={value[0].task_id}'.")
 
-    # Build mapping of task_id to index and collect task_ids
+    # Build mapping of task_id to index/task and collect task_ids
     task_id_to_index = {}
+    task_id_to_task: dict[int, Task] = {}
     task_ids = []
     previous_task_id = None
     for idx, item in enumerate(value):
@@ -73,6 +75,7 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Seque
         if item.task_id in task_id_to_index:
             raise ValueError(f"Duplicate 'task_id' {item.task_id} found in the workflow.")
         task_id_to_index[item.task_id] = idx
+        task_id_to_task[item.task_id] = item
         task_ids.append(item.task_id)
 
     # Condition 3: All task_ids form a complete integer sequence with no missing
@@ -122,21 +125,47 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Seque
                     " refer to a preceding 'task_id'."
                 )
 
-    # Condition 7: Mrmr with relevance_method=PERMUTATION must depend on a module
-    # that produces feature importances (not Roc or Mrmr)
-    _MODULES_WITHOUT_FI = (Roc, Mrmr)
+    # Condition 7: MRMR with FROM_DEPENDENCY relevance requires a dependency
     for item in value:
-        if isinstance(item, Mrmr) and item.relevance_method == RelevanceMethod.PERMUTATION:
-            if item.depends_on is None:
+        if isinstance(item, Mrmr) and item.relevance_type == MRMRRelevance.FROM_DEPENDENCY and item.depends_on is None:
+            raise ValueError(
+                f"MRMR task (task_id={item.task_id}) uses FROM_DEPENDENCY relevance "
+                "but has no dependency. It requires feature importance from an upstream task."
+            )
+
+    # Condition 8: MRMR fi_method must be available from the upstream task
+    for item in value:
+        if not (isinstance(item, Mrmr) and item.relevance_type == MRMRRelevance.FROM_DEPENDENCY):
+            continue
+        if item.depends_on is None:
+            continue  # already caught by condition 7
+        upstream = task_id_to_task[item.depends_on]
+        requested = item.feature_importance_method
+        available = _get_fi_methods(upstream)
+        if available is not None and requested not in available:
+            raise ValueError(
+                f"MRMR task (task_id={item.task_id}) requests fi_method={requested.value!r} "
+                f"but upstream task (task_id={upstream.task_id}) only produces: "
+                f"{[m.value for m in available]}."
+            )
+
+    # Condition 9: MRMR with F_STATISTICS relevance is not supported for time-to-event
+    if _instance.ml_type == MLType.TIMETOEVENT:
+        for item in value:
+            if isinstance(item, Mrmr) and item.relevance_type == MRMRRelevance.F_STATISTICS:
                 raise ValueError(
-                    f"Mrmr (task_id={item.task_id}) with relevance_method='permutation' requires an upstream task "
-                    "that produces feature importances. Set depends_on to an Octo, Boruta, or AutoGluon task."
+                    f"MRMR task (task_id={item.task_id}) uses F_STATISTICS relevance "
+                    "which is not supported for time-to-event studies. Use FROM_DEPENDENCY instead."
                 )
-            upstream_idx = task_id_to_index[item.depends_on]
-            upstream_task = value[upstream_idx]
-            if isinstance(upstream_task, _MODULES_WITHOUT_FI):
-                raise ValueError(
-                    f"Mrmr (task_id={item.task_id}) with relevance_method='permutation' cannot depend on "
-                    f"{type(upstream_task).__name__} (task_id={upstream_task.task_id}) because it does not produce "
-                    "feature importances. Use Octo, Boruta, or AutoGluon as the upstream task."
-                )
+
+
+def _get_fi_methods(task: Task) -> list[FIComputeMethod] | None:
+    """Return the FI methods a task produces, or None if unknown."""
+    from octopus.modules.autogluon import AutoGluon  # noqa: PLC0415
+    from octopus.modules.octo import Octo  # noqa: PLC0415
+
+    if isinstance(task, Octo):
+        return task.fi_methods
+    if isinstance(task, AutoGluon):
+        return [FIComputeMethod.PERMUTATION]
+    return None
