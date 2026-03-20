@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 
 from attrs import Attribute
 
-from octopus.modules import Mrmr, Roc, Task
-from octopus.types import RelevanceMethod
+from octopus.modules import Task
+from octopus.modules.mrmr import Mrmr
+from octopus.types import MLType, MRMRRelevance
 
 if TYPE_CHECKING:
     from octopus.study.core import OctoStudy
@@ -122,21 +123,19 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Seque
                     " refer to a preceding 'task_id'."
                 )
 
-    # Condition 7: Mrmr with relevance_method=PERMUTATION must depend on a module
-    # that produces feature importances (not Roc or Mrmr)
-    _MODULES_WITHOUT_FI = (Roc, Mrmr)
+    # Condition 7: MRMR with FROM_DEPENDENCY relevance requires a dependency
     for item in value:
-        if isinstance(item, Mrmr) and item.relevance_method == RelevanceMethod.PERMUTATION:
-            if item.depends_on is None:
+        if isinstance(item, Mrmr) and item.relevance_type == MRMRRelevance.FROM_DEPENDENCY and item.depends_on is None:
+            raise ValueError(
+                f"MRMR task (task_id={item.task_id}) uses FROM_DEPENDENCY relevance "
+                "but has no dependency. It requires feature importance from an upstream task."
+            )
+
+    # Condition 8: MRMR with F_STATISTICS relevance is not supported for time-to-event
+    if _instance.ml_type == MLType.TIMETOEVENT:
+        for item in value:
+            if isinstance(item, Mrmr) and item.relevance_type == MRMRRelevance.F_STATISTICS:
                 raise ValueError(
-                    f"Mrmr (task_id={item.task_id}) with relevance_method='permutation' requires an upstream task "
-                    "that produces feature importances. Set depends_on to an Octo, Boruta, or AutoGluon task."
-                )
-            upstream_idx = task_id_to_index[item.depends_on]
-            upstream_task = value[upstream_idx]
-            if isinstance(upstream_task, _MODULES_WITHOUT_FI):
-                raise ValueError(
-                    f"Mrmr (task_id={item.task_id}) with relevance_method='permutation' cannot depend on "
-                    f"{type(upstream_task).__name__} (task_id={upstream_task.task_id}) because it does not produce "
-                    "feature importances. Use Octo, Boruta, or AutoGluon as the upstream task."
+                    f"MRMR task (task_id={item.task_id}) uses F_STATISTICS relevance "
+                    "which is not supported for time-to-event studies. Use FROM_DEPENDENCY instead."
                 )
