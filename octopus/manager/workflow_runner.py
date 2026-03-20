@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-import pandas as pd
 import ray
 from attrs import asdict, define, field, validators
 from upath import UPath
@@ -98,23 +97,11 @@ class WorkflowTaskRunner:
         if task.depends_on is not None:
             if task.depends_on not in task_results:
                 raise ValueError(f"Task {task.task_id} depends on task {task.depends_on} which has not run yet")
-            upstream_results = task_results[task.depends_on]
-            feature_cols = upstream_results[ResultType.BEST].selected_features
-            # Build prior_results by concatenating DataFrames from all upstream ModuleResult values
-            prior_results: dict[str, pd.DataFrame] = {}
-            for df_name in ["scores", "predictions", "feature_importances"]:
-                dfs = []
-                for module_result in upstream_results.values():
-                    df = getattr(module_result, df_name)
-                    if isinstance(df, pd.DataFrame) and not df.empty:
-                        out = df.copy()
-                        out["module"] = module_result.module
-                        dfs.append(out)
-                prior_results[df_name] = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-            logger.info(f"Prior results keys: {prior_results.keys()}")
+            dependency_results = task_results[task.depends_on]
+            feature_cols = dependency_results[ResultType.BEST].selected_features
         else:
             feature_cols = self.study_context.feature_cols
-            prior_results = {}
+            dependency_results = {}
 
         # Calculate feature groups
         feature_groups = calculate_feature_groups(outersplit.traindev, feature_cols)
@@ -141,7 +128,7 @@ class WorkflowTaskRunner:
             scratch_dir=scratch_dir,
             num_assigned_cpus=self.cpus_per_outersplit,
             feature_groups=feature_groups,
-            prior_results=prior_results,
+            dependency_results=dependency_results,
         )
 
         self._save_task_context(output_dir, feature_cols, feature_groups)

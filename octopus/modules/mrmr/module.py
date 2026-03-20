@@ -20,10 +20,9 @@ class Mrmr(Task):
     Configuration:
         n_features: Number of features to select
         correlation_type: Type of correlation to measure redundancy
-        relevance_type: Method to calculate relevance (MRMRRelevance.PERMUTATION or MRMRRelevance.INTERNAL)
-        results_module: Module name to filter prior results' feature importances (for permutation relevance)
-        feature_importance_type: Type of FI aggregation (MRMRFIAggregation.MEAN or MRMRFIAggregation.COUNT)
-        feature_importance_method: FI calculation method (FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.INTERNAL, FIComputeMethod.LOFO)
+        relevance_type: Method to calculate relevance (MRMRRelevance.FROM_DEPENDENCY or MRMRRelevance.F_STATISTICS)
+        feature_importance_type: FI aggregation type (only used with FROM_DEPENDENCY relevance)
+        feature_importance_method: FI method to filter from dependency task (only used with FROM_DEPENDENCY relevance)
     """
 
     n_features: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 30))
@@ -37,20 +36,14 @@ class Mrmr(Task):
     """Selection of correlation type."""
 
     relevance_type: MRMRRelevance = field(
-        converter=MRMRRelevance, validator=validators.in_(list(MRMRRelevance)), default=MRMRRelevance.PERMUTATION
+        converter=MRMRRelevance, validator=validators.in_(list(MRMRRelevance)), default=MRMRRelevance.FROM_DEPENDENCY
     )
     """Selection of relevance measure."""
-
-    results_module: str = field(
-        validator=validators.instance_of(str),
-        default="octo",
-    )
-    """Module name from which feature importances were created."""
 
     feature_importance_type: MRMRFIAggregation = field(
         converter=MRMRFIAggregation, validator=validators.in_(list(MRMRFIAggregation)), default=MRMRFIAggregation.MEAN
     )
-    """Selection of feature importance type."""
+    """FI aggregation type. Only used when relevance_type is FROM_DEPENDENCY."""
 
     feature_importance_method: FIComputeMethod = field(
         converter=FIComputeMethod,
@@ -59,7 +52,7 @@ class Mrmr(Task):
         ),
         default=FIComputeMethod.PERMUTATION,
     )
-    """Selection of feature importance method."""
+    """FI method to filter from the dependency task's results. Only used when relevance_type is FROM_DEPENDENCY."""
 
     def create_module(self) -> ModuleExecution:
         """Create MrmrModule execution instance."""

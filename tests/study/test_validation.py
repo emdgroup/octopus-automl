@@ -5,8 +5,8 @@ import tempfile
 import pytest
 
 from octopus.modules import Mrmr, Octo
-from octopus.study import OctoClassification
-from octopus.types import ModelName
+from octopus.study import OctoClassification, OctoTimeToEvent
+from octopus.types import ModelName, MRMRRelevance
 
 
 @pytest.fixture
@@ -153,6 +153,46 @@ class TestWorkflowValidation:
             pytest.raises(ValueError, match="appears after items with 'depends_on' set"),
         ):
             OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+
+    def test_mrmr_from_dependency_without_dependency(self, base_study_kwargs):
+        """Test that MRMR with FROM_DEPENDENCY relevance requires a dependency."""
+        workflow = [
+            Mrmr(task_id=0, depends_on=None, relevance_type=MRMRRelevance.FROM_DEPENDENCY),
+        ]
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            pytest.raises(ValueError, match="FROM_DEPENDENCY relevance but has no dependency"),
+        ):
+            OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+
+    def test_mrmr_fstatistics_without_dependency(self, base_study_kwargs):
+        """Test that MRMR with F_STATISTICS relevance works without a dependency."""
+        workflow = [
+            Mrmr(task_id=0, depends_on=None, relevance_type=MRMRRelevance.F_STATISTICS),
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            study = OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+            assert len(study.workflow) == 1
+
+    def test_mrmr_fstatistics_not_supported_for_timetoevent(self):
+        """Test that MRMR with F_STATISTICS relevance is rejected for time-to-event studies."""
+        workflow = [
+            Mrmr(task_id=0, depends_on=None, relevance_type=MRMRRelevance.F_STATISTICS),
+        ]
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            pytest.raises(ValueError, match="F_STATISTICS relevance which is not supported for time-to-event"),
+        ):
+            OctoTimeToEvent(
+                name="test",
+                target_metric="CI",
+                feature_cols=["f1"],
+                sample_id_col="id",
+                duration_col="duration",
+                event_col="event",
+                path=temp_dir,
+                workflow=workflow,
+            )
 
     def test_valid_multi_task_workflow(self, base_study_kwargs):
         """Test a valid multi-task workflow."""

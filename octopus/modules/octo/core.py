@@ -217,9 +217,9 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         # calculate MRMR features for all feature_numbers
         self.mrmr_features_ = _maxrminr(
-            features=x_traindev,
-            relevance=re_df,
-            requested_feature_counts=feature_numbers,
+            df_features=x_traindev,
+            df_relevance=re_df,
+            n_features_list=feature_numbers,
             correlation_type=CorrelationType.SPEARMAN,
         )
         # add original features
