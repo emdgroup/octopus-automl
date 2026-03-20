@@ -7,13 +7,12 @@ authors = [
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE.txt", "CONTRIBUTORS.md"]
-requires-python =">=3.12,<3.13"
+requires-python =">=3.12,<=3.14"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
