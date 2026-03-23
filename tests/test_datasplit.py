@@ -141,9 +141,6 @@ def test_stratified_splitting_preserves_class_presence_across_folds():
         assert set(split.test["target"]) == {0, 1}
 
 
-@pytest.mark.xfail(
-    reason="Custom data splitting implementation can accidentally create test folds that contain only one class label, even if the datasplit classes from the data preperator contain multiple labels. Will be fixed by replacing the custom implementation with a standard sklearn splitter."
-)
 def test_stratified_group_split_with_mixed_label_group_has_expected_target_counts():
     """Regression test: seed 0 should yield the known stratified target counts per fold."""
     df = pd.DataFrame(
