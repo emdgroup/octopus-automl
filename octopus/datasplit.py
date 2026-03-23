@@ -1,8 +1,5 @@
 """Data splitting utilities for nested cross-validation."""
 
-import random
-
-import numpy as np
 import pandas as pd
 from attrs import Factory, define, field, frozen, validators
 from sklearn.model_selection import KFold, StratifiedKFold
@@ -89,9 +86,6 @@ class DataSplit:
         self, datasplit_seed, name_a: str, name_b: str
     ) -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
         """Get datasplits for single seed."""
-        random.seed(datasplit_seed)
-        np.random.seed(datasplit_seed)
-
         dataset_unique = self.dataset.drop_duplicates(subset=DATASPLIT_COL, keep="first", inplace=False)
         dataset_unique.reset_index(drop=True, inplace=True)
 
