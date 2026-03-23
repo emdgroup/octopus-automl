@@ -8,7 +8,7 @@ import pytest
 from upath import UPath
 
 from octopus.datasplit import OuterSplit
-from octopus.manager import OctoManager
+from octopus.manager import OctoManager, ray_parallel
 from octopus.manager.core import ResourceConfig
 from octopus.manager.workflow_runner import WorkflowTaskRunner
 from octopus.modules import StudyContext
@@ -272,7 +272,6 @@ class TestOctoManager:
     def test_run_outersplits_sequential(self, octo_manager):
         """Test run outersplits sequential."""
         with (
-            patch("octopus.manager.core.shutdown_ray"),
             patch.object(WorkflowTaskRunner, "run") as mock_run,
         ):
             octo_manager.run_outersplits()
@@ -289,8 +288,7 @@ class TestOctoManager:
         )
 
         with (
-            patch("octopus.manager.core.shutdown_ray"),
-            patch("octopus.manager.execution.run_parallel_outer_ray", return_value=[True]) as mock_ray,
+            patch("octopus.manager.ray_parallel.run_parallel_outer", return_value=[True]) as mock_ray,
         ):
             manager.run_outersplits()
             mock_ray.assert_called_once()
@@ -306,7 +304,6 @@ class TestOctoManager:
         )
 
         with (
-            patch("octopus.manager.core.shutdown_ray"),
             patch.object(WorkflowTaskRunner, "run") as mock_run,
         ):
             manager.run_outersplits()
@@ -339,6 +336,8 @@ class TestOctoManager:
                 octo_manager.run_outersplits()
             mock_shutdown.assert_called_once()
 
+        ray_parallel.shutdown_ray()  # Ensure Ray is shut down after test
+
     def test_single_outersplit_resource_allocation(self, study, mock_workflow):
         """Test that single outersplit gets all CPUs when run_single_outersplit_num is set.
 
@@ -364,7 +363,6 @@ class TestOctoManager:
         )
 
         with (
-            patch("octopus.manager.core.shutdown_ray"),
             patch("octopus.manager.core.get_available_cpus", return_value=8),
             patch.object(WorkflowTaskRunner, "__init__", return_value=None) as mock_runner_init,
             patch.object(WorkflowTaskRunner, "run"),
