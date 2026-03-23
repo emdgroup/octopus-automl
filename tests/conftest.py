@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
+import ray
 
 
 @pytest.fixture(autouse=True)
@@ -38,3 +39,10 @@ def pytest_addoption(parser):
         default=False,
         help="Run example tests",
     )
+
+
+@pytest.fixture(autouse=True)
+def check_ray_shutdown():
+    assert not ray.is_initialized(), "Ray should not be initialized at the start of a test"
+    yield
+    assert not ray.is_initialized(), "Ray should not be initialized at the end of a test"
