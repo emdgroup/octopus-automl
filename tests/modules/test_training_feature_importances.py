@@ -268,9 +268,7 @@ def _run_test_body(ml_type: MLType, model_name: str, fi_method: str) -> None:
         "categorical_group": ["nominal_col"],
     }
 
-    training = _create_training_instance(
-        data_train, data_dev, data_test, ml_type, ModelName(model_name), feature_cols, feature_groups
-    )
+    training = _create_training_instance(data_train, data_dev, data_test, ml_type, ModelName(model_name), feature_cols, feature_groups)
     training.fit()
 
     fi_keys = _run_fi_method(training, fi_method)
@@ -341,12 +339,7 @@ def _run_in_subprocess(ml_type: MLType, model_name: str, fi_method: str) -> None
         else:
             header = "Subprocess test failed"
 
-        pytest.fail(
-            f"{header} for {ml_type.value}-{model_name}-{fi_method}\n"
-            f"Exit code: {result.returncode}\n"
-            f"stdout:\n{stdout_tail}\n"
-            f"stderr:\n{stderr_tail}"
-        )
+        pytest.fail(f"{header} for {ml_type.value}-{model_name}-{fi_method}\nExit code: {result.returncode}\nstdout:\n{stdout_tail}\nstderr:\n{stderr_tail}")
 
 
 @pytest.mark.parametrize("ml_type,model_name,fi_method", _generate_model_fi_params())

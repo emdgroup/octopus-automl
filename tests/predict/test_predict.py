@@ -118,24 +118,24 @@ def _run_classification_study() -> str:
     return str(study.output_path)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def study_path():
-    """Run a study once per session and yield its path."""
+    """Run a study once per module and yield its path."""
     path = _run_classification_study()
     yield path
     if _STUDY_TMPDIR is not None:
         _STUDY_TMPDIR.cleanup()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def tpt(study_path):
-    """Session-scoped TaskPredictorTest."""
+    """Module-scoped TaskPredictorTest."""
     return TaskPredictorTest(study_path=study_path, task_id=0)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def tp(study_path):
-    """Session-scoped TaskPredictor."""
+    """Module-scoped TaskPredictor."""
     return TaskPredictor(study_path=study_path, task_id=0)
 
 

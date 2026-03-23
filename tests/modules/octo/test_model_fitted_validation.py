@@ -154,7 +154,7 @@ def get_default_model_params(model_name: ModelName) -> dict:
     return params
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def test_data():
     """Create comprehensive test dataset with mixed data types."""
     np.random.seed(TEST_CONFIG.random_seed)
@@ -214,7 +214,7 @@ def test_data():
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def feature_config():
     """Feature configuration for tests."""
     feature_cols = ["num_col1", "num_col2", "num_col3", "nominal_col", "ordinal_col"]
