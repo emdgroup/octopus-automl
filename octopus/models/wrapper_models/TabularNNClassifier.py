@@ -11,7 +11,10 @@ from sklearn.utils.validation import check_is_fitted
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
+from octopus.logger import get_logger
 from octopus.models.config import OctoArrayLike, OctoMatrixLike
+
+logger = get_logger()
 
 
 class TabularNNClassifier(ClassifierMixin, BaseEstimator):
@@ -30,6 +33,8 @@ class TabularNNClassifier(ClassifierMixin, BaseEstimator):
         activation: Activation function ('relu' or 'elu'). Defaults to 'relu'.
         optimizer: Optimizer type ('adam' or 'adamw'). Defaults to 'adam'.
         random_state: Random seed. Defaults to None.
+        num_threads: Number of threads for PyTorch. Defaults to 1 (set to >1 with caution
+            due to potential deadlocks). If set to 0, number of PyTorch threads will not be limited.
     """
 
     _estimator_type = "classifier"
@@ -45,6 +50,7 @@ class TabularNNClassifier(ClassifierMixin, BaseEstimator):
         activation: str = "relu",
         optimizer: str = "adam",
         random_state: int | None = None,
+        num_threads: int = 1,
     ) -> None:
         self.hidden_sizes = hidden_sizes if hidden_sizes is not None else [200, 100]
         self.dropout = dropout
@@ -55,6 +61,18 @@ class TabularNNClassifier(ClassifierMixin, BaseEstimator):
         self.activation = activation
         self.optimizer = optimizer
         self.random_state = random_state
+        self.num_threads = num_threads
+
+        if self.num_threads < 0:
+            raise ValueError(f"num_threads must be non-negative, got {self.num_threads}.")
+        elif self.num_threads > 0:
+            if self.num_threads > 1:
+                logger.warning(
+                    f"Using {self.num_threads} threads for PyTorch. This may lead to deadlocks in some environments, "
+                    "see https://github.com/pytorch/pytorch/issues/91547#issuecomment-1370011188."
+                )
+
+            torch.set_num_threads(self.num_threads)
 
     def _detect_categorical_columns(self, X: Any) -> tuple[list[str], list[str] | list[int]]:
         """Detect categorical columns from DataFrame.
