@@ -1,8 +1,13 @@
 """Data splitting utilities for nested cross-validation."""
 
+<<<<<<< HEAD
+=======
+from typing import Any
+
+>>>>>>> 1de9f14 (Replace custom datasplit logic by scikit learns built in functions, fixes #84, #384)
 import pandas as pd
 from attrs import Factory, define, field, frozen, validators
-from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
 
 from .logger import get_logger
 from .types import LogGroup
@@ -36,11 +41,13 @@ DATASPLIT_COL = "datasplit_group"
 class DataSplit:
     """Data Split.
 
-    We don't use groupKFold as it does not offer the shuffle option.
-    The StratifiedGroupKfold might work as an alternative (check examples).
-    StratifiedGroupKfold is not available for sklearn 0.24.3
-    which is required for Auto-Sklearn 0.15.
-    stratification_col: contains the group info used for stratification
+    Creates group-aware cross-validation splits using sklearn's built-in splitters.
+
+    - GroupKFold is used for non-stratified splitting.
+    - StratifiedGroupKFold is used when ``stratification_col`` is provided.
+
+    Splits are always created on ``datasplit_group`` to prevent group leakage.
+    ``stratification_col`` (if provided) controls class-balance stratification.
     """
 
     seeds: list = field(
@@ -86,31 +93,42 @@ class DataSplit:
         self, datasplit_seed, name_a: str, name_b: str
     ) -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
         """Get datasplits for single seed."""
+<<<<<<< HEAD
         dataset_unique = self.dataset.drop_duplicates(subset=DATASPLIT_COL, keep="first", inplace=False)
         dataset_unique.reset_index(drop=True, inplace=True)
 
         kf: KFold | StratifiedKFold
+=======
+        groups = self.dataset[DATASPLIT_COL]
+        num_groups = groups.nunique()
+
+        splitter: GroupKFold | StratifiedGroupKFold
+>>>>>>> 1de9f14 (Replace custom datasplit logic by scikit learns built in functions, fixes #84, #384)
         split_method: str
         if self.stratification_col:
-            kf = StratifiedKFold(
+            splitter = StratifiedGroupKFold(
                 n_splits=self.num_folds,
                 shuffle=True,
                 random_state=datasplit_seed,
             )
-
-            stratification_target = dataset_unique[self.stratification_col]
-            split_method = "StratifiedKFold"
+            stratification_target = self.dataset[self.stratification_col]
+            split_method = "StratifiedGroupKFold"
+            split_iterator = splitter.split(self.dataset, stratification_target, groups=groups)
         else:
-            kf = KFold(
-                n_splits=self.num_folds,
-                shuffle=True,
-                random_state=datasplit_seed,
-            )
-            stratification_target = None
-            split_method = "KFold"
+            # Runtime sklearn (>=1.6) supports shuffle/random_state on GroupKFold,
+            # but currently available sklearn stubs lag behind this signature and
+            # can cause false-positive mypy errors in pre-commit.
+            group_kfold_kwargs: dict[str, Any] = {
+                "n_splits": self.num_folds,
+                "shuffle": True,
+                "random_state": datasplit_seed,
+            }
+            splitter = GroupKFold(**group_kfold_kwargs)
+            split_method = "GroupKFold"
+            split_iterator = splitter.split(self.dataset, groups=groups)
 
         logger.info(
-            f"{len(self.dataset)} rows, {len(dataset_unique)} groups (column: {DATASPLIT_COL}), "
+            f"{len(self.dataset)} rows, {num_groups} groups (column: {DATASPLIT_COL}), "
             f"{split_method}, {self.num_folds} folds, seed {datasplit_seed}"
         )
 
@@ -118,14 +136,14 @@ class DataSplit:
         all_test_indices = []
         all_test_groups = []
 
-        for num_split, (train_ind, test_ind) in enumerate(kf.split(dataset_unique, stratification_target)):  # type: ignore
-            groups_train = set(dataset_unique.iloc[train_ind][DATASPLIT_COL])
-            groups_test = set(dataset_unique.iloc[test_ind][DATASPLIT_COL])
+        for num_split, (train_ind, test_ind) in enumerate(split_iterator):
+            groups_train = set(self.dataset.iloc[train_ind][DATASPLIT_COL])
+            groups_test = set(self.dataset.iloc[test_ind][DATASPLIT_COL])
             assert groups_train.intersection(groups_test) == set()
             all_test_groups.extend(list(groups_test))
 
-            partition_train = self.dataset[self.dataset[DATASPLIT_COL].isin(groups_train)]
-            partition_test = self.dataset[self.dataset[DATASPLIT_COL].isin(groups_test)]
+            partition_train = self.dataset.iloc[train_ind]
+            partition_test = self.dataset.iloc[test_ind]
             assert set(partition_train.index).intersection(partition_test.index) == set()
             all_test_indices.extend(partition_test.index.tolist())
 
