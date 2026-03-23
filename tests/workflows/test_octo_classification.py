@@ -195,7 +195,7 @@ class TestOctoIntroClassification:
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                datasplit_seed_outer=1234,
+                datasplit_seed_outer=1,
                 n_folds_outer=2,
                 path=temp_dir,
                 ignore_data_health_warning=True,
