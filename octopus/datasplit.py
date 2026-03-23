@@ -2,7 +2,7 @@
 
 import pandas as pd
 from attrs import Factory, define, field, frozen, validators
-from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
 
 from .logger import get_logger
 from .types import LogGroup
@@ -36,11 +36,13 @@ DATASPLIT_COL = "datasplit_group"
 class DataSplit:
     """Data Split.
 
-    We don't use groupKFold as it does not offer the shuffle option.
-    The StratifiedGroupKfold might work as an alternative (check examples).
-    StratifiedGroupKfold is not available for sklearn 0.24.3
-    which is required for Auto-Sklearn 0.15.
-    stratification_col: contains the group info used for stratification
+    Creates group-aware cross-validation splits using sklearn's built-in splitters.
+
+    - GroupKFold is used for non-stratified splitting.
+    - StratifiedGroupKFold is used when ``stratification_col`` is provided.
+
+    Splits are always created on ``datasplit_group`` to prevent group leakage.
+    ``stratification_col`` (if provided) controls class-balance stratification.
     """
 
     seeds: list = field(
@@ -86,47 +88,51 @@ class DataSplit:
         self, datasplit_seed, name_a: str, name_b: str
     ) -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
         """Get datasplits for single seed."""
-        dataset_unique = self.dataset.drop_duplicates(subset=DATASPLIT_COL, keep="first", inplace=False)
-        dataset_unique.reset_index(drop=True, inplace=True)
+        groups = self.dataset[DATASPLIT_COL]
+        num_groups = groups.nunique()
 
-        kf: KFold | StratifiedKFold
-        split_method: str
-        if self.stratification_col:
-            kf = StratifiedKFold(
+        splitter: GroupKFold | StratifiedGroupKFold
+        if self.stratification_col is not None:
+            splitter = StratifiedGroupKFold(
                 n_splits=self.num_folds,
                 shuffle=True,
                 random_state=datasplit_seed,
             )
-
-            stratification_target = dataset_unique[self.stratification_col]
-            split_method = "StratifiedKFold"
+            stratification_target = self.dataset[self.stratification_col]
+            split_iterator = splitter.split(self.dataset, stratification_target, groups=groups)
         else:
-            kf = KFold(
+            # Runtime sklearn (>=1.6) supports shuffle/random_state on GroupKFold,
+            # but currently available sklearn stubs lag behind this signature.
+            splitter = GroupKFold(
                 n_splits=self.num_folds,
-                shuffle=True,
+                shuffle=True,  # type: ignore[call-arg]  # sklearn stubs lag behind sklearn version (>=1.6)
                 random_state=datasplit_seed,
             )
-            stratification_target = None
-            split_method = "KFold"
+            split_iterator = splitter.split(self.dataset, groups=groups)
 
         logger.info(
-            f"{len(self.dataset)} rows, {len(dataset_unique)} groups (column: {DATASPLIT_COL}), "
-            f"{split_method}, {self.num_folds} folds, seed {datasplit_seed}"
+            f"{len(self.dataset)} rows, {num_groups} groups (column: {DATASPLIT_COL}), "
+            f"{type(splitter).__name__}, {self.num_folds} folds, seed {datasplit_seed}"
         )
 
         raw_splits: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
         all_test_indices = []
         all_test_groups = []
 
-        for num_split, (train_ind, test_ind) in enumerate(kf.split(dataset_unique, stratification_target)):  # type: ignore
-            groups_train = set(dataset_unique.iloc[train_ind][DATASPLIT_COL])
-            groups_test = set(dataset_unique.iloc[test_ind][DATASPLIT_COL])
-            assert groups_train.intersection(groups_test) == set()
+        for num_split, (train_ind, test_ind) in enumerate(split_iterator):
+            partition_train = self.dataset.iloc[train_ind]
+            partition_test = self.dataset.iloc[test_ind]
+
+            groups_train = set(partition_train[DATASPLIT_COL])
+            groups_test = set(partition_test[DATASPLIT_COL])
+            if groups_train & groups_test:
+                raise RuntimeError(
+                    f"Group leakage detected: groups {groups_train & groups_test} appear in both train and test"
+                )
             all_test_groups.extend(list(groups_test))
 
-            partition_train = self.dataset[self.dataset[DATASPLIT_COL].isin(groups_train)]
-            partition_test = self.dataset[self.dataset[DATASPLIT_COL].isin(groups_test)]
-            assert set(partition_train.index).intersection(partition_test.index) == set()
+            if set(partition_train.index) & set(partition_test.index):
+                raise RuntimeError("Index overlap between train and test partitions")
             all_test_indices.extend(partition_test.index.tolist())
 
             partition_train.reset_index(drop=True, inplace=True)
@@ -142,9 +148,13 @@ class DataSplit:
 
             raw_splits[num_split] = (partition_train, partition_test)
 
-        assert len(all_test_groups) == len(set(all_test_groups))
-        assert len(set(self.dataset[DATASPLIT_COL]).symmetric_difference(set(all_test_groups))) == 0
-        assert len(all_test_indices) == len(set(all_test_indices))
-        assert len(self.dataset) == len(all_test_indices)
+        if len(all_test_groups) != len(set(all_test_groups)):
+            raise RuntimeError("Duplicate groups across test folds")
+        if set(self.dataset[DATASPLIT_COL]).symmetric_difference(set(all_test_groups)):
+            raise RuntimeError("Not all groups covered by test folds")
+        if len(all_test_indices) != len(set(all_test_indices)):
+            raise RuntimeError("Duplicate row indices across test folds")
+        if len(self.dataset) != len(all_test_indices):
+            raise RuntimeError(f"Test folds contain {len(all_test_indices)} rows, expected {len(self.dataset)}")
 
         return raw_splits
