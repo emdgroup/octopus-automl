@@ -1,5 +1,6 @@
 """Utils."""
 
+import contextlib
 import json
 import logging
 from importlib.metadata import version
@@ -14,6 +15,24 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import scipy.stats
 from upath import UPath
+
+
+def rmtree(path: UPath) -> None:
+    """Recursively remove a directory tree (fsspec-compatible).
+
+    Unlike ``UPath.rmdir(recursive=True)``, this function does not call
+    ``is_dir()`` before deletion.  On object stores such as S3 an empty
+    "directory" created via ``mkdir()`` may not be recognised as a
+    directory by ``is_dir()``, which causes ``rmdir`` to raise
+    ``NotADirectoryError``.  Bypassing that check and calling the
+    filesystem's ``rm`` directly avoids the problem.
+
+    Args:
+        path: Directory to remove.  If it does not exist the call is a
+            no-op.
+    """
+    with contextlib.suppress(FileNotFoundError):
+        path.fs.rm(path.path, recursive=True)
 
 
 def get_package_name() -> str:
