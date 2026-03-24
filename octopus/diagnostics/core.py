@@ -1,97 +1,77 @@
-"""StudyDiagnostics — interactive study-level diagnostics from saved parquet files.
+"""StudyDiagnostics — Optuna-focused study diagnostics from saved parquet files.
 
-Provides exploration of predictions, feature importances, scores, and Optuna
-hyperparameter tuning results without loading any models. All data comes from
-saved parquet artifacts on disk.
+Provides exploration of Optuna hyperparameter tuning results without
+loading any models.  All data comes from saved parquet artifacts on disk.
 
-If ``ipywidgets`` is installed, plot methods offer interactive dropdown
-selection. Otherwise, filter parameters must be passed explicitly.
+For predictions, scores, feature importances, confusion matrices, and
+ROC curves, use :mod:`octopus.predict.notebook_utils` instead.
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from upath import UPath
 
-from octopus.diagnostics._data_loader import (
-    load_feature_importances,
-    load_optuna,
-    load_predictions,
-    load_scores,
-)
+from octopus.diagnostics._data_loader import load_feature_importances, load_optuna
 from octopus.diagnostics._plots import (
-    plot_confusion_matrix_chart,
     plot_feature_importance_chart,
     plot_optuna_hyperparameters_chart,
     plot_optuna_trial_counts_chart,
     plot_optuna_trials_chart,
-    plot_predictions_vs_truth_chart,
 )
-from octopus.types import FIResultLabel, MetricDirection, MLType
-
-
-def _has_ipywidgets() -> bool:
-    """Check if ipywidgets is available."""
-    try:
-        import ipywidgets  # noqa: F401, PLC0415
-
-        return True
-    except ImportError:
-        return False
-
-
-def _unique_sorted(series: pd.Series) -> list[str]:
-    """Get sorted unique string values from a Series."""
-    return sorted(series.dropna().astype(str).unique())
+from octopus.types import MetricDirection, MLType
 
 
 class StudyDiagnostics:
-    """Interactive study-level diagnostics from saved parquet files.
+    """Optuna-focused study diagnostics from saved parquet files.
 
-    Loads predictions, feature importances, scores, and Optuna results
-    from the study directory structure. No model loading is performed.
+    Loads Optuna trial results from the study directory structure.
+    No model loading is performed.
+
+    For predictions, scores, feature importances, and ML-specific plots,
+    use ``octopus.predict.notebook_utils`` functions instead.
 
     Args:
-        study_path: Path to the study directory.
+        study_path: Path to the study directory (local or cloud via UPath).
 
     Raises:
-        FileNotFoundError: If the study directory or study_config.json does not exist.
+        FileNotFoundError: If the study directory or study_config.json
+            does not exist.
 
     Example::
 
         from octopus.diagnostics import StudyDiagnostics
 
         diag = StudyDiagnostics("./studies/my_study/")
-        diag.plot_feature_importance()
-        diag.plot_optuna_trials()
+        diag.plot_optuna_trial_counts()
+        diag.plot_optuna_trials(outersplit_id=0, task_id=0)
     """
 
-    def __init__(self, study_path: str | Path) -> None:
-        self._study_path = Path(study_path)
+    def __init__(self, study_path: str | UPath) -> None:
+        self._study_path = UPath(study_path)
         if not self._study_path.exists():
             raise FileNotFoundError(f"Study path does not exist: {self._study_path}")
 
-        # Load config
+        # Load config via UPath.open() for fsspec compatibility
         config_path = self._study_path / "study_config.json"
-        if config_path.exists():
-            with open(config_path) as f:
-                self._config: dict[str, Any] = json.load(f)
-        else:
-            self._config = {}
+        if not config_path.exists():
+            raise FileNotFoundError(f"Study config not found: {config_path}")
+
+        import json  # noqa: PLC0415
+
+        with config_path.open() as f:
+            self._config: dict[str, Any] = json.load(f)
 
         # Lazy-loaded DataFrames
-        self._predictions: pd.DataFrame | None = None
-        self._feature_importances: pd.DataFrame | None = None
         self._optuna: pd.DataFrame | None = None
-        self._scores: pd.DataFrame | None = None
+        self._feature_importances: pd.DataFrame | None = None
 
     # ── Properties ──────────────────────────────────────────────
 
     @property
-    def study_path(self) -> Path:
+    def study_path(self) -> UPath:
         """Path to the study directory."""
         return self._study_path
 
@@ -102,22 +82,8 @@ class StudyDiagnostics:
 
     @property
     def ml_type(self) -> MLType:
-        """Machine learning type (classification, regression, timetoevent)."""
-        return MLType(self._config.get("ml_type", ""))
-
-    @property
-    def predictions(self) -> pd.DataFrame:
-        """All predictions across outersplits and tasks (lazy-loaded)."""
-        if self._predictions is None:
-            self._predictions = load_predictions(self._study_path)
-        return self._predictions
-
-    @property
-    def feature_importances(self) -> pd.DataFrame:
-        """All feature importances across outersplits and tasks (lazy-loaded)."""
-        if self._feature_importances is None:
-            self._feature_importances = load_feature_importances(self._study_path)
-        return self._feature_importances
+        """Machine learning type (binary, multiclass, regression, timetoevent)."""
+        return MLType(self._config["ml_type"])
 
     @property
     def optuna_trials(self) -> pd.DataFrame:
@@ -127,163 +93,103 @@ class StudyDiagnostics:
         return self._optuna
 
     @property
-    def scores(self) -> pd.DataFrame:
-        """All scores across outersplits and tasks (lazy-loaded)."""
-        if self._scores is None:
-            self._scores = load_scores(self._study_path)
-        return self._scores
+    def feature_importances(self) -> pd.DataFrame:
+        """All saved feature importances across outersplits and tasks (lazy-loaded)."""
+        if self._feature_importances is None:
+            self._feature_importances = load_feature_importances(self._study_path)
+        return self._feature_importances
 
-    # ── Filter helpers ──────────────────────────────────────────
+    # ── Feature Importance ──────────────────────────────────────
 
-    def _get_filter_options(self, df: pd.DataFrame, columns: list[str]) -> dict[str, list[str]]:
-        """Extract unique sorted values for each column.
+    def get_feature_importances(
+        self,
+        task_id: int | None = None,
+        module: str = "",
+        result_type: str = "",
+    ) -> pd.DataFrame:
+        """Return the raw FI table filtered by task and module across all outersplits.
+
+        This gives access to the raw saved feature importance data for
+        custom analysis. Use :meth:`plot_feature_importance` for convenient
+        visualization.
 
         Args:
-            df: DataFrame to extract from.
-            columns: Column names.
+            task_id: Filter by task ID. None = all tasks.
+            module: Filter by module name (e.g. ``"octo"``). Empty = all.
+            result_type: Filter by result type (e.g. ``"best"``). Empty = all.
 
         Returns:
-            Dict mapping column name to sorted unique string values.
-        """
-        return {col: _unique_sorted(df[col]) for col in columns if col in df.columns}
-
-    # ── Interactive Plots ───────────────────────────────────────
-
-    def plot_feature_importance(
-        self,
-        outersplit_id: int | None = None,
-        task_id: int | None = None,
-        training_id: str | None = None,
-        fi_method: str | FIResultLabel | None = None,
-    ) -> None:
-        """Plot feature importance bar chart.
-
-        If ipywidgets is available and parameters are None, shows interactive
-        dropdowns. Otherwise uses provided values or defaults.
-
-        Args:
-            outersplit_id: Outer split to filter on.
-            task_id: Task to filter on.
-            training_id: Training ID to filter on.
-            fi_method: FI method to filter on.
+            DataFrame with columns: ``feature``, ``importance``,
+            ``fi_method``, ``fi_dataset``, ``training_id``, ``module``,
+            ``result_type``, ``outersplit_id``, ``task_id``.
         """
         df = self.feature_importances
         if df.empty:
+            return df
+        if task_id is not None and "task_id" in df.columns:
+            df = df[df["task_id"] == int(task_id)]
+        if module and "module" in df.columns:
+            df = df[df["module"] == module]
+        if result_type and "result_type" in df.columns:
+            df = df[df["result_type"] == result_type]
+        return df.reset_index(drop=True)
+
+    def plot_feature_importance(
+        self,
+        fi_table: pd.DataFrame | None = None,
+        *,
+        outersplit_id: int | None = None,
+        task_id: int | None = None,
+        fi_method: str = "",
+        fi_dataset: str = "",
+        training_id: str = "",
+        module: str = "",
+        result_type: str = "",
+        top_n: int | None = 20,
+    ) -> None:
+        """Plot feature importances as a horizontal bar chart.
+
+        Either pass a pre-filtered ``fi_table`` (e.g. from
+        :meth:`get_feature_importances`) or let this method load all FI
+        data and apply filters.
+
+        Args:
+            fi_table: Pre-filtered FI DataFrame. If None, loads all FI
+                data and applies the remaining filter parameters.
+            outersplit_id: Filter by outer split ID. None = all.
+            task_id: Filter by task ID. None = all.
+            fi_method: Filter by FI method (e.g. ``"internal"``, ``"permutation"``).
+            fi_dataset: Filter by dataset partition (e.g. ``"train"``, ``"dev"``).
+            training_id: Filter by training ID (e.g. ``"0_0_0"``).
+            module: Filter by module name (e.g. ``"octo"``).
+            result_type: Filter by result type (e.g. ``"best"``).
+            top_n: Number of top features to show. None = all.
+        """
+        df = fi_table if fi_table is not None else self.feature_importances
+        if df.empty:
             print("No feature importance data found.")
             return
+        fig = plot_feature_importance_chart(
+            df,
+            outersplit_id=outersplit_id,
+            task_id=task_id,
+            fi_method=fi_method,
+            fi_dataset=fi_dataset,
+            training_id=training_id,
+            module=module,
+            result_type=result_type,
+            top_n=top_n,
+        )
+        fig.show()
 
-        if _has_ipywidgets() and outersplit_id is None:
-            from ipywidgets import Dropdown, interact  # noqa: PLC0415
-
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id", "training_id", "fi_method"])
-
-            @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
-                task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
-                training_id=Dropdown(options=opts.get("training_id", [""]), description="Training:"),
-                fi_method=Dropdown(options=opts.get("fi_method", [""]), description="FI Method:"),
-            )
-            def _plot(outersplit_id: str, task_id: str, training_id: str, fi_method: str) -> None:
-                fig = plot_feature_importance_chart(
-                    df, outersplit_id=outersplit_id, task_id=task_id, training_id=training_id, fi_method=fi_method
-                )
-                fig.show()
-        else:
-            fig = plot_feature_importance_chart(
-                df,
-                outersplit_id=outersplit_id or 0,
-                task_id=task_id or 0,
-                training_id=training_id or "",
-                fi_method=fi_method or "",
-            )
-            fig.show()
-
-    def plot_confusion_matrix(
-        self,
-        outersplit_id: int | None = None,
-        task_id: int | None = None,
-        training_id: str | None = None,
-    ) -> None:
-        """Plot confusion matrix heatmap (classification only).
-
-        Args:
-            outersplit_id: Outer split to filter on.
-            task_id: Task to filter on.
-            training_id: Inner split / training ID to filter on.
-        """
-        df = self.predictions
-        if df.empty:
-            print("No prediction data found.")
-            return
-
-        if _has_ipywidgets() and outersplit_id is None:
-            from ipywidgets import Dropdown, interact  # noqa: PLC0415
-
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id", "inner_split_id"])
-
-            @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
-                task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
-                training_id=Dropdown(options=opts.get("inner_split_id", [""]), description="Training:"),
-            )
-            def _plot(outersplit_id: str, task_id: str, training_id: str) -> None:
-                fig = plot_confusion_matrix_chart(
-                    df, outersplit_id=outersplit_id, task_id=task_id, training_id=training_id
-                )
-                fig.show()
-        else:
-            fig = plot_confusion_matrix_chart(
-                df,
-                outersplit_id=outersplit_id or 0,
-                task_id=task_id or 0,
-                training_id=training_id or "",
-            )
-            fig.show()
-
-    def plot_predictions_vs_truth(
-        self,
-        outersplit_id: int | None = None,
-        task_id: int | None = None,
-        training_id: str | None = None,
-    ) -> None:
-        """Plot prediction vs ground truth scatter (regression only).
-
-        Args:
-            outersplit_id: Outer split to filter on.
-            task_id: Task to filter on.
-            training_id: Inner split / training ID to filter on.
-        """
-        df = self.predictions
-        if df.empty:
-            print("No prediction data found.")
-            return
-
-        if _has_ipywidgets() and outersplit_id is None:
-            from ipywidgets import Dropdown, interact  # noqa: PLC0415
-
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id", "inner_split_id"])
-
-            @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
-                task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
-                training_id=Dropdown(options=opts.get("inner_split_id", [""]), description="Training:"),
-            )
-            def _plot(outersplit_id: str, task_id: str, training_id: str) -> None:
-                fig = plot_predictions_vs_truth_chart(
-                    df, outersplit_id=outersplit_id, task_id=task_id, training_id=training_id
-                )
-                fig.show()
-        else:
-            fig = plot_predictions_vs_truth_chart(
-                df,
-                outersplit_id=outersplit_id or 0,
-                task_id=task_id or 0,
-                training_id=training_id or "",
-            )
-            fig.show()
+    # ── Optuna Plots ────────────────────────────────────────────
 
     def plot_optuna_trial_counts(self) -> None:
-        """Plot bar chart of unique trial counts per model type."""
+        """Plot bar chart of unique trial counts per model type.
+
+        Displays a subplot grid with one panel per (task, outersplit)
+        combination, showing how many unique trials each model type ran.
+        """
         df = self.optuna_trials
         if df.empty:
             print("No Optuna data found.")
@@ -293,8 +199,8 @@ class StudyDiagnostics:
 
     def plot_optuna_trials(
         self,
-        outersplit_id: int | None = None,
-        task_id: int | None = None,
+        outersplit_id: int = 0,
+        task_id: int = 0,
         direction: MetricDirection = MetricDirection.MINIMIZE,
     ) -> None:
         """Plot Optuna trial scatter + cumulative best line.
@@ -308,33 +214,19 @@ class StudyDiagnostics:
         if df.empty:
             print("No Optuna data found.")
             return
-
-        if _has_ipywidgets() and outersplit_id is None:
-            from ipywidgets import Dropdown, interact  # noqa: PLC0415
-
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id"])
-
-            @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
-                task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
-            )
-            def _plot(outersplit_id: str, task_id: str) -> None:
-                fig = plot_optuna_trials_chart(df, outersplit_id=outersplit_id, task_id=task_id, direction=direction)
-                fig.show()
-        else:
-            fig = plot_optuna_trials_chart(
-                df,
-                outersplit_id=outersplit_id or 0,
-                task_id=task_id or 0,
-                direction=direction,
-            )
-            fig.show()
+        fig = plot_optuna_trials_chart(
+            df,
+            outersplit_id=outersplit_id,
+            task_id=task_id,
+            direction=direction,
+        )
+        fig.show()
 
     def plot_optuna_hyperparameters(
         self,
-        outersplit_id: int | None = None,
-        task_id: int | None = None,
-        model_type: str | None = None,
+        outersplit_id: int = 0,
+        task_id: int = 0,
+        model_type: str = "",
     ) -> None:
         """Plot Optuna hyperparameter scatter plots.
 
@@ -347,27 +239,10 @@ class StudyDiagnostics:
         if df.empty:
             print("No Optuna data found.")
             return
-
-        if _has_ipywidgets() and outersplit_id is None:
-            from ipywidgets import Dropdown, interact  # noqa: PLC0415
-
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id", "model_type"])
-
-            @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
-                task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
-                model_type=Dropdown(options=opts.get("model_type", [""]), description="Model:"),
-            )
-            def _plot(outersplit_id: str, task_id: str, model_type: str) -> None:
-                fig = plot_optuna_hyperparameters_chart(
-                    df, outersplit_id=outersplit_id, task_id=task_id, model_type=model_type
-                )
-                fig.show()
-        else:
-            fig = plot_optuna_hyperparameters_chart(
-                df,
-                outersplit_id=outersplit_id or 0,
-                task_id=task_id or 0,
-                model_type=model_type or "",
-            )
-            fig.show()
+        fig = plot_optuna_hyperparameters_chart(
+            df,
+            outersplit_id=outersplit_id,
+            task_id=task_id,
+            model_type=model_type,
+        )
+        fig.show()
