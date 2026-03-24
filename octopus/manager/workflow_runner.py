@@ -14,7 +14,7 @@ from octopus.datasplit import OuterSplit
 from octopus.logger import get_logger
 from octopus.modules import ModuleResult, StudyContext, Task
 from octopus.types import ResultType
-from octopus.utils import calculate_feature_groups, parquet_save
+from octopus.utils import calculate_feature_groups, parquet_save, rmtree
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -150,7 +150,7 @@ class WorkflowTaskRunner:
             module_result.save(results_dir / result_type.value)
 
         # Clean up scratch directory
-        scratch_dir.rmdir(recursive=True)
+        rmtree(scratch_dir)
 
         return results
 

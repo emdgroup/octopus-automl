@@ -18,7 +18,7 @@ from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
 from octopus.types import CorrelationType, LogGroup, MetricDirection, ResultType
-from octopus.utils import joblib_load, parquet_save
+from octopus.utils import joblib_load, parquet_save, rmtree
 
 from .bag import Bag
 from .enssel import EnSel
@@ -176,8 +176,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         # delete directories /scratch /results to ensure clean state
         for directory in [scratch_dir, results_dir]:
-            if directory.exists():
-                directory.rmdir(recursive=True)
+            rmtree(directory)
             directory.mkdir(parents=True, exist_ok=True)
 
         # check if there is a mismatch between configured resources
