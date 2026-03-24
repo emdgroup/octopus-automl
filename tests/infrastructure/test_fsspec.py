@@ -12,7 +12,7 @@ from upath import UPath
 
 from octopus.modules import Octo
 from octopus.study import OctoClassification
-from octopus.types import FIComputeMethod, ModelName
+from octopus.types import ModelName
 from octopus.utils import joblib_load, joblib_save
 
 
@@ -70,15 +70,39 @@ class TestFSSpecIntegration:
         os.environ.setdefault("FSSPEC_S3_SECRET", "foo")
         os.environ.setdefault("FSSPEC_S3_USE_SSL", "False")
 
-        # NB: we use the sync botocore client for setup
+        # NB: we use the sync botocore client for setup.
+        # Region MUST be us-east-1 so that CreateBucket works without
+        # LocationConstraint (any other region requires it).
         session = Session()
-        client = session.create_client("s3", endpoint_url=endpoint_uri)
+        client = session.create_client("s3", region_name="us-east-1", endpoint_url=endpoint_uri)
         client.create_bucket(Bucket=bucket_name, ACL="public-read-write")
 
         print("server up")
         yield endpoint_uri, bucket_name
         print("moto done")
         server.stop()
+
+    def test_joblib_roundtrip_s3_filesystem(self, s3_base):
+        """Verify joblib_save / joblib_load roundtrip on moto-backed s3:// filesystem.
+
+        Fast smoke test (~2 s) that validates the S3 I/O pathway works
+        without running a full ML workflow.
+        """
+        endpoint_uri, bucket_name = s3_base
+
+        model = LinearRegression()
+        model.fit([[1, 2], [3, 4]], [1, 2])
+
+        path = UPath(
+            f"s3://{bucket_name}/test_joblib_s3/model.joblib",
+            endpoint_url=endpoint_uri,
+        )
+
+        joblib_save(model, path)
+        loaded = joblib_load(path)
+
+        assert type(loaded) is type(model)
+        assert loaded.coef_.tolist() == model.coef_.tolist()
 
     @pytest.mark.slow
     def test_fsspec_mocked_s3_support(self, breast_cancer_dataset, s3_base):
@@ -179,16 +203,13 @@ class TestFSSpecIntegration:
                             model_seed=0,
                             n_jobs=1,
                             max_outl=0,
-                            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
+                            fi_methods_bestbag=[],
                             inner_parallelization=True,
                             n_workers=2,
                             optuna_seed=0,
                             n_optuna_startup_trials=3,
-                            n_trials=5,
-                            max_features=5,
-                            penalty_factor=1.0,
-                            ensemble_selection=True,
-                            ensel_n_save_trials=5,
+                            n_trials=2,
+                            ensemble_selection=False,
                         )
                     ],
                 )

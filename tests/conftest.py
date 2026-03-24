@@ -22,6 +22,14 @@ def pytest_configure(config):
     os.environ["RUNNING_IN_TESTSUITE"] = "1"
     os.environ["MPLBACKEND"] = "Agg"
 
+    # Pin AWS_DEFAULT_REGION to us-east-1 for the entire test session.
+    # This prevents IllegalLocationConstraintException errors in moto when
+    # the host environment has AWS_DEFAULT_REGION set to a non-us-east-1
+    # region (e.g. eu-central-1).  The S3 CreateBucket API only allows
+    # omitting LocationConstraint when the region is us-east-1.
+    # Uses setdefault so explicit overrides for real-S3 tests are respected.
+    os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+
 
 def pytest_addoption(parser):
     parser.addoption(
