@@ -35,7 +35,6 @@ dependencies = [
     "rapidfuzz>=3.14",
     "scikit-learn>=1.7.0,<2",
     "shap>=0.48",
-    "llvmlite<0.46",        # license change with 0.46
     "torch>=2.0,<3",
     "xgboost>=3.0",
     "fsspec>=2025.10.0",
