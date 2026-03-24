@@ -467,9 +467,9 @@ class OctoDataHealthChecker:
         both features and sample_id_col together.
 
         Note:
-            Duplicates in features AND sample_id_col are flagged as Critical, as they
-            may indicate serious data integrity issues. Duplicates in features only
-            are flagged as Warning.
+            Duplicates in features AND sample_id_col are flagged as Warning, as they
+            may indicate re-measurements or data integrity issues. Duplicates in
+            features only are also flagged as Warning.
         """
         duplicated_features = self.data[self.feature_cols].duplicated().any()
 
@@ -493,10 +493,11 @@ class OctoDataHealthChecker:
                 category="rows",
                 issue_type="duplicated_features_and_sample",
                 affected_items=["all_features_and_sample_id_col"],
-                severity="Critical",
+                severity="Warning",
                 description=("There are duplicated rows when considering all feature columns and the sample ID."),
                 action=(
-                    "This is a critical issue. Investigate and resolve these duplicates immediately as they may indicate data integrity problems."
+                    "Investigate these duplicates. They may be legitimate re-measurements or indicate data integrity problems. "
+                    "To proceed despite this warning, set `ignore_data_health_warning=True`."
                 ),
             )
 
