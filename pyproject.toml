@@ -7,13 +7,12 @@ authors = [
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE.txt", "CONTRIBUTORS.md"]
-requires-python =">=3.12,<3.13"
+requires-python =">=3.12,<=3.14"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
@@ -32,7 +31,7 @@ dependencies = [
     "numpy>=2.2",
     "optuna>=4.5",
     "pandas>=2.3,<3",
-    "ray>=2.44,<2.47",
+    "ray>=2.52,<3",
     "rapidfuzz>=3.14",
     "scikit-learn>=1.7.0,<2",
     "shap>=0.48",

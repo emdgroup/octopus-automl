@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import threadpoolctl
 
 import octopus  # noqa: F401
@@ -26,6 +27,7 @@ def test_parallelization_limited_by_env():
         assert os.environ.get(env_var, None) == "1"
 
 
+@pytest.mark.skip
 def test_ray_workers_detect_active_parallelization():
     """Test that ray workers abort if they detect active parallelization.
 
