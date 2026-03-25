@@ -83,6 +83,27 @@ def test_get_inner_splits_keeps_groups_together_and_covers_all_rows_once():
     assert sorted(all_dev_rows) == [10, 11, 20, 30, 31, 40]
 
 
+def test_multiple_seeds_concatenate_seed_results_in_seed_then_fold_order():
+    """With multiple seeds, results are returned seed by seed, then fold by fold."""
+    df = _grouped_df()
+
+    seed_11 = DataSplit(dataset=df.copy(), seeds=[11], num_folds=2).get_outer_splits()
+    seed_22 = DataSplit(dataset=df.copy(), seeds=[22], num_folds=2).get_outer_splits()
+
+    combined = DataSplit(
+        dataset=df.copy(),
+        seeds=[11, 22],
+        num_folds=2,
+    ).get_outer_splits()
+
+    assert len(combined) == 4
+
+    pdt.assert_frame_equal(_norm(combined[0].test), _norm(seed_11[0].test))
+    pdt.assert_frame_equal(_norm(combined[1].test), _norm(seed_11[1].test))
+    pdt.assert_frame_equal(_norm(combined[2].test), _norm(seed_22[0].test))
+    pdt.assert_frame_equal(_norm(combined[3].test), _norm(seed_22[1].test))
+
+
 def test_same_seed_is_deterministic_for_outer_splits():
     """Running the same seed twice should give the exact same partitions."""
     df = _grouped_df()

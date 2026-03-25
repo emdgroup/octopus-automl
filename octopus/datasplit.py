@@ -1,10 +1,7 @@
 """Data splitting utilities for nested cross-validation."""
 
-<<<<<<< HEAD
-=======
 from typing import Any
 
->>>>>>> 1de9f14 (Replace custom datasplit logic by scikit learns built in functions, fixes #84, #384)
 import pandas as pd
 from attrs import Factory, define, field, frozen, validators
 from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
@@ -93,17 +90,10 @@ class DataSplit:
         self, datasplit_seed, name_a: str, name_b: str
     ) -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
         """Get datasplits for single seed."""
-<<<<<<< HEAD
-        dataset_unique = self.dataset.drop_duplicates(subset=DATASPLIT_COL, keep="first", inplace=False)
-        dataset_unique.reset_index(drop=True, inplace=True)
-
-        kf: KFold | StratifiedKFold
-=======
         groups = self.dataset[DATASPLIT_COL]
         num_groups = groups.nunique()
 
         splitter: GroupKFold | StratifiedGroupKFold
->>>>>>> 1de9f14 (Replace custom datasplit logic by scikit learns built in functions, fixes #84, #384)
         split_method: str
         if self.stratification_col:
             splitter = StratifiedGroupKFold(
