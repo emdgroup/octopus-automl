@@ -74,6 +74,7 @@ class FSSpecFileHandler(logging.StreamHandler):
             self.encoding = io.text_encoding(encoding)
         self.errors = errors
 
+        self.filename.parent.mkdir(parents=True, exist_ok=True)
         logfile = self.filename.open(self.mode, encoding=encoding, errors=errors)
         logging.StreamHandler.__init__(self, logfile)
 
