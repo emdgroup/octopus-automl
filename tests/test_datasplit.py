@@ -7,7 +7,16 @@ import pandas as pd
 import pandas.testing as pdt
 import pytest
 
-from octopus.datasplit import DATASPLIT_COL, DataSplit, InnerSplit, OuterSplit
+from octopus.datasplit import (
+    DATASPLIT_COL,
+    DataSplit,
+    InnerSplit,
+    InnerSplits,
+    OuterSplit,
+    OuterSplits,
+    validate_class_coverage,
+)
+from octopus.exceptions import SingleClassFoldError
 
 
 def _grouped_df() -> pd.DataFrame:
@@ -433,3 +442,49 @@ def test_unequal_group_sizes_balances_group_count_across_folds():
 
     test_group_counts = [len(set(s.test[DATASPLIT_COL])) for s in splits.values()]
     assert test_group_counts == [2, 2]
+
+
+def test_validate_class_coverage_raises_on_single_class_outer_fold():
+    """validate_class_coverage raises SingleClassFoldError when an outer fold has one class."""
+    splits: OuterSplits = {
+        0: OuterSplit(
+            traindev=pd.DataFrame({"target": [0, 0, 1, 1], DATASPLIT_COL: [0, 0, 1, 1]}),
+            test=pd.DataFrame({"target": [1, 1], DATASPLIT_COL: [2, 2]}),
+        ),
+    }
+
+    with pytest.raises(SingleClassFoldError, match=r"Fold 0 test.*only class"):
+        validate_class_coverage(splits, "target")
+
+
+def test_validate_class_coverage_raises_on_single_class_inner_fold():
+    """validate_class_coverage raises SingleClassFoldError for inner splits too."""
+    splits: InnerSplits = {
+        0: InnerSplit(
+            train=pd.DataFrame({"target": [0, 0, 1, 1]}),
+            dev=pd.DataFrame({"target": [0, 1]}),
+        ),
+        1: InnerSplit(
+            train=pd.DataFrame({"target": [0, 0, 0, 0]}),
+            dev=pd.DataFrame({"target": [0, 1]}),
+        ),
+    }
+
+    with pytest.raises(SingleClassFoldError, match=r"Fold 1 train.*only class"):
+        validate_class_coverage(splits, "target")
+
+
+def test_validate_class_coverage_passes_when_all_classes_present():
+    """No error when all classes appear in every partition."""
+    splits: OuterSplits = {
+        0: OuterSplit(
+            traindev=pd.DataFrame({"target": [0, 1], DATASPLIT_COL: [0, 1]}),
+            test=pd.DataFrame({"target": [0, 1], DATASPLIT_COL: [2, 3]}),
+        ),
+        1: OuterSplit(
+            traindev=pd.DataFrame({"target": [0, 1], DATASPLIT_COL: [2, 3]}),
+            test=pd.DataFrame({"target": [0, 1], DATASPLIT_COL: [0, 1]}),
+        ),
+    }
+
+    validate_class_coverage(splits, "target")

@@ -12,13 +12,13 @@ from attrs import Factory, define, field
 from optuna.trial import TrialState
 from upath import UPath
 
-from octopus.datasplit import DataSplit, InnerSplits
+from octopus.datasplit import DataSplit, InnerSplits, validate_class_coverage
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
-from octopus.types import CorrelationType, FIComputeMethod, LogGroup, MetricDirection, ResultType
+from octopus.types import CorrelationType, FIComputeMethod, LogGroup, MetricDirection, MLType, ResultType
 from octopus.utils import joblib_load, parquet_save
 
 from .bag import Bag, BagBase
@@ -177,6 +177,11 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             stratification_col=study_context.stratification_col,
             process_id=f"OUTER {outersplit_id} SEQ TBD",
         ).get_inner_splits()
+
+        if study_context.ml_type in (MLType.BINARY, MLType.MULTICLASS):
+            validate_class_coverage(self.data_splits_, list(study_context.target_assignments.values())[0])
+        elif study_context.ml_type == MLType.TIMETOEVENT:
+            validate_class_coverage(self.data_splits_, study_context.target_assignments["event"])
 
         logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"OUTER {outersplit_id} SQE TBD")
 
