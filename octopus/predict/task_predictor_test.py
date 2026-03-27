@@ -68,6 +68,34 @@ class TaskPredictorTest(TaskPredictor):
 
     # ── Prediction (per-split on own test data) ─────────────────
 
+    def _get_target_columns(self, test: pd.DataFrame) -> dict[str, Any]:
+        """Build target column(s) for ``df=True`` output.
+
+        Returns a dict suitable for unpacking into a DataFrame constructor.
+
+        For single-target tasks (regression, binary, multiclass):
+            ``{"target": <array>}``
+
+        For multi-target tasks (T2E):
+            ``{"target_duration": <array>, "target_event": <array>}``
+            — one key per role in ``target_assignments``, prefixed with
+            ``"target_"``.
+
+        The single-target form uses the bare name ``"target"`` (no role
+        suffix) to preserve backwards compatibility with existing callers.
+
+        Args:
+            test: DataFrame containing the target column(s).
+
+        Returns:
+            Dict mapping output column names to arrays of target values.
+        """
+        assignments = self.target_assignments
+        if len(assignments) == 1:
+            col = next(iter(assignments.values()))
+            return {"target": test[col].values}
+        return {f"target_{role}": test[col].values for role, col in assignments.items()}
+
     def predict(self, df: bool = False) -> np.ndarray | pd.DataFrame:  # type: ignore[override]
         """Predict on stored test data.  Each model predicts only on its own test data.
 
@@ -75,12 +103,13 @@ class TaskPredictorTest(TaskPredictor):
 
         Args:
             df: If True, return a DataFrame with outersplit, row_id, prediction,
-                and target columns.  If False (default), return concatenated ndarray.
+                and target columns.  For T2E tasks the target columns are
+                ``target_duration`` and ``target_event`` instead of ``target``.
+                If False (default), return concatenated ndarray.
 
         Returns:
             Per-split predictions as ndarray or DataFrame.
         """
-        target_col = self._resolve_target_col()
         row_id_col = self.row_id_col
 
         all_preds = []
@@ -99,7 +128,7 @@ class TaskPredictorTest(TaskPredictor):
                         "outersplit": split_id,
                         "row_id": row_ids.values if hasattr(row_ids, "values") else row_ids,
                         "prediction": preds,
-                        "target": test[target_col].values,
+                        **self._get_target_columns(test),
                     }
                 )
                 all_rows.append(split_df)
@@ -115,8 +144,8 @@ class TaskPredictorTest(TaskPredictor):
 
         Args:
             df: If True, return a DataFrame with outersplit, row_id, probability
-                columns per class, and target.  If False (default), return
-                concatenated ndarray.
+                columns per class, and target column(s).  If False (default),
+                return concatenated ndarray.
 
         Returns:
             Per-split probabilities as ndarray or DataFrame.
@@ -129,7 +158,6 @@ class TaskPredictorTest(TaskPredictor):
                 f"predict_proba() is only available for classification and multiclass tasks, "
                 f"but this study has ml_type='{self.ml_type}'."
             )
-        target_col = self._resolve_target_col()
         row_id_col = self.row_id_col
         class_labels = self.classes_
 
@@ -150,7 +178,8 @@ class TaskPredictorTest(TaskPredictor):
                 split_df.insert(0, "outersplit", split_id)
                 row_vals: Any = row_ids.values if hasattr(row_ids, "values") else row_ids
                 split_df.insert(1, "row_id", row_vals)
-                split_df["target"] = test[target_col].values
+                for col_name, col_values in self._get_target_columns(test).items():
+                    split_df[col_name] = col_values
                 all_rows.append(split_df)
 
         if df:
@@ -180,8 +209,6 @@ class TaskPredictorTest(TaskPredictor):
         if metrics is None:
             metrics = [self.target_metric]
 
-        target_col = self._resolve_target_col()
-
         rows = []
         for split_id in self._outersplits:
             model = self._models[split_id]
@@ -189,13 +216,12 @@ class TaskPredictorTest(TaskPredictor):
             test = self._test_data[split_id]
 
             for metric_name in metrics:
-                target_assignments = {target_col: target_col}
                 score = get_performance_from_model(
                     model=model,
                     data=test,
                     feature_cols=features,
                     target_metric=metric_name,
-                    target_assignments=target_assignments,
+                    target_assignments=self.target_assignments,
                     threshold=threshold,
                     positive_class=self.positive_class,
                 )
@@ -217,6 +243,8 @@ class TaskPredictorTest(TaskPredictor):
         """Calculate feature importance using stored test data and models.
 
         Each split's model permutes features only in its own test data.
+        Delegates to ``_dispatch_fi()`` (inherited from ``TaskPredictor``)
+        with stored per-split test and train data.
 
         Args:
             fi_type: Type of feature importance. One of:
@@ -225,8 +253,8 @@ class TaskPredictorTest(TaskPredictor):
                   importance.  Uses ``feature_groups`` (from study config or
                   explicitly provided) to also compute group-level importance.
                 - ``FIType.SHAP`` — SHAP-based importance.  Pass ``shap_type`` as a
-                  kwarg to select the explainer: ``ShapExplainerType.KERNEL`` (default),
-                  ``ShapExplainerType.PERMUTATION``, or ``ShapExplainerType.EXACT``.
+                  kwarg to select the explainer: ``"kernel"`` (default),
+                  ``"permutation"``, or ``"exact"``.
             n_repeats: Number of permutation repeats.
             feature_groups: Dict mapping group names to feature lists.
                 If None and fi_type is ``FIType.GROUP_PERMUTATION``, groups are
@@ -234,8 +262,8 @@ class TaskPredictorTest(TaskPredictor):
             random_state: Random seed.
             **kwargs: Additional keyword arguments passed to the FI function.
                 For ``fi_type=FIType.SHAP``, supported kwargs include:
-                ``shap_type`` (``ShapExplainerType.KERNEL``, ``ShapExplainerType.PERMUTATION``,
-                ``ShapExplainerType.EXACT``),
+                ``shap_type`` (``"kernel"``, ``"permutation"``,
+                ``"exact"``),
                 ``max_samples``, ``background_size``.
 
         Returns:
@@ -245,49 +273,17 @@ class TaskPredictorTest(TaskPredictor):
         Raises:
             ValueError: If fi_type is unknown.
         """
-        from octopus.predict.feature_importance import (  # noqa: PLC0415
-            calculate_fi_permutation,
-            calculate_fi_shap,
-        )
-
         fi_type = FIType(fi_type)
-        target_col = self._resolve_target_col()
 
-        if fi_type in (FIType.PERMUTATION, FIType.GROUP_PERMUTATION):
-            resolved_groups = None
-            if fi_type == FIType.GROUP_PERMUTATION:
-                if feature_groups is not None:
-                    resolved_groups = feature_groups
-                else:
-                    resolved_groups = self._compute_feature_groups()
-
-            result = calculate_fi_permutation(
-                models=self._models,
-                selected_features=self._selected_features,
-                test_data=self._test_data,
-                train_data=self._train_data,
-                target_col=target_col,
-                target_metric=self.target_metric,
-                positive_class=self.positive_class,
-                n_repeats=n_repeats,
-                random_state=random_state,
-                feature_groups=resolved_groups,
-                feature_cols=self._feature_cols,
-            )
-        elif fi_type == FIType.SHAP:
-            result = calculate_fi_shap(
-                models=self._models,
-                selected_features=self._selected_features,
-                test_data=self._test_data,
-                **kwargs,
-            )
-        else:
-            raise ValueError(
-                f"Unknown fi_type '{fi_type}'. Use FIType.PERMUTATION, FIType.GROUP_PERMUTATION, or FIType.SHAP."
-            )
-
-        result.insert(0, "fi_type", fi_type.value)
-        return result
+        return self._dispatch_fi(
+            self._test_data,
+            self._train_data,
+            fi_type,
+            n_repeats=n_repeats,
+            feature_groups=feature_groups,
+            random_state=random_state,
+            **kwargs,
+        )
 
     # ── Serialization — not supported ───────────────────────────
 

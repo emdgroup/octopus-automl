@@ -5,15 +5,10 @@ import pandas as pd
 import pytest
 
 from octopus.models import Models
-from octopus.models.hyperparameter import (
-    CategoricalHyperparameter,
-    FixedHyperparameter,
-    FloatHyperparameter,
-    IntHyperparameter,
-)
 from octopus.models.model_name import ModelName
 from octopus.modules.octo.training import Training
 from octopus.types import MLType
+from tests.helpers import get_default_model_params
 
 
 def get_classification_models():
@@ -34,35 +29,6 @@ def get_classification_models():
             continue
 
     return sorted(models)  # Sort for consistent test order
-
-
-def get_default_params(model_name):
-    """Get default parameters for a model."""
-    # Models uses classmethods, no instantiation needed
-    config = Models.get_config(model_name)
-    params = {}
-
-    for hp in config.hyperparameters:
-        if isinstance(hp, FixedHyperparameter):
-            params[hp.name] = hp.value
-        elif isinstance(hp, CategoricalHyperparameter):
-            params[hp.name] = hp.choices[0] if hp.choices else None
-        elif isinstance(hp, IntHyperparameter):
-            params[hp.name] = int((hp.low + hp.high) / 2)
-        elif isinstance(hp, FloatHyperparameter):
-            if hp.log:
-                params[hp.name] = np.sqrt(hp.low * hp.high)
-            else:
-                params[hp.name] = (hp.low + hp.high) / 2
-        else:
-            raise AssertionError(f"Unsupported Hyperparameter type: {type(hp)}.")
-
-    if config.n_jobs:
-        params[config.n_jobs] = 1
-    if config.model_seed:
-        params[config.model_seed] = 42
-
-    return params
 
 
 @pytest.fixture
@@ -97,7 +63,7 @@ def test_classification_model_has_classes_attribute(sample_data, model_name: Mod
         training = Training(
             training_id=f"test_{model_name}",
             ml_type=MLType.BINARY,
-            target_assignments={"target": "target"},
+            target_assignments={"default": "target"},
             feature_cols=["x1", "x2"],
             row_id_col="row_id",
             data_train=train,
@@ -108,7 +74,7 @@ def test_classification_model_has_classes_attribute(sample_data, model_name: Mod
             feature_groups={},
             config_training={
                 "ml_model_type": model_name,
-                "ml_model_params": get_default_params(model_name),
+                "ml_model_params": get_default_model_params(model_name),
                 "outl_reduction": 0,
             },
         )

@@ -3,6 +3,12 @@
 from enum import Enum, StrEnum, auto
 from typing import Any
 
+import numpy as np
+import pandas as pd
+
+type OctoArrayLike = np.typing.ArrayLike
+type OctoMatrixLike = np.ndarray | pd.DataFrame
+
 
 class ResultType(StrEnum):
     """Types of results produced by modules."""
@@ -137,6 +143,7 @@ class ShapType(StrEnum):
     in training and prediction code.
     """
 
+    AUTO = "auto"
     KERNEL = "kernel"
     PERMUTATION = "permutation"
     EXACT = "exact"

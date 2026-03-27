@@ -298,6 +298,91 @@ class TestTaskPredictorTestFI:
             tpt.calculate_fi(fi_type="invalid_method")
 
 
+class TestGetTargetColumns:
+    """Test TaskPredictorTest._get_target_columns helper."""
+
+    def test_single_target_returns_target_key(self, tpt):
+        """Verify single-target tasks produce {'target': ...} dict."""
+        # Binary classification has a single target assignment
+        test_df = pd.DataFrame({"target": [0, 1, 0], "other": [1, 2, 3]})
+        # Override target_assignments to a known single-target mapping
+        original = tpt._metadata.target_assignments
+        try:
+            tpt._metadata = tpt._metadata.__class__(
+                ml_type=tpt._metadata.ml_type,
+                target_metric=tpt._metadata.target_metric,
+                target_col=tpt._metadata.target_col,
+                target_assignments={"default": "target"},
+                positive_class=tpt._metadata.positive_class,
+                row_id_col=tpt._metadata.row_id_col,
+                feature_cols=tpt._metadata.feature_cols,
+                n_outersplits=tpt._metadata.n_outersplits,
+            )
+            result = tpt._get_target_columns(test_df)
+            assert list(result.keys()) == ["target"]
+            np.testing.assert_array_equal(result["target"], [0, 1, 0])
+        finally:
+            tpt._metadata = tpt._metadata.__class__(
+                ml_type=tpt._metadata.ml_type,
+                target_metric=tpt._metadata.target_metric,
+                target_col=tpt._metadata.target_col,
+                target_assignments=original,
+                positive_class=tpt._metadata.positive_class,
+                row_id_col=tpt._metadata.row_id_col,
+                feature_cols=tpt._metadata.feature_cols,
+                n_outersplits=tpt._metadata.n_outersplits,
+            )
+
+    def test_multi_target_returns_prefixed_keys(self, tpt):
+        """Verify multi-target tasks produce {'target_role': ...} dict for each role."""
+        test_df = pd.DataFrame(
+            {
+                "time_col": [10.0, 20.0, 30.0],
+                "event_col": [1, 0, 1],
+            }
+        )
+        original_ml_type = tpt._metadata.ml_type
+        original_target_assignments = tpt._metadata.target_assignments
+        try:
+            tpt._metadata = tpt._metadata.__class__(
+                ml_type=MLType.TIMETOEVENT,
+                target_metric=tpt._metadata.target_metric,
+                target_col=tpt._metadata.target_col,
+                target_assignments={"duration": "time_col", "event": "event_col"},
+                positive_class=tpt._metadata.positive_class,
+                row_id_col=tpt._metadata.row_id_col,
+                feature_cols=tpt._metadata.feature_cols,
+                n_outersplits=tpt._metadata.n_outersplits,
+            )
+            result = tpt._get_target_columns(test_df)
+            assert "target_duration" in result
+            assert "target_event" in result
+            assert "target" not in result
+            np.testing.assert_array_equal(result["target_duration"], [10.0, 20.0, 30.0])
+            np.testing.assert_array_equal(result["target_event"], [1, 0, 1])
+        finally:
+            tpt._metadata = tpt._metadata.__class__(
+                ml_type=original_ml_type,
+                target_metric=tpt._metadata.target_metric,
+                target_col=tpt._metadata.target_col,
+                target_assignments=original_target_assignments,
+                positive_class=tpt._metadata.positive_class,
+                row_id_col=tpt._metadata.row_id_col,
+                feature_cols=tpt._metadata.feature_cols,
+                n_outersplits=tpt._metadata.n_outersplits,
+            )
+
+    def test_predict_df_single_target_has_target_column(self, tpt):
+        """Verify predict(df=True) includes 'target' column for single-target tasks."""
+        result = tpt.predict(df=True)
+        assert "target" in result.columns
+
+    def test_predict_proba_df_single_target_has_target_column(self, tpt):
+        """Verify predict_proba(df=True) includes 'target' column for single-target tasks."""
+        result = tpt.predict_proba(df=True)
+        assert "target" in result.columns
+
+
 class TestTaskPredictorTestGuards:
     """Test TaskPredictorTest serialization guards."""
 

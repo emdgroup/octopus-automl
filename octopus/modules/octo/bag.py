@@ -22,20 +22,12 @@ from octopus.metrics.utils import get_performance_from_predictions
 if TYPE_CHECKING:
     from octopus.modules.octo.training import Training
 
+from octopus.modules.octo.training import fi_storage_key, parse_fi_storage_key
+
 # Adjust this import path as needed depending on your package layout
-from octopus.types import FIComputeMethod, FIResultLabel, LogGroup, MLType
+from octopus.types import DataPartition, FIComputeMethod, LogGroup, MLType
 
 logger = get_logger()
-
-
-def _parse_fi_key(key: str) -> tuple[FIResultLabel, str]:
-    """Parse a FI dict key like 'permutation_dev' into (FIResultLabel, dataset)."""
-    known_methods = {FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.LOFO}
-    for method in known_methods:
-        if key.startswith(method + "_"):
-            return FIResultLabel(method), key[len(method) + 1 :]
-    # Keys without partition suffix: "internal", "constant"
-    return FIResultLabel(key), "train"
 
 
 class TrainingWithLogging:
@@ -86,18 +78,7 @@ class FeatureImportanceWithLogging:
         self._logger.info(f"Starting {self._fi_type} feature importance calculation")
 
         try:
-            if self._fi_type == FIComputeMethod.INTERNAL:
-                self._training.calculate_fi_internal()
-            elif self._fi_type == FIComputeMethod.SHAP:
-                self._training.calculate_fi_shap(partition=self._partition)
-            elif self._fi_type == FIComputeMethod.PERMUTATION:
-                self._training.calculate_fi_group_permutation(partition=self._partition)
-            elif self._fi_type == FIComputeMethod.LOFO:
-                self._training.calculate_fi_lofo()
-            elif self._fi_type == FIComputeMethod.CONSTANT:
-                self._training.calculate_fi_constant()
-            else:
-                raise ValueError(f"FI type {self._fi_type} not supported")
+            self._training.calculate_fi(self._fi_type, partition=self._partition)
 
             self._logger.set_log_group(self._log_group_cls.PREPARE_EXECUTION, f"{self._log_prefix} {training_id}")
             self._logger.info(f"Completed {self._fi_type} feature importance calculation")
@@ -529,7 +510,7 @@ class BagBase(BaseEstimator):
                 for fi_key, df in value.items():
                     if isinstance(df, pd.DataFrame) and not df.empty:
                         temp = df[["feature", "importance"]].copy()
-                        method, dataset = _parse_fi_key(fi_key)
+                        method, dataset = parse_fi_storage_key(fi_key)
                         temp["fi_method"] = method
                         temp["fi_dataset"] = dataset
                         temp["training_id"] = training_id
@@ -538,7 +519,7 @@ class BagBase(BaseEstimator):
             return pd.concat(all_dfs, ignore_index=True)
         return pd.DataFrame()
 
-    def _calculate_fi_parallel(self, fi_type=FIComputeMethod.INTERNAL, partition="dev"):
+    def _calculate_fi_parallel(self, fi_type=FIComputeMethod.INTERNAL, partition=DataPartition.DEV):
         """Calculate feature importance in parallel using Ray."""
         # Ensure Ray is initialized before parallel execution
         init_ray(start_local_if_missing=True)
@@ -564,7 +545,7 @@ class BagBase(BaseEstimator):
         # Update trainings with results (should be the same objects with FI calculated)
         self.trainings = results
 
-    def _calculate_fi_sequential(self, fi_type=FIComputeMethod.INTERNAL, partition="dev"):
+    def _calculate_fi_sequential(self, fi_type=FIComputeMethod.INTERNAL, partition=DataPartition.DEV):
         """Calculate feature importance sequentially."""
         successful_calculations = []
         failed_calculations = []
@@ -572,18 +553,7 @@ class BagBase(BaseEstimator):
         for idx, training in enumerate(self.trainings):
             training_id = getattr(training, "training_id", idx)
             try:
-                if fi_type == FIComputeMethod.INTERNAL:
-                    training.calculate_fi_internal()
-                elif fi_type == FIComputeMethod.SHAP:
-                    training.calculate_fi_shap(partition=partition)
-                elif fi_type == FIComputeMethod.PERMUTATION:
-                    training.calculate_fi_group_permutation(partition=partition)
-                elif fi_type == FIComputeMethod.LOFO:
-                    training.calculate_fi_lofo()
-                elif fi_type == FIComputeMethod.CONSTANT:
-                    training.calculate_fi_constant()
-                else:
-                    raise ValueError(f"FI type {fi_type} not supported")
+                training.calculate_fi(fi_type, partition=partition)
 
                 successful_calculations.append(training)
                 logger.info(
@@ -613,7 +583,7 @@ class BagBase(BaseEstimator):
 
         self.trainings = successful_calculations
 
-    def _calculate_fi(self, fi_type=FIComputeMethod.INTERNAL, partition="dev"):
+    def _calculate_fi(self, fi_type=FIComputeMethod.INTERNAL, partition=DataPartition.DEV):
         """Calculate feature importance using parallel or sequential execution."""
         if self.parallel_execution:
             self._calculate_fi_parallel(fi_type=fi_type, partition=partition)
@@ -633,13 +603,13 @@ class BagBase(BaseEstimator):
             fi_methods = []
 
         if FIComputeMethod.PERMUTATION in fi_methods:
-            fi_df = self.feature_importances["permutation_dev_mean"]
+            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.PERMUTATION, "dev", "mean")]
         elif FIComputeMethod.SHAP in fi_methods:
-            fi_df = self.feature_importances["shap_dev_mean"]
+            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.SHAP, "dev", "mean")]
         elif FIComputeMethod.INTERNAL in fi_methods:
-            fi_df = self.feature_importances["internal_mean"]
+            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.INTERNAL, stat="mean")]
         elif FIComputeMethod.CONSTANT in fi_methods:
-            fi_df = self.feature_importances["constant_mean"]
+            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.CONSTANT, stat="mean")]
         else:
             logger.set_log_group(LogGroup.RESULTS)
             logger.info("No features selected, return empty list")
@@ -680,14 +650,14 @@ class BagBase(BaseEstimator):
         return sorted(feat_all, key=lambda x: (len(x), sorted(x)))
 
     def calculate_feature_importances(
-        self, fi_methods: list[FIComputeMethod] | None = None, partitions: list[str] | None = None
+        self, fi_methods: list[FIComputeMethod] | None = None, partitions: list[DataPartition | str] | None = None
     ):
         """Extract feature importances of all models in bag."""
         # we always extract internal feature importances, if available
         if fi_methods is None:
             fi_methods = []
         if partitions is None:
-            partitions = ["dev", "test"]
+            partitions = [DataPartition.DEV, DataPartition.TEST]
 
         self._calculate_fi(fi_type=FIComputeMethod.INTERNAL)
 
@@ -707,50 +677,58 @@ class BagBase(BaseEstimator):
             self.feature_importances[training.training_id] = training.feature_importances
 
         # summary feature importances for all trainings (mean + count)
-        # internal, permutation_dev, shap_dev only
-        # save in bag
+        # Aggregate all computed partitions dynamically (not just "dev")
         for method in fi_methods:
-            if method == FIComputeMethod.INTERNAL:
-                method_str = "internal"
-            elif method == FIComputeMethod.CONSTANT:
-                method_str = "constant"
+            if method in (FIComputeMethod.INTERNAL, FIComputeMethod.CONSTANT):
+                keys_to_aggregate = [fi_storage_key(method)]
             else:
-                method_str = method.value + "_dev"
-            fi_pool = []
-            for training in self.trainings:
-                fi_pool.append(training.feature_importances[method_str])
-            fi = pd.concat(fi_pool, axis=0)
+                keys_to_aggregate = [fi_storage_key(method, p) for p in partitions]
 
-            # calculate mean feature importances, keep zero entries
-            self.feature_importances[method_str + "_mean"] = (
-                fi[["feature", "importance"]]
-                .groupby(by="feature")
-                .sum()
-                .div(len(self.trainings))  # not all features in each fi-table
-                .sort_values(by="importance", ascending=False)
-                .reset_index()
-            )
+            for method_key in keys_to_aggregate:
+                fi_pool = []
+                for training in self.trainings:
+                    fi_df = training.feature_importances.get(method_key)
+                    if fi_df is not None and not fi_df.empty:
+                        fi_pool.append(fi_df)
 
-            # calculate count feature importances, keep zero entries
-            non_zero_importances = fi[fi["importance"] != 0][["feature", "importance"]].groupby(by="feature").count()
-            # Create a DataFrame with all features, init importance counts to zero
-            all_features = pd.DataFrame(fi["feature"].unique(), columns=["feature"])
-            all_features["importance"] = 0
-            # Update the importance counts for non-zero importances
-            all_features = all_features.set_index("feature")
-            all_features.update(non_zero_importances)
-            all_features = all_features.reset_index()
-            # Sort and reset index
-            self.feature_importances[method_str + "_count"] = all_features.sort_values(
-                by="importance", ascending=False
-            ).reset_index(drop=True)
+                if not fi_pool:
+                    logger.warning(f"No FI data found for key '{method_key}' across trainings.")
+                    continue
+
+                fi = pd.concat(fi_pool, axis=0)
+
+                # calculate mean feature importances, keep zero entries
+                mean_key = method_key + "_mean"
+                self.feature_importances[mean_key] = (
+                    fi[["feature", "importance"]]
+                    .groupby(by="feature")
+                    .sum()
+                    .div(len(fi_pool))  # mean over trainings that produced FI (not all may succeed)
+                    .sort_values(by="importance", ascending=False)
+                    .reset_index()
+                )
+
+                # calculate count feature importances, keep zero entries
+                non_zero_importances = (
+                    fi[fi["importance"] != 0][["feature", "importance"]].groupby(by="feature").count()
+                )
+                # Create a DataFrame with all features, init importance counts to zero
+                all_features = pd.DataFrame(fi["feature"].unique(), columns=["feature"])
+                all_features["importance"] = 0
+                # Update the importance counts for non-zero importances
+                all_features = all_features.set_index("feature")
+                all_features.update(non_zero_importances)
+                all_features = all_features.reset_index()
+                # Sort and reset index
+                count_key = method_key + "_count"
+                self.feature_importances[count_key] = all_features.sort_values(
+                    by="importance", ascending=False
+                ).reset_index(drop=True)
 
         return self.feature_importances
 
     def predict(self, x):
         """Predict with sklearn compatibility."""
-        # Import sklearn validation here to avoid auto-formatter issues
-
         # Check if the bag has fitted trainings
         if not self.trainings:
             raise ValueError("No trainings available in bag")
@@ -759,10 +737,6 @@ class BagBase(BaseEstimator):
         for training in self.trainings:
             if not getattr(training, "is_fitted", False):
                 raise ValueError(f"Training {training.training_id} is not fitted")
-
-        # Convert pandas DataFrame to numpy if needed for sklearn compatibility
-        if hasattr(x, "values"):
-            x = x.values
 
         preds_lst = []
         weights_lst = []
@@ -789,10 +763,6 @@ class BagBase(BaseEstimator):
             if not getattr(training, "is_fitted", False):
                 raise ValueError(f"Training {training.training_id} is not fitted")
 
-        # Convert pandas DataFrame to numpy if needed for sklearn compatibility
-        if hasattr(x, "values"):
-            x = x.values
-
         preds_lst = []
         weights_lst = []
         for training in self.trainings:
@@ -803,19 +773,13 @@ class BagBase(BaseEstimator):
         # return mean of weighted predictions
         return np.sum(np.array(preds_lst), axis=0) / sum(weights_lst)
 
-    def _estimator_type(self):
-        """Return the estimator type for sklearn compatibility."""
-        if self.ml_type in (MLType.BINARY, MLType.MULTICLASS):
-            return "classifier"
-        else:
-            return "regressor"
-
 
 @define
 class BagClassifier(BagBase, ClassifierMixin):
     """Bag for classification tasks with sklearn ClassifierMixin."""
 
-    def _estimator_type(self):  # type: ignore[override]
+    @property
+    def _estimator_type(self) -> str:  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "classifier"
 
@@ -824,7 +788,8 @@ class BagClassifier(BagBase, ClassifierMixin):
 class BagRegressor(BagBase, RegressorMixin):
     """Bag for regression tasks with sklearn RegressorMixin."""
 
-    def _estimator_type(self):  # type: ignore[override]
+    @property
+    def _estimator_type(self) -> str:  # type: ignore[override]
         """Return the estimator type for sklearn compatibility."""
         return "regressor"
 

@@ -152,7 +152,8 @@ def catboost_classifier() -> ModelConfig:
     """CatBoost classification model config."""
     return ModelConfig(
         model_class=CatBoostClassifier,
-        ml_types=[MLType.BINARY, MLType.MULTICLASS],
+        # Multiclass excluded: SHAP explainers segfault on CatBoost multiclass models.
+        ml_types=[MLType.BINARY],
         feature_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,

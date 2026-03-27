@@ -58,7 +58,6 @@ class TaskPredictor:
     _feature_cols_per_split: dict[int, list[str]] = field(init=False, factory=dict, repr=False)
     _feature_groups_per_split: dict[int, dict[str, list[str]]] = field(init=False, factory=dict, repr=False)
     _feature_cols: list[str] = field(init=False, factory=list, repr=False)
-    _target_col_resolved: str = field(init=False, default="")
 
     def __attrs_post_init__(self) -> None:
         """Load config, validate, and load artifacts from the study directory."""
@@ -97,9 +96,6 @@ class TaskPredictor:
             self._feature_cols = sorted(all_feature_cols)
         else:
             self._feature_cols = self._metadata.feature_cols
-
-        # Cache resolved target column name
-        self._target_col_resolved = self._resolve_target_col()
 
     # ── Properties ──────────────────────────────────────────────
 
@@ -305,18 +301,6 @@ class TaskPredictor:
 
     # ── Scoring ─────────────────────────────────────────────────
 
-    def _resolve_target_col(self) -> str:
-        """Resolve the actual target column name from assignments or config.
-
-        Called once during init/load and cached in ``_target_col_resolved``.
-
-        Returns:
-            The target column name to use for scoring.
-        """
-        if self.target_assignments:
-            return list(self.target_assignments.values())[0]
-        return self.target_col
-
     def performance(
         self,
         data: pd.DataFrame,
@@ -340,21 +324,19 @@ class TaskPredictor:
         if metrics is None:
             metrics = [self.target_metric]
 
-        target_col = self._target_col_resolved
-
         rows = []
         for split_id in self._outersplits:
             model = self._models[split_id]
             features = self._selected_features[split_id]
 
             for metric_name in metrics:
-                target_assignments = {target_col: target_col}
+                # target_assignments supports T2E (duration/event keys)
                 score = get_performance_from_model(
                     model=model,
                     data=data,
                     feature_cols=features,
                     target_metric=metric_name,
-                    target_assignments=target_assignments,
+                    target_assignments=self.target_assignments,
                     threshold=threshold,
                     positive_class=self.positive_class,
                 )
@@ -363,6 +345,125 @@ class TaskPredictor:
         return pd.DataFrame(rows)
 
     # ── Feature Importance ──────────────────────────────────────
+
+    def _build_pool_data(self, data: pd.DataFrame) -> dict[int, pd.DataFrame]:
+        """Build per-split pool data for permutation FI.
+
+        In study-connected mode (constructed via ``TaskPredictor(study_path,
+        task_id)``), loads per-split ``data_traindev.parquet`` from the study
+        directory.  This provides a richer pool of replacement values for
+        permutation FI, better approximating the marginal distribution of
+        each feature.
+
+        In deployment mode (loaded via ``TaskPredictor.load(path)``), the
+        original study directory is not available, so the user-provided
+        ``data`` is used as the pool for all splits.
+
+        Args:
+            data: User-provided data (used as fallback for all splits).
+
+        Returns:
+            Dict mapping outersplit_id to pool DataFrame.
+        """
+        loader = StudyLoader(self._study_path)
+        pool: dict[int, pd.DataFrame] = {}
+
+        for split_id in self._outersplits:
+            split_loader = loader.get_outersplit_loader(
+                outersplit_id=split_id,
+                task_id=self._task_id,
+                result_type=self._result_type,
+            )
+            traindev_path = split_loader.fold_dir / "data_traindev.parquet"
+            if traindev_path.exists():
+                pool[split_id] = split_loader.load_train_data()
+            else:
+                pool[split_id] = data
+
+        return pool
+
+    def _dispatch_fi(
+        self,
+        test_data: dict[int, pd.DataFrame],
+        train_data: dict[int, pd.DataFrame],
+        fi_type: FIType,
+        *,
+        n_repeats: int = 10,
+        feature_groups: dict[str, list[str]] | None = None,
+        random_state: int = 42,
+        **kwargs: Any,
+    ) -> pd.DataFrame:
+        """Dispatch FI calculation to the appropriate Layer 2 function.
+
+        Shared dispatch logic for both ``TaskPredictor`` (user-provided data)
+        and ``TaskPredictorTest`` (stored study data).  The caller is
+        responsible for constructing the ``test_data`` and ``train_data``
+        dicts; this method only handles algorithm dispatch and result
+        formatting.
+
+        Args:
+            test_data: Dict mapping outersplit_id to test DataFrame.
+            train_data: Dict mapping outersplit_id to train DataFrame
+                (used as the sampling pool for permutation FI).
+            fi_type: Feature importance type (must already be a ``FIType``).
+            n_repeats: Number of permutation repeats.
+            feature_groups: Feature groups for group permutation.
+                If ``None`` and ``fi_type`` is ``GROUP_PERMUTATION``,
+                groups are loaded from the study via
+                ``_compute_feature_groups()``.
+            random_state: Random seed.
+            **kwargs: Additional kwargs forwarded to the FI function
+                (e.g. ``shap_type``, ``max_samples`` for SHAP).
+
+        Returns:
+            DataFrame with FI results including a ``fi_type`` column
+            and per-split + ensemble rows.
+
+        Raises:
+            ValueError: If ``fi_type`` is not a recognized ``FIType``.
+        """
+        from octopus.predict.feature_importance import (  # noqa: PLC0415
+            calculate_fi_permutation,
+            calculate_fi_shap,
+        )
+
+        if fi_type in (FIType.PERMUTATION, FIType.GROUP_PERMUTATION):
+            resolved_groups = None
+            if fi_type == FIType.GROUP_PERMUTATION:
+                if feature_groups is not None:
+                    resolved_groups = feature_groups
+                else:
+                    resolved_groups = self._compute_feature_groups()
+
+            result = calculate_fi_permutation(
+                models=self._models,
+                selected_features=self._selected_features,
+                test_data=test_data,
+                train_data=train_data,
+                target_assignments=self.target_assignments,
+                target_metric=self.target_metric,
+                positive_class=self.positive_class,
+                n_repeats=n_repeats,
+                random_state=random_state,
+                feature_groups=resolved_groups,
+                feature_cols=self._feature_cols,
+            )
+        elif fi_type == FIType.SHAP:
+            result = calculate_fi_shap(
+                models=self._models,
+                selected_features=self._selected_features,
+                test_data=test_data,
+                ml_type=self.ml_type,
+                feature_cols=self._feature_cols,
+                **kwargs,
+            )
+        else:
+            raise ValueError(
+                f"Unknown fi_type '{fi_type}'. Use FIType.PERMUTATION, FIType.GROUP_PERMUTATION, or FIType.SHAP."
+            )
+
+        result.insert(0, "fi_type", fi_type.value)
+        return result
 
     def calculate_fi(
         self,
@@ -387,8 +488,8 @@ class TaskPredictor:
                   importance.  Uses ``feature_groups`` (from study config or
                   explicitly provided) to also compute group-level importance.
                 - ``FIType.SHAP`` — SHAP-based importance.  Pass ``shap_type`` as a
-                  kwarg to select the explainer: ``ShapExplainerType.KERNEL`` (default),
-                  ``ShapExplainerType.PERMUTATION``, or ``ShapExplainerType.EXACT``.
+                  kwarg to select the explainer: ``"kernel"`` (default),
+                  ``"permutation"``, or ``"exact"``.
             n_repeats: Number of permutation repeats (for permutation FI).
             feature_groups: Dict mapping group names to feature lists
                 (for group_permutation).  If None and fi_type is
@@ -396,8 +497,7 @@ class TaskPredictor:
             random_state: Random seed.
             **kwargs: Additional keyword arguments passed to the FI function.
                 For ``fi_type=FIType.SHAP``, supported kwargs include:
-                ``shap_type`` (``ShapExplainerType.KERNEL``, ``ShapExplainerType.PERMUTATION``,
-                ``ShapExplainerType.EXACT``),
+                ``shap_type`` (``"kernel"``, ``"permutation"``, ``"exact"``),
                 ``max_samples``, ``background_size``.
 
         Returns:
@@ -407,53 +507,23 @@ class TaskPredictor:
         Raises:
             ValueError: If fi_type is unknown.
         """
-        from octopus.predict.feature_importance import (  # noqa: PLC0415
-            calculate_fi_permutation,
-            calculate_fi_shap,
-        )
-
         fi_type = FIType(fi_type)
-        target_col = self._target_col_resolved
 
-        # Build per-split data dicts (same data for all splits)
+        # Build per-split data dicts
+        # All splits share the same DataFrame reference.  Safe because
+        # compute_permutation_single / compute_shap_single copy data before mutating.
         test_data = dict.fromkeys(self._outersplits, data)
-        train_data = dict.fromkeys(self._outersplits, data)
+        train_data = self._build_pool_data(data)
 
-        if fi_type in (FIType.PERMUTATION, FIType.GROUP_PERMUTATION):
-            resolved_groups = None
-            if fi_type == FIType.GROUP_PERMUTATION:
-                if feature_groups is not None:
-                    resolved_groups = feature_groups
-                else:
-                    resolved_groups = self._compute_feature_groups()
-
-            result = calculate_fi_permutation(
-                models=self._models,
-                selected_features=self._selected_features,
-                test_data=test_data,
-                train_data=train_data,
-                target_col=target_col,
-                target_metric=self.target_metric,
-                positive_class=self.positive_class,
-                n_repeats=n_repeats,
-                random_state=random_state,
-                feature_groups=resolved_groups,
-                feature_cols=self._feature_cols,
-            )
-        elif fi_type == FIType.SHAP:
-            result = calculate_fi_shap(
-                models=self._models,
-                selected_features=self._selected_features,
-                test_data=test_data,
-                **kwargs,
-            )
-        else:
-            raise ValueError(
-                f"Unknown fi_type '{fi_type}'. Use FIType.PERMUTATION, FIType.GROUP_PERMUTATION, or FIType.SHAP."
-            )
-
-        result.insert(0, "fi_type", fi_type.value)
-        return result
+        return self._dispatch_fi(
+            test_data,
+            train_data,
+            fi_type,
+            n_repeats=n_repeats,
+            feature_groups=feature_groups,
+            random_state=random_state,
+            **kwargs,
+        )
 
     def _compute_feature_groups(self) -> dict[str, list[str]]:
         """Compute merged feature groups from all outersplits.
@@ -601,8 +671,5 @@ class TaskPredictor:
         for split_id in instance._outersplits:
             with (features_dir / f"split_{split_id:03d}.json").open() as f:
                 instance._selected_features[split_id] = json.load(f)
-
-        # Cache resolved target column name
-        instance._target_col_resolved = instance._resolve_target_col()
 
         return instance

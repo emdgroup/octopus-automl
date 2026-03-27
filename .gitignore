@@ -10,6 +10,7 @@ catboost_info/
 # coding support
 .clinerules
 COPILOT_INSTRUCTIONS
+CLAUDE.md
 
 # Python
 __pycache__

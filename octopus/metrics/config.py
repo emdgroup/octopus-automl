@@ -5,8 +5,14 @@ from typing import Any
 
 from attrs import define, field, validators
 
-from octopus.models.config import OctoArrayLike
-from octopus.types import MetricDirection, MLType, PredictionType, to_ml_types_frozenset, validate_ml_types
+from octopus.types import (
+    MetricDirection,
+    MLType,
+    OctoArrayLike,
+    PredictionType,
+    to_ml_types_frozenset,
+    validate_ml_types,
+)
 
 # Type alias for metric functions
 # Metric functions should accept (y_true, y_pred, **kwargs) and return a numeric value.

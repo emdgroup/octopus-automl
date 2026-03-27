@@ -95,12 +95,12 @@ def get_model_configs():
     return {
         MLType.BINARY: {
             "models": available_models[MLType.BINARY],
-            "target_assignments": {"target": "target_class"},
+            "target_assignments": {"default": "target_class"},
             "target_metric": "accuracy",
         },
         MLType.REGRESSION: {
             "models": available_models[MLType.REGRESSION],
-            "target_assignments": {"target": "target_reg"},
+            "target_assignments": {"default": "target_reg"},
             "target_metric": "mse",
         },
         MLType.TIMETOEVENT: {
