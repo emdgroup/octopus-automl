@@ -12,7 +12,7 @@ from upath import UPath
 
 from octopus.modules import Octo
 from octopus.study import OctoClassification
-from octopus.types import ModelName
+from octopus.types import FIComputeMethod, ModelName
 from octopus.utils import joblib_load, joblib_save
 
 
@@ -203,9 +203,9 @@ class TestFSSpecIntegration:
                             model_seed=0,
                             n_jobs=1,
                             max_outl=0,
-                            fi_methods_bestbag=[],
-                            inner_parallelization=True,
-                            n_workers=2,
+                            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
+                            inner_parallelization=False,
+                            n_workers=1,
                             optuna_seed=0,
                             n_optuna_startup_trials=3,
                             n_trials=2,

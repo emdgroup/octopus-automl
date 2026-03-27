@@ -8,12 +8,10 @@ from pathlib import Path
 from typing import Any
 
 import joblib
-import networkx as nx
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-import scipy.stats
 from upath import UPath
 
 
@@ -173,6 +171,9 @@ def calculate_feature_groups(data_traindev: pd.DataFrame, feature_cols: list[str
         logging.warning("Not enough features to calculate correlations for feature groups.")
         return {}
     logging.info("Calculating feature groups.")
+
+    import networkx as nx  # noqa: PLC0415
+    import scipy.stats  # noqa: PLC0415
 
     auto_group_thresholds = [0.7, 0.8, 0.9]
     auto_groups = []

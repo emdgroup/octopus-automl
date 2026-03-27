@@ -1,12 +1,18 @@
 """Machine learning models config."""
 
 import numpy as np
-import pandas as pd
 from attrs import Attribute, define, field, validators
 from sklearn.base import BaseEstimator
 
 from octopus.models.hyperparameter import Hyperparameter
-from octopus.types import FIComputeMethod, MLType, to_ml_types_frozenset, validate_ml_types
+from octopus.types import (
+    FIComputeMethod,
+    MLType,
+    OctoArrayLike,
+    OctoMatrixLike,
+    to_ml_types_frozenset,
+    validate_ml_types,
+)
 
 
 def validate_hyperparameters(instance: "ModelConfig", attribute: Attribute, value: list[Hyperparameter]) -> None:
@@ -28,10 +34,6 @@ def validate_hyperparameters(instance: "ModelConfig", attribute: Attribute, valu
     for hyperparameter in value:
         if hyperparameter.name in forbidden_names:
             raise ValueError(f"""Hyperparameter '{hyperparameter.name}' is not allowed in 'hyperparameters'.""")
-
-
-type OctoArrayLike = np.typing.ArrayLike
-type OctoMatrixLike = np.ndarray | pd.DataFrame
 
 
 class BaseModel(BaseEstimator):

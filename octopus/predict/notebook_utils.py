@@ -7,7 +7,8 @@ Provides high-level analysis functions for Jupyter notebooks:
 
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,7 @@ from octopus.types import MLType
 
 __all__ = [
     "display_table",
+    "find_latest_study",
     "show_aucroc_plots",
     "show_confusionmatrix",
     "show_overall_fi_plot",
@@ -31,12 +33,50 @@ __all__ = [
     "show_testset_performance",
 ]
 
+
+def find_latest_study(studies_root: str | UPath, prefix: str) -> str:
+    """Find the latest study directory matching a name prefix.
+
+    Study directories are named ``<prefix>-YYYYMMDD_HHMMSS``.  This function
+    finds all directories matching the given *prefix* and returns the one with
+    the most recent timestamp (lexicographic sort).  Falls back to an exact
+    match (no timestamp suffix) when no timestamped directories are found.
+
+    Args:
+        studies_root: Path to the parent directory containing study directories.
+        prefix: The study name prefix, e.g. ``"wf_octo_mrmr_octo"``.
+
+    Returns:
+        Path string to the latest matching study directory.
+
+    Raises:
+        FileNotFoundError: If no matching study directory is found.
+
+    Example:
+        >>> from octopus.predict.notebook_utils import find_latest_study
+        >>> study_dir = find_latest_study("./studies", "wf_octo_mrmr_octo")
+    """
+    root = UPath(studies_root)
+    # Match timestamped directories: prefix-YYYYMMDD_HHMMSS
+    timestamp_pattern = re.compile(re.escape(prefix) + r"-\d{8}_\d{6}$")
+    candidates = sorted(
+        [d for d in root.glob(f"{prefix}-*") if d.is_dir() and timestamp_pattern.match(d.name)],
+        key=lambda p: p.name,
+        reverse=True,
+    )
+    if candidates:
+        return str(candidates[0])
+    # Fallback: exact match without timestamp
+    exact = root / prefix
+    if exact.is_dir():
+        return str(exact)
+    raise FileNotFoundError(f"No study directory found for prefix '{prefix}' in {root}")
+
+
 try:
     from IPython.display import display as ipython_display
 except ImportError:
     ipython_display = None
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from octopus.predict.task_predictor_test import TaskPredictorTest
@@ -237,7 +277,9 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
     }
 
 
-def show_target_metric_performance(study_info: dict, details: bool = False) -> list[pd.DataFrame]:
+def show_target_metric_performance(
+    study_info: dict, details: bool = False, report_test: bool = False
+) -> list[pd.DataFrame]:
     """Display performance metrics for all workflow tasks in a study.
 
     Delegates data loading to ``StudyLoader.build_performance_summary()``.
@@ -245,6 +287,9 @@ def show_target_metric_performance(study_info: dict, details: bool = False) -> l
     Args:
         study_info: Dictionary returned by show_study_details().
         details: If True, shows detailed information for each outersplit.
+        report_test: If True, includes test-set performance columns
+            (``test_avg``, ``test_pool``) in the output.  Default is False
+            to prevent accidental data leakage during model selection.
 
     Returns:
         List of DataFrames, one for each task/key combination with performance metrics.
@@ -272,6 +317,11 @@ def show_target_metric_performance(study_info: dict, details: bool = False) -> l
             result_df = result_df.select_dtypes(include="number")
             result_df.insert(0, "Task", _item["task_id"])
             result_df.insert(1, "Key", _key)
+
+            # Filter out test-set columns when report_test is False
+            if not report_test:
+                test_cols = [c for c in result_df.columns if c.startswith("test_")]
+                result_df = result_df.drop(columns=test_cols)
 
             mean_values = {}
             for column in result_df.columns:

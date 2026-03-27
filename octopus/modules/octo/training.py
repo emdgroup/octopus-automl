@@ -1,35 +1,247 @@
 """Octo Training."""
 
 import copy
-import math
-import statistics
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 import pandas as pd
-import scipy
-import shap
 from attrs import Factory, define, field, validators
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import IsolationForest
 from sklearn.impute import SimpleImputer
-from sklearn.inspection import permutation_importance
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 from sklearn.utils.validation import check_is_fitted
 
 from octopus.logger import get_logger
-from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.types import FIComputeMethod, LogGroup, MLType, ModelName, ShapType
+from octopus.types import DataPartition, FIComputeMethod, FIResultLabel, LogGroup, MLType, ModelName
+
+logger = get_logger()
+
+# ── Octo-only Layer 1 primitive ────────────────────────────────
+
+
+def _compute_internal_fi(
+    model: Any,
+    feature_names: list[str],
+    ml_type: MLType | None = None,
+) -> pd.DataFrame:
+    """Extract internal feature importance from a fitted model.
+
+    Handles tree-based models (``feature_importances_``), linear models
+    (``abs(coef_)``), and returns an empty DataFrame for unsupported models
+    that expose neither attribute.  Time-to-event wrappers (e.g.
+    ``CatBoostCoxSurvival``, ``XGBoostCoxSurvival``) that expose
+    ``feature_importances_`` are supported and will return importances
+    normally.
+
+    This is an octo-only primitive — it is not used by the predict layer
+    and therefore lives here rather than in the shared
+    ``octopus.feature_importance`` module.
+
+    Args:
+        model: A fitted scikit-learn-compatible model.
+        feature_names: List of feature column names matching the model.
+        ml_type: The ML task type (currently unused, kept for API
+            compatibility).
+
+    Returns:
+        DataFrame with columns ``["feature", "importance"]``.
+    """
+    empty = pd.DataFrame(columns=["feature", "importance"])
+
+    # Tree-based models (incl. T2E wrappers like CatBoostCox, XGBoostCox)
+    if hasattr(model, "feature_importances_"):
+        fi = np.asarray(model.feature_importances_)
+        return pd.DataFrame({"feature": feature_names, "importance": fi})
+
+    # Linear models
+    if hasattr(model, "coef_"):
+        coef = np.asarray(model.coef_)
+        if coef.ndim == 1:
+            importance = np.abs(coef)
+        else:
+            importance = np.mean(np.abs(coef), axis=0)
+
+        if len(importance) != len(feature_names):
+            logger.warning(
+                "Length mismatch between coefficients (%d) and feature columns (%d). Skipping internal importances.",
+                len(importance),
+                len(feature_names),
+            )
+            return empty
+
+        return pd.DataFrame({"feature": feature_names, "importance": importance})
+
+    # Fallback
+    logger.warning("Internal feature importances not available for this estimator.")
+    return empty
+
+
+def _compute_lofo(
+    model: Any,
+    x_train_processed: pd.DataFrame,
+    y_train: Any,
+    eval_partitions: dict[str, pd.DataFrame],
+    feature_cols: list[str],
+    feature_groups: dict[str, list[str]],
+    target_metric: str,
+    target_assignments: dict,
+    positive_class: int | None,
+    n_targets: int,
+) -> dict[str, pd.DataFrame]:
+    """Compute LOFO feature importance (octo-only primitive).
+
+    For each feature (and feature group), retrains the model with that
+    feature removed and measures the performance drop.
+
+    Args:
+        model: Fitted sklearn-compatible model to copy and retrain.
+        x_train_processed: Preprocessed training features.
+        y_train: Training targets.
+        eval_partitions: Dict mapping partition name (e.g. ``"dev"``, ``"test"``)
+            to DataFrames containing both features and target columns.
+        feature_cols: List of feature column names.
+        feature_groups: Dict mapping group name to list of feature names.
+        target_metric: Metric name for scoring.
+        target_assignments: Target column assignments.
+        positive_class: Positive class label for binary classification.
+        n_targets: Number of target columns (1 for single-target, >1 for
+            multi-target / T2E).
+
+    Returns:
+        Dict mapping ``"lofo_{partition}"`` to DataFrame with columns
+        ``["feature", "importance"]``.
+    """
+    # Compute baseline scores per partition
+    baselines: dict[str, float] = {}
+    for part_name, part_data in eval_partitions.items():
+        baselines[part_name] = get_score_from_model(
+            model, part_data, feature_cols, target_metric, target_assignments, positive_class=positive_class
+        )
+
+    # Build combined feature dict: individual features + groups
+    lofo_features: dict[str, list[str]] = {x: [x] for x in feature_cols}
+    lofo_features.update(feature_groups)
+
+    # Per-partition importance lists
+    fi_results: dict[str, list[tuple[str, float]]] = {part: [] for part in eval_partitions}
+
+    for name, lofo_feature in lofo_features.items():
+        selected_features = [x for x in feature_cols if x not in lofo_feature]
+        # Single-feature datasets: cannot measure importance of the only feature
+        if not selected_features:
+            for _part_name, part_list in fi_results.items():
+                part_list.append((name, 0.0))
+            continue
+        retrained_model = copy.deepcopy(model)
+
+        # Retrain model without the left-out feature(s)
+        if n_targets == 1:
+            retrained_model.fit(x_train_processed[selected_features], y_train.squeeze(axis=1))
+        else:
+            retrained_model.fit(x_train_processed[selected_features], y_train)
+
+        # Score on each partition
+        for part_name, part_data in eval_partitions.items():
+            score = get_score_from_model(
+                retrained_model,
+                part_data,
+                selected_features,
+                target_metric,
+                target_assignments,
+                positive_class=positive_class,
+            )
+            fi_results[part_name].append((name, baselines[part_name] - score))
+
+    return {
+        fi_storage_key(FIComputeMethod.LOFO, part): pd.DataFrame(rows, columns=["feature", "importance"])
+        for part, rows in fi_results.items()
+    }
+
+
+# ── FI storage key helpers ──────────────────────────────────────
+
+
+def fi_storage_key(
+    method: FIComputeMethod | str,
+    partition: DataPartition | str | None = None,
+    stat: str | None = None,
+) -> str:
+    """Build a feature-importance storage key.
+
+    Centralises the key format so that construction and lookup always
+    agree.  Keys are plain strings for dict compatibility.
+
+    Examples:
+        >>> fi_storage_key(FIComputeMethod.INTERNAL)
+        'internal'
+        >>> fi_storage_key(FIComputeMethod.PERMUTATION, DataPartition.DEV)
+        'permutation_dev'
+        >>> fi_storage_key(FIComputeMethod.PERMUTATION, "dev", "mean")
+        'permutation_dev_mean'
+
+    Args:
+        method: FI computation method (enum or string value).
+        partition: Data partition (e.g. ``DataPartition.DEV``, ``"dev"``).
+            ``None`` for partition-less methods (internal, constant).
+        stat: Aggregation statistic (``"mean"``, ``"count"``).  ``None``
+            for per-training keys.
+
+    Returns:
+        Underscore-joined storage key string.
+    """
+    parts = [str(method)]
+    if partition is not None:
+        parts.append(str(partition))
+    if stat is not None:
+        parts.append(stat)
+    return "_".join(parts)
+
+
+# Known stat suffixes used in aggregated FI storage keys.
+_KNOWN_STAT_SUFFIXES = frozenset({"mean", "count"})
+
+
+def parse_fi_storage_key(key: str) -> tuple[FIResultLabel, str]:
+    """Parse a FI storage key into ``(method_label, dataset)``.
+
+    Reverse of :func:`fi_storage_key` for the subset of keys used in
+    ``get_feature_importances_df()``.  Recognises partition-aware methods
+    (permutation, shap, lofo) and returns the partition suffix; for
+    partition-less methods (internal, constant) returns ``"train"`` as the
+    dataset label.
+
+    Correctly handles three-part keys (e.g. ``"permutation_dev_mean"``)
+    by stripping the trailing stat suffix before extracting the partition.
+
+    Args:
+        key: A storage key such as ``"permutation_dev"``,
+            ``"permutation_dev_mean"``, or ``"internal"``.
+
+    Returns:
+        Tuple of ``(FIResultLabel, dataset_str)``.
+    """
+    known_methods = {FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.LOFO}
+    for method in known_methods:
+        prefix = str(method) + "_"
+        if key.startswith(prefix):
+            remainder = key[len(prefix) :]
+            # Strip trailing stat suffix (e.g. "_mean", "_count") if present
+            for suffix in _KNOWN_STAT_SUFFIXES:
+                if remainder.endswith("_" + suffix):
+                    remainder = remainder[: -(len(suffix) + 1)]
+                    break
+            return FIResultLabel(str(method)), remainder
+    # Keys without partition suffix: "internal", "constant"
+    return FIResultLabel(key), "train"
+
 
 # # TODO pipeline
 # - implement cat encoding on module level
 # - how to provide categorical info to catboost and other models?
-
-
-logger = get_logger()
 
 
 class TrainingConfig(TypedDict, total=False):
@@ -85,7 +297,7 @@ class Training:
     training_weight: int = field(default=1, validator=[validators.instance_of(int)])
     """Training weight for ensembling"""
 
-    model = field(default=None)
+    model: Any = field(default=None)
     """Model."""
 
     predictions: dict = field(default=Factory(dict), validator=[validators.instance_of(dict)])
@@ -100,16 +312,16 @@ class Training:
     """Features used."""
 
     outlier_samples: list = field(default=Factory(list), validator=[validators.instance_of(list)])
-    """Outlie samples identified."""
+    """Outlier samples identified."""
 
     is_fitted: bool = field(default=False, init=False)
     """Flag indicating whether the training has been completed."""
 
-    preprocessing_pipeline = field(init=False)
+    preprocessing_pipeline: ColumnTransformer | Pipeline = field(init=False)
     """Preprocessing pipeline for data scaling, imputation, and categorical encoding."""
 
-    x_train_processed = field(default=None, init=False)
-    """Training data after pre-processing (outlier, impuation, scaling)."""
+    x_train_processed: pd.DataFrame | None = field(default=None, init=False)
+    """Training data after pre-processing (outlier, imputation, scaling)."""
 
     @property
     def outl_reduction(self) -> int:
@@ -134,20 +346,12 @@ class Training:
     @property
     def x_dev_processed(self):
         """x_dev_processed."""
-        processed_data = self.preprocessing_pipeline.transform(self.data_dev[self.feature_cols])
-        # Convert back to DataFrame to preserve column names
-        if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            return pd.DataFrame(processed_data, columns=self.feature_cols, index=self.data_dev.index)
-        return processed_data
+        return self._transform_to_dataframe(self.data_dev[self.feature_cols], index=self.data_dev.index)
 
     @property
     def x_test_processed(self):
         """x_test_processed."""
-        processed_data = self.preprocessing_pipeline.transform(self.data_test[self.feature_cols])
-        # Convert back to DataFrame to preserve column names
-        if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            return pd.DataFrame(processed_data, columns=self.feature_cols, index=self.data_test.index)
-        return processed_data
+        return self._transform_to_dataframe(self.data_test[self.feature_cols], index=self.data_test.index)
 
     @property
     def y_train(self):
@@ -177,7 +381,7 @@ class Training:
 
     @property
     def y_test(self):
-        """y_dev."""
+        """y_test."""
         if self.ml_type == MLType.TIMETOEVENT:
             duration = self.data_test[self.target_assignments["duration"]]
             event = self.data_test[self.target_assignments["event"]]
@@ -191,6 +395,80 @@ class Training:
     def __attrs_post_init__(self):
         # Set up preprocessing pipeline
         self._setup_preprocessing_pipeline()
+
+    def _relabel_processed_output(
+        self,
+        processed_data: Any,
+        index: pd.Index | None = None,
+    ) -> pd.DataFrame:
+        """Convert pipeline output to a correctly-labeled DataFrame in self.feature_cols order.
+
+        Handles the ColumnTransformer column reordering issue: ColumnTransformer outputs columns
+        in transformer order (numerical first, then categorical), which may differ from
+        self.feature_cols order. This method uses get_feature_names_out() to correctly label
+        columns, then reorders to self.feature_cols order.
+
+        Args:
+            processed_data: Raw output from preprocessing_pipeline.transform() or fit_transform().
+            index: Optional index for the output DataFrame.
+
+        Returns:
+            DataFrame with columns in self.feature_cols order, correctly labeled.
+        """
+        # Convert sparse matrices to dense arrays
+        if hasattr(processed_data, "toarray"):
+            processed_data = processed_data.toarray()
+
+        if not (hasattr(processed_data, "shape") and len(processed_data.shape) == 2):
+            return pd.DataFrame(processed_data)
+
+        try:
+            output_cols = list(self.preprocessing_pipeline.get_feature_names_out())
+        except AttributeError:
+            # FunctionTransformer pipeline doesn't support get_feature_names_out()
+            # In this case, column order is preserved (no ColumnTransformer reordering)
+            output_cols = list(self.feature_cols)
+
+        n_cols = processed_data.shape[1]
+        if set(output_cols) != set(self.feature_cols):
+            # If column count also mismatches, raise a clear error
+            if n_cols != len(self.feature_cols):
+                raise ValueError(
+                    f"Pipeline output has {n_cols} columns but expected {len(self.feature_cols)}. "
+                    f"Pipeline columns: {output_cols}, expected: {list(self.feature_cols)}. "
+                    f"This may indicate extra/unexpected columns were passed to the transformer."
+                )
+            logger.warning(
+                "Pipeline output columns %s do not match feature_cols %s. Falling back to positional labeling.",
+                output_cols,
+                self.feature_cols,
+            )
+            output_cols = list(self.feature_cols)
+
+        df = pd.DataFrame(processed_data, columns=output_cols, index=index)
+
+        # Reorder to self.feature_cols order if needed
+        if output_cols != list(self.feature_cols):
+            df = df[self.feature_cols]
+
+        return df
+
+    def _transform_to_dataframe(
+        self,
+        data: pd.DataFrame | np.ndarray,
+        index: pd.Index | None = None,
+    ) -> pd.DataFrame:
+        """Transform data through preprocessing pipeline and return correctly-labeled DataFrame.
+
+        Args:
+            data: Input data to transform.
+            index: Optional index for the output DataFrame.
+
+        Returns:
+            DataFrame with columns in self.feature_cols order, correctly labeled.
+        """
+        processed_data = self.preprocessing_pipeline.transform(data)
+        return self._relabel_processed_output(processed_data, index=index)
 
     def _setup_preprocessing_pipeline(self):
         """Set up the preprocessing pipeline with conditional imputation and scaling.
@@ -289,11 +567,7 @@ class Training:
 
         # (2) Imputation and scaling (after outlier removal)
         processed_data = self.preprocessing_pipeline.fit_transform(x_train)
-        # Convert back to DataFrame to preserve column names
-        if hasattr(processed_data, "shape") and len(processed_data.shape) == 2:
-            self.x_train_processed = pd.DataFrame(processed_data, columns=self.feature_cols, index=x_train.index)
-        else:
-            self.x_train_processed = processed_data
+        self.x_train_processed = self._relabel_processed_output(processed_data, index=x_train.index)
 
         # (3) Model training
         self.model = Models.get_instance(self.ml_model_type, self.ml_model_params)
@@ -392,17 +666,17 @@ class Training:
         feature_method = Models.get_config(self.ml_model_type).feature_method
 
         if feature_method == FIComputeMethod.INTERNAL:
-            self.calculate_fi_internal()
-            fi_df = self.feature_importances["internal"]
+            self._calculate_fi_internal()
+            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.INTERNAL)]
         elif feature_method == FIComputeMethod.SHAP:
-            self.calculate_fi_featuresused_shap(partition="dev")
-            fi_df = self.feature_importances["shap_dev"]
+            self._calculate_fi_featuresused_shap(partition="dev")
+            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.SHAP, "dev")]
         elif feature_method == FIComputeMethod.PERMUTATION:
-            self.calculate_fi_permutation(partition="dev", n_repeats=2)  # only 2 repeats!
-            fi_df = self.feature_importances["permutation_dev"]
+            self._calculate_fi_permutation(partition="dev", n_repeats=2, use_groups=False)  # only 2 repeats!
+            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.PERMUTATION, "dev")]
         elif feature_method == FIComputeMethod.CONSTANT:
-            self.calculate_fi_constant()
-            fi_df = self.feature_importances["constant"]
+            self._calculate_fi_constant()
+            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.CONSTANT)]
         else:
             raise ValueError("feature method provided in model config not supported")
 
@@ -424,417 +698,247 @@ class Training:
 
         return features_used
 
-    def calculate_fi_constant(self):
+    def calculate_fi(
+        self,
+        fi_type: FIComputeMethod,
+        partition: DataPartition | str = DataPartition.DEV,
+        **kwargs: Any,
+    ) -> None:
+        """Calculate feature importance of the specified type.
+
+        Single entry point for all FI calculations. Dispatches to the
+        appropriate method and stores results in
+        ``self.feature_importances``.
+
+        Args:
+            fi_type: The feature importance method to use.
+            partition: Data partition to evaluate on (e.g. ``DataPartition.DEV``).
+                Accepts both ``DataPartition`` enum and plain strings for
+                backward compatibility.
+                Ignored for methods that don't use partitions (internal, constant, lofo).
+            **kwargs: Additional keyword arguments passed to the underlying
+                method (e.g. ``n_repeats`` for permutation, ``shap_type`` for SHAP).
+        """
+        partition = str(partition)
+        if fi_type == FIComputeMethod.INTERNAL:
+            self._calculate_fi_internal()
+        elif fi_type == FIComputeMethod.PERMUTATION:
+            self._calculate_fi_permutation(partition=partition, **kwargs)
+        elif fi_type == FIComputeMethod.SHAP:
+            self._calculate_fi_shap(partition=partition, **kwargs)
+        elif fi_type == FIComputeMethod.LOFO:
+            self._calculate_fi_lofo()
+        elif fi_type == FIComputeMethod.CONSTANT:
+            self._calculate_fi_constant()
+        else:
+            raise ValueError(f"Feature importance method {fi_type} not supported.")
+
+    def _calculate_fi_constant(self):
         """Provide flat feature importance table."""
         fi_df = pd.DataFrame()
         fi_df["feature"] = self.feature_cols
         fi_df["importance"] = 1
-        self.feature_importances["constant"] = fi_df
+        self.feature_importances[fi_storage_key(FIComputeMethod.CONSTANT)] = fi_df
 
-    def calculate_fi_internal(self):
-        """Sklearn-provided internal feature importance (based on train dataset)."""
-        # Handle unsupported "timetoevent" case as in your original code
-        if getattr(self, "ml_type", None) == MLType.TIMETOEVENT:
-            fi_df = pd.DataFrame(columns=["feature", "importance"])
-            logger.warning("Internal features importances not available for timetoevent.")
-            self.feature_importances["internal"] = fi_df
-            return
+    def _calculate_fi_internal(self):
+        """Sklearn-provided internal feature importance (based on train dataset).
 
-        # 1) Tree-based models exposing feature_importances_
-        if hasattr(self.model, "feature_importances_"):
-            fi = np.asarray(self.model.feature_importances_)
-            fi_df = pd.DataFrame({"feature": self.feature_cols, "importance": fi})
-            self.feature_importances["internal"] = fi_df
-            return
+        Delegates to ``_compute_internal_fi``, an octo-only Layer 1 primitive
+        defined in this module.
+        """
+        fi_df = _compute_internal_fi(
+            model=self.model,
+            feature_names=self.feature_cols,
+            ml_type=self.ml_type,
+        )
+        self.feature_importances[fi_storage_key(FIComputeMethod.INTERNAL)] = fi_df
 
-        # 2) Linear models exposing coef_: Ridge, LinearSVC/LinearSVR, SVC/SVR with kernel='linear'
-        if hasattr(self.model, "coef_"):
-            coef = np.asarray(self.model.coef_)
-            # coef_ can be:
-            # - shape (n_features,) for single-target regression (e.g., Ridge)
-            # - shape (n_targets, n_features) for multi-target regression
-            # - shape (n_classes, n_features) for LinearSVC/LinearSVR (OvR)
-            # - shape (n_class_pairs, n_features) for SVC with kernel='linear' (OvO)
-            if coef.ndim == 1:
-                importance = np.abs(coef)
-            else:
-                # Aggregate across classes/targets/pairs
-                importance = np.mean(np.abs(coef), axis=0)
+    def _calculate_fi_permutation(
+        self,
+        partition: DataPartition | str = DataPartition.DEV,
+        n_repeats: int = 10,
+        use_groups: bool = True,
+    ):
+        """Permutation feature importance.
 
-            if len(importance) != len(self.feature_cols):
-                # Defensive check in case columns mismatch model coefficients
-                logger.warning(
-                    "Length mismatch between coefficients (%d) and feature columns (%d). Skipping internal importances.",
-                    len(importance),
-                    len(self.feature_cols),
-                )
-                fi_df = pd.DataFrame(columns=["feature", "importance"])
-            else:
-                fi_df = pd.DataFrame({"feature": self.feature_cols, "importance": importance})
+        Delegates to ``compute_permutation_single`` from shared computation
+        functions, using the custom draw-from-pool algorithm.
 
-            self.feature_importances["internal"] = fi_df
-            return
+        Args:
+            partition: Which partition to evaluate on (e.g. ``DataPartition.DEV``).
+            n_repeats: Number of permutation repeats per feature.
+            use_groups: If ``True`` (default), include ``self.feature_groups`` so
+                that importance is computed for both individual features and
+                feature groups.  If ``False``, compute only individual feature
+                importances (groups are ignored).
+        """
+        from octopus.feature_importance import compute_permutation_single  # noqa: PLC0415
 
-        # Fallback
-        fi_df = pd.DataFrame(columns=["feature", "importance"])
-        logger.warning("Internal features importances not available for this estimator.")
-        self.feature_importances["internal"] = fi_df
-
-    def calculate_fi_group_permutation(self, partition="dev", n_repeats=10):
-        """Permutation feature importance, group version."""
         logger.set_log_group(LogGroup.TRAINING, f"{self.training_id}")
-
         logger.info(f"Calculating permutation feature importances ({partition}). This may take a while...")
-        np.random.seed(42)  # reproducibility
-        # fixed confidence level
-        confidence_level = 0.95
-        feature_cols = self.feature_cols
-        target_assignments = self.target_assignments
-        target_metric = self.target_metric
-        model = self.model
-        feature_groups = self.feature_groups
 
-        target_cols = list(target_assignments.values())
-        if partition == "dev":
-            # concat processed input + target columns
-            data = pd.concat([self.x_dev_processed, self.data_dev[target_cols]], axis=1)
-        elif partition == "test":
-            data = pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1)
+        target_cols = list(self.target_assignments.values())
+        if partition == DataPartition.DEV:
+            eval_data = pd.concat([self.x_dev_processed, self.data_dev[target_cols]], axis=1)
+        elif partition == DataPartition.TEST:
+            eval_data = pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1)
+        else:
+            raise ValueError(f"Unsupported partition: {partition!r}")
 
-        if not set(feature_cols).issubset(data.columns):
+        if not set(self.feature_cols).issubset(eval_data.columns):
             raise ValueError("Features missing in provided dataset.")
 
-        # keep all features and add group features
-        # create features dict
-        feature_cols_dict = {x: [x] for x in feature_cols}
-        features_dict = {**feature_cols_dict, **feature_groups}
+        # Build training pool for draw-from-pool permutation.
+        # Use x_train_processed (larger, more representative) as the sampling pool.
+        # Align targets to x_train_processed index to handle outl_reduction > 0,
+        # where self.data_train retains all rows but x_train_processed has outliers removed.
+        if self.x_train_processed is None:
+            raise RuntimeError("Model must be fitted before computing permutation FI.")
+        train_targets = self.data_train.loc[self.x_train_processed.index, target_cols]
+        train_pool = pd.concat([self.x_train_processed, train_targets], axis=1)
 
-        # calculate baseline score
-        baseline_score = get_score_from_model(
-            model,
-            data,
-            feature_cols,
-            target_metric,
-            target_assignments,
+        feature_groups = self.feature_groups if use_groups else None
+
+        results_df = compute_permutation_single(
+            model=self.model,
+            X_test=eval_data,
+            X_train=train_pool,
+            feature_cols=self.feature_cols,
+            target_metric=self.target_metric,
+            target_assignments=self.target_assignments,
             positive_class=self.config_training.get("positive_class"),
-        )
-
-        results: list[tuple[str, float, float, float, int, float, float]] = []
-
-        # calculate pfi
-        for name, feature in features_dict.items():
-            data_pfi = data.copy()
-            fi_lst = []
-
-            for _ in range(n_repeats):
-                # replace column with random selection from that column of data_all
-                # we use data_all as the validation dataset may be small
-                for feat in feature:
-                    data_pfi[feat] = np.random.choice(data[feat], len(data_pfi), replace=False)
-                pfi_score = get_score_from_model(
-                    model,
-                    data_pfi,
-                    feature_cols,
-                    target_metric,
-                    target_assignments,
-                    positive_class=self.config_training.get("positive_class"),
-                )
-                fi_lst.append(baseline_score - pfi_score)
-
-            # calculate statistics
-            pfi_mean = statistics.fmean(fi_lst)
-            n = len(fi_lst)
-            p_value = np.nan
-            stddev = statistics.stdev(fi_lst) if n > 1 else np.nan
-            if stddev not in (np.nan, 0):
-                t_stat = pfi_mean / (stddev / math.sqrt(n))
-                p_value = scipy.stats.t.sf(t_stat, n - 1)
-            elif stddev == 0:
-                p_value = 0.5
-
-            # calculate confidence intervals
-            if any(np.isnan(val) for val in [stddev, n, pfi_mean]) or n == 1:
-                ci_high = np.nan
-                ci_low = np.nan
-            else:
-                t_val = scipy.stats.t.ppf(1 - (1 - confidence_level) / 2, n - 1)
-                ci_high = pfi_mean + t_val * stddev / math.sqrt(n)
-                ci_low = pfi_mean - t_val * stddev / math.sqrt(n)
-
-            # save results
-            results.append((name, pfi_mean, stddev, p_value, n, ci_low, ci_high))
-
-        results_df = pd.DataFrame(
-            results, columns=["feature", "importance", "stddev", "p-value", "n", "ci_low_95", "ci_high_95"]
-        )
-
-        results_df = results_df.sort_values(by="importance", ascending=False)
-        self.feature_importances["permutation" + "_" + partition] = results_df
-
-    def calculate_fi_permutation(self, partition="dev", n_repeats=10):
-        """Permutation feature importance."""
-        logger.info(f"Calculating permutation feature importances ({partition}). This may take a while...")
-        np.random.seed(42)  # reproducibility
-        if self.ml_type == MLType.TIMETOEVENT:
-            # sksurv models only provide inbuilt scorer (CI)
-            # more work needed to support other metrics
-            scoring_type = None
-        else:
-            # Get scorer string from metrics inventory
-            metric = Metrics.get_instance(self.target_metric)
-            scoring_type = metric.scorer_string
-
-        if partition == "dev":
-            x = self.x_dev_processed
-            y = self.y_dev
-        elif partition == "test":
-            x = self.x_test_processed
-            y = self.y_test
-
-        perm_importance = permutation_importance(
-            self.model,
-            X=x,
-            y=y,
             n_repeats=n_repeats,
-            random_state=0,
-            scoring=scoring_type,
+            random_state=42,
+            feature_groups=feature_groups,
         )
 
-        fi_df = pd.DataFrame()
-        fi_df["feature"] = self.feature_cols
-        fi_df["importance"] = perm_importance.importances_mean  # type: ignore
-        fi_df["importance_std"] = perm_importance.importances_std  # type: ignore
-        self.feature_importances["permutation" + "_" + partition] = fi_df
+        results_df["n"] = n_repeats
+        results_df = results_df.sort_values(by="importance", ascending=False)
+        self.feature_importances[fi_storage_key(FIComputeMethod.PERMUTATION, partition)] = results_df
 
-    def calculate_fi_lofo(self):
-        """LOFO feature importance."""
-        np.random.seed(42)  # reproducibility
+    def _calculate_fi_lofo(self):
+        """LOFO feature importance.
+
+        Delegates to ``_compute_lofo``, an octo-only Layer 1 primitive
+        defined in this module.
+        """
         logger.info("Calculating LOFO feature importance. This may take a while...")
-        # first, dev only
-        feature_cols = self.feature_cols
-        target_assignments = self.target_assignments
-        # calculate dev+test baseline scores
-        target_cols = list(target_assignments.values())
-        data_dev = pd.concat([self.x_dev_processed, self.data_dev[target_cols]], axis=1)
-        data_test = pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1)
 
-        baseline_dev = get_score_from_model(
-            self.model,
-            data_dev,
-            feature_cols,
-            self.target_metric,
-            self.target_assignments,
+        if self.x_train_processed is None:
+            raise RuntimeError("Model must be fitted before computing LOFO FI.")
+
+        target_cols = list(self.target_assignments.values())
+        eval_partitions = {
+            "dev": pd.concat([self.x_dev_processed, self.data_dev[target_cols]], axis=1),
+            "test": pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1),
+        }
+
+        results = _compute_lofo(
+            model=self.model,
+            x_train_processed=self.x_train_processed,
+            y_train=self.y_train,
+            eval_partitions=eval_partitions,
+            feature_cols=self.feature_cols,
+            feature_groups=self.feature_groups,
+            target_metric=self.target_metric,
+            target_assignments=self.target_assignments,
             positive_class=self.config_training.get("positive_class"),
-        )
-        baseline_test = get_score_from_model(
-            self.model,
-            data_test,
-            feature_cols,
-            self.target_metric,
-            self.target_assignments,
-            positive_class=self.config_training.get("positive_class"),
+            n_targets=len(self.target_assignments),
         )
 
-        # create features dict
-        feature_cols_dict = {x: [x] for x in feature_cols}
-        lofo_features = {**feature_cols_dict, **self.feature_groups}
+        for key, df in results.items():
+            self.feature_importances[key] = df
 
-        # lofo
-        fi_dev: list[tuple[str, float]] = []
-        fi_test: list[tuple[str, float]] = []
-        for name, lofo_feature in lofo_features.items():
-            selected_features = copy.deepcopy(feature_cols)
-            model = copy.deepcopy(self.model)
-            selected_features = [x for x in selected_features if x not in lofo_feature]
-            # retrain model
-            if len(self.target_assignments) == 1:
-                # standard sklearn single target models
-                model.fit(
-                    self.x_train_processed[selected_features],
-                    self.y_train.squeeze(axis=1),
-                )
-            else:
-                # multi target models, incl. time2event
-                model.fit(self.x_train_processed[selected_features], self.y_train)
-
-            # get lofo dev + test scores
-            score_dev = get_score_from_model(
-                model,
-                data_dev,
-                selected_features,
-                self.target_metric,
-                self.target_assignments,
-                positive_class=self.config_training.get("positive_class"),
-            )
-            score_test = get_score_from_model(
-                model,
-                data_test,
-                selected_features,
-                self.target_metric,
-                self.target_assignments,
-                positive_class=self.config_training.get("positive_class"),
-            )
-
-            fi_dev.append((name, baseline_dev - score_dev))
-            fi_test.append((name, baseline_test - score_test))
-
-        self.feature_importances["lofo" + "_dev"] = pd.DataFrame(fi_dev, columns=["feature", "importance"])
-        self.feature_importances["lofo" + "_test"] = pd.DataFrame(fi_test, columns=["feature", "importance"])
-
-    def calculate_fi_featuresused_shap(self, partition="dev", bg_max=200):
+    def _calculate_fi_featuresused_shap(
+        self, partition: DataPartition | str = DataPartition.DEV, bg_max: int = 200
+    ) -> None:
         """SHAP feature importance (for calc_features_used) with robust fallbacks.
 
-        Used when model property: feature_method = FIComputeMethod.SHAP. The shap method used is automatically determined
-        by shap. The main advantage is that for linear and tree model the feature importances are calculated
-        much faster.
-        """
-        # Select eval data
-        X_eval_df = {"dev": self.x_dev_processed, "test": self.x_test_processed}.get(partition)
-        if X_eval_df is None:
-            raise ValueError("dataset type not supported")
+        Uses ``"auto"`` shap_type via ``compute_shap_single`` from shared
+        computation functions.  The auto mode lets SHAP pick the fastest
+        explainer (Tree for tree-based, Linear for linear models, Kernel otherwise).
 
-        # Background from train; sample for speed
+        Args:
+            partition: Which partition to evaluate on (e.g. ``DataPartition.DEV``).
+            bg_max: Maximum number of background samples for the explainer.
+        """
+        from octopus.feature_importance import compute_shap_single  # noqa: PLC0415
+
+        partition = str(partition)
+        if partition == DataPartition.DEV:
+            X_eval_df = self.x_dev_processed
+        elif partition == DataPartition.TEST:
+            X_eval_df = self.x_test_processed
+        else:
+            raise ValueError(f"Unsupported partition: {partition!r}. Expected 'dev' or 'test'.")
+
+        # Background from training data, sampled for speed
         X_bg_df = self.x_train_processed
         if X_bg_df is None:
             raise ValueError("Training data (x_train_processed) is required as background for SHAP.")
         if hasattr(X_bg_df, "sample") and X_bg_df.shape[0] > bg_max:
             X_bg_df = X_bg_df.sample(n=bg_max, replace=False, random_state=0)
 
-        # Convert to numpy to avoid model attribute side-effects
-        X_eval = X_eval_df.to_numpy() if hasattr(X_eval_df, "to_numpy") else np.asarray(X_eval_df)
-        X_bg = X_bg_df.to_numpy() if hasattr(X_bg_df, "to_numpy") else np.asarray(X_bg_df)
+        feature_names = list(self.feature_cols) if self.feature_cols else list(X_eval_df.columns)
 
-        n_features = X_eval.shape[1]
+        fi_df = compute_shap_single(
+            model=self.model,
+            X=X_eval_df,
+            feature_names=feature_names,
+            shap_type="auto",
+            X_background=X_bg_df,
+            threshold_ratio=1.0 / 1000.0,
+            ml_type=self.ml_type,
+        )
+        self.feature_importances[fi_storage_key(FIComputeMethod.SHAP, partition)] = fi_df
 
-        # Resolve feature names
-        feature_names = getattr(self, "feature_cols", None)
-        if not feature_names or len(feature_names) != n_features:
-            if hasattr(X_eval_df, "columns"):
-                feature_names = list(X_eval_df.columns)
-            else:
-                feature_names = [f"f{i}" for i in range(n_features)]
+    def _calculate_fi_shap(
+        self, partition: DataPartition | str = DataPartition.DEV, shap_type: str = "kernel", background_size: int = 200
+    ) -> None:
+        """Compute SHAP feature importance with a model-agnostic explainer.
 
-        # Build explainer
-        try:
-            # Let SHAP auto-select the best explainer (Tree for tree models, Kernel otherwise)
-            explainer = shap.Explainer(self.model, X_bg)
-            sv = explainer(X_eval)
-        except Exception as e1:
-            logger.debug(f"SHAP auto explainer failed: {e1}. Falling back to callable + Kernel.")
-            # Fallback to a plain callable; do NOT pass string link (avoids 'link needs to be callable' errors)
-            if getattr(self, "ml_type", None) in (MLType.BINARY, MLType.MULTICLASS) and hasattr(
-                self.model, "predict_proba"
-            ):
+        Delegates to ``compute_shap_single`` from shared computation functions.
 
-                def predict_fn(X):
-                    return np.asarray(self.model.predict_proba(np.asarray(X)))
-            else:
+        Args:
+            partition: Which partition to evaluate on (e.g. ``DataPartition.DEV``).
+            shap_type: SHAP explainer type (``"kernel"``, ``"permutation"``, ``"exact"``).
+            background_size: Maximum background dataset size for kernel explainer.
+        """
+        from octopus.feature_importance import compute_shap_single  # noqa: PLC0415
 
-                def predict_fn(X):
-                    return np.asarray(self.model.predict(np.asarray(X)))
-
-            # Use the generic constructor so SHAP picks Kernel with the given background
-            explainer = shap.Explainer(predict_fn, X_bg)
-            sv = explainer(X_eval)
-
-        # SHAP values: (samples, features) or 3D with features on any non-sample axis
-        vals = np.asarray(sv.values)
-        if vals.ndim == 2 and vals.shape[1] == n_features:
-            importance = np.abs(vals).mean(axis=0)
-        elif vals.ndim == 3:
-            feat_axes = [i for i in range(1, vals.ndim) if vals.shape[i] == n_features]
-            if len(feat_axes) != 1:
-                raise ValueError(f"Unexpected SHAP values shape {vals.shape} for {n_features} features")
-            reduce_axes = tuple(i for i in range(vals.ndim) if i != feat_axes[0])
-            importance = np.mean(np.abs(vals), axis=reduce_axes)
-        else:
-            raise ValueError(f"Unexpected SHAP values shape {vals.shape}")
-
-        # Build and store importance DataFrame
-        fi_df = pd.DataFrame({"feature": feature_names, "importance": importance})
-        if not fi_df["importance"].empty:
-            fi_df = fi_df[fi_df["importance"] > fi_df["importance"].max() / 1000.0]
-
-        self.feature_importances[f"shap_{partition}"] = fi_df
-
-    def calculate_fi_shap(self, partition="dev", shap_type=ShapType.KERNEL, background_size=200):
-        """Compute SHAP feature importance with a model-agnostic explainer (kernel/permutation/exact)."""
-        shap_type = ShapType(shap_type)
         logger.info(f"Calculating SHAP feature importances ({partition}, mode={shap_type})...")
 
-        # --- Select data
-        if partition == "dev":
+        if partition == DataPartition.DEV:
             data = self.x_dev_processed
-        elif partition == "test":
+        elif partition == DataPartition.TEST:
             data = self.x_test_processed
         else:
-            raise ValueError("dataset type not supported")
+            raise ValueError(f"Unsupported partition: {partition!r}. Expected 'dev' or 'test'.")
 
-        # Keep feature names, but pass numpy to SHAP to avoid feature_names_in_ issues
-        if hasattr(data, "columns"):
-            feature_names = data.columns.tolist()
-            X = data.to_numpy()
+        feature_names = list(self.feature_cols) if self.feature_cols else list(data.columns)
+
+        # Construct background set based on `background_size` for kernel SHAP
+        if shap_type == "kernel" and background_size is not None:
+            if len(data) > background_size:
+                rng = np.random.default_rng(42)
+                indices = rng.choice(len(data), size=background_size, replace=False)
+                X_background = data.iloc[indices]
+            else:
+                X_background = data
         else:
-            X = np.asarray(data)
-            feature_names = [f"f{i}" for i in range(X.shape[1])]
+            X_background = None
 
-        # --- Prediction function as a plain callable (not a bound method)
-        if getattr(self, "ml_type", None) in (MLType.BINARY, MLType.MULTICLASS) and hasattr(
-            self.model, "predict_proba"
-        ):
-
-            def predict_fn(X_in):
-                return np.asarray(self.model.predict_proba(np.asarray(X_in)))
-        else:
-
-            def predict_fn(X_in):
-                return np.asarray(self.model.predict(np.asarray(X_in)))
-
-        # --- Build explainer (no tree option)
-        if shap_type == ShapType.KERNEL:
-            # Kernel expects a background dataset (array or DataFrame), not a masker
-            # Sample a manageable background for speed
-            try:
-                bg = X if X.shape[0] <= background_size else shap.utils.sample(X, background_size, random_state=0)
-            except Exception:
-                # Fallback sampling if shap.utils.sample is unavailable
-                rng = np.random.default_rng(0)
-                idx = rng.choice(X.shape[0], size=min(background_size, X.shape[0]), replace=False)
-                bg = X[idx]
-            explainer = shap.explainers.Kernel(predict_fn, bg)
-
-        elif shap_type == ShapType.PERMUTATION:
-            explainer = shap.explainers.Permutation(predict_fn, X)
-
-        elif shap_type == ShapType.EXACT:
-            explainer = shap.explainers.Exact(predict_fn, X)
-
-        else:
-            raise ValueError(f"SHAP type {shap_type} not supported. Use ShapExplainerType members.")
-
-        # --- Compute SHAP values
-        sv = explainer(X)
-        vals = np.asarray(sv.values)  # shape may be (n, f) or (n, outputs, f), etc.
-        n_features = X.shape[1]
-
-        # --- Aggregate absolute SHAP to per-feature importances
-        if vals.ndim == 2 and vals.shape[1] == n_features:
-            importance = np.abs(vals).mean(axis=0)
-        elif vals.ndim == 3:
-            feat_axes = [i for i in range(1, vals.ndim) if vals.shape[i] == n_features]
-            if len(feat_axes) != 1:
-                raise ValueError(f"Unexpected SHAP values shape {vals.shape} for {n_features} features")
-            reduce_axes = tuple(i for i in range(vals.ndim) if i != feat_axes[0])
-            importance = np.mean(np.abs(vals), axis=reduce_axes)
-        else:
-            raise ValueError(f"Unexpected SHAP values shape {vals.shape}")
-
-        # --- Build importance DataFrame
-        fi_df = pd.DataFrame({"feature": feature_names, "importance": importance})
-        if not fi_df["importance"].empty:
-            fi_df = fi_df[fi_df["importance"] > fi_df["importance"].max() / 1000.0]
-
-        self.feature_importances[f"shap_{partition}"] = fi_df
+        fi_df = compute_shap_single(
+            model=self.model,
+            X=data,
+            feature_names=feature_names,
+            shap_type=shap_type,
+            X_background=X_background,
+            max_samples=None,
+            threshold_ratio=1.0 / 1000.0,
+            ml_type=self.ml_type,
+        )
+        self.feature_importances[fi_storage_key(FIComputeMethod.SHAP, partition)] = fi_df
 
     def predict(self, x: pd.DataFrame) -> np.ndarray:
         """Predict.
@@ -849,11 +953,10 @@ class Training:
         if isinstance(x, np.ndarray):
             x = pd.DataFrame(x, columns=self.feature_cols)
         elif isinstance(x, pd.DataFrame):
-            # Reset index to avoid sklearn ColumnTransformer issues
-            x = x.reset_index(drop=True)
+            x = x[self.feature_cols].reset_index(drop=True)
 
         # Apply the same preprocessing pipeline used during training
-        x_processed = self.preprocessing_pipeline.transform(x)
+        x_processed = self._transform_to_dataframe(x)
         return self.model.predict(x_processed)  # type: ignore
 
     def predict_proba(self, x: pd.DataFrame) -> np.ndarray:
@@ -869,11 +972,10 @@ class Training:
         if isinstance(x, np.ndarray):
             x = pd.DataFrame(x, columns=self.feature_cols)
         elif isinstance(x, pd.DataFrame):
-            # Reset index to avoid sklearn ColumnTransformer issues
-            x = x.reset_index(drop=True)
+            x = x[self.feature_cols].reset_index(drop=True)
 
         # Apply the same preprocessing pipeline used during training
-        x_processed = self.preprocessing_pipeline.transform(x)
+        x_processed = self._transform_to_dataframe(x)
         return self.model.predict_proba(x_processed)  # type: ignore
 
     def _validate_model_trained(self):

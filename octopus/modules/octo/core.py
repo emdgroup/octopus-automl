@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import warnings
 from typing import TYPE_CHECKING
 
 import optuna
@@ -363,13 +364,16 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         )
 
         # multivariate sampler with group option
-        sampler = optuna.samplers.TPESampler(
-            multivariate=True,
-            group=True,
-            constant_liar=True,
-            seed=self.config.optuna_seed,
-            n_startup_trials=self.config.n_optuna_startup_trials,
-        )
+        # Suppress ExperimentalWarning — these parameters have been stable for 3+ years
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=optuna.exceptions.ExperimentalWarning)
+            sampler = optuna.samplers.TPESampler(
+                multivariate=True,
+                group=True,
+                constant_liar=True,
+                seed=self.config.optuna_seed,
+                n_startup_trials=self.config.n_optuna_startup_trials,
+            )
 
         # create study with in-memory storage
         study = optuna.create_study(

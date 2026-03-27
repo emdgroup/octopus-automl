@@ -195,6 +195,7 @@ def test_validate_error_accumulation(validator_factory, sample_data):
     """Test that validate() accumulates multiple errors."""
     data_with_issues = sample_data.copy()
     data_with_issues["datasplit_group"] = 0
+    data_with_issues["feature1"] = data_with_issues["feature1"].astype(object)
     data_with_issues.loc[0, "feature1"] = "invalid_string"  # This will fail dtype validation
 
     validator = validator_factory(

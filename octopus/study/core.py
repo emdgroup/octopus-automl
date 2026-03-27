@@ -286,11 +286,15 @@ class OctoStudy(ABC):
             )
 
     def _flush_logger(self):
-        """Flush and close all handlers of the logger."""
-        for handler in logger.handlers:
-            handler.flush()
-            handler.close()
+        """Flush and close the file log handler.
 
+        For remote filesystems (e.g. S3 via fsspec), log data is buffered
+        locally and only uploaded when the stream is closed. This method
+        ensures all buffered log entries are written before the study
+        finishes.
+        """
+        # set_logger_filename(None) finds FSSpecFileHandlers, closes them
+        # (which flushes + uploads for remote FS), and removes them.
         set_logger_filename(log_file=None)
 
     def _create_study_context(
@@ -345,6 +349,7 @@ class OctoStudy(ABC):
         )
         manager.run_outersplits()
         logger.info("Study completed. Results saved to: %s", self.output_path)
+        self._flush_logger()
 
 
 @define
