@@ -12,7 +12,7 @@ import pandas as pd
 from attrs import Factory, asdict, define, field, fields, has, validators
 from upath import UPath
 
-from octopus.datasplit import DATASPLIT_COL, DataSplit, OuterSplits
+from octopus.datasplit import DATASPLIT_COL, DataSplit, OuterSplits, validate_class_coverage
 from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
@@ -225,7 +225,7 @@ class OctoStudy(ABC):
         )
         return preparator.prepare()
 
-    def _create_datasplits(self, prepared: PreparedData) -> OuterSplits:
+    def _create_datasplits(self, prepared: PreparedData, ml_type: MLType) -> OuterSplits:
         """Create datasplits for outer cross-validation."""
         relevant_cols = list(prepared.feature_cols) + [
             c
@@ -251,6 +251,16 @@ class OctoStudy(ABC):
             num_folds=self.n_folds_outer,
             stratification_col=self.stratification_col,
         ).get_outer_splits()
+
+        if self.run_single_outersplit_num is not None:
+            splits_to_validate = {self.run_single_outersplit_num: outersplits[self.run_single_outersplit_num]}
+        else:
+            splits_to_validate = outersplits
+
+        if ml_type in (MLType.BINARY, MLType.MULTICLASS) and hasattr(self, "target_col"):
+            validate_class_coverage(splits_to_validate, self.target_col)
+        elif ml_type == MLType.TIMETOEVENT and hasattr(self, "event_col"):
+            validate_class_coverage(splits_to_validate, self.event_col)
 
         return outersplits
 
@@ -342,7 +352,7 @@ class OctoStudy(ABC):
         self._initialize_study_outputs(data, prepared, ml_type, positive_class)
         self._run_health_check(prepared, health_check_config)
 
-        outersplit_data = self._create_datasplits(prepared)
+        outersplit_data = self._create_datasplits(prepared, ml_type)
         study_context = self._create_study_context(prepared, ml_type, positive_class)
         manager = OctoManager(
             outersplit_data=outersplit_data,

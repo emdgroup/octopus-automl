@@ -4,6 +4,7 @@ import pandas as pd
 from attrs import Factory, define, field, frozen, validators
 from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
 
+from .exceptions import SingleClassFoldError
 from .logger import get_logger
 from .types import LogGroup
 
@@ -30,6 +31,34 @@ OuterSplits = dict[int, OuterSplit]
 InnerSplits = dict[int, InnerSplit]
 
 DATASPLIT_COL = "datasplit_group"
+
+
+def validate_class_coverage(
+    splits: OuterSplits | InnerSplits,
+    target_col: str,
+) -> None:
+    """Verify no fold partition contains only a single class.
+
+    Raises SingleClassFoldError if any partition has just one unique class,
+    which would cause degenerate model training or undefined metrics.
+    """
+    for fold_id, split in splits.items():
+        if isinstance(split, OuterSplit):
+            partitions = {"traindev": split.traindev, "test": split.test}
+        else:
+            partitions = {"train": split.train, "dev": split.dev}
+
+        for part_name, part_df in partitions.items():
+            unique_classes = part_df[target_col].unique()
+            if len(unique_classes) <= 1:
+                raise SingleClassFoldError(
+                    f"Fold {fold_id} {part_name} partition contains only class(es) "
+                    f"{sorted(unique_classes)}. "
+                    "Try: changing `datasplit_seeds_inner` or `datasplit_seed_outer`, "
+                    "reducing `n_folds_inner` or `n_folds_outer`, "
+                    "or setting `stratification_col` to the target column "
+                    "for balanced splits."
+                )
 
 
 @define
