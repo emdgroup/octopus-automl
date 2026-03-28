@@ -161,11 +161,11 @@ class MRMRRelevance(StrEnum):
     """Method used to compute feature relevance to the target in MRMR.
 
     Used in ``Mrmr.relevance_type``:
-    - ``PERMUTATION``: re-uses permutation importances from a prior workflow module
+    - ``FROM_DEPENDENCY``: re-uses feature importances from the dependency task
     - ``F_STATISTICS``: computes F-statistics (f_classif / f_regression) from scratch
     """
 
-    PERMUTATION = "permutation"
+    FROM_DEPENDENCY = "from_dependency"
     F_STATISTICS = "f-statistics"
 
 

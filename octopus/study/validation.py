@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from attrs import Attribute
 
 from octopus.modules import Task
+from octopus.modules.mrmr import Mrmr
+from octopus.types import MLType, MRMRRelevance
 
 if TYPE_CHECKING:
     from octopus.study.core import OctoStudy
@@ -119,4 +121,21 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Seque
                     f"'depends_on={depends_on}', which refers to an item"
                     " that comes after it in the workflow. 'depends_on' must"
                     " refer to a preceding 'task_id'."
+                )
+
+    # Condition 7: MRMR with FROM_DEPENDENCY relevance requires a dependency
+    for item in value:
+        if isinstance(item, Mrmr) and item.relevance_type == MRMRRelevance.FROM_DEPENDENCY and item.depends_on is None:
+            raise ValueError(
+                f"MRMR task (task_id={item.task_id}) uses FROM_DEPENDENCY relevance "
+                "but has no dependency. It requires feature importance from an upstream task."
+            )
+
+    # Condition 8: MRMR with F_STATISTICS relevance is not supported for time-to-event
+    if _instance.ml_type == MLType.TIMETOEVENT:
+        for item in value:
+            if isinstance(item, Mrmr) and item.relevance_type == MRMRRelevance.F_STATISTICS:
+                raise ValueError(
+                    f"MRMR task (task_id={item.task_id}) uses F_STATISTICS relevance "
+                    "which is not supported for time-to-event studies. Use FROM_DEPENDENCY instead."
                 )
