@@ -337,7 +337,11 @@ def run[T](
         _setup_worker_logging(log_dir)
         # TODO: can we locally set the environment variables and threadpoolctl limits properly here to allow inner parallelism even in the sequential case? Do we need a subprocess for that?
         with threadpoolctl.threadpool_limits(limits=num_cpus_per_worker):
-            return [task() for task in tasks]
+            try:
+                return [task() for task in tasks]
+            except Exception as e:
+                logger.exception(f"Exception in sequential execution of {context}: {e!s}")
+                raise e
 
     else:
         logger.debug(
@@ -354,7 +358,15 @@ def run[T](
         def run_task(task_idx: int, task: Callable[[], T], log_dir: UPath) -> tuple[int, T]:
             _setup_worker_logging(log_dir)
             with threadpoolctl.threadpool_limits(limits=num_cpus_per_worker):
-                return task_idx, task()
+                try:
+                    result = task()
+                    logger.debug(f"Completed task {task_idx} in parallel execution of {context}.")
+                    return task_idx, result
+                except Exception as e:
+                    logger.exception(
+                        f"Exception in task {task_idx} during parallel execution of {context}_task{task_idx}: {e!s}"
+                    )
+                    raise e
 
         # Fill task queue and limit concurrency to num_assigned_cpus to avoid oversubscription.
         # Approach from https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html
