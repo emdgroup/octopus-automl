@@ -2,7 +2,8 @@
 
 import os
 from collections.abc import Callable, Sequence
-from typing import Any, TypedDict
+from functools import partial
+from typing import TypedDict
 
 import ray
 import threadpoolctl
@@ -177,7 +178,7 @@ def init(
         ValueError: If num_cpus_user is set to a value that leaves no CPUs available in case of starting a local ray instance.
     """
     if ray.is_initialized():
-        logger.info("Ray is already initialized. Skipping initialization.")
+        logger.debug("Ray is already initialized. Skipping initialization.")
 
     elif (addr := address or os.environ.get("RAY_ADDRESS") or os.environ.get("RAY_HEAD_ADDRESS")) not in (
         None,
@@ -248,6 +249,7 @@ def run_parallel_outer(
     outersplit_data: OuterSplits,
     run_fn: Callable[[int, OuterSplit, int], None],
     log_dir: UPath,
+    num_workers: int,
     num_cpus_per_worker: int,
 ) -> None:
     """Execute run_fn(outersplit_id, outersplit, num_cpus_per_worker) in parallel using Ray.
@@ -263,44 +265,23 @@ def run_parallel_outer(
         outersplit_data: Dictionary mapping outersplit_id to OuterSplit(traindev, test).
         run_fn: Function called as run_fn(outersplit_id, outersplit, num_cpus_per_worker).
         log_dir: Directory to store individual Ray worker logs.
+        num_workers: Number of parallel workers to use for processing outersplits.
         num_cpus_per_worker: CPUs used for each outer task to prevent
-          oversubscription during inner parallel work. Outer workers do not reserve these
+          oversubscription during inner parallel work. Outer workers do not acquire these
           CPUs by themselves but set them in the environment for libraries to respect and
           enforce via threadpoolctl in inner parallel code. This allows inner parallelism
           (e.g. by AutoGluon) without oversubscribing CPUs.
     """
-    if not ray.is_initialized():
-        raise RuntimeError("Ray is not initialized. Call ray_parallel.init() first.")
-
-    class OuterTask:
-        def __init__(self, outersplit_id: int, outersplit: OuterSplit, log_dir: UPath, num_cpus: int):
-            _setup_worker_logging(log_dir)
-            self.outersplit_id = outersplit_id
-            self.outersplit = outersplit
-            self.num_cpus = num_cpus
-
-        @ray.method
-        def run(self):
-            with threadpoolctl.threadpool_limits(limits=self.num_cpus):
-                run_fn(self.outersplit_id, self.outersplit, self.num_cpus)
-            return self.outersplit_id
-
-    OuterTaskActor = ray.remote(OuterTask)
-
-    # do our best to prevent oversubscription of CPUs by setting environment variables that many libraries respect (e.g. OpenBLAS, MKL, NumExpr, etc.)
-    runtime_env = RuntimeEnv(env_vars={var: str(num_cpus_per_worker) for var in _PARALLELIZATION_ENV_VARS})
-
-    futures = [
-        OuterTaskActor.options(
-            name=f"outer_task_{outersplit_id}",
-            num_cpus=num_cpus_per_worker,  # Outer task reserves all CPUs required for individual inner parallelization
-            runtime_env=runtime_env,
-        )
-        .remote(outersplit_id, outersplit, log_dir, num_cpus_per_worker)
-        .run.remote()
-        for outersplit_id, outersplit in outersplit_data.items()
-    ]
-    ray.get(futures)
+    run(
+        context="outer",
+        tasks=[
+            partial(run_fn, outersplit_id, outersplit, num_cpus_per_worker)
+            for outersplit_id, outersplit in outersplit_data.items()
+        ],
+        log_dir=log_dir,
+        num_workers=num_workers,
+        num_cpus_per_worker=num_cpus_per_worker,
+    )
 
 
 def run_parallel_inner(
@@ -323,44 +304,85 @@ def run_parallel_inner(
     Raises:
         RuntimeError: If Ray is not initialized.
     """
-    if not ray.is_initialized():
-        raise RuntimeError("Ray is not initialized. Call ray_parallel.init() first.")
+    return run(
+        context=f"bag_{bag_id}_inner",
+        tasks=[partial(training.fit) for training in trainings],
+        log_dir=log_dir,
+        num_workers=num_assigned_cpus,
+        num_cpus_per_worker=1,
+    )
 
-    # do our best to prevent oversubscription of CPUs by setting environment variables that many libraries respect (e.g. OpenBLAS, MKL, NumExpr, etc.)
-    runtime_env = RuntimeEnv(env_vars=dict.fromkeys(_PARALLELIZATION_ENV_VARS, "1"))
 
-    # num_assigned_cpus inner tasks will run in parallel (See below), each task only gets one CPU
-    @ray.remote
-    def execute_training(training: Any, idx: int, log_dir: UPath) -> tuple[int, Training]:
+def run[T](
+    context: str,
+    tasks: list[Callable[[], T]],
+    log_dir: UPath,
+    num_workers: int,
+    num_cpus_per_worker: int,
+) -> list[T]:
+    """Run tasks in parallel using Ray if num_workers > 1, otherwise run sequentially.
+
+    Args:
+        context: Description of the task context for logging purposes.
+        tasks: List of callables that take no arguments and return a result.
+        log_dir: Directory to store individual Ray worker logs.
+        num_workers: Number of parallel workers to use for processing tasks. If 1, runs sequentially without Ray.
+        num_cpus_per_worker: CPUs for internal parallel execution of the tasks.
+
+    Returns:
+        List of results from each task in input order.
+    """
+    if num_workers == 1:
+        logger.debug(f"Running {context} sequentially without Ray as num_workers=1.")
         _setup_worker_logging(log_dir)
-        with threadpoolctl.threadpool_limits(limits=1):
-            return idx, training.fit()
+        # TODO: can we locally set the environment variables and threadpoolctl limits properly here to allow inner parallelism even in the sequential case? Do we need a subprocess for that?
+        with threadpoolctl.threadpool_limits(limits=num_cpus_per_worker):
+            return [task() for task in tasks]
 
-    # Fill task queue and limit concurrency to num_assigned_cpus to avoid oversubscription.
-    # Approach from https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html
-
-    results: list[Training] = [None] * len(trainings)  # type: ignore[list-item]
-
-    inflight_refs: list[ray.ObjectRef] = []
-    for training_idx, training in enumerate(trainings):
-        if len(inflight_refs) >= num_assigned_cpus:
-            # wait for at least one task to complete before launching more to limit resource usage
-            ready_refs, inflight_refs = ray.wait(inflight_refs, num_returns=1)
-
-            for ref in ready_refs:
-                idx, result = ray.get(ref)
-                results[idx] = result
-
-        inflight_refs.append(
-            execute_training.options(
-                name=f"{bag_id}_inner_task_{training_idx}",
-                num_cpus=0,  # logically do not reserve any CPUs for the inner tasks as the outer task reserved enough CPUs for the inner parallelization.
-                runtime_env=runtime_env,
-            ).remote(training, training_idx, log_dir)
+    else:
+        logger.debug(
+            f"Running {context} in parallel with Ray using {num_workers} workers and {num_cpus_per_worker} CPUs per worker."
         )
 
-    # Wait for any remaining tasks to complete
-    for idx, result in ray.get(inflight_refs):
-        results[idx] = result
+        if not ray.is_initialized():
+            raise RuntimeError("Ray is not initialized. Call ray_parallel.init() first.")
 
-    return results
+        # do our best to prevent oversubscription of CPUs by setting environment variables that many libraries respect (e.g. OpenBLAS, MKL, NumExpr, etc.)
+        runtime_env = RuntimeEnv(env_vars=dict.fromkeys(_PARALLELIZATION_ENV_VARS, str(num_cpus_per_worker)))
+
+        @ray.remote
+        def run_task(task_idx: int, task: Callable[[], T], log_dir: UPath) -> tuple[int, T]:
+            _setup_worker_logging(log_dir)
+            with threadpoolctl.threadpool_limits(limits=num_cpus_per_worker):
+                return task_idx, task()
+
+        # Fill task queue and limit concurrency to num_assigned_cpus to avoid oversubscription.
+        # Approach from https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html
+
+        results: list[T] = [None] * len(tasks)  # type: ignore[list-item]
+
+        inflight_refs: list[ray.ObjectRef] = []
+        for task_idx, task in enumerate(tasks):
+            if len(inflight_refs) >= num_workers:
+                # wait for at least one task to complete before launching more to limit resource usage
+                ready_refs, inflight_refs = ray.wait(inflight_refs, num_returns=1)
+
+                for ref in ready_refs:
+                    result_idx, result = ray.get(ref)
+                    results[result_idx] = result
+
+            inflight_refs.append(
+                run_task.options(
+                    name=f"{context}_task_{task_idx}",
+                    # logically do not reserve any CPUs as we take care of scheduling/resource allocation ourselves here...
+                    num_cpus=0,
+                    # ... and set environment variables to prevent oversubscription inside the tasks
+                    runtime_env=runtime_env,
+                ).remote(task_idx, task, log_dir)
+            )
+
+        # Wait for any remaining tasks to complete
+        for result_idx, result in ray.get(inflight_refs):
+            results[result_idx] = result
+
+        return results

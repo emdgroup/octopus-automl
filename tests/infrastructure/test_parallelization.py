@@ -49,6 +49,7 @@ def test_inner_parallelization_setup_in_workers(tmp_path, outersplits):
         outersplit_data=outersplits,
         run_fn=run_fn,
         log_dir=UPath(tmp_path),
+        num_workers=resources.num_workers,
         num_cpus_per_worker=resources.cpus_per_worker,
     )
 
@@ -102,6 +103,7 @@ def test_connect_to_running_ray_cluster(tmp_path, outersplits, num_nodes):
             outersplit_data=outersplits,
             run_fn=run_fn,
             log_dir=UPath(tmp_path),
+            num_workers=resources.num_workers,
             num_cpus_per_worker=resources.cpus_per_worker,
         )
     finally:
