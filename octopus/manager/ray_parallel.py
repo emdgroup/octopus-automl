@@ -1,6 +1,7 @@
 """Ray parallelization for outer and inner loops."""
 
 import os
+from collections import deque
 from collections.abc import Callable, Sequence
 from functools import partial
 from typing import TypedDict
@@ -9,6 +10,7 @@ import ray
 import threadpoolctl
 from attrs import define, field, validators
 from ray.runtime_env import RuntimeEnv
+from ray.util.placement_group import PlacementGroup
 from upath import UPath
 
 from octopus.datasplit import OuterSplit, OuterSplits
@@ -272,15 +274,24 @@ def run_parallel_outer(
           enforce via threadpoolctl in inner parallel code. This allows inner parallelism
           (e.g. by AutoGluon) without oversubscribing CPUs.
     """
+    resources = ParallelResources(
+        log_dir=log_dir,
+        num_cpus=num_workers * num_cpus_per_worker,
+        placement_group=None,  # TODO: Not used in current implementation but can be extended for more complex resource management
+    )
+
     run(
         context="outer",
         tasks=[
-            partial(run_fn, outersplit_id, outersplit, num_cpus_per_worker)
+            partial(
+                run_fn,
+                outersplit_id,
+                outersplit,
+                num_cpus_per_worker,
+            )
             for outersplit_id, outersplit in outersplit_data.items()
         ],
-        log_dir=log_dir,
-        num_workers=num_workers,
-        num_cpus_per_worker=num_cpus_per_worker,
+        resources=resources,
     )
 
 
@@ -304,39 +315,70 @@ def run_parallel_inner(
     Raises:
         RuntimeError: If Ray is not initialized.
     """
+    resources = ParallelResources(
+        log_dir=log_dir,
+        num_cpus=num_assigned_cpus,
+        placement_group=None,  # TODO: Not used in current implementation but can be extended for more complex resource management
+    )
+
     return run(
         context=f"bag_{bag_id}_inner",
         tasks=[partial(training.fit) for training in trainings],
-        log_dir=log_dir,
-        num_workers=num_assigned_cpus,
-        num_cpus_per_worker=1,
+        resources=resources,
     )
+
+
+@define
+class ParallelResources:
+    """Helper Class to represent allocated resources for a parallel task."""
+
+    log_dir: UPath
+    num_cpus: int
+    placement_group: PlacementGroup | None
+
+    def split(self, num_tasks: int) -> list["ParallelResources"]:
+        """Distribute available resources across num_tasks tasks."""
+        num_workers = min(num_tasks, self.num_cpus)
+        cpus_per_worker = max(1, self.num_cpus // num_workers)
+
+        return [
+            ParallelResources(
+                log_dir=self.log_dir,
+                num_cpus=cpus_per_worker,
+                placement_group=self.placement_group,
+            )
+            for _ in range(num_workers)
+        ]
+
+    def get_env_vars(self) -> dict[str, str]:
+        """Get environment variables to set for parallel tasks to prevent CPU oversubscription."""
+        return dict.fromkeys(_PARALLELIZATION_ENV_VARS, str(self.num_cpus))
 
 
 def run[T](
     context: str,
     tasks: list[Callable[[], T]],
-    log_dir: UPath,
-    num_workers: int,
-    num_cpus_per_worker: int,
+    resources: ParallelResources,
 ) -> list[T]:
     """Run tasks in parallel using Ray if num_workers > 1, otherwise run sequentially.
 
     Args:
         context: Description of the task context for logging purposes.
         tasks: List of callables that take no arguments and return a result.
-        log_dir: Directory to store individual Ray worker logs.
-        num_workers: Number of parallel workers to use for processing tasks. If 1, runs sequentially without Ray.
-        num_cpus_per_worker: CPUs for internal parallel execution of the tasks.
+        resources: Allocated resources for the parallel task.
 
     Returns:
         List of results from each task in input order.
     """
-    if num_workers == 1:
+    worker_resources = resources.split(num_tasks=len(tasks))
+
+    if len(worker_resources) == 1:
+        res = worker_resources[0]
+
         logger.debug(f"Running {context} sequentially without Ray as num_workers=1.")
-        _setup_worker_logging(log_dir)
+        _setup_worker_logging(res.log_dir)
         # TODO: can we locally set the environment variables and threadpoolctl limits properly here to allow inner parallelism even in the sequential case? Do we need a subprocess for that?
-        with threadpoolctl.threadpool_limits(limits=num_cpus_per_worker):
+        with threadpoolctl.threadpool_limits(limits=res.num_cpus):
             try:
                 return [task() for task in tasks]
             except Exception as e:
@@ -345,23 +387,23 @@ def run[T](
 
     else:
         logger.debug(
-            f"Running {context} in parallel with Ray using {num_workers} workers and {num_cpus_per_worker} CPUs per worker."
+            f"Running {context} in parallel with Ray using the following resources: {len(worker_resources)} workers "
+            f"with {','.join(str(res.num_cpus) for res in worker_resources)} CPUs per worker."
         )
 
         if not ray.is_initialized():
             raise RuntimeError("Ray is not initialized. Call ray_parallel.init() first.")
 
-        # do our best to prevent oversubscription of CPUs by setting environment variables that many libraries respect (e.g. OpenBLAS, MKL, NumExpr, etc.)
-        runtime_env = RuntimeEnv(env_vars=dict.fromkeys(_PARALLELIZATION_ENV_VARS, str(num_cpus_per_worker)))
-
         @ray.remote
-        def run_task(task_idx: int, task: Callable[[], T], log_dir: UPath) -> tuple[int, T]:
-            _setup_worker_logging(log_dir)
-            with threadpoolctl.threadpool_limits(limits=num_cpus_per_worker):
+        def run_task(
+            resources: ParallelResources, task_idx: int, task: Callable[[], T]
+        ) -> tuple[ParallelResources, int, T]:
+            _setup_worker_logging(resources.log_dir)
+            with threadpoolctl.threadpool_limits(limits=resources.num_cpus):
                 try:
                     result = task()
                     logger.debug(f"Completed task {task_idx} in parallel execution of {context}.")
-                    return task_idx, result
+                    return resources, task_idx, result
                 except Exception as e:
                     logger.exception(
                         f"Exception in task {task_idx} during parallel execution of {context}_task{task_idx}: {e!s}"
@@ -372,16 +414,20 @@ def run[T](
         # Approach from https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html
 
         results: list[T] = [None] * len(tasks)  # type: ignore[list-item]
+        free_resources = deque(worker_resources)
 
         inflight_refs: list[ray.ObjectRef] = []
         for task_idx, task in enumerate(tasks):
-            if len(inflight_refs) >= num_workers:
+            if not free_resources:
                 # wait for at least one task to complete before launching more to limit resource usage
                 ready_refs, inflight_refs = ray.wait(inflight_refs, num_returns=1)
 
                 for ref in ready_refs:
-                    result_idx, result = ray.get(ref)
+                    res, result_idx, result = ray.get(ref)
                     results[result_idx] = result
+                    free_resources.append(res)  # make the resources of the completed task available for new tasks
+
+            res = free_resources.popleft()
 
             inflight_refs.append(
                 run_task.options(
@@ -389,12 +435,19 @@ def run[T](
                     # logically do not reserve any CPUs as we take care of scheduling/resource allocation ourselves here...
                     num_cpus=0,
                     # ... and set environment variables to prevent oversubscription inside the tasks
-                    runtime_env=runtime_env,
-                ).remote(task_idx, task, log_dir)
+                    runtime_env=RuntimeEnv(env_vars=res.get_env_vars()),
+                ).remote(res, task_idx, task)
             )
 
         # Wait for any remaining tasks to complete
-        for result_idx, result in ray.get(inflight_refs):
+        for res, result_idx, result in ray.get(inflight_refs):
             results[result_idx] = result
+            free_resources.append(res)
+
+        if len(free_resources) != len(worker_resources):
+            logger.warning(
+                f"Resource leak detected in parallel execution of {context}: {len(worker_resources) - len(free_resources)} resources not returned. "
+                f"Final resource state: {len(free_resources)} available resources, results: [{results}]"
+            )
 
         return results
