@@ -18,31 +18,23 @@ from octopus.types import DataPartition, FIResultLabel
 from .base import ModuleExecution, Task
 from .boruta import Boruta
 from .context import StudyContext
-from .efs import Efs
 from .mrmr import Mrmr
 from .octo import Octo
 from .result import ModuleResult, ResultType
-from .rfe import Rfe
-from .rfe2 import Rfe2
 from .roc import Roc
-from .sfs import Sfs
 from .utils import rdc_correlation_matrix
 
 __all__ = [
     "AutoGluon",
     "Boruta",
     "DataPartition",
-    "Efs",
     "FIResultLabel",
     "ModuleExecution",
     "ModuleResult",
     "Mrmr",
     "Octo",
     "ResultType",
-    "Rfe",
-    "Rfe2",
     "Roc",
-    "Sfs",
     "StudyContext",
     "Task",
     "rdc_correlation_matrix",

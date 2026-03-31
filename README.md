@@ -87,7 +87,6 @@ pip install "octopus-automl[recommended]"
 # Explicitly specify optional dependencies
 pip install "octopus-automl[autogluon]"     # AutoGluon
 pip install "octopus-automl[boruta]"        # Boruta feature selection
-pip install "octopus-automl[sfs]"           # SequentialFeatureSelector feature selection
 pip install "octopus-automl[survival]"      # Support time-to-event / survival analysis
 pip install "octopus-automl[examples]"      # Dependencies for running examples
 

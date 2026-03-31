@@ -63,9 +63,6 @@ autogluon = [
     "bokeh>=3.8", # missed and required by ag=1.4
     "tokenizers>=0.13.0", # Override old tokenizers, use version with Python 3.12 wheels
 ]
-sfs = [
-    "mlxtend>=0.23.0",
-]
 survival = [
     "lifelines>=0.29.0",
 ]
@@ -73,7 +70,6 @@ survival = [
 recommended = [
     "octopus-automl[autogluon]",
     "octopus-automl[boruta]",
-    "octopus-automl[sfs]",
     "octopus-automl[survival]",
     "octopus-automl[examples]",
 ]
@@ -167,10 +163,6 @@ exclude = ["docs", "studies"]
 
 
 [[tool.mypy.overrides]]
-module = "mlxtend.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = "boruta.*"
 ignore_missing_imports = true
 
@@ -190,13 +182,9 @@ ignore_missing_imports = true
 # This is a known limitation with mypy not recognizing attrs @define decorator
 [[tool.mypy.overrides]]
 module = [
-    "octopus.modules.sfs",
     "octopus.modules.roc",
-    "octopus.modules.rfe2",
-    "octopus.modules.rfe",
     "octopus.modules.octo",
     "octopus.modules.mrmr",
-    "octopus.modules.efs",
     "octopus.modules.boruta",
 ]
 disable_error_code = ["attr-defined"]
