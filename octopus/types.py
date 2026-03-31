@@ -102,7 +102,7 @@ class FIComputeMethod(StrEnum):
     """Computation methods for feature importance calculation.
 
     Used in model configuration (``ModelConfig.feature_method``), module
-    configuration (``Octo.fi_methods_bestbag``, ``Rfe2.fi_method_rfe``,
+    configuration (``Octo.fi_methods_bestbag``,
     ``Mrmr.feature_importance_method``), and internal dispatch in bag
     and training code.
     """
@@ -186,19 +186,6 @@ class AutoGluonFitStrategy(StrEnum):
     PARALLEL = "parallel"
 
 
-class RFE2SelectionMethod(StrEnum):
-    """Strategy for picking the final feature set from the RFE2 scan results.
-
-    Used in ``Rfe2.selection_method``:
-    - ``BEST``: selects the step with the highest mean cross-validation performance
-    - ``PARSIMONIOUS``: selects the smallest feature set whose performance is within
-      one standard error of the best (bias-variance trade-off)
-    """
-
-    BEST = "best"
-    PARSIMONIOUS = "parsimonious"
-
-
 class ROCFilterMethod(StrEnum):
     """Scoring method used to rank features within a correlated group in the ROC module.
 
@@ -208,31 +195,6 @@ class ROCFilterMethod(StrEnum):
 
     MUTUAL_INFO = "mutual_info"
     F_STATISTICS = "f_statistics"
-
-
-class SFSDirection(StrEnum):
-    """Search direction for Sequential Feature Selection (mlxtend SequentialFeatureSelector).
-
-    Used in ``Sfs.sfs_type``. Forward variants add features; backward variants remove them.
-    Floating variants allow backtracking after each add/remove step.
-    """
-
-    FORWARD = "forward"
-    BACKWARD = "backward"
-    FLOATING_FORWARD = "floating_forward"
-    FLOATING_BACKWARD = "floating_backward"
-
-
-class RFEMode(StrEnum):
-    """Execution mode for the RFE module.
-
-    Used in ``Rfe.mode``:
-    - ``FIXED``: runs RFE with the already-optimised model (faster)
-    - ``REFIT``: re-optimises the model at each elimination step (slower, potentially better)
-    """
-
-    FIXED = "fixed"
-    REFIT = "refit"
 
 
 class OptunaReturnType(StrEnum):
@@ -251,7 +213,6 @@ class MetricDirection(StrEnum):
     """Optimisation direction passed to Optuna and used for sorting scan/ensemble results.
 
     Derived from ``Metric.higher_is_better`` via ``Metric.direction`` and ``Metrics.get_direction()``.
-    Used in EFS scan/ensemble optimisation and diagnostics plots.
     """
 
     MAXIMIZE = "maximize"
@@ -272,7 +233,6 @@ class PredictionType(StrEnum):
     - ``Metric.prediction_type``: declared per metric in the registry
     - ``metrics/utils.py``: used to prepare the correct input before calling
       the metric function
-    - ``EfsModule``: selects the correct column from the CV predictions table
     """
 
     PREDICTIONS = "predictions"

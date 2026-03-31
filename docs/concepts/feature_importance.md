@@ -341,13 +341,12 @@ Feature importances are automatically calculated and saved during workflow execu
 
 ```python
 from octopus.manager.workflow_runner import WorkflowTaskRunner
-from octopus.modules import Octo, Rfe
+from octopus.modules import Octo
 from octopus.types import ModelName
 
 # Define workflow
 workflow = [
     Octo(task_id=0, models=[ModelName.RandomForestClassifier]),
-    Rfe(task_id=1, depends_on=0, n_features_to_select=20),
 ]
 
 # Run workflow
@@ -362,7 +361,6 @@ runner.run(outersplit_id=0, data_train=train_data, data_test=test_data)
 
 # After workflow completes, you can load modules and get importances
 from octopus.modules import Octo
-from upath import UPath
 
 octo_dir = study.output_path / "outersplit0" / "task0" / "module"
 loaded_octo = Octo.load(octo_dir)

@@ -90,7 +90,7 @@ class TestModuleResultSaveLoad:
 
         result = ModuleResult(
             result_type=ResultType.BEST,
-            module="rfe",
+            module="roc",
             selected_features=["f1", "f2"],
             feature_importances=fi,
         )
@@ -101,7 +101,7 @@ class TestModuleResultSaveLoad:
         # model directory should not exist
         assert not (result_dir / "model").exists()
 
-        loaded = ModuleResult.load(result_dir, result_type=ResultType.BEST, module="rfe")
+        loaded = ModuleResult.load(result_dir, result_type=ResultType.BEST, module="roc")
 
         assert loaded.selected_features == ["f1", "f2"]
         assert loaded.model is None

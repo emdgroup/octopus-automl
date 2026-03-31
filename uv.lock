@@ -3070,23 +3070,6 @@ wheels = [
 ]
 
 [[package]]
-name = "mlxtend"
-version = "0.23.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "joblib" },
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ae/10/6caee09c2375bd5bebb1eec23a6ac3e8e3e3adab4014b8c3033047665583/mlxtend-0.23.4.tar.gz", hash = "sha256:ba8c8427cbe65d462c8487511331cae0cdcf9252d92f8687f0a53d311128770f", size = 1283996, upload-time = "2025-01-26T16:02:45.69Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4c/43/2fc7f76c8891aef148901f1ba3dee65c1cbac00a85ae5ee0dabc2b861256/mlxtend-0.23.4-py3-none-any.whl", hash = "sha256:8675456e2b71841116e5317f6d7aa568848ea2546865eb5eca7192e9b7f395f4", size = 1352350, upload-time = "2025-01-26T16:02:43.208Z" },
-]
-
-[[package]]
 name = "moto"
 version = "5.1.22"
 source = { registry = "https://pypi.org/simple" }
@@ -3789,7 +3772,6 @@ dev = [
     { name = "mkdocs-literate-nav" },
     { name = "mkdocs-material" },
     { name = "mkdocstrings-python" },
-    { name = "mlxtend" },
     { name = "moto", extra = ["s3", "server"] },
     { name = "mypy" },
     { name = "nbconvert" },
@@ -3829,7 +3811,6 @@ docs = [
     { name = "mkdocs-literate-nav" },
     { name = "mkdocs-material" },
     { name = "mkdocstrings-python" },
-    { name = "mlxtend" },
     { name = "moto", extra = ["s3", "server"] },
     { name = "mypy" },
     { name = "nbconvert" },
@@ -3883,14 +3864,10 @@ recommended = [
     { name = "ipykernel" },
     { name = "ipywidgets" },
     { name = "lifelines" },
-    { name = "mlxtend" },
     { name = "nbconvert" },
     { name = "nbformat" },
     { name = "notebook" },
     { name = "tokenizers" },
-]
-sfs = [
-    { name = "mlxtend" },
 ]
 survival = [
     { name = "lifelines" },
@@ -3905,7 +3882,6 @@ test = [
     { name = "joblib-stubs" },
     { name = "licensecheck" },
     { name = "lifelines" },
-    { name = "mlxtend" },
     { name = "moto", extra = ["s3", "server"] },
     { name = "mypy" },
     { name = "nbconvert" },
@@ -3953,7 +3929,6 @@ requires-dist = [
     { name = "mkdocs-literate-nav", marker = "extra == 'docs'", specifier = ">=0.6.2" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.7.1" },
     { name = "mkdocstrings-python", marker = "extra == 'docs'", specifier = ">=2.0.1" },
-    { name = "mlxtend", marker = "extra == 'sfs'", specifier = ">=0.23.0" },
     { name = "moto", extras = ["s3", "server"], marker = "extra == 'test'", specifier = ">=5.1.17" },
     { name = "mypy", marker = "extra == 'lint'", specifier = "==1.18.2" },
     { name = "nbconvert", marker = "extra == 'docs'", specifier = ">=7.16.6" },
@@ -3972,7 +3947,6 @@ requires-dist = [
     { name = "octopus-automl", extras = ["lint"], marker = "extra == 'dev'" },
     { name = "octopus-automl", extras = ["lint"], marker = "extra == 'test'" },
     { name = "octopus-automl", extras = ["recommended"], marker = "extra == 'test'" },
-    { name = "octopus-automl", extras = ["sfs"], marker = "extra == 'recommended'" },
     { name = "octopus-automl", extras = ["survival"], marker = "extra == 'recommended'" },
     { name = "octopus-automl", extras = ["test"], marker = "extra == 'dev'" },
     { name = "octopus-automl", extras = ["test"], marker = "extra == 'docs'" },
@@ -4005,7 +3979,7 @@ requires-dist = [
     { name = "universal-pathlib", specifier = ">=0.3.6" },
     { name = "xgboost", specifier = ">=3.0" },
 ]
-provides-extras = ["boruta", "autogluon", "sfs", "survival", "recommended", "dev", "docs", "examples", "lint", "test", "test-core"]
+provides-extras = ["boruta", "autogluon", "survival", "recommended", "dev", "docs", "examples", "lint", "test", "test-core"]
 
 [[package]]
 name = "omegaconf"
