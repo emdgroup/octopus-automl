@@ -8,6 +8,8 @@ import pandas as pd
 from attrs import define, field, validators
 from upath import UPath
 
+from octopus.manager import ParallelResources
+
 from .context import StudyContext
 from .result import ModuleResult, ResultType
 
@@ -49,7 +51,7 @@ class ModuleExecution[T: Task](ABC):
         outersplit_id: int,
         results_dir: UPath,
         scratch_dir: UPath,
-        num_assigned_cpus: int,
+        resources: ParallelResources,
         feature_groups: dict[str, list[str]],
         prior_results: dict[str, pd.DataFrame],
     ) -> dict[ResultType, ModuleResult]:

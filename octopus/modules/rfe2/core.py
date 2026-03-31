@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from attrs import Factory, define, field
 
+from octopus.manager import ParallelResources
 from octopus.modules import ModuleResult, Rfe2
 from octopus.modules.octo.core import OctoModuleTemplate
 from octopus.utils import calculate_feature_groups
@@ -39,7 +40,7 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         outersplit_id: int,
         results_dir: UPath,
         scratch_dir: UPath,
-        num_assigned_cpus: int,
+        resources: ParallelResources,
         feature_groups: dict[str, list[str]],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
@@ -84,7 +85,7 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             feature_cols=feature_cols,
             feature_groups=feature_groups,
             outersplit_id=outersplit_id,
-            num_assigned_cpus=num_assigned_cpus,
+            resources=resources,
             results_dir=results_dir,
             results=results,
         )
@@ -126,11 +127,11 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
 
             # retrain bag and calculate feature importances
             bag = self._retrain_and_calc_fi(
-                bag=bag, data_traindev=data_traindev, new_features=new_features, num_assigned_cpus=num_assigned_cpus
+                bag=bag, data_traindev=data_traindev, new_features=new_features, resources=resources
             )
 
             # get scores
-            bag_scores = bag.get_performance(num_assigned_cpus=num_assigned_cpus)
+            bag_scores = bag.get_performance(resources=resources)
 
             # record performance
             dev_lst = bag_scores["dev_lst"]
@@ -180,11 +181,11 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         print("Selected features:", selected_row["features"])
 
         # Build flat scores DataFrame from best_model
-        scores = best_model.get_performance_df(metric=study_context.target_metric, num_assigned_cpus=num_assigned_cpus)
+        scores = best_model.get_performance_df(metric=study_context.target_metric, resources=resources)
         scores["result_type"] = ResultType.BEST
 
         # Build flat predictions DataFrame
-        predictions = best_model.get_predictions_df(num_assigned_cpus=num_assigned_cpus)
+        predictions = best_model.get_predictions_df(resources=resources)
         if not predictions.empty:
             predictions["result_type"] = ResultType.BEST
 
@@ -224,7 +225,11 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
         )
 
     def _retrain_and_calc_fi(
-        self, bag: BagBase, data_traindev: pd.DataFrame, new_features: list[str], num_assigned_cpus: int
+        self,
+        bag: BagBase,
+        data_traindev: pd.DataFrame,
+        new_features: list[str],
+        resources: ParallelResources,
     ) -> BagBase:
         """Retrain bag using new feature set and calculate feature importances."""
         bag = copy.deepcopy(bag)
@@ -236,11 +241,11 @@ class Rfe2Module(OctoModuleTemplate[Rfe2]):
             training.feature_groups = feature_groups
 
         # retrain bag
-        bag.fit(num_assigned_cpus=num_assigned_cpus)
+        bag.fit(resources=resources)
 
         # calculate feature importances
         bag.calculate_feature_importances(
-            [self.config.fi_method_rfe], partitions=["dev"], num_assigned_cpus=num_assigned_cpus
+            [self.config.fi_method_rfe], partitions=[DataPartition.DEV], resources=resources
         )
 
         return bag

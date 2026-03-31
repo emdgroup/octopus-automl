@@ -18,6 +18,7 @@ from attrs import define, field, validators
 from upath import UPath
 
 from octopus.logger import get_logger
+from octopus.manager import ParallelResources
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_performance_from_predictions
 from octopus.modules.octo.bag import BagBase
@@ -36,7 +37,7 @@ class EnSel:
     path_trials: UPath = field(validator=[validators.instance_of(UPath)])
     max_n_iterations: int = field(validator=[validators.instance_of(int)])
     row_id_col: str = field(validator=[validators.instance_of(str)])
-    num_assigned_cpus: int = field(validator=[validators.instance_of(int)])
+    resources: ParallelResources = field(validator=[validators.instance_of(ParallelResources)])
     positive_class = field(default=None)
     model_table: pd.DataFrame = field(
         init=False,
@@ -78,8 +79,8 @@ class EnSel:
             bag: BagBase = joblib_load(file)
             self.bags[file] = {
                 "id": bag.bag_id,
-                "performance": bag.get_performance(num_assigned_cpus=self.num_assigned_cpus),
-                "predictions": bag.get_predictions(num_assigned_cpus=self.num_assigned_cpus),
+                "performance": bag.get_performance(resources=self.resources),
+                "predictions": bag.get_predictions(resources=self.resources),
                 "n_features_used_mean": bag.n_features_used_mean,
             }
 

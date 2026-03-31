@@ -7,6 +7,7 @@ from upath import UPath
 
 from octopus.datasplit import InnerSplits
 from octopus.logger import get_logger
+from octopus.manager import ParallelResources
 from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.types import LogGroup, MetricDirection, MLType, ModelName, OptunaReturnType
@@ -44,7 +45,7 @@ class ObjectiveOptuna:
         top_trials,
         mrmr_features,
         log_dir: UPath,
-        num_assigned_cpus: int,
+        resources: ParallelResources,
     ):
         self.outersplit_task_id = outersplit_task_id
         self.outersplit_id = outersplit_id
@@ -76,7 +77,7 @@ class ObjectiveOptuna:
         self.ml_seed = self.config.model_seed
         # training parameters
         self.log_dir = log_dir
-        self.num_assigned_cpus = num_assigned_cpus
+        self.resources = resources
 
     def __call__(self, trial: Trial) -> float:
         """Call.
@@ -160,10 +161,10 @@ class ObjectiveOptuna:
         )
 
         # train all models in bag
-        bag_trainings.fit(num_assigned_cpus=self.num_assigned_cpus)
+        bag_trainings.fit(resources=self.resources)
 
         # evaluate trainings using target metric
-        bag_performance = bag_trainings.get_performance(num_assigned_cpus=self.num_assigned_cpus)
+        bag_performance = bag_trainings.get_performance(resources=self.resources)
 
         # get number of features used in bag
         n_features_mean = bag_trainings.n_features_used_mean

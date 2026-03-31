@@ -15,6 +15,8 @@ from octopus.modules import ModuleResult, StudyContext, Task
 from octopus.types import ResultType
 from octopus.utils import calculate_feature_groups, parquet_save, rmtree
 
+from . import ParallelResources
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -38,13 +40,13 @@ class WorkflowTaskRunner:
     study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     workflow: Sequence[Task] = field(validator=[validators.instance_of(list)])
 
-    def run(self, outersplit_id: int, outersplit: OuterSplit, num_assigned_cpus: int) -> None:
+    def run(self, outersplit_id: int, outersplit: OuterSplit, resources: ParallelResources) -> None:
         """Process all workflow tasks for a single outer split.
 
         Args:
             outersplit_id: Current outer split ID
             outersplit: OuterSplit containing traindev and test DataFrames
-            num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
+            resources: Resources for parallel execution, including CPU counts and Ray placement group
         """
         # Save split data
         fold_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
@@ -60,7 +62,7 @@ class WorkflowTaskRunner:
         for task in self.workflow:
             self._log_task_info(task)
 
-            result = self._run_task(outersplit_id, outersplit, task, num_assigned_cpus, task_results)
+            result = self._run_task(outersplit_id, outersplit, task, resources, task_results)
             task_results[task.task_id] = result
 
     def _run_task(
@@ -68,7 +70,7 @@ class WorkflowTaskRunner:
         outersplit_id: int,
         outersplit: OuterSplit,
         task: Task,
-        num_assigned_cpus: int,
+        resources: ParallelResources,
         task_results: dict[int, dict[ResultType, ModuleResult]],
     ) -> dict[ResultType, ModuleResult]:
         """Run a single workflow task.
@@ -77,7 +79,7 @@ class WorkflowTaskRunner:
             outersplit_id: Current outer split ID
             outersplit: OuterSplit containing traindev and test DataFrames
             task: Task to run
-            num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
+            resources: Resources for parallel execution, including CPU counts and Ray placement group
             task_results: Dictionary of results from previous tasks
 
         Returns:
@@ -131,7 +133,7 @@ class WorkflowTaskRunner:
             outersplit_id=outersplit_id,
             results_dir=results_dir,
             scratch_dir=scratch_dir,
-            num_assigned_cpus=num_assigned_cpus,
+            resources=resources,
             feature_groups=feature_groups,
             prior_results=prior_results,
         )

@@ -256,6 +256,12 @@ def test_ensemble_selection_ensembled_data(tmp_path):
 
     best_individual_mae = min(individual_performances)
 
+    class MockParallelResources:
+        """Mock for ParallelResources with fixed CPU count."""
+
+        def __init__(self):
+            self.num_cpus = 1
+
     # 6. Run EnSel analysis
     ensel = EnSel(
         target_metric="MAE",
@@ -263,7 +269,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
         max_n_iterations=50,  # Fewer iterations for speed
         row_id_col="row_id",
         target_assignments={"default": "target"},
-        num_assigned_cpus=1,
+        resources=MockParallelResources(),  # type: ignore[arg-type]
     )
 
     # Extract ensemble results

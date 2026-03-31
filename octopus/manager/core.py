@@ -16,6 +16,8 @@ from octopus.manager.execution import (
 from octopus.manager.workflow_runner import WorkflowTaskRunner
 from octopus.modules import StudyContext, Task
 
+from . import ParallelResources
+
 logger = get_logger()
 
 
@@ -54,16 +56,11 @@ class OctoManager:
                 f"run_single_outersplit_num must be between 0 and num_outersplits-1 ({len(self.outersplit_data) - 1}), got {self.run_single_outersplit_num}"
             )
 
-        # Initialize Ray upfront to ensure worker setup hooks are registered before any workflows execute.
-        # This is critical for:
-        # 1. Inner parallelization: ML modules (e.g., Octo, AutoGluon) may spawn Ray workers for their
-        #    internal operations (bagging, hyperparameter tuning)
-        # 2. Lifecycle clarity: Explicit init → run → shutdown at the manager level makes the
-        #    Ray lifecycle predictable and easier to reason about
         resources = ray_parallel.init(
             num_cpus_user=self.num_cpus,
             num_outersplits=len(self.outersplit_data),
             run_single_outersplit=self.run_single_outersplit_num is not None,
+            log_dir=self.study_context.log_dir,
             namespace=f"octopus_study_{self.study_context.output_path}",
         )
 
@@ -79,7 +76,7 @@ class OctoManager:
         finally:
             ray_parallel.shutdown()
 
-    def _select_strategy(self, resources: ray_parallel.ResourceConfig) -> ExecutionStrategy:
+    def _select_strategy(self, resources: ParallelResources) -> ExecutionStrategy:
         """Select execution strategy based on configuration.
 
         Args:
@@ -91,15 +88,13 @@ class OctoManager:
         if self.run_single_outersplit_num is not None:
             return SingleOutersplitStrategy(
                 outersplit_index=self.run_single_outersplit_num,
-                num_cpus=resources.cpus_per_worker,
+                resources=resources,
             )
-        elif resources.num_workers > 1:
+        elif len(resources.placement_group.bundle_specs) > 1:
             return ParallelRayStrategy(
-                num_workers=resources.num_workers,
-                num_cpus_per_worker=resources.cpus_per_worker,
-                log_dir=self.study_context.log_dir,
+                resources=resources,
             )
         else:
             return SequentialStrategy(
-                num_cpus=resources.cpus_per_worker,
+                resources=resources,
             )

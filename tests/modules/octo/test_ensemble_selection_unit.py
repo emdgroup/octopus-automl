@@ -168,6 +168,13 @@ def create_mock_trial_directory(
     return trials_path
 
 
+class MockParallelResources:
+    """Mock for ParallelResources with fixed CPU count."""
+
+    def __init__(self):
+        self.num_cpus = 1
+
+
 def create_partial_ensel(trials_path, target_metric="MAE", methods_to_run=None):
     """Create EnSel instance that only runs specified methods."""
 
@@ -192,7 +199,7 @@ def create_partial_ensel(trials_path, target_metric="MAE", methods_to_run=None):
         path_trials=trials_path,
         max_n_iterations=10,
         row_id_col="row_id",
-        num_assigned_cpus=1,
+        resources=MockParallelResources(),  # type: ignore[arg-type]
     )
 
 

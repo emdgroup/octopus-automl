@@ -4,30 +4,21 @@ import os
 from collections import deque
 from collections.abc import Callable, Sequence
 from functools import partial
-from typing import TypedDict
+from typing import Protocol
 
 import ray
 import threadpoolctl
-from attrs import define, field, validators
 from ray.runtime_env import RuntimeEnv
-from ray.util.placement_group import PlacementGroup
+from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from upath import UPath
 
 from octopus.datasplit import OuterSplit, OuterSplits
 from octopus.logger import get_logger, set_logger_filename
-from octopus.modules.octo.bag import FeatureImportanceWithLogging, TrainingWithLogging
 from octopus.modules.octo.training import Training
 
-logger = get_logger()
+from . import ParallelResources
 
-_PARALLELIZATION_ENV_VARS = (
-    "OMP_NUM_THREADS",
-    "OPENBLAS_NUM_THREADS",
-    "MKL_NUM_THREADS",
-    "BLIS_NUM_THREADS",
-    "VECLIB_MAXIMUM_THREADS",
-    "NUMEXPR_NUM_THREADS",
-)
+logger = get_logger()
 
 
 def _get_locally_available_cpus() -> int:
@@ -38,120 +29,22 @@ def _get_locally_available_cpus() -> int:
         raise RuntimeError("Could not determine number of CPUs.")
 
 
-class _NodeResources(TypedDict):
-    """Compute resources available on a Ray node."""
+class SupportsFit(Protocol):
+    """Protocol for objects that have a fit() method."""
 
-    memory: float
-    CPU: float
-    object_store_memory: float
-
-
-def _get_ray_nodes() -> dict[str, _NodeResources]:
-    if not ray.is_initialized():
-        raise RuntimeError("Ray is not initialized. Call ray_parallel.init() first.")
-
-    ray_nodes: dict[str, _NodeResources] = {}
-    for node in ray.nodes():
-        res = node.get("Resources", {})
-        if name := (", ".join(k[5:] for k in res if k.startswith("node:"))).strip():
-            ray_nodes[name] = {
-                "CPU": res.get("CPU", 0.0),
-                "memory": res.get("memory", 0.0),
-                "object_store_memory": res.get("object_store_memory", 0.0),
-            }
-
-    return ray_nodes
-
-
-@define(frozen=True)
-class ResourceConfig:
-    """Immutable configuration for CPU resources."""
-
-    available_cpus: int = field(validator=validators.instance_of(int))
-    """Total number of CPUs available for parallel processing (inner * outer parallelization)."""
-
-    num_workers: int = field(validator=validators.instance_of(int))
-    """Number of parallel outer workers."""
-
-    cpus_per_worker: int = field(validator=validators.instance_of(int))
-    """CPUs allocated to each worker for inner parallelization."""
-
-    ray_nodes: dict[str, _NodeResources] = field(validator=validators.instance_of(dict))
-    """Dictionary of Ray nodes and their resources, used for calculating available_cpus and num_workers."""
-
-    num_outersplits: int = field(validator=validators.instance_of(int))
-    """Total number of outersplits in the study."""
-
-    run_single_outersplit: bool = field(validator=validators.instance_of(bool))
-    """Whether to run a single outer split instead of all . This is mainly used for testing and debugging."""
-
-    @classmethod
-    def create(
-        cls,
-        ray_nodes: dict[str, _NodeResources],
-        num_outersplits: int,
-        run_single_outersplit: bool,
-    ) -> "ResourceConfig":
-        """Create ResourceConfig with computed values.
-
-        Args:
-            ray_nodes: Dictionary of Ray nodes and their available CPU resources.
-            num_outersplits: Total number of outersplits in the study.
-            run_single_outersplit: Whether to run a single outer split instead of all.
-              This is mainly used for testing and debugging.
-
-        Returns:
-            ResourceConfig with computed worker and CPU allocation.
-
-        Raises:
-            ValueError: If any input parameter is invalid.
-        """
-        if num_outersplits <= 0:
-            raise ValueError(f"num_outersplits must be positive, got {num_outersplits}")
-
-        # Calculate effective number of outersplits for resource allocation
-        effective_num_outersplits = 1 if run_single_outersplit else num_outersplits
-
-        # TODO: instead of summing all CPUs we should properly use the node/resource architecture, i.e. num_workers should be a multiple of len(nodes)
-        available_cpus = sum(int(node["CPU"]) for node in ray_nodes.values())
-
-        # Calculate resource allocation
-        num_workers = min(effective_num_outersplits, available_cpus)
-        if num_workers == 0:
-            raise ValueError(
-                f"Cannot allocate resources: num_workers computed as 0 (effective_num_outersplits={effective_num_outersplits}, available_cpus={available_cpus})"
-            )
-
-        return cls(
-            available_cpus=available_cpus,
-            num_workers=num_workers,
-            cpus_per_worker=max(1, available_cpus // num_workers),
-            ray_nodes=ray_nodes,
-            num_outersplits=num_outersplits,
-            run_single_outersplit=run_single_outersplit,
-        )
-
-    def __str__(self) -> str:
-        """Return string representation of resource configuration."""
-        nodes = "\n\t".join(f"Node {node}:  {res['CPU']} CPUs" for node, res in self.ray_nodes.items())
-
-        return (
-            f"\nSingle outersplit: {self.run_single_outersplit}"
-            f"\nOutersplits:       {self.num_outersplits}"
-            f"\nAvailable CPUs:    {self.available_cpus}"
-            f"\nWorkers:           {self.num_workers}"
-            f"\nCPUs/outersplit:   {self.cpus_per_worker}"
-            f"\nRay Nodes:\n\t{nodes}"
-        )
+    def fit(self) -> Training:
+        """Generic fit method that returns a Training object."""
+        ...
 
 
 def init(
     num_cpus_user: int,
     num_outersplits: int,
     run_single_outersplit: bool,
+    log_dir: UPath,
     address: str | None = None,
     namespace: str | None = None,
-):
+) -> ParallelResources:
     """Initialize Ray for the current process.
 
     Connects to an existing cluster if an address is provided or set via
@@ -169,12 +62,13 @@ def init(
           Set to 1 to disable all parallel processing and run sequentially.
         num_outersplits: Total number of outersplits in the study.
         run_single_outersplit: Whether to run a single outer split instead of all. This is mainly used for testing and debugging.
+        log_dir: Directory for Ray worker logs.
         address: Ray head address (e.g., "auto", "127.0.0.1:6379", "local"). If None, uses
             env vars RAY_ADDRESS or RAY_HEAD_ADDRESS if set.
         namespace: Ray namespace to use for all operations. If None, uses the default namespace.
 
     Returns:
-        ResourceConfig with details about the initialized Ray cluster and resource allocation.
+        ParallelResources with details about the initialized Ray cluster and resource allocation.
 
     Raises:
         ValueError: If num_cpus_user is set to a value that leaves no CPUs available in case of starting a local ray instance.
@@ -211,12 +105,9 @@ def init(
         logger.info(f"Creating a local ray instance with {num_cpus} CPUs.")
         ray.init(address="local", num_cpus=num_cpus, namespace=namespace)
 
-    ray_nodes = _get_ray_nodes()
-
-    resource_config = ResourceConfig.create(
-        ray_nodes=ray_nodes,
-        num_outersplits=num_outersplits,
-        run_single_outersplit=run_single_outersplit,
+    resources = ParallelResources.create(
+        num_outersplits=1 if run_single_outersplit else num_outersplits,
+        log_dir=log_dir,
     )
 
     if ray_address := ray.get_runtime_context().gcs_address:
@@ -224,7 +115,7 @@ def init(
     else:
         os.environ.pop("RAY_ADDRESS", None)
 
-    return resource_config
+    return resources
 
 
 def shutdown() -> None:
@@ -249,10 +140,8 @@ def _setup_worker_logging(log_dir: UPath):
 
 def run_parallel_outer(
     outersplit_data: OuterSplits,
-    run_fn: Callable[[int, OuterSplit, int], None],
-    log_dir: UPath,
-    num_workers: int,
-    num_cpus_per_worker: int,
+    run_fn: Callable[[int, OuterSplit, ParallelResources], None],
+    resources: ParallelResources,
 ) -> None:
     """Execute run_fn(outersplit_id, outersplit, num_cpus_per_worker) in parallel using Ray.
 
@@ -266,20 +155,8 @@ def run_parallel_outer(
     Args:
         outersplit_data: Dictionary mapping outersplit_id to OuterSplit(traindev, test).
         run_fn: Function called as run_fn(outersplit_id, outersplit, num_cpus_per_worker).
-        log_dir: Directory to store individual Ray worker logs.
-        num_workers: Number of parallel workers to use for processing outersplits.
-        num_cpus_per_worker: CPUs used for each outer task to prevent
-          oversubscription during inner parallel work. Outer workers do not acquire these
-          CPUs by themselves but set them in the environment for libraries to respect and
-          enforce via threadpoolctl in inner parallel code. This allows inner parallelism
-          (e.g. by AutoGluon) without oversubscribing CPUs.
+        resources: Resource configuration for parallel execution, including CPU counts and Ray placement group.
     """
-    resources = ParallelResources(
-        log_dir=log_dir,
-        num_cpus=num_workers * num_cpus_per_worker,
-        placement_group=None,  # TODO: Not used in current implementation but can be extended for more complex resource management
-    )
-
     run(
         context="outer",
         tasks=[
@@ -287,7 +164,6 @@ def run_parallel_outer(
                 run_fn,
                 outersplit_id,
                 outersplit,
-                num_cpus_per_worker,
             )
             for outersplit_id, outersplit in outersplit_data.items()
         ],
@@ -297,74 +173,44 @@ def run_parallel_outer(
 
 def run_parallel_inner(
     bag_id: str,
-    trainings: Sequence[TrainingWithLogging | FeatureImportanceWithLogging],
-    log_dir: UPath,
-    num_assigned_cpus: int,
+    trainings: Sequence[SupportsFit],
+    resources: ParallelResources,
 ) -> list[Training]:
     """Run training.fit() for each item inside trainings in parallel.
 
     Args:
         bag_id: Identifier for the bag.
         trainings: Objects with fit() method.
-        log_dir: Directory to store individual Ray worker logs.
-        num_assigned_cpus: CPUs for parallel execution of the fit() methods.
+        resources: Allocated resources for the parallel task.
 
     Returns:
         Results from each training.fit() in input order.
-
-    Raises:
-        RuntimeError: If Ray is not initialized.
     """
-    resources = ParallelResources(
-        log_dir=log_dir,
-        num_cpus=num_assigned_cpus,
-        placement_group=None,  # TODO: Not used in current implementation but can be extended for more complex resource management
-    )
+
+    class Wrapper:
+        def __init__(self, training: SupportsFit):
+            self.training = training
+
+        def __call__(self, resources: ParallelResources) -> Training:
+            return self.training.fit()
 
     return run(
         context=f"bag_{bag_id}_inner",
-        tasks=[partial(training.fit) for training in trainings],
+        tasks=[Wrapper(training) for training in trainings],
         resources=resources,
     )
 
 
-@define
-class ParallelResources:
-    """Helper Class to represent allocated resources for a parallel task."""
-
-    log_dir: UPath
-    num_cpus: int
-    placement_group: PlacementGroup | None
-
-    def split(self, num_tasks: int) -> list["ParallelResources"]:
-        """Distribute available resources across num_tasks tasks."""
-        num_workers = min(num_tasks, self.num_cpus)
-        cpus_per_worker = max(1, self.num_cpus // num_workers)
-
-        return [
-            ParallelResources(
-                log_dir=self.log_dir,
-                num_cpus=cpus_per_worker,
-                placement_group=self.placement_group,
-            )
-            for _ in range(num_workers)
-        ]
-
-    def get_env_vars(self) -> dict[str, str]:
-        """Get environment variables to set for parallel tasks to prevent CPU oversubscription."""
-        return dict.fromkeys(_PARALLELIZATION_ENV_VARS, str(self.num_cpus))
-
-
 def run[T](
     context: str,
-    tasks: list[Callable[[], T]],
+    tasks: list[Callable[[ParallelResources], T]],
     resources: ParallelResources,
 ) -> list[T]:
     """Run tasks in parallel using Ray if num_workers > 1, otherwise run sequentially.
 
     Args:
         context: Description of the task context for logging purposes.
-        tasks: List of callables that take no arguments and return a result.
+        tasks: List of callables that take a ParallelResources argument for potential sub-task parallelization and return a result.
         resources: Allocated resources for the parallel task.
 
     Returns:
@@ -380,7 +226,7 @@ def run[T](
         # TODO: can we locally set the environment variables and threadpoolctl limits properly here to allow inner parallelism even in the sequential case? Do we need a subprocess for that?
         with threadpoolctl.threadpool_limits(limits=res.num_cpus):
             try:
-                return [task() for task in tasks]
+                return [task(res) for task in tasks]
             except Exception as e:
                 logger.exception(f"Exception in sequential execution of {context}: {e!s}")
                 raise e
@@ -396,12 +242,12 @@ def run[T](
 
         @ray.remote
         def run_task(
-            resources: ParallelResources, task_idx: int, task: Callable[[], T]
+            resources: ParallelResources, task_idx: int, task: Callable[[ParallelResources], T]
         ) -> tuple[ParallelResources, int, T]:
             _setup_worker_logging(resources.log_dir)
             with threadpoolctl.threadpool_limits(limits=resources.num_cpus):
                 try:
-                    result = task()
+                    result = task(resources)
                     logger.debug(f"Completed task {task_idx} in parallel execution of {context}.")
                     return resources, task_idx, result
                 except Exception as e:
@@ -432,10 +278,14 @@ def run[T](
             inflight_refs.append(
                 run_task.options(
                     name=f"{context}_task_{task_idx}",
-                    # logically do not reserve any CPUs as we take care of scheduling/resource allocation ourselves here...
-                    num_cpus=0,
+                    # logically do not reserve any CPUs on sub-tasksas we take care of scheduling/resource allocation ourselves here...
+                    num_cpus=res.num_cpus if res.is_root else 0,
                     # ... and set environment variables to prevent oversubscription inside the tasks
                     runtime_env=RuntimeEnv(env_vars=res.get_env_vars()),
+                    # Ensure all child tasks (e.g. from inner parallelism in AutoGluon) are scheduled on the same placement group to keep resources together
+                    scheduling_strategy=PlacementGroupSchedulingStrategy(
+                        placement_group=res.placement_group, placement_group_capture_child_tasks=True
+                    ),
                 ).remote(res, task_idx, task)
             )
 

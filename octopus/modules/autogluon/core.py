@@ -27,6 +27,7 @@ from octopus._optional.autogluon import (
     root_mean_squared_error,
 )
 from octopus.logger import get_logger
+from octopus.manager import ParallelResources
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_score_from_model
 from octopus.modules import ModuleExecution, ModuleResult, StudyContext
@@ -118,7 +119,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         study_context: StudyContext,
         outersplit_id: int,
         results_dir: UPath,
-        num_assigned_cpus: int,
+        resources: ParallelResources,
         feature_groups: dict[str, list[str]],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
@@ -169,7 +170,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             fit_strategy=self.config.fit_strategy,
             num_bag_folds=self.config.num_bag_folds,
             included_model_types=self.config.included_model_types,
-            num_cpus=num_assigned_cpus,
+            num_cpus=resources.num_cpus,
         )
 
         logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outersplit_id}")
