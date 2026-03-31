@@ -47,11 +47,11 @@ class WorkflowTaskRunner:
             num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
         """
         # Save split data
-        fold_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
-        fold_dir.mkdir(parents=True, exist_ok=True)
-        train_path = fold_dir / "data_traindev.parquet"
+        outer_split_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
+        outer_split_dir.mkdir(parents=True, exist_ok=True)
+        train_path = outer_split_dir / "data_traindev.parquet"
         parquet_save(outersplit.traindev, train_path)
-        test_path = fold_dir / "data_test.parquet"
+        test_path = outer_split_dir / "data_test.parquet"
         parquet_save(outersplit.test, test_path)
 
         # task_results: dict[task_id -> dict[ResultType, ModuleResult]]
@@ -59,8 +59,7 @@ class WorkflowTaskRunner:
 
         for task in self.workflow:
             self._log_task_info(task)
-
-            result = self._run_task(outersplit_id, outersplit, task, num_assigned_cpus, task_results)
+            result = self._run_task(outersplit_id, outersplit, task, num_assigned_cpus, task_results, outer_split_dir)
             task_results[task.task_id] = result
 
     def _run_task(
@@ -70,6 +69,7 @@ class WorkflowTaskRunner:
         task: Task,
         num_assigned_cpus: int,
         task_results: dict[int, dict[ResultType, ModuleResult]],
+        outer_split_dir: UPath,
     ) -> dict[ResultType, ModuleResult]:
         """Run a single workflow task.
 
@@ -79,6 +79,8 @@ class WorkflowTaskRunner:
             task: Task to run
             num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
             task_results: Dictionary of results from previous tasks
+            outer_split_dir: directory where all data/results relevant for this outer
+              split reside / should be saved to
 
         Returns:
             Dict mapping ResultType to ModuleResult.
@@ -112,12 +114,12 @@ class WorkflowTaskRunner:
         feature_groups = calculate_feature_groups(outersplit.traindev, feature_cols)
 
         # Create output directory
-        output_dir = self.study_context.output_path / f"outersplit{outersplit_id}" / f"task{task.task_id}"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        results_dir = output_dir / "results"
-        results_dir.mkdir(parents=True, exist_ok=True)
-        scratch_dir = output_dir / "scratch"
-        scratch_dir.mkdir(parents=True, exist_ok=True)
+        module_output_dir = outer_split_dir / f"task{task.task_id}"
+        module_output_dir.mkdir(parents=True, exist_ok=True)
+        module_results_dir = module_output_dir / "results"
+        module_results_dir.mkdir(parents=True, exist_ok=True)
+        module_scratch_dir = module_output_dir / "scratch"
+        module_scratch_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Running task {task.task_id} for outer split {outersplit_id}")
 
@@ -129,20 +131,20 @@ class WorkflowTaskRunner:
             feature_cols=feature_cols,
             study_context=self.study_context,
             outersplit_id=outersplit_id,
-            results_dir=results_dir,
-            scratch_dir=scratch_dir,
+            results_dir=module_results_dir,
+            scratch_dir=module_scratch_dir,
             num_assigned_cpus=num_assigned_cpus,
             feature_groups=feature_groups,
             prior_results=prior_results,
         )
 
-        self._save_task_context(output_dir, feature_cols, feature_groups)
-        self._save_task_config(task, output_dir)
+        self._save_task_context(module_output_dir, feature_cols, feature_groups)
+        self._save_task_config(task, module_output_dir)
         for result_type, module_result in results.items():
-            module_result.save(results_dir / result_type.value)
+            module_result.save(module_results_dir / result_type.value)
 
         # Clean up scratch directory
-        rmtree(scratch_dir)
+        rmtree(module_scratch_dir)
 
         return results
 
