@@ -106,6 +106,7 @@ class OctoDataPreparator:
     def _create_row_id_col(self):
         """Create a unique row identifier if not provided."""
         if not self.row_id_col:
+            self.data = self.data.copy()
             self.data["row_id"] = list(range(len(self.data)))
             self.row_id_col = "row_id"
 
