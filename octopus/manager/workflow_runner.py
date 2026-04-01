@@ -38,22 +38,22 @@ class WorkflowTaskRunner:
     study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     workflow: Sequence[Task] = field(validator=[validators.instance_of(list)])
 
-    def run(self, outersplit_id: int, outersplit: OuterSplit, num_assigned_cpus: int) -> None:
+    def run(self, outer_split_id: int, outer_split: OuterSplit, n_assigned_cpus: int) -> None:
         """Process all workflow tasks for a single outer split.
 
         Args:
-            outersplit_id: Current outer split ID
-            outersplit: OuterSplit containing traindev and test DataFrames
-            num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
+            outer_split_id: Current outer split ID
+            outer_split: OuterSplit containing traindev and test DataFrames
+            n_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
         """
         # Save split row IDs (not full datasets) for reproducibility
-        outer_split_dir = self.study_context.output_path / f"outersplit{outersplit_id}"
+        outer_split_dir = self.study_context.output_path / f"outersplit{outer_split_id}"
         outer_split_dir.mkdir(parents=True, exist_ok=True)
         row_id_col = self.study_context.row_id_col
         split_ids = {
             "row_id_col": row_id_col,
-            "traindev_row_ids": outersplit.traindev[row_id_col].tolist(),
-            "test_row_ids": outersplit.test[row_id_col].tolist(),
+            "traindev_row_ids": outer_split.traindev[row_id_col].tolist(),
+            "test_row_ids": outer_split.test[row_id_col].tolist(),
         }
         with (outer_split_dir / "split_row_ids.json").open("w") as f:
             json.dump(split_ids, f)
@@ -63,25 +63,25 @@ class WorkflowTaskRunner:
 
         for task in self.workflow:
             self._log_task_info(task)
-            result = self._run_task(outersplit_id, outersplit, task, num_assigned_cpus, task_results, outer_split_dir)
+            result = self._run_task(outer_split_id, outer_split, task, n_assigned_cpus, task_results, outer_split_dir)
             task_results[task.task_id] = result
 
     def _run_task(
         self,
-        outersplit_id: int,
-        outersplit: OuterSplit,
+        outer_split_id: int,
+        outer_split: OuterSplit,
         task: Task,
-        num_assigned_cpus: int,
+        n_assigned_cpus: int,
         task_results: dict[int, dict[ResultType, ModuleResult]],
         outer_split_dir: UPath,
     ) -> dict[ResultType, ModuleResult]:
         """Run a single workflow task.
 
         Args:
-            outersplit_id: Current outer split ID
-            outersplit: OuterSplit containing traindev and test DataFrames
+            outer_split_id: Current outer split ID
+            outer_split: OuterSplit containing traindev and test DataFrames
             task: Task to run
-            num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
+            n_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
             task_results: Dictionary of results from previous tasks
             outer_split_dir: directory where all data/results relevant for this outer
               split reside / should be saved to
@@ -100,22 +100,22 @@ class WorkflowTaskRunner:
             feature_cols = upstream_results[ResultType.BEST].selected_features
             # Build prior_results by concatenating DataFrames from all upstream ModuleResult values
             prior_results: dict[str, pd.DataFrame] = {}
-            for df_name in ["scores", "predictions", "feature_importances"]:
+            for attr_name, key in [("scores", "scores"), ("predictions", "predictions"), ("fi", "fi")]:
                 dfs = []
                 for module_result in upstream_results.values():
-                    df = getattr(module_result, df_name)
+                    df = getattr(module_result, attr_name)
                     if isinstance(df, pd.DataFrame) and not df.empty:
                         out = df.copy()
                         out["module"] = module_result.module
                         dfs.append(out)
-                prior_results[df_name] = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+                prior_results[key] = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
             logger.info(f"Prior results keys: {prior_results.keys()}")
         else:
             feature_cols = self.study_context.feature_cols
             prior_results = {}
 
         # Calculate feature groups
-        feature_groups = calculate_feature_groups(outersplit.traindev, feature_cols)
+        feature_groups = calculate_feature_groups(outer_split.traindev, feature_cols)
 
         # Create output directory
         module_output_dir = outer_split_dir / f"task{task.task_id}"
@@ -125,19 +125,19 @@ class WorkflowTaskRunner:
         module_scratch_dir = module_output_dir / "scratch"
         module_scratch_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Running task {task.task_id} for outer split {outersplit_id}")
+        logger.info(f"Running task {task.task_id} for outer split {outer_split_id}")
 
         # Create execution module from config and run fit()
         module = task.create_module()
         results = module.fit(
-            data_traindev=outersplit.traindev,
-            data_test=outersplit.test,
+            data_traindev=outer_split.traindev,
+            data_test=outer_split.test,
             feature_cols=feature_cols,
             study_context=self.study_context,
-            outersplit_id=outersplit_id,
+            outer_split_id=outer_split_id,
             results_dir=module_results_dir,
             scratch_dir=module_scratch_dir,
-            num_assigned_cpus=num_assigned_cpus,
+            n_assigned_cpus=n_assigned_cpus,
             feature_groups=feature_groups,
             prior_results=prior_results,
         )

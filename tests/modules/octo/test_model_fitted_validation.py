@@ -346,7 +346,7 @@ def _display_model_info(model_name: ModelName, model_params: dict, verbose: bool
         print(f"\n  📊 {model_name.value}")
         print(f"     Model Class: {model_config.model_class.__name__}")
         print(f"     ML Types: {model_config.ml_types}")
-        print(f"     Feature Method: {model_config.feature_method}")
+        print(f"     Feature Method: {model_config.fi_method}")
         print(f"     Scaler: {model_config.scaler}")
         print(f"     Imputation Required: {model_config.imputation_required}")
         print(f"     Categorical Enabled: {model_config.categorical_enabled}")

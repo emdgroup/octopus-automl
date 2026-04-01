@@ -24,15 +24,15 @@ class ContextualFilter(logging.Filter):
         return True
 
 
-class OptunaHandler(logging.Handler):
-    """Optuna handler."""
+class ExternalHandler(logging.Handler):
+    """Handler that forwards external library logs to the Octopus logger."""
 
     def __init__(self, logger):
         super().__init__()
         self.logger = logger
 
     def emit(self, record):
-        """Forward the Optuna log to our custom logger."""
+        """Forward the log record to the Octopus logger."""
         self.logger.log(record.levelno, record.getMessage())
 
 
@@ -132,12 +132,20 @@ def setup_logger(name="OctoManager", log_file: UPath | None = None, level=loggin
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
 
-    # Set up Optuna logging
+    # Route external library logs through the Octopus logger
+    external_handler = ExternalHandler(logger)
+
     optuna_logger = logging.getLogger("optuna")
+    optuna_logger.handlers.clear()
     optuna_logger.setLevel(level)
     optuna_logger.propagate = False
-    optuna_handler = OptunaHandler(logger)
-    optuna_logger.addHandler(optuna_handler)
+    optuna_logger.addHandler(external_handler)
+
+    autogluon_logger = logging.getLogger("autogluon")
+    autogluon_logger.handlers.clear()
+    autogluon_logger.setLevel(level)
+    autogluon_logger.propagate = False
+    autogluon_logger.addHandler(external_handler)
 
     # Override the default log level colors
     def colorize_log(record):
@@ -194,15 +202,6 @@ def set_logger_filename(logger: logging.Logger | None = None, log_file: UPath | 
         file_handler.setLevel(level if level is not None else logger.level)
         file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
-
-
-def set_optuna_log_group(logger):
-    """Set optuna log group."""
-
-    def optuna_log_group_setter(study, trial):
-        logger.set_log_group(LogGroup.OPTUNA)
-
-    return optuna_log_group_setter
 
 
 # Create a single instance of the logger

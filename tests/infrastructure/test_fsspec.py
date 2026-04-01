@@ -181,29 +181,26 @@ class TestFSSpecIntegration:
 
             try:
                 study = OctoClassification(
-                    name="test_octo_intro_execution",
+                    study_name="test_octo_intro_execution",
                     target_metric="ACCBAL",
                     feature_cols=features,
                     target_col="target",
                     sample_id_col="index",
                     stratification_col="target",
-                    datasplit_seed_outer=1,
-                    n_folds_outer=2,
-                    path=root_dir,
-                    ignore_data_health_warning=True,
-                    run_single_outersplit_num=0,
+                    outer_split_seed=1,
+                    n_outer_splits=2,
+                    studies_directory=root_dir,
+                    single_outer_split=0,
                     workflow=[
                         Octo(
                             description="step_1_octo",
                             task_id=0,
                             depends_on=None,
-                            n_folds_inner=3,
+                            n_inner_splits=3,
                             models=[ModelName.ExtraTreesClassifier],
-                            model_seed=0,
-                            max_outl=0,
-                            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-                            optuna_seed=0,
-                            n_optuna_startup_trials=3,
+                            max_outliers=0,
+                            fi_methods=[FIComputeMethod.PERMUTATION],
+                            n_startup_trials=3,
                             n_trials=2,
                             ensemble_selection=False,
                         )

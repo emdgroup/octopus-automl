@@ -6,8 +6,6 @@ from typing import Literal
 
 from attrs import define, field, validators
 
-from octopus.types import AutoGluonFitStrategy
-
 from ..base import ModuleExecution, Task
 
 
@@ -20,9 +18,6 @@ class AutoGluon(Task):
     engineering, hyperparameter optimization, and model selection.
     """
 
-    verbosity: int = field(default=2, validator=validators.instance_of(int))
-    """Verbosity level (0=exceptions, 1=warnings, 2=standard, 3=verbose, 4=max)."""
-
     time_limit: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
     """Training time limit in seconds."""
 
@@ -33,13 +28,6 @@ class AutoGluon(Task):
         default="auto", validator=validators.or_(validators.instance_of(float), validators.in_(["auto"]))
     )
     """Memory limit in GB."""
-
-    fit_strategy: AutoGluonFitStrategy = field(
-        default=AutoGluonFitStrategy.SEQUENTIAL,
-        converter=AutoGluonFitStrategy,
-        validator=validators.in_(list(AutoGluonFitStrategy)),
-    )
-    """Model fitting strategy: Sequential or parallel fitting."""
 
     presets: list[str] = field(
         default=["medium_quality"],
@@ -64,8 +52,8 @@ class AutoGluon(Task):
     )
     """AutoGluon quality presets."""
 
-    num_bag_folds: int = field(default=5, validator=[validators.instance_of(int), validators.gt(1)])
-    """Number of bagging/cross-validation folds."""
+    n_bag_splits: int = field(default=5, validator=[validators.instance_of(int), validators.gt(1)])
+    """Number of bagging/cross-validation splits (passed as num_bag_folds to AutoGluon)."""
 
     included_model_types: list[str] | None = field(
         default=None,

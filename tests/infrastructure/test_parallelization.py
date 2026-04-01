@@ -12,7 +12,7 @@ from octopus.manager import ray_parallel
 
 
 @pytest.fixture
-def outersplits():
+def outer_splits():
     return {
         0: OuterSplit(traindev=pd.DataFrame(), test=pd.DataFrame()),
         1: OuterSplit(traindev=pd.DataFrame(), test=pd.DataFrame()),
@@ -21,16 +21,16 @@ def outersplits():
     }
 
 
-def test_inner_parallelization_setup_in_workers(tmp_path, outersplits):
+def test_inner_parallelization_setup_in_workers(tmp_path, outer_splits):
     resources = ray_parallel.init(
-        num_cpus_user=0,
-        num_outersplits=len(outersplits),
-        run_single_outersplit=False,
+        n_cpus_user=0,
+        n_outer_splits=len(outer_splits),
+        run_single_outer_split=False,
         namespace="test_namespace",
     )
 
-    def run_fn(outersplit_id: int, outersplit: OuterSplit, num_cpus_per_worker: int):
-        assert num_cpus_per_worker == resources.cpus_per_worker
+    def run_fn(outersplit_id: int, outersplit: OuterSplit, n_cpus_per_worker: int):
+        assert n_cpus_per_worker == resources.cpus_per_worker
 
         for var in ray_parallel._PARALLELIZATION_ENV_VARS:
             assert os.environ.get(var, None) == str(resources.cpus_per_worker), (
@@ -46,10 +46,10 @@ def test_inner_parallelization_setup_in_workers(tmp_path, outersplits):
             assert lib["num_threads"] == 1
 
     ray_parallel.run_parallel_outer(
-        outersplit_data=outersplits,
+        outer_split_data=outer_splits,
         run_fn=run_fn,
         log_dir=UPath(tmp_path),
-        num_cpus_per_worker=resources.cpus_per_worker,
+        n_cpus_per_worker=resources.cpus_per_worker,
     )
 
     ray_parallel.shutdown()
@@ -57,7 +57,7 @@ def test_inner_parallelization_setup_in_workers(tmp_path, outersplits):
 
 @pytest.mark.skip(reason="Deadlock in Github CI to be investigated")
 @pytest.mark.parametrize("num_nodes", [1, 2, 3], ids=lambda n: f"{n}_node(s)")
-def test_connect_to_running_ray_cluster(tmp_path, outersplits, num_nodes):
+def test_connect_to_running_ray_cluster(tmp_path, outer_splits, num_nodes):
     HOST = "127.0.0.1"
     PORT = 6379
     CPUS_PER_NODE = 4
@@ -88,21 +88,21 @@ def test_connect_to_running_ray_cluster(tmp_path, outersplits, num_nodes):
 
     try:
         resources = ray_parallel.init(
-            num_cpus_user=0,
-            num_outersplits=len(outersplits),
-            run_single_outersplit=False,
+            n_cpus_user=0,
+            n_outer_splits=len(outer_splits),
+            run_single_outer_split=False,
             address=f"{HOST}:{PORT}",
             namespace="test_namespace",
         )
 
-        def run_fn(outersplit_id: int, outersplit: OuterSplit, num_cpus_per_worker: int):
-            assert num_cpus_per_worker == resources.cpus_per_worker
+        def run_fn(outersplit_id: int, outersplit: OuterSplit, n_cpus_per_worker: int):
+            assert n_cpus_per_worker == resources.cpus_per_worker
 
         ray_parallel.run_parallel_outer(
-            outersplit_data=outersplits,
+            outer_split_data=outer_splits,
             run_fn=run_fn,
             log_dir=UPath(tmp_path),
-            num_cpus_per_worker=resources.cpus_per_worker,
+            n_cpus_per_worker=resources.cpus_per_worker,
         )
     finally:
         ray.shutdown()

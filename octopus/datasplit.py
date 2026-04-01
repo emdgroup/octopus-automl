@@ -4,7 +4,7 @@ import pandas as pd
 from attrs import Factory, define, field, frozen, validators
 from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
 
-from .exceptions import SingleClassFoldError
+from .exceptions import SingleClassSplitError
 from .logger import get_logger
 from .types import LogGroup
 
@@ -13,7 +13,7 @@ logger = get_logger()
 
 @frozen
 class OuterSplit:
-    """One fold of outer cross-validation: traindev + held-out test."""
+    """One split of outer cross-validation: traindev + held-out test."""
 
     traindev: pd.DataFrame
     test: pd.DataFrame
@@ -21,7 +21,7 @@ class OuterSplit:
 
 @frozen
 class InnerSplit:
-    """One fold of inner cross-validation: train + dev/validation."""
+    """One split of inner cross-validation: train + dev/validation."""
 
     train: pd.DataFrame
     dev: pd.DataFrame
@@ -37,12 +37,12 @@ def validate_class_coverage(
     splits: OuterSplits | InnerSplits,
     target_col: str,
 ) -> None:
-    """Verify no fold partition contains only a single class.
+    """Verify no split partition contains only a single class.
 
-    Raises SingleClassFoldError if any partition has just one unique class,
+    Raises SingleClassSplitError if any partition has just one unique class,
     which would cause degenerate model training or undefined metrics.
     """
-    for fold_id, split in splits.items():
+    for split_id, split in splits.items():
         if isinstance(split, OuterSplit):
             partitions = {"traindev": split.traindev, "test": split.test}
         else:
@@ -51,11 +51,11 @@ def validate_class_coverage(
         for part_name, part_df in partitions.items():
             unique_classes = part_df[target_col].unique()
             if len(unique_classes) <= 1:
-                raise SingleClassFoldError(
-                    f"Fold {fold_id} {part_name} partition contains only class(es) "
+                raise SingleClassSplitError(
+                    f"Split {split_id} {part_name} partition contains only class(es) "
                     f"{sorted(unique_classes)}. "
-                    "Try: changing `datasplit_seeds_inner` or `datasplit_seed_outer`, "
-                    "reducing `n_folds_inner` or `n_folds_outer`, "
+                    "Try: changing `inner_split_seeds` or `outer_split_seed`, "
+                    "reducing `n_inner_splits` or `n_outer_splits`, "
                     "or setting `stratification_col` to the target column "
                     "for balanced splits."
                 )
@@ -80,7 +80,7 @@ class DataSplit:
             iterable_validator=validators.instance_of(list),
         )
     )
-    num_folds: int = field(validator=[validators.instance_of(int)])
+    n_splits: int = field(validator=[validators.instance_of(int)])
     dataset: pd.DataFrame = field(validator=[validators.instance_of(pd.DataFrame)])
     stratification_col: str | None = field(
         default=Factory(lambda: None),
@@ -118,12 +118,12 @@ class DataSplit:
     ) -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
         """Get datasplits for single seed."""
         groups = self.dataset[DATASPLIT_COL]
-        num_groups = groups.nunique()
+        n_groups = groups.nunique()
 
         splitter: GroupKFold | StratifiedGroupKFold
         if self.stratification_col is not None:
             splitter = StratifiedGroupKFold(
-                n_splits=self.num_folds,
+                n_splits=self.n_splits,
                 shuffle=True,
                 random_state=datasplit_seed,
             )
@@ -133,22 +133,22 @@ class DataSplit:
             # Runtime sklearn (>=1.6) supports shuffle/random_state on GroupKFold,
             # but currently available sklearn stubs lag behind this signature.
             splitter = GroupKFold(
-                n_splits=self.num_folds,
+                n_splits=self.n_splits,
                 shuffle=True,  # type: ignore[call-arg]  # sklearn stubs lag behind sklearn version (>=1.6)
                 random_state=datasplit_seed,
             )
             split_iterator = splitter.split(self.dataset, groups=groups)
 
         logger.info(
-            f"{len(self.dataset)} rows, {num_groups} groups (column: {DATASPLIT_COL}), "
-            f"{type(splitter).__name__}, {self.num_folds} folds, seed {datasplit_seed}"
+            f"{len(self.dataset)} rows, {n_groups} groups (column: {DATASPLIT_COL}), "
+            f"{type(splitter).__name__}, {self.n_splits} splits, seed {datasplit_seed}"
         )
 
         raw_splits: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
         all_test_indices = []
         all_test_groups = []
 
-        for num_split, (train_ind, test_ind) in enumerate(split_iterator):
+        for split_idx, (train_ind, test_ind) in enumerate(split_iterator):
             partition_train = self.dataset.iloc[train_ind]
             partition_test = self.dataset.iloc[test_ind]
 
@@ -168,22 +168,22 @@ class DataSplit:
             partition_test.reset_index(drop=True, inplace=True)
 
             logger.info(
-                f"{self.process_id} {num_split} created: "
+                f"{self.process_id} {split_idx} created: "
                 f"{name_a} - {len(partition_train)} rows, "
                 f"{len(set(groups_train))} groups | "
                 f"{name_b} - {len(partition_test)} rows, "
                 f"{len(set(groups_test))} groups"
             )
 
-            raw_splits[num_split] = (partition_train, partition_test)
+            raw_splits[split_idx] = (partition_train, partition_test)
 
         if len(all_test_groups) != len(set(all_test_groups)):
-            raise RuntimeError("Duplicate groups across test folds")
+            raise RuntimeError("Duplicate groups across test splits")
         if set(self.dataset[DATASPLIT_COL]).symmetric_difference(set(all_test_groups)):
-            raise RuntimeError("Not all groups covered by test folds")
+            raise RuntimeError("Not all groups covered by test splits")
         if len(all_test_indices) != len(set(all_test_indices)):
-            raise RuntimeError("Duplicate row indices across test folds")
+            raise RuntimeError("Duplicate row indices across test splits")
         if len(self.dataset) != len(all_test_indices):
-            raise RuntimeError(f"Test folds contain {len(all_test_indices)} rows, expected {len(self.dataset)}")
+            raise RuntimeError(f"Test splits contain {len(all_test_indices)} rows, expected {len(self.dataset)}")
 
         return raw_splits

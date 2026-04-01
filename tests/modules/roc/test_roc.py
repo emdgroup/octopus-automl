@@ -6,7 +6,7 @@ import pytest
 from sklearn.datasets import make_classification
 
 from octopus.modules import Roc
-from octopus.types import CorrelationType, ROCFilterMethod
+from octopus.types import CorrelationType, RelevanceMethod
 
 
 class TestRocModule:
@@ -19,9 +19,9 @@ class TestRocModule:
         assert roc.task_id == 0
         assert roc.depends_on is None
         assert roc.description == ""
-        assert roc.threshold == 0.8
+        assert roc.correlation_threshold == 0.8
         assert roc.correlation_type == CorrelationType.SPEARMAN
-        assert roc.filter_type == ROCFilterMethod.F_STATISTICS
+        assert roc.relevance_method == RelevanceMethod.F_STATISTICS
         assert roc.module == "roc"
 
     def test_roc_module_initialization_custom_params(self):
@@ -30,43 +30,43 @@ class TestRocModule:
             task_id=1,
             depends_on=0,
             description="test_roc",
-            threshold=0.9,
+            correlation_threshold=0.9,
             correlation_type=CorrelationType.RDC,
-            filter_type=ROCFilterMethod.MUTUAL_INFO,
+            relevance_method=RelevanceMethod.MUTUAL_INFO,
         )
 
         assert roc.task_id == 1
         assert roc.depends_on == 0
         assert roc.description == "test_roc"
-        assert roc.threshold == 0.9
+        assert roc.correlation_threshold == 0.9
         assert roc.correlation_type == CorrelationType.RDC
-        assert roc.filter_type == ROCFilterMethod.MUTUAL_INFO
+        assert roc.relevance_method == RelevanceMethod.MUTUAL_INFO
 
     def test_roc_module_invalid_correlation_type(self):
         """Test ROC module with invalid correlation type."""
         with pytest.raises(ValueError, match="is not a valid CorrelationType"):
             Roc(task_id=0, correlation_type="invalid_correlation")
 
-    def test_roc_module_invalid_filter_type(self):
-        """Test ROC module with invalid filter type."""
-        with pytest.raises(ValueError, match="is not a valid ROCFilterMethod"):
-            Roc(task_id=0, filter_type="invalid_filter")
+    def test_roc_module_invalid_relevance_method(self):
+        """Test ROC module with invalid relevance method."""
+        with pytest.raises(ValueError, match="is not a valid RelevanceMethod"):
+            Roc(task_id=0, relevance_method="invalid_filter")
 
-    def test_roc_module_invalid_threshold_type(self):
-        """Test ROC module with invalid threshold type."""
+    def test_roc_module_invalid_correlation_threshold_type(self):
+        """Test ROC module with invalid correlation threshold type."""
         with pytest.raises(TypeError):
-            Roc(task_id=0, threshold="invalid")  # type: ignore[arg-type]
+            Roc(task_id=0, correlation_threshold="invalid")  # type: ignore[arg-type]
 
     def test_roc_module_negative_task_id(self):
         """Test ROC module with negative sequence ID."""
         with pytest.raises(ValueError):
             Roc(task_id=-1)
 
-    @pytest.mark.parametrize("threshold", [0.0, 0.5, 0.8, 0.95, 1.0])
-    def test_roc_module_threshold_range(self, threshold):
-        """Test ROC module with different threshold values."""
-        roc = Roc(task_id=0, threshold=threshold)
-        assert roc.threshold == threshold
+    @pytest.mark.parametrize("correlation_threshold", [0.0, 0.5, 0.8, 0.95, 1.0])
+    def test_roc_module_correlation_threshold_range(self, correlation_threshold):
+        """Test ROC module with different correlation threshold values."""
+        roc = Roc(task_id=0, correlation_threshold=correlation_threshold)
+        assert roc.correlation_threshold == correlation_threshold
 
     @pytest.mark.parametrize("correlation_type", [CorrelationType.SPEARMAN, CorrelationType.RDC])
     def test_roc_module_correlation_types(self, correlation_type):
@@ -74,11 +74,11 @@ class TestRocModule:
         roc = Roc(task_id=0, correlation_type=correlation_type)
         assert roc.correlation_type == correlation_type
 
-    @pytest.mark.parametrize("filter_type", [ROCFilterMethod.MUTUAL_INFO, ROCFilterMethod.F_STATISTICS])
-    def test_roc_module_filter_types(self, filter_type):
-        """Test ROC module with different filter types."""
-        roc = Roc(task_id=0, filter_type=filter_type)
-        assert roc.filter_type == filter_type
+    @pytest.mark.parametrize("relevance_method", [RelevanceMethod.MUTUAL_INFO, RelevanceMethod.F_STATISTICS])
+    def test_roc_module_relevance_methods(self, relevance_method):
+        """Test ROC module with different relevance methods."""
+        roc = Roc(task_id=0, relevance_method=relevance_method)
+        assert roc.relevance_method == relevance_method
 
 
 class TestRocIntegration:
@@ -100,13 +100,13 @@ class TestRocIntegration:
         roc_module = Roc(
             task_id=0,
             description="integration_test",
-            threshold=0.85,
+            correlation_threshold=0.85,
             correlation_type=CorrelationType.SPEARMAN,
-            filter_type=ROCFilterMethod.MUTUAL_INFO,
+            relevance_method=RelevanceMethod.MUTUAL_INFO,
         )
 
         # Verify module configuration
-        assert roc_module.threshold == 0.85
+        assert roc_module.correlation_threshold == 0.85
         assert roc_module.correlation_type == CorrelationType.SPEARMAN
-        assert roc_module.filter_type == ROCFilterMethod.MUTUAL_INFO
+        assert roc_module.relevance_method == RelevanceMethod.MUTUAL_INFO
         assert roc_module.description == "integration_test"

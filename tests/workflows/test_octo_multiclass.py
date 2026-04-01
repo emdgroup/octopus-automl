@@ -71,14 +71,13 @@ class TestOctoMulticlass:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_multiclass",
+                study_name="test_multiclass",
                 target_metric="AUCROC_MACRO",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                path=temp_dir,
-                ignore_data_health_warning=True,
+                studies_directory=temp_dir,
             )
 
             assert study.target_col == "target"
@@ -92,16 +91,15 @@ class TestOctoMulticlass:
             description="step_1_octo_multiclass",
             task_id=0,
             depends_on=None,
-            n_folds_inner=5,
+            n_inner_splits=5,
             models=[
                 ModelName.ExtraTreesClassifier,
                 ModelName.RandomForestClassifier,
                 ModelName.XGBClassifier,
                 ModelName.CatBoostClassifier,
             ],
-            model_seed=0,
-            max_outl=0,
-            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
+            max_outliers=0,
+            fi_methods=[FIComputeMethod.PERMUTATION],
             n_trials=20,
         )
 
@@ -109,7 +107,7 @@ class TestOctoMulticlass:
         assert octo_task.task_id == 0
         assert octo_task.depends_on is None
         assert octo_task.description == "step_1_octo_multiclass"
-        assert octo_task.n_folds_inner == 5
+        assert octo_task.n_inner_splits == 5
         assert octo_task.models is not None
         assert set(octo_task.models) == {
             ModelName.ExtraTreesClassifier,
@@ -135,7 +133,7 @@ class TestOctoMulticlass:
             depends_on=None,
             models=[model],
             n_trials=5,
-            n_folds_inner=3,
+            n_inner_splits=3,
         )
 
         assert octo_task.models == [model]
@@ -154,7 +152,7 @@ class TestOctoMulticlass:
             depends_on=None,
             models=models,
             n_trials=10,
-            n_folds_inner=3,
+            n_inner_splits=3,
         )
         assert octo_task.models is not None
         assert set(octo_task.models) == set(models)
@@ -167,11 +165,11 @@ class TestOctoMulticlass:
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier],
-            fi_methods_bestbag=fi_methods,
+            fi_methods=fi_methods,
             n_trials=5,
         )
 
-        assert octo_task.fi_methods_bestbag == fi_methods
+        assert octo_task.fi_methods == fi_methods
 
     def test_hyperparameter_optimization_configuration(self):
         """Test hyperparameter optimization configuration for multiclass."""
@@ -181,11 +179,11 @@ class TestOctoMulticlass:
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier],
             n_trials=25,
-            n_folds_inner=5,
+            n_inner_splits=5,
         )
 
         assert octo_task.n_trials == 25
-        assert octo_task.n_folds_inner == 5
+        assert octo_task.n_inner_splits == 5
 
     @pytest.mark.slow
     def test_multiclass_workflow_actual_execution(self, wine_dataset):
@@ -194,27 +192,25 @@ class TestOctoMulticlass:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_multiclass_execution",
+                study_name="test_multiclass_execution",
                 target_metric="AUCROC_MACRO",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                datasplit_seed_outer=1234,
-                n_folds_outer=2,
-                path=temp_dir,
-                ignore_data_health_warning=True,
-                run_single_outersplit_num=0,
+                outer_split_seed=1234,
+                n_outer_splits=2,
+                studies_directory=temp_dir,
+                single_outer_split=0,
                 workflow=[
                     Octo(
                         description="step_1_octo_multiclass",
                         task_id=0,
                         depends_on=None,
-                        n_folds_inner=3,
+                        n_inner_splits=3,
                         models=[ModelName.ExtraTreesClassifier],
-                        model_seed=0,
-                        max_outl=0,
-                        fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
+                        max_outliers=0,
+                        fi_methods=[FIComputeMethod.PERMUTATION],
                         n_trials=12,
                     )
                 ],
@@ -233,7 +229,7 @@ class TestOctoMulticlass:
             assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet file should exist"
             assert (study_path / "study_config.json").exists(), "Config JSON file should exist"
             assert (study_path / "study_meta.json").exists(), "Study meta JSON file should exist"
-            assert (study_path / "outersplit0").exists(), "Outersplit directory should exist"
+            assert (study_path / "outersplit0").exists(), "Outer split directory should exist"
 
             # Verify that the Octo step was executed by checking for workflow directories
             experiment_path = study_path / "outersplit0"
@@ -249,16 +245,15 @@ class TestOctoMulticlass:
             description="step_1_octo_multiclass",
             task_id=0,
             depends_on=None,
-            n_folds_inner=5,
+            n_inner_splits=5,
             models=[
                 ModelName.ExtraTreesClassifier,
                 ModelName.RandomForestClassifier,
                 ModelName.XGBClassifier,
                 ModelName.CatBoostClassifier,
             ],
-            model_seed=0,
-            max_outl=0,
-            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
+            max_outliers=0,
+            fi_methods=[FIComputeMethod.PERMUTATION],
             n_trials=20,
         )
 
@@ -267,7 +262,7 @@ class TestOctoMulticlass:
         assert octo_task.task_id == 0
         assert octo_task.depends_on is None
 
-        assert octo_task.n_folds_inner == 5
+        assert octo_task.n_inner_splits == 5
         assert octo_task.models is not None
         assert set(octo_task.models) == {
             ModelName.ExtraTreesClassifier,
@@ -275,9 +270,8 @@ class TestOctoMulticlass:
             ModelName.XGBClassifier,
             ModelName.CatBoostClassifier,
         }
-        assert octo_task.model_seed == 0
-        assert octo_task.max_outl == 0
-        assert octo_task.fi_methods_bestbag == [FIComputeMethod.PERMUTATION]
+        assert octo_task.max_outliers == 0
+        assert octo_task.fi_methods == [FIComputeMethod.PERMUTATION]
         assert octo_task.n_trials == 20
 
     def test_multiclass_target_metric_options(self):
@@ -287,14 +281,13 @@ class TestOctoMulticlass:
         for target_metric in target_metrics:
             with tempfile.TemporaryDirectory() as temp_dir:
                 study = OctoClassification(
-                    name=f"test_multiclass_{target_metric.lower()}",
+                    study_name=f"test_multiclass_{target_metric.lower()}",
                     target_metric=target_metric,
                     ml_type=MLType.BINARY,
                     feature_cols=["f1"],
                     target_col="target",
                     sample_id_col="index",
-                    path=temp_dir,
-                    ignore_data_health_warning=True,
+                    studies_directory=temp_dir,
                 )
 
                 assert study.target_metric == target_metric

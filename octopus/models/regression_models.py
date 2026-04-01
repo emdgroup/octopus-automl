@@ -25,7 +25,7 @@ def ard_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=ARDRegression,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.PERMUTATION,
+        fi_method=FIComputeMethod.PERMUTATION,
         n_repeats=2,
         chpo_compatible=False,
         scaler="StandardScaler",
@@ -51,7 +51,7 @@ def catboost_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=CatBoostRegressor,
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,
@@ -80,7 +80,7 @@ def elastic_net_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=ElasticNet,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.SHAP,
+        fi_method=FIComputeMethod.SHAP,
         chpo_compatible=True,
         scaler="StandardScaler",
         imputation_required=True,
@@ -105,7 +105,7 @@ def extra_trees_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=ExtraTreesRegressor,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=True,
@@ -129,7 +129,7 @@ def gaussian_process_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=GPRegressorWrapper,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.PERMUTATION,
+        fi_method=FIComputeMethod.PERMUTATION,
         n_repeats=2,
         chpo_compatible=False,
         scaler="StandardScaler",
@@ -154,7 +154,7 @@ def gradient_boosting_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=GradientBoostingRegressor,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=True,
@@ -179,7 +179,7 @@ def random_forest_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=RandomForestRegressor,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=True,  # maybe: False -- check!
@@ -203,7 +203,7 @@ def ridge_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=Ridge,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.SHAP,
+        fi_method=FIComputeMethod.SHAP,
         chpo_compatible=False,
         scaler="StandardScaler",
         imputation_required=True,
@@ -224,7 +224,7 @@ def svr_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=SVR,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.PERMUTATION,
+        fi_method=FIComputeMethod.PERMUTATION,
         n_repeats=2,
         chpo_compatible=False,
         scaler="StandardScaler",
@@ -246,7 +246,7 @@ def xgb_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=XGBRegressor,
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,
@@ -272,7 +272,7 @@ def hist_gradient_boosting_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=HistGradientBoostingRegressor,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,
@@ -300,7 +300,7 @@ def tabular_nn_regressor() -> ModelConfig:
     return ModelConfig(
         model_class=TabularNNRegressor,  # type: ignore[arg-type]
         ml_types=[MLType.REGRESSION],
-        feature_method=FIComputeMethod.PERMUTATION,
+        fi_method=FIComputeMethod.PERMUTATION,
         n_repeats=2,
         chpo_compatible=False,
         scaler="StandardScaler",

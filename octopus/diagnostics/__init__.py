@@ -10,7 +10,7 @@ Example::
     from octopus.diagnostics import StudyDiagnostics
 
     diag = StudyDiagnostics("./studies/my_study/")
-    diag.plot_feature_importance()
+    diag.plot_fi()
     diag.plot_optuna_trials()
 """
 

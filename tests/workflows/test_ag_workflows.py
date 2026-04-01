@@ -47,17 +47,16 @@ class TestAutogluonWorkflows:
     def test_full_classification_workflow(self):
         """Test the complete classification workflow execution."""
         study = OctoClassification(
-            name="test_classification_workflow",
+            study_name="test_classification_workflow",
             target_metric="ACCBAL",
             feature_cols=self.features,
             target_col="target",
             sample_id_col="index",
             stratification_col="target",
-            datasplit_seed_outer=1234,
-            n_folds_outer=5,
-            path=self.studies_path,
-            ignore_data_health_warning=True,
-            run_single_outersplit_num=0,
+            outer_split_seed=1234,
+            n_outer_splits=5,
+            studies_directory=self.studies_path,
+            single_outer_split=0,
             workflow=[
                 AutoGluon(
                     description="ag_test",
@@ -65,7 +64,6 @@ class TestAutogluonWorkflows:
                     depends_on=None,
                     presets=["medium_quality"],
                     time_limit=15,
-                    verbosity=0,
                 ),
             ],
         )
@@ -81,11 +79,11 @@ class TestAutogluonWorkflows:
         assert (study_path / "data_raw.parquet").exists(), "Data parquet should exist"
         assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet should exist"
 
-        # Verify outersplit and task output
-        outersplit_dir = study_path / "outersplit0"
-        assert outersplit_dir.exists(), "Outersplit directory should exist"
+        # Verify outer split and task output
+        outer_split_dir = study_path / "outersplit0"
+        assert outer_split_dir.exists(), "Outer split directory should exist"
 
-        task_dirs = [d for d in outersplit_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
+        task_dirs = [d for d in outer_split_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
         assert len(task_dirs) >= 1, "Should have at least 1 task directory"
 
         # Verify AutoGluon task artifacts
@@ -113,16 +111,15 @@ class TestAutogluonWorkflows:
         df_regression = df_regression.reset_index()
 
         study = OctoRegression(
-            name="test_regression_workflow",
+            study_name="test_regression_workflow",
             target_metric="MAE",
             feature_cols=feature_names,
             target_col="target",
             sample_id_col="index",
-            datasplit_seed_outer=1234,
-            n_folds_outer=2,
-            path=self.studies_path,
-            ignore_data_health_warning=True,
-            run_single_outersplit_num=0,
+            outer_split_seed=1234,
+            n_outer_splits=2,
+            studies_directory=self.studies_path,
+            single_outer_split=0,
             workflow=[
                 AutoGluon(
                     description="ag_regression_test",
@@ -130,7 +127,6 @@ class TestAutogluonWorkflows:
                     depends_on=None,
                     presets=["medium_quality"],
                     time_limit=15,
-                    verbosity=0,
                 ),
             ],
         )
@@ -146,11 +142,11 @@ class TestAutogluonWorkflows:
         assert (study_path / "data_raw.parquet").exists(), "Data parquet should exist"
         assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet should exist"
 
-        # Verify outersplit and task output
-        outersplit_dir = study_path / "outersplit0"
-        assert outersplit_dir.exists(), "Outersplit directory should exist"
+        # Verify outer split and task output
+        outer_split_dir = study_path / "outersplit0"
+        assert outer_split_dir.exists(), "Outer split directory should exist"
 
-        task_dirs = [d for d in outersplit_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
+        task_dirs = [d for d in outer_split_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
         assert len(task_dirs) >= 1, "Should have at least 1 task directory"
 
         # Verify AutoGluon task artifacts

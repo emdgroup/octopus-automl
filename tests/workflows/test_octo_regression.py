@@ -57,13 +57,12 @@ class TestOctoRegression:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoRegression(
-                name="test_regression",
+                study_name="test_regression",
                 target_metric="MAE",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
-                path=temp_dir,
-                ignore_data_health_warning=True,
+                studies_directory=temp_dir,
             )
 
             assert study.target_col == "target"
@@ -87,7 +86,7 @@ class TestOctoRegression:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
+            n_ensemble_candidates=10,
         )
 
         assert isinstance(octo_task, Octo)
@@ -97,7 +96,7 @@ class TestOctoRegression:
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10
+        assert octo_task.n_ensemble_candidates == 10
 
         expected_models = {
             ModelName.RandomForestRegressor,
@@ -131,14 +130,14 @@ class TestOctoRegression:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
+            n_ensemble_candidates=10,
         )
 
         assert octo_task.models == [model]
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10
+        assert octo_task.n_ensemble_candidates == 10
 
     def test_multiple_models_configuration(self):
         """Test configuration with multiple models."""
@@ -151,7 +150,7 @@ class TestOctoRegression:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
+            n_ensemble_candidates=10,
         )
         assert octo_task.models is not None
         assert set(octo_task.models) == set(models)
@@ -166,11 +165,11 @@ class TestOctoRegression:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
+            n_ensemble_candidates=10,
         )
 
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10
+        assert octo_task.n_ensemble_candidates == 10
 
     def test_hyperparameter_optimization_configuration(self):
         """Test hyperparameter optimization configuration."""
@@ -182,16 +181,14 @@ class TestOctoRegression:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
-            optuna_seed=42,
-            n_optuna_startup_trials=5,
+            n_ensemble_candidates=10,
+            n_startup_trials=5,
             penalty_factor=1.5,
         )
 
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
-        assert octo_task.optuna_seed == 42
-        assert octo_task.n_optuna_startup_trials == 5
+        assert octo_task.n_startup_trials == 5
         assert octo_task.penalty_factor == 1.5
 
     @pytest.mark.slow
@@ -201,16 +198,15 @@ class TestOctoRegression:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoRegression(
-                name="test_octo_regression_execution",
+                study_name="test_octo_regression_execution",
                 target_metric="MAE",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
-                datasplit_seed_outer=1234,
-                n_folds_outer=2,
-                path=temp_dir,
-                ignore_data_health_warning=True,
-                run_single_outersplit_num=0,
+                outer_split_seed=1234,
+                n_outer_splits=2,
+                studies_directory=temp_dir,
+                single_outer_split=0,
                 workflow=[
                     Octo(
                         task_id=0,
@@ -220,10 +216,8 @@ class TestOctoRegression:
                         n_trials=12,
                         max_features=6,
                         ensemble_selection=True,
-                        ensel_n_save_trials=10,
-                        model_seed=0,
-                        optuna_seed=0,
-                        n_optuna_startup_trials=3,
+                        n_ensemble_candidates=10,
+                        n_startup_trials=3,
                         penalty_factor=1.0,
                     )
                 ],
@@ -242,7 +236,7 @@ class TestOctoRegression:
             assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet file should exist"
             assert (study_path / "study_config.json").exists(), "Config JSON file should exist"
             assert (study_path / "study_meta.json").exists(), "Study meta JSON file should exist"
-            assert (study_path / "outersplit0").exists(), "Outersplit directory should exist"
+            assert (study_path / "outersplit0").exists(), "Outer split directory should exist"
 
             # Verify that the Octo step was executed by checking for workflow directories
             experiment_path = study_path / "outersplit0"
@@ -269,14 +263,12 @@ class TestOctoRegression:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
-            model_seed=0,
-            max_outl=0,
-            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-            optuna_seed=0,
-            n_optuna_startup_trials=10,
+            n_ensemble_candidates=10,
+            max_outliers=0,
+            fi_methods=[FIComputeMethod.PERMUTATION],
+            n_startup_trials=10,
             penalty_factor=1.0,
-            n_folds_inner=5,
+            n_inner_splits=5,
         )
 
         # Verify all parameters are set correctly
@@ -294,14 +286,12 @@ class TestOctoRegression:
         }
         assert octo_task.models is not None
         assert set(octo_task.models) == expected_models
-        assert octo_task.model_seed == 0
-        assert octo_task.max_outl == 0
-        assert octo_task.fi_methods_bestbag == [FIComputeMethod.PERMUTATION]
-        assert octo_task.optuna_seed == 0
-        assert octo_task.n_optuna_startup_trials == 10
+        assert octo_task.max_outliers == 0
+        assert octo_task.fi_methods == [FIComputeMethod.PERMUTATION]
+        assert octo_task.n_startup_trials == 10
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
         assert octo_task.penalty_factor == 1.0
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10
-        assert octo_task.n_folds_inner == 5
+        assert octo_task.n_ensemble_candidates == 10
+        assert octo_task.n_inner_splits == 5

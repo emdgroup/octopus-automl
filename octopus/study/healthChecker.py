@@ -496,8 +496,7 @@ class OctoDataHealthChecker:
                 severity="Warning",
                 description=("There are duplicated rows when considering all feature columns and the sample ID."),
                 action=(
-                    "Investigate these duplicates. They may be legitimate re-measurements or indicate data integrity problems. "
-                    "To proceed despite this warning, set `ignore_data_health_warning=True`."
+                    "Investigate these duplicates. They may be legitimate re-measurements or indicate data integrity problems."
                 ),
             )
 
@@ -625,13 +624,13 @@ class OctoDataHealthChecker:
         duplicated_rows = self.data[duplicated_mask]
 
         if not duplicated_rows.empty:
-            num_duplicates = len(duplicated_rows)
+            n_duplicates = len(duplicated_rows)
             self.add_issue(
                 category="rows",
                 issue_type="duplicated_rows",
                 affected_items=[str(idx) for idx in duplicated_rows.index],
                 severity="Warning",
-                description=f"Found {num_duplicates} duplicated row(s) in the dataset.",
+                description=f"Found {n_duplicates} duplicated row(s) in the dataset.",
                 action=(
                     "Investigate these duplicates and consider removing or consolidating them based on your data requirements."
                 ),

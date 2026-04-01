@@ -22,7 +22,7 @@ def test_model_config_initialization():
 
     model = ModelConfig(
         model_class=DummyModel,
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         ml_types=[MLType.REGRESSION],
         hyperparameters=hyperparameters,
         n_jobs="n_jobs",
@@ -32,7 +32,7 @@ def test_model_config_initialization():
     # Name is not set during initialization - it's added by Models.get_config()
     assert not hasattr(model, "name")
     assert isinstance(model.model_class, type)
-    assert model.feature_method == FIComputeMethod.INTERNAL
+    assert model.fi_method == FIComputeMethod.INTERNAL
     assert model.supports_ml_type(MLType.REGRESSION)
     assert model.hyperparameters == hyperparameters
     assert model.n_jobs == "n_jobs"
@@ -53,7 +53,7 @@ def test_model_config_with_conflict():
     ):
         ModelConfig(
             model_class=DummyModel,
-            feature_method=FIComputeMethod.INTERNAL,
+            fi_method=FIComputeMethod.INTERNAL,
             ml_types=[MLType.REGRESSION],
             hyperparameters=hyperparameters,
             n_jobs="n_jobs",

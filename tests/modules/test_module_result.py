@@ -25,7 +25,7 @@ class TestModuleResultSaveLoad:
                 "metric": ["AUCROC"],
                 "partition": ["dev"],
                 "aggregation": ["avg"],
-                "fold": [None],
+                "split": [None],
                 "value": [0.85],
             }
         )
@@ -50,7 +50,7 @@ class TestModuleResultSaveLoad:
             selected_features=["f1", "f2"],
             scores=scores,
             predictions=predictions,
-            feature_importances=fi,
+            fi=fi,
             model=model,
         )
 
@@ -75,8 +75,8 @@ class TestModuleResultSaveLoad:
         assert not loaded.scores.empty
         assert loaded.predictions is not None
         assert not loaded.predictions.empty
-        assert loaded.feature_importances is not None
-        assert not loaded.feature_importances.empty
+        assert loaded.fi is not None
+        assert not loaded.fi.empty
         assert loaded.model is not None
 
     def test_save_load_roundtrip_without_model(self, tmp_path):
@@ -92,7 +92,7 @@ class TestModuleResultSaveLoad:
             result_type=ResultType.BEST,
             module="roc",
             selected_features=["f1", "f2"],
-            feature_importances=fi,
+            fi=fi,
         )
 
         result_dir = UPath(tmp_path / "best")
@@ -105,7 +105,7 @@ class TestModuleResultSaveLoad:
 
         assert loaded.selected_features == ["f1", "f2"]
         assert loaded.model is None
-        assert loaded.feature_importances is not None and not loaded.feature_importances.empty
+        assert loaded.fi is not None and not loaded.fi.empty
         assert loaded.scores is None
         assert loaded.predictions is None
 
@@ -130,7 +130,7 @@ class TestModuleResultSaveLoad:
         assert loaded.selected_features == ["f1"]
         assert loaded.scores is None
         assert loaded.predictions is None
-        assert loaded.feature_importances is None
+        assert loaded.fi is None
 
     def test_module_and_result_type_columns_stamped(self, tmp_path):
         """Test that module and result_type columns are stamped on saved parquets."""

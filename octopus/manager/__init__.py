@@ -5,7 +5,7 @@ from octopus.manager.execution import (
     ExecutionStrategy,
     ParallelRayStrategy,
     SequentialStrategy,
-    SingleOutersplitStrategy,
+    SingleOuterSplitStrategy,
 )
 from octopus.manager.workflow_runner import WorkflowTaskRunner
 
@@ -14,6 +14,6 @@ __all__ = [
     "OctoManager",
     "ParallelRayStrategy",
     "SequentialStrategy",
-    "SingleOutersplitStrategy",
+    "SingleOuterSplitStrategy",
     "WorkflowTaskRunner",
 ]

@@ -13,5 +13,5 @@ class UnknownMetricError(Exception):
     """An attempt was made to use an metric that does not exists."""
 
 
-class SingleClassFoldError(ValueError):
-    """A cross-validation fold contains only a single class label."""
+class SingleClassSplitError(ValueError):
+    """A cross-validation split contains only a single class label."""

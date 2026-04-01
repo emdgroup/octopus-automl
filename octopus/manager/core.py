@@ -11,7 +11,7 @@ from octopus.manager.execution import (
     ExecutionStrategy,
     ParallelRayStrategy,
     SequentialStrategy,
-    SingleOutersplitStrategy,
+    SingleOuterSplitStrategy,
 )
 from octopus.manager.workflow_runner import WorkflowTaskRunner
 from octopus.modules import StudyContext, Task
@@ -21,10 +21,10 @@ logger = get_logger()
 
 @define
 class OctoManager:
-    """Orchestrates the execution of outersplits."""
+    """Orchestrates the execution of outer splits."""
 
-    outersplit_data: OuterSplits = field(validator=[validators.instance_of(dict)])
-    """Preprocessed data for each outersplit, keyed by outersplit identifier."""
+    outer_split_data: OuterSplits = field(validator=[validators.instance_of(dict)])
+    """Preprocessed data for each outer split, keyed by outer split identifier."""
 
     study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     """Frozen runtime context containing study configuration."""
@@ -32,26 +32,25 @@ class OctoManager:
     workflow: Sequence[Task] = field(validator=[validators.instance_of(list)])
     """Workflow tasks to execute."""
 
-    num_cpus: int = field(validator=validators.instance_of(int))
-    """Number of CPUs to use for parallel processing. num_cpus=0 uses all available CPUs.
-       Negative values indicate abs(num_cpus) to leave free, e.g. -1 means use all but one CPU.
+    n_cpus: int = field(validator=validators.instance_of(int))
+    """Number of CPUs to use for parallel processing. n_cpus=0 uses all available CPUs.
+       Negative values indicate abs(n_cpus) to leave free, e.g. -1 means use all but one CPU.
        Set to 1 to disable all parallel processing and run sequentially."""
 
-    run_single_outersplit_num: int | None = field(
-        validator=validators.optional([validators.instance_of(int), validators.ge(0)])
+    single_outer_split: int | None = field(
+        validator=validators.optional(validators.and_(validators.instance_of(int), validators.ge(0)))
     )
-    """Index of single outersplit to run (None for all)."""
+    """Index of single outer split to run (None for all)."""
 
-    def run_outersplits(self) -> None:
-        """Run all outersplits."""
-        if not self.outersplit_data:
-            raise ValueError("No outersplit data defined")
+    def run_outer_splits(self) -> None:
+        """Run all outer splits."""
+        if not self.outer_split_data:
+            raise ValueError("No outer split data defined")
 
-        if self.run_single_outersplit_num is not None and not (
-            0 <= self.run_single_outersplit_num < len(self.outersplit_data)
-        ):
+        if self.single_outer_split is not None and not (0 <= self.single_outer_split < len(self.outer_split_data)):
             raise ValueError(
-                f"run_single_outersplit_num must be between 0 and num_outersplits-1 ({len(self.outersplit_data) - 1}), got {self.run_single_outersplit_num}"
+                f"single_outer_split must be between 0 and n_outer_splits-1"
+                f" ({len(self.outer_split_data) - 1}), got {self.single_outer_split}"
             )
 
         # Initialize Ray upfront to ensure worker setup hooks are registered before any workflows execute.
@@ -61,9 +60,9 @@ class OctoManager:
         # 2. Lifecycle clarity: Explicit init → run → shutdown at the manager level makes the
         #    Ray lifecycle predictable and easier to reason about
         resources = ray_parallel.init(
-            num_cpus_user=self.num_cpus,
-            num_outersplits=len(self.outersplit_data),
-            run_single_outersplit=self.run_single_outersplit_num is not None,
+            n_cpus_user=self.n_cpus,
+            n_outer_splits=len(self.outer_split_data),
+            run_single_outer_split=self.single_outer_split is not None,
             namespace=f"octopus_study_{self.study_context.output_path}",
         )
 
@@ -75,7 +74,7 @@ class OctoManager:
                 workflow=self.workflow,
             )
             strategy = self._select_strategy(resources)
-            strategy.execute(self.outersplit_data, runner.run)
+            strategy.execute(self.outer_split_data, runner.run)
         finally:
             ray_parallel.shutdown()
 
@@ -88,17 +87,17 @@ class OctoManager:
         Returns:
             Appropriate execution strategy based on configuration.
         """
-        if self.run_single_outersplit_num is not None:
-            return SingleOutersplitStrategy(
-                outersplit_index=self.run_single_outersplit_num,
-                num_cpus=resources.cpus_per_worker,
+        if self.single_outer_split is not None:
+            return SingleOuterSplitStrategy(
+                outer_split_index=self.single_outer_split,
+                n_cpus=resources.cpus_per_worker,
             )
-        elif resources.num_workers > 1:
+        elif resources.n_workers > 1:
             return ParallelRayStrategy(
-                num_cpus_per_worker=resources.cpus_per_worker,
+                n_cpus_per_worker=resources.cpus_per_worker,
                 log_dir=self.study_context.log_dir,
             )
         else:
             return SequentialStrategy(
-                num_cpus=resources.cpus_per_worker,
+                n_cpus=resources.cpus_per_worker,
             )

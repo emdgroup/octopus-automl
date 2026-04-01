@@ -13,7 +13,7 @@ Still, proper dtypes are only guaranteed to be reconstructed using `parquet_load
 For details on which dtypes are tested and supported, see [tests/infrastructure/test_file_io.py](https://github.com/emdgroup/octopus/blob/main/tests/infrastructure/test_file_io.py).
 
 
-## How does parallelization work in `octopus`, what are `num_cpus`, `num_workers`,  `num_assigned_cpus`?
+## How does parallelization work in `octopus`, what are `n_cpus`, `n_workers`,  `n_assigned_cpus`?
 
 Octopus uses a layered approach to parallelization.
 Clearly, it is most efficient to distribute the work done for the individual outer splits onto individual CPUs/CPU groups.
@@ -23,26 +23,26 @@ If there are more CPUs available than outer splits to be processed, `octopus` ac
 Take for example a machine with 128 CPUs and a study with 32 outer splits.
 Then, all outer splits are processed in parallel and the workflow tasks (which are always processed sequentially for every split) can parallelize onto 4 CPUs each ("inner parallelization").
 
-The total number of CPUs to be used by `octopus` can be specified via the `num_cpus` attribute of the `OctoStudy`.
+The total number of CPUs to be used by `octopus` can be specified via the `n_cpus` attribute of the `OctoStudy`.
 Its default value 0 uses all available CPUs.
 Positive values specify the total number of CPUs to be used.
-Negative values indicate `abs(num_cpus)` to leave free, e.g. -1 means use all but one CPU.
-Setting `num_cpus` to 1 disables all parallel processing and runs the study sequentially.
+Negative values indicate `abs(n_cpus)` to leave free, e.g. -1 means use all but one CPU.
+Setting `n_cpus` to 1 disables all parallel processing and runs the study sequentially.
 
 Internally, the `ResourceConfig` class is responsible for handling these constraints. Therein, nomenclature is as follows:
 
-* `num_cpus`, `num_cpus_user` is the user-defined number of CPUs to be used as described above.
-* `available_cpus` is the absolute total number of CPUs available for `octopus` (no negative values, zero, None). Deduced from `num_cpus` and the hardware capabilities of the machine.
-* `num_workers` is the number of parallel processes for the outer parallelization, i.e. the number of outer splits to be performed in parallel.
+* `n_cpus`, `n_cpus_user` is the user-defined number of CPUs to be used as described above.
+* `available_cpus` is the absolute total number of CPUs available for `octopus` (no negative values, zero, None). Deduced from `n_cpus` and the hardware capabilities of the machine.
+* `n_workers` is the number of parallel processes for the outer parallelization, i.e. the number of outer splits to be performed in parallel.
 * `cpus_per_worker` is the number of CPUs available for inner parallelization, i.e. within an outer split.
-* `num_assigned_cpus` is identical to `cpus_per_worker` and is being used in `octopus` internal code that should not care about whether it is running inside a dedicated worker or not. So, `num_assigned_cpus` always refers to inner parallelization.
+* `n_assigned_cpus` is identical to `cpus_per_worker` and is being used in `octopus` internal code that should not care about whether it is running inside a dedicated worker or not. So, `n_assigned_cpus` always refers to inner parallelization.
 
-Upon starting the `num_workers` worker processes, each of them can occupy `cpus_per_worker` CPUs without interfering with other workers.
-While `octopus`-internal modules use their `num_assigned_cpus` parameter to adhere to this limit, parallelization in external code is sometimes difficult to control.
+Upon starting the `n_workers` worker processes, each of them can occupy `cpus_per_worker` CPUs without interfering with other workers.
+While `octopus`-internal modules use their `n_assigned_cpus` parameter to adhere to this limit, parallelization in external code is sometimes difficult to control.
 `octopus` does its best to transport the intent by
 
 * Setting the environment variables `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, `BLIS_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS`,`NUMEXPR_NUM_THREADS` to `cpus_per_worker` and
-* Calling `threadpoolctl.threadpool_limits(limits=num_cpus_per_worker)`
+* Calling `threadpoolctl.threadpool_limits(limits=n_cpus_per_worker)`
 
 for/in every worker process.
 

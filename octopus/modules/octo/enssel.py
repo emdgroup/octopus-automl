@@ -36,7 +36,7 @@ class EnSel:
     path_trials: UPath = field(validator=[validators.instance_of(UPath)])
     max_n_iterations: int = field(validator=[validators.instance_of(int)])
     row_id_col: str = field(validator=[validators.instance_of(str)])
-    num_assigned_cpus: int = field(validator=[validators.instance_of(int)])
+    n_assigned_cpus: int = field(validator=[validators.instance_of(int)])
     positive_class = field(default=None)
     model_table: pd.DataFrame = field(
         init=False,
@@ -78,8 +78,8 @@ class EnSel:
             bag: BagBase = joblib_load(file)
             self.bags[file] = {
                 "id": bag.bag_id,
-                "performance": bag.get_performance(num_assigned_cpus=self.num_assigned_cpus),
-                "predictions": bag.get_predictions(num_assigned_cpus=self.num_assigned_cpus),
+                "performance": bag.get_performance(n_assigned_cpus=self.n_assigned_cpus),
+                "predictions": bag.get_predictions(n_assigned_cpus=self.n_assigned_cpus),
                 "n_features_used_mean": bag.n_features_used_mean,
             }
 
@@ -110,7 +110,7 @@ class EnSel:
 
     def _ensemble_models(self, bag_keys):
         """Esemble using all bags and their corresponding models provided by input."""
-        # collect all predictions over inner folds and bags
+        # collect all predictions over inner splits and bags
         predictions: dict[str, dict[str, pd.DataFrame]] = {}
         performance_output = {}
         pool: dict[str, list[pd.DataFrame]] = {key: [] for key in ["dev", "test"]}

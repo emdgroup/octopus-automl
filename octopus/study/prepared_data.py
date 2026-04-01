@@ -18,7 +18,7 @@ class PreparedData:
     """Row ID column used (auto-generated if not provided by user)."""
 
     @property
-    def num_features(self) -> list[str]:
+    def numerical_features(self) -> list[str]:
         """Get numerical feature columns from effective features."""
         return [
             col

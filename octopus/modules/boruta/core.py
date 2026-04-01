@@ -88,7 +88,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
         else:
             raise ValueError(f"{study_context.ml_type} not supported")
 
-        model_type = ModelName(self.config.model) if self.config.model else default_model
+        model_type = self.config.model if self.config.model is not None else default_model
 
         if model_type not in supported_models:
             raise ValueError(f"{model_type} not supported")
@@ -105,9 +105,9 @@ class BorutaModule(ModuleExecution["Boruta"]):
 
         cv: int | StratifiedKFold
         if study_context.stratification_col:
-            cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
+            cv = StratifiedKFold(n_splits=self.config.n_inner_splits, shuffle=True, random_state=42)
         else:
-            cv = self.config.cv
+            cv = self.config.n_inner_splits
 
         # Hyperparameter optimization
         grid_search = GridSearchCV(
@@ -133,7 +133,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
         boruta = BorutaPy(
             estimator=model,
             n_estimators="auto",
-            perc=self.config.perc,
+            perc=self.config.threshold,
             alpha=self.config.alpha,
             random_state=42,
             verbose=0,
@@ -205,7 +205,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
                     "metric": study_context.target_metric,
                     "partition": "dev",
                     "aggregation": "avg",
-                    "fold": None,
+                    "split": None,
                     "value": dev_score_cv,
                 },
                 {
@@ -213,7 +213,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
                     "metric": study_context.target_metric,
                     "partition": "test",
                     "aggregation": "refit",
-                    "fold": None,
+                    "split": None,
                     "value": test_score_refit,
                 },
                 {
@@ -221,18 +221,18 @@ class BorutaModule(ModuleExecution["Boruta"]):
                     "metric": study_context.target_metric,
                     "partition": "test",
                     "aggregation": "gsrefit",
-                    "fold": None,
+                    "split": None,
                     "value": test_score_gsrefit,
                 },
             ]
         )
 
-        # Build standard feature_importances DataFrame
-        feature_importances = fi_df[["feature", "importance"]].copy()
-        feature_importances["fi_method"] = FIResultLabel.INTERNAL
-        feature_importances["fi_dataset"] = DataPartition.TRAIN
-        feature_importances["training_id"] = "boruta"
-        feature_importances["result_type"] = ResultType.BEST
+        # Build standard feature importance DataFrame
+        fi_df_out = fi_df[["feature", "importance"]].copy()
+        fi_df_out["fi_method"] = FIResultLabel.INTERNAL
+        fi_df_out["fi_dataset"] = DataPartition.TRAIN
+        fi_df_out["training_id"] = "boruta"
+        fi_df_out["result_type"] = ResultType.BEST
 
         # Save results to JSON
         results = {
@@ -254,6 +254,6 @@ class BorutaModule(ModuleExecution["Boruta"]):
                 module=self.config.module,
                 selected_features=selected_features,
                 scores=scores,
-                feature_importances=feature_importances,
+                fi=fi_df_out,
             )
         }

@@ -116,9 +116,9 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        outersplit_id: int,
+        outer_split_id: int,
         results_dir: UPath,
-        num_assigned_cpus: int,
+        n_assigned_cpus: int,
         feature_groups: dict[str, list[str]],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
@@ -137,7 +137,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         ag_test_data = pd.concat([x_test, y_test], axis=1)
 
         # Set up logging and resources
-        logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outersplit_id}")
+        logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outer_split_id}")
 
         # Get target column
         if len(study_context.target_assignments) == 1:
@@ -155,8 +155,16 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         predictor = TabularPredictor(
             label=target,
             eval_metric=scoring_type,
-            verbosity=self.config.verbosity,
+            verbosity=0,
             log_to_file=False,
+        )
+
+        # Log configuration summary
+        logger.info(
+            "Starting fit: presets=%s, time_limit=%s, model_types=%s",
+            self.config.presets,
+            self.config.time_limit,
+            self.config.included_model_types or "all",
         )
 
         # Fit predictor
@@ -166,28 +174,33 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             infer_limit=self.config.infer_limit,
             memory_limit=self.config.memory_limit,
             presets=self.config.presets,
-            fit_strategy=self.config.fit_strategy,
-            num_bag_folds=self.config.num_bag_folds,
+            fit_strategy="sequential",
+            num_bag_folds=self.config.n_bag_splits,
             included_model_types=self.config.included_model_types,
-            num_cpus=num_assigned_cpus,
+            num_cpus=n_assigned_cpus,
         )
 
-        logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outersplit_id}")
+        logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outer_split_id}")
         logger.info("Fitting completed")
+
+        # Log best model summary
+        leaderboard_summary = predictor.leaderboard(silent=True)
+        best = leaderboard_summary.iloc[0]
+        logger.info("Best model: %s (score_val=%.4f)", best["model"], best["score_val"])
 
         # Save failure info
         with (results_dir / "autogluon_debug_info.txt").open("w", encoding="utf-8") as text_file:
             print(predictor.model_failures(), file=text_file)
 
         # Save leaderboard and model info
-        self._save_leaderboard_info(predictor, ag_test_data, outersplit_id, results_dir)
+        self._save_leaderboard_info(predictor, ag_test_data, outer_split_id, results_dir)
 
         # Get raw results
         raw_scores = self._get_scores(predictor, study_context, ag_train_data, ag_test_data, feature_cols, results_dir)
         raw_predictions = self._get_predictions(
-            predictor, study_context, ag_test_data, row_test, row_traindev, outersplit_id
+            predictor, study_context, ag_test_data, row_test, row_traindev, outer_split_id
         )
-        raw_fi = self._get_feature_importances(predictor, ag_test_data, outersplit_id, feature_groups, results_dir)
+        raw_fi = self._get_fi(predictor, ag_test_data, outer_split_id, feature_groups, results_dir)
 
         # Build flat scores DataFrame
         scores_rows = []
@@ -199,7 +212,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                         "metric": key,
                         "partition": "combined",
                         "aggregation": "single",
-                        "fold": None,
+                        "split": None,
                         "value": value,
                     }
                 )
@@ -214,7 +227,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                 pred_dfs.append(temp)
         predictions = pd.concat(pred_dfs, ignore_index=True) if pred_dfs else pd.DataFrame()
 
-        # Build flat feature_importances DataFrame
+        # Build flat feature importance DataFrame
         fi_dfs = []
         for _fi_key, fi_df in raw_fi.items():
             if isinstance(fi_df, pd.DataFrame) and not fi_df.empty:
@@ -232,7 +245,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                 temp["training_id"] = "autogluon"
                 temp["result_type"] = ResultType.BEST
                 fi_dfs.append(temp)
-        feature_importances = pd.concat(fi_dfs, ignore_index=True) if fi_dfs else pd.DataFrame()
+        fi_df = pd.concat(fi_dfs, ignore_index=True) if fi_dfs else pd.DataFrame()
 
         return {
             ResultType.BEST: ModuleResult(
@@ -241,7 +254,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                 selected_features=feature_cols,  # AutoGluon doesn't do feature selection, so return all features
                 scores=scores,
                 predictions=predictions,
-                feature_importances=feature_importances,
+                fi=fi_df,
                 model=self._get_sklearn_model(predictor, study_context),
             )
         }
@@ -255,16 +268,16 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         else:
             raise ValueError(f"ML type {study_context.ml_type} not supported")
 
-    def _get_feature_importances(
+    def _get_fi(
         self,
         model: TabularPredictor,
         ag_test_data: pd.DataFrame,
-        outersplit_id: int,
+        outer_split_id: int,
         feature_groups: dict[str, list[str]],
         results_dir: UPath,
     ) -> dict[str, pd.DataFrame]:
         """Calculate feature importances using AutoGluon's permutation importance."""
-        logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outersplit_id}")
+        logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outer_split_id}")
         logger.info("Calculating test permutation feature importances...")
 
         fi: dict[str, pd.DataFrame] = {}
@@ -298,14 +311,14 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                 group_importances[group_name] = group_importance
 
             # Combine feature and group importances
-            combined_feature_importances = [fi["autogluon_permutation_test"]]
+            combined_fi = [fi["autogluon_permutation_test"]]
 
             for group_name, importance in group_importances.items():
                 group_row = importance.copy()
                 group_row.index = [f"{group_name}"] * len(group_row)
-                combined_feature_importances.append(group_row)
+                combined_fi.append(group_row)
 
-            fi["autogluon_permutation_test"] = pd.concat(combined_feature_importances)
+            fi["autogluon_permutation_test"] = pd.concat(combined_fi)
 
         fi["autogluon_permutation_test"] = fi["autogluon_permutation_test"].sort_values(
             by="importance", ascending=False
@@ -385,12 +398,12 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         self,
         model: TabularPredictor,
         ag_test_data: pd.DataFrame,
-        outersplit_id: int,
+        outer_split_id: int,
         results_dir: UPath,
     ) -> None:
         """Save AutoGluon leaderboard and model information."""
         # Save leaderboard
-        leaderboard = model.leaderboard(ag_test_data, extra_info=True)
+        leaderboard = model.leaderboard(ag_test_data, extra_info=True, silent=True)
         leaderboard_path = results_dir / "leaderboard.csv"
         csv_save(leaderboard, leaderboard_path)
 
@@ -406,7 +419,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             json.dump(model_info, f, default=str, indent=4)
 
         # Save fit summary
-        fit_summary = model.fit_summary()
+        fit_summary = model.fit_summary(verbosity=0)
         with (results_dir / "model_stats.txt").open("w", encoding="utf-8") as text_file:
             print(fit_summary, file=text_file)
 
@@ -417,9 +430,9 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         ag_test_data: pd.DataFrame,
         row_test: pd.Series,
         row_traindev: pd.Series,
-        outersplit_id: int,
+        outer_split_id: int,
     ) -> dict[str, pd.DataFrame]:
-        """Get out-of-fold and test predictions with metadata."""
+        """Get out-of-split and test predictions with metadata."""
         predictions = {}
         best_model_name = model.model_best
         problem_type = model.problem_type
@@ -448,13 +461,13 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             axis=1,
         )
         # Add metadata
-        test_df["outersplit_id"] = outersplit_id
+        test_df["outer_split_id"] = outer_split_id
         test_df["inner_split_id"] = inner_split_id
         test_df["partition"] = "test"
         test_df["task_id"] = task_id
         predictions["test"] = test_df
 
-        # Out-of-fold validation predictions
+        # Out-of-split validation predictions
         rowid_dev = pd.DataFrame({row_column: row_traindev})
 
         if problem_type == "regression":
@@ -473,7 +486,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             axis=1,
         )
         # Add metadata
-        dev_df["outersplit_id"] = outersplit_id
+        dev_df["outer_split_id"] = outer_split_id
         dev_df["inner_split_id"] = inner_split_id
         dev_df["partition"] = "dev"
         dev_df["task_id"] = task_id

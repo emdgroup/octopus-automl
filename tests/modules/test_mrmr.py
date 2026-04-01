@@ -16,13 +16,13 @@ def generate_sample_data(n_samples, n_features, random_state):
     np.random.seed(42)
     X, _y, _ = make_regression(n_samples=n_samples, n_features=n_features, random_state=random_state, coef=True)
     df_features = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(n_features)])
-    df_feature_importances = pd.DataFrame(
+    fi_df = pd.DataFrame(
         {
             "feature": df_features.columns,
             "importance": np.random.rand(df_features.shape[1]),
         }
     )
-    return df_features, df_feature_importances
+    return df_features, fi_df
 
 
 @pytest.fixture(
@@ -40,12 +40,12 @@ def sample_data(request):
 
 def test_mrmr_feature_selection_order(sample_data):
     """Test MRMR feature selection for different datasets."""
-    (df_features, df_feature_importances), data_name = sample_data
+    (df_features, fi_df), data_name = sample_data
 
     results = {
-        "pearson": maxrminr(df_features, df_feature_importances, [5], correlation_type=CorrelationType.PEARSON),
-        "spearman": maxrminr(df_features, df_feature_importances, [5], correlation_type=CorrelationType.SPEARMAN),
-        "rdc": maxrminr(df_features, df_feature_importances, [5], correlation_type=CorrelationType.RDC),
+        "pearson": maxrminr(df_features, fi_df, [5], correlation_type=CorrelationType.PEARSON),
+        "spearman": maxrminr(df_features, fi_df, [5], correlation_type=CorrelationType.SPEARMAN),
+        "rdc": maxrminr(df_features, fi_df, [5], correlation_type=CorrelationType.RDC),
     }
 
     if data_name == "sample_data_1":
@@ -103,7 +103,7 @@ def scalability_data(request):
 
 def test_mrmr_scalability(scalability_data):
     """Test MRMR algorithm scalability with large feature sets."""
-    (df_features, df_feature_importances), data_name = scalability_data
+    (df_features, fi_df), data_name = scalability_data
 
     # Dictionary to store execution times
     execution_times = {}
@@ -113,7 +113,7 @@ def test_mrmr_scalability(scalability_data):
         start_time = time.time()
 
         # Select top 20 features
-        results = maxrminr(df_features, df_feature_importances, [20], correlation_type=corr_type)
+        results = maxrminr(df_features, fi_df, [20], correlation_type=corr_type)
 
         end_time = time.time()
         execution_times[corr_type] = end_time - start_time
