@@ -65,15 +65,14 @@ print("=====================================\n")
 ### Create and run OctoClassification with PARALLEL Octo + AutoGluon workflow
 
 study = OctoClassification(
-    name="wf_octo_autogluon_parallel",
-    path=os.environ.get("STUDIES_PATH", "./studies"),
+    study_name="wf_octo_autogluon_parallel",
+    study_path=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="AUCROC",  # Area Under ROC Curve for binary classification
     feature_cols=feature_names,
     target_col="target",
     sample_id_col="index",
     stratification_col="target",  # Ensure balanced splits
-    n_folds_outer=5,  # 5-fold outer cross-validation
-    ignore_data_health_warning=True,
+    n_outer_splits=5,  # 5-fold outer cross-validation
     workflow=[
         # Step 0: octo
         Octo(

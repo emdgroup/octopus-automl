@@ -30,16 +30,15 @@ print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict
 ### Create and run OctoClassification with ROC + Octo workflow
 
 study = OctoClassification(
-    name="example_roc_octo",
-    path=os.environ.get("STUDIES_PATH", "./studies"),
+    study_name="example_roc_octo",
+    study_path=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="ACCBAL",  # Balanced accuracy for binary classification
     feature_cols=features,
     target_col="target",
     sample_id_col="index",
     stratification_col="target",
-    datasplit_seed_outer=1234,
-    ignore_data_health_warning=True,
-    run_single_outersplit_num=0,  # Process only first outersplit for quick testing
+    outer_split_seed=1234,
+    single_outer_split=0,  # Process only first outersplit for quick testing
     workflow=[
         # Step 0: ROC - Remove highly correlated features and apply statistical filtering
         Roc(

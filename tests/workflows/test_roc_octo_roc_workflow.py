@@ -115,14 +115,13 @@ class TestRocOctoRocWorkflow:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_roc_octo_roc",
+                study_name="test_roc_octo_roc",
                 target_metric="ACCBAL",
                 feature_cols=feature_names,
                 target_col="target",
                 sample_id_col="sample_id_col",
                 stratification_col="target",
-                path=temp_dir,
-                ignore_data_health_warning=True,
+                study_path=temp_dir,
                 workflow=[
                     Roc(
                         description="step_0_roc_initial",
@@ -253,17 +252,16 @@ class TestRocOctoRocWorkflow:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_roc_octo_roc_execution",
+                study_name="test_roc_octo_roc_execution",
                 target_metric="ACCBAL",
                 feature_cols=feature_names,
                 target_col="target",
                 sample_id_col="sample_id_col",
                 stratification_col="target",
-                datasplit_seed_outer=1234,
-                n_folds_outer=2,
-                path=temp_dir,
-                ignore_data_health_warning=True,
-                run_single_outersplit_num=0,
+                outer_split_seed=1234,
+                n_outer_splits=2,
+                study_path=temp_dir,
+                single_outer_split=0,
                 workflow=[
                     Roc(
                         description="step_0_roc_initial",

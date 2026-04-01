@@ -62,14 +62,13 @@ class TestOctoIntroClassification:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_classification",
+                study_name="test_classification",
                 target_metric="ACCBAL",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                path=temp_dir,
-                ignore_data_health_warning=True,
+                study_path=temp_dir,
             )
 
             assert study.target_col == "target"
@@ -187,16 +186,15 @@ class TestOctoIntroClassification:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_octo_intro_execution",
+                study_name="test_octo_intro_execution",
                 target_metric="ACCBAL",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                datasplit_seed_outer=1,
-                n_folds_outer=2,
-                path=temp_dir,
-                ignore_data_health_warning=True,
+                outer_split_seed=1,
+                n_outer_splits=2,
+                study_path=temp_dir,
                 workflow=[
                     Octo(
                         description="step_1_octo",

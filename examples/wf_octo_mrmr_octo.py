@@ -56,14 +56,13 @@ print()
 
 # Create and run OctoClassification with sequential multi-step workflow
 study = OctoClassification(
-    name="wf_octo_mrmr_octo",
+    study_name="wf_octo_mrmr_octo",
     target_metric="ACCBAL",
     feature_cols=feature_names,
     target_col="target",
     sample_id_col="index",
     stratification_col="target",
-    n_folds_outer=5,  # 5 outer folds
-    ignore_data_health_warning=True,
+    n_outer_splits=5,  # 5 outer folds
     workflow=[
         # Task 0: Initial Octo with all features
         Octo(

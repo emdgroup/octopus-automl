@@ -52,14 +52,14 @@ from octopus.modules import Octo
 from octopus.types import ModelName
 
 study = OctoTimeToEvent(
-    name="my_survival_study",
+    study_name="my_survival_study",
     target_metric="CI",
     feature_cols=["age", "biomarker"],
     duration_col="duration",
     event_col="event",
     sample_id_col="patient_id",
     metrics=["CI"],
-    path="./results",
+    study_path="./results",
     workflow=[
         Octo(
             task_id=0,

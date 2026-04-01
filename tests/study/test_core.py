@@ -32,19 +32,18 @@ def basic_study():
     """Create a basic OctoClassification instance."""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield OctoClassification(
-            name="test_study",
+            study_name="test_study",
             target_metric="AUCROC",
             feature_cols=["feature1", "feature2", "feature3"],
             target_col="target",
             sample_id_col="sample_id_col",
-            path=temp_dir,
-            ignore_data_health_warning=True,
+            study_path=temp_dir,
         )
 
 
 def test_initialization(basic_study):
     """Test OctoStudy initialization."""
-    assert basic_study.name == "test_study"
+    assert basic_study.study_name == "test_study"
     assert basic_study.ml_type is None  # ml_type is determined during data validation
     assert basic_study.target_metric == "AUCROC"
     assert basic_study.feature_cols == ["feature1", "feature2", "feature3"]
@@ -56,12 +55,12 @@ def test_regression_ml_type():
     """Test that OctoRegression sets ml_type to regression."""
     with tempfile.TemporaryDirectory() as temp_dir:
         study = OctoRegression(
-            name="test",
+            study_name="test",
             target_metric="R2",
             feature_cols=["f1"],
             target_col="target",
             sample_id_col="id",
-            path=temp_dir,
+            study_path=temp_dir,
         )
         assert study.ml_type == MLType.REGRESSION
 
@@ -70,12 +69,12 @@ def test_default_workflow():
     """Test that default workflow is a single Octo task."""
     with tempfile.TemporaryDirectory() as temp_dir:
         study = OctoClassification(
-            name="test",
+            study_name="test",
             target_metric="AUCROC",
             feature_cols=["f1"],
             target_col="target",
             sample_id_col="id",
-            path=temp_dir,
+            study_path=temp_dir,
         )
         assert len(study.workflow) == 1
         assert isinstance(study.workflow[0], Octo)
@@ -86,20 +85,19 @@ def test_default_values():
     """Test default values are set correctly."""
     with tempfile.TemporaryDirectory() as temp_dir:
         study = OctoClassification(
-            name="test",
+            study_name="test",
             target_metric="AUCROC",
             feature_cols=["f1"],
             target_col="target",
             sample_id_col="id",
-            path=temp_dir,
+            study_path=temp_dir,
         )
         assert study.row_id_col is None
         assert study.stratification_col is None
         assert study.positive_class is None  # positive_class is determined during data validation
-        assert study.n_folds_outer == 5 if not _RUNNING_IN_TESTSUITE else 2
-        assert study.datasplit_seed_outer == 0
-        assert study.ignore_data_health_warning is False
-        assert study.run_single_outersplit_num is None
+        assert study.n_outer_splits == 5 if not _RUNNING_IN_TESTSUITE else 2
+        assert study.outer_split_seed == 0
+        assert study.single_outer_split is None
 
 
 def test_ml_type_values():
@@ -111,11 +109,11 @@ def test_ml_type_values():
     for expected_ml_type, study_class, metric, extra_kwargs in test_cases:
         with tempfile.TemporaryDirectory() as temp_dir:
             study = study_class(
-                name="test",
+                study_name="test",
                 target_metric=metric,
                 feature_cols=["f1"],
                 sample_id_col="id",
-                path=temp_dir,
+                study_path=temp_dir,
                 **extra_kwargs,
             )
             assert study.ml_type == expected_ml_type

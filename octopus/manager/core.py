@@ -37,21 +37,19 @@ class OctoManager:
        Negative values indicate abs(num_cpus) to leave free, e.g. -1 means use all but one CPU.
        Set to 1 to disable all parallel processing and run sequentially."""
 
-    run_single_outersplit_num: int | None = field(
+    single_outer_split: int | None = field(
         validator=validators.optional([validators.instance_of(int), validators.ge(0)])
     )
-    """Index of single outersplit to run (None for all)."""
+    """Index of single outer split to run (None for all)."""
 
     def run_outersplits(self) -> None:
         """Run all outersplits."""
         if not self.outersplit_data:
             raise ValueError("No outersplit data defined")
 
-        if self.run_single_outersplit_num is not None and not (
-            0 <= self.run_single_outersplit_num < len(self.outersplit_data)
-        ):
+        if self.single_outer_split is not None and not (0 <= self.single_outer_split < len(self.outersplit_data)):
             raise ValueError(
-                f"run_single_outersplit_num must be between 0 and num_outersplits-1 ({len(self.outersplit_data) - 1}), got {self.run_single_outersplit_num}"
+                f"single_outer_split must be between 0 and num_outersplits-1 ({len(self.outersplit_data) - 1}), got {self.single_outer_split}"
             )
 
         # Initialize Ray upfront to ensure worker setup hooks are registered before any workflows execute.
@@ -63,7 +61,7 @@ class OctoManager:
         resources = ray_parallel.init(
             num_cpus_user=self.num_cpus,
             num_outersplits=len(self.outersplit_data),
-            run_single_outersplit=self.run_single_outersplit_num is not None,
+            run_single_outersplit=self.single_outer_split is not None,
             namespace=f"octopus_study_{self.study_context.output_path}",
         )
 
@@ -88,9 +86,9 @@ class OctoManager:
         Returns:
             Appropriate execution strategy based on configuration.
         """
-        if self.run_single_outersplit_num is not None:
+        if self.single_outer_split is not None:
             return SingleOutersplitStrategy(
-                outersplit_index=self.run_single_outersplit_num,
+                outersplit_index=self.single_outer_split,
                 num_cpus=resources.cpus_per_worker,
             )
         elif resources.num_workers > 1:

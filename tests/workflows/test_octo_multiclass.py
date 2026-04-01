@@ -71,14 +71,13 @@ class TestOctoMulticlass:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_multiclass",
+                study_name="test_multiclass",
                 target_metric="AUCROC_MACRO",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                path=temp_dir,
-                ignore_data_health_warning=True,
+                study_path=temp_dir,
             )
 
             assert study.target_col == "target"
@@ -194,17 +193,16 @@ class TestOctoMulticlass:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_multiclass_execution",
+                study_name="test_multiclass_execution",
                 target_metric="AUCROC_MACRO",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                datasplit_seed_outer=1234,
-                n_folds_outer=2,
-                path=temp_dir,
-                ignore_data_health_warning=True,
-                run_single_outersplit_num=0,
+                outer_split_seed=1234,
+                n_outer_splits=2,
+                study_path=temp_dir,
+                single_outer_split=0,
                 workflow=[
                     Octo(
                         description="step_1_octo_multiclass",
@@ -287,14 +285,13 @@ class TestOctoMulticlass:
         for target_metric in target_metrics:
             with tempfile.TemporaryDirectory() as temp_dir:
                 study = OctoClassification(
-                    name=f"test_multiclass_{target_metric.lower()}",
+                    study_name=f"test_multiclass_{target_metric.lower()}",
                     target_metric=target_metric,
                     ml_type=MLType.BINARY,
                     feature_cols=["f1"],
                     target_col="target",
                     sample_id_col="index",
-                    path=temp_dir,
-                    ignore_data_health_warning=True,
+                    study_path=temp_dir,
                 )
 
                 assert study.target_metric == target_metric

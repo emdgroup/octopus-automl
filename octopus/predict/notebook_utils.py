@@ -126,7 +126,7 @@ def _validate_study_structure(study_path: UPath, config: dict) -> dict:
     Raises:
         ValueError: If no outersplit directories or workflow results are found.
     """
-    n_folds_outer = config["n_folds_outer"]
+    n_outer_splits = config["n_outer_splits"]
     workflow_tasks = config["workflow"]
 
     outersplit = sorted(
@@ -140,7 +140,7 @@ def _validate_study_structure(study_path: UPath, config: dict) -> dict:
             f"Study path: {study_path}\nThe study may not have been run yet."
         )
 
-    expected_outersplit_ids = list(range(n_folds_outer))
+    expected_outersplit_ids = list(range(n_outer_splits))
     missing_outersplits = [
         split_id for split_id in expected_outersplit_ids if not (study_path / f"outersplit{split_id}").exists()
     ]
@@ -189,7 +189,7 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
             - 'path': UPath object of the study directory
             - 'config': Study configuration dictionary
             - 'ml_type': Machine learning type
-            - 'n_folds_outer': Number of outer folds
+            - 'n_outer_splits': Number of outer splits
             - 'workflow_tasks': List of workflow task configurations
             - 'outersplit_dirs': List of outersplit directory paths
             - 'expected_task_ids': List of expected task IDs
@@ -218,7 +218,7 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
     config = loader.load_config()
 
     ml_type = config["ml_type"]
-    n_folds_outer = config["n_folds_outer"]
+    n_outer_splits = config["n_outer_splits"]
     workflow_tasks = config["workflow"]
 
     if verbose:
@@ -235,7 +235,7 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
 
     if verbose:
         print(f"Found {len(outersplit)} outersplit directory/directories")
-        expected_outersplit_ids = list(range(n_folds_outer))
+        expected_outersplit_ids = list(range(n_outer_splits))
         print(f"Expected outersplit IDs: {expected_outersplit_ids}")
 
         if missing_outersplits:
@@ -267,7 +267,7 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
         "path": path_study,
         "config": config,
         "ml_type": ml_type,
-        "n_folds_outer": n_folds_outer,
+        "n_outer_splits": n_outer_splits,
         "workflow_tasks": workflow_tasks,
         "outersplit_dirs": outersplit,
         "expected_task_ids": expected_task_ids,

@@ -54,8 +54,8 @@ def validate_class_coverage(
                 raise SingleClassFoldError(
                     f"Fold {fold_id} {part_name} partition contains only class(es) "
                     f"{sorted(unique_classes)}. "
-                    "Try: changing `datasplit_seeds_inner` or `datasplit_seed_outer`, "
-                    "reducing `n_folds_inner` or `n_folds_outer`, "
+                    "Try: changing `datasplit_seeds_inner` or `outer_split_seed`, "
+                    "reducing `n_folds_inner` or `n_outer_splits`, "
                     "or setting `stratification_col` to the target column "
                     "for balanced splits."
                 )

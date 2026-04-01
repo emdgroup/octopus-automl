@@ -70,16 +70,15 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
     features = features[:5]  # Use only first 5 features for faster testing
 
     study = OctoClassification(
-        name="predict_test_study",
+        study_name="predict_test_study",
         target_metric="ACCBAL",
         feature_cols=features,
         target_col="target",
         sample_id_col="index",
         stratification_col="target",
-        datasplit_seed_outer=1234,
-        n_folds_outer=2,
-        path=tmp_path,
-        ignore_data_health_warning=True,
+        outer_split_seed=1234,
+        n_outer_splits=2,
+        study_path=tmp_path,
         workflow=[
             Octo(
                 description="step_1_octo",
@@ -148,7 +147,7 @@ class TestStudyIO:
         loader = StudyLoader(study_path)
         cfg = loader.load_config()
         assert cfg["ml_type"] == MLType.BINARY
-        assert cfg["n_folds_outer"] == 2
+        assert cfg["n_outer_splits"] == 2
 
     def test_extract_metadata(self, study_path):
         """Verify extracted metadata matches expected study properties."""
@@ -491,7 +490,7 @@ class TestNotebookUtilsStudyLevel:
         """Verify show_study_details returns correct study info dict."""
         info = show_study_details(study_path, verbose=False)
         assert info["ml_type"] == MLType.BINARY
-        assert info["n_folds_outer"] == 2
+        assert info["n_outer_splits"] == 2
         assert len(info["outersplit_dirs"]) == 2
         assert len(info["missing_outersplits"]) == 0
 

@@ -30,7 +30,7 @@ def mrmr_task():
 def base_study_kwargs():
     """Base kwargs for creating OctoClassification instances."""
     return {
-        "name": "test",
+        "study_name": "test",
         "target_metric": "AUCROC",
         "feature_cols": ["f1"],
         "target_col": "target",
@@ -66,11 +66,11 @@ class TestWorkflowValidation:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             if expected_exception is None:
-                study = OctoClassification(**base_study_kwargs, path=temp_dir, workflow=test_workflow)
+                study = OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=test_workflow)
                 assert study.workflow == test_workflow
             else:
                 with pytest.raises(expected_exception):
-                    OctoClassification(**base_study_kwargs, path=temp_dir, workflow=test_workflow)
+                    OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=test_workflow)
 
     def test_workflow_first_task_not_zero(self, base_study_kwargs):
         """Test that workflow validation fails when first task doesn't have task_id=0."""
@@ -79,7 +79,7 @@ class TestWorkflowValidation:
             tempfile.TemporaryDirectory() as temp_dir,
             pytest.raises(ValueError, match="The first task must have 'task_id=0'"),
         ):
-            OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
 
     def test_workflow_non_increasing_task_ids(self, base_study_kwargs):
         """Test that workflow validation fails when task_ids are not in increasing order."""
@@ -92,7 +92,7 @@ class TestWorkflowValidation:
             tempfile.TemporaryDirectory() as temp_dir,
             pytest.raises(ValueError, match="not greater than the previous 'task_id'"),
         ):
-            OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
 
     def test_workflow_missing_task_ids(self, base_study_kwargs):
         """Test that workflow validation fails when task_ids have gaps."""
@@ -101,7 +101,7 @@ class TestWorkflowValidation:
             Mrmr(task_id=2, depends_on=0),
         ]
         with tempfile.TemporaryDirectory() as temp_dir, pytest.raises(ValueError, match="Missing task_ids"):
-            OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
 
     def test_workflow_duplicate_task_ids(self, base_study_kwargs):
         """Test that workflow validation fails when there are duplicate task_ids."""
@@ -114,7 +114,7 @@ class TestWorkflowValidation:
             tempfile.TemporaryDirectory() as temp_dir,
             pytest.raises(ValueError, match="not greater than the previous 'task_id'"),
         ):
-            OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
 
     def test_workflow_depends_on_nonexistent_task(self, base_study_kwargs):
         """Test that workflow validation fails when depends_on references non-existent task."""
@@ -126,7 +126,7 @@ class TestWorkflowValidation:
             tempfile.TemporaryDirectory() as temp_dir,
             pytest.raises(ValueError, match="does not correspond to any 'task_id'"),
         ):
-            OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
 
     def test_workflow_depends_on_later_task(self, base_study_kwargs):
         """Test that workflow validation fails when depends_on references a later task."""
@@ -139,7 +139,7 @@ class TestWorkflowValidation:
             tempfile.TemporaryDirectory() as temp_dir,
             pytest.raises(ValueError, match="refers to an item that comes after it"),
         ):
-            OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
 
     def test_workflow_depends_on_minus_one_after_positive(self, base_study_kwargs):
         """Test that tasks with depends_on=None must be at the start."""
@@ -152,7 +152,7 @@ class TestWorkflowValidation:
             tempfile.TemporaryDirectory() as temp_dir,
             pytest.raises(ValueError, match="appears after items with 'depends_on' set"),
         ):
-            OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
 
     def test_valid_multi_task_workflow(self, base_study_kwargs):
         """Test a valid multi-task workflow."""
@@ -162,7 +162,7 @@ class TestWorkflowValidation:
             Octo(task_id=2, depends_on=1),
         ]
         with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoClassification(**base_study_kwargs, path=temp_dir, workflow=workflow)
+            study = OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
             assert len(study.workflow) == 3
             assert study.workflow[0].task_id == 0
             assert study.workflow[1].task_id == 1

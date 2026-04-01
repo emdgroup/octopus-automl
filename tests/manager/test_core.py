@@ -80,7 +80,7 @@ def octo_manager(study, mock_workflow, mock_outersplit_data):
         study_context=study,
         workflow=mock_workflow,
         num_cpus=0,
-        run_single_outersplit_num=None,
+        single_outer_split=None,
     )
 
 
@@ -229,7 +229,7 @@ class TestOctoManager:
             study_context=study,
             workflow=mock_workflow,
             num_cpus=0,
-            run_single_outersplit_num=None,
+            single_outer_split=None,
         )
 
         with (
@@ -245,7 +245,7 @@ class TestOctoManager:
             study_context=study,
             workflow=mock_workflow,
             num_cpus=1,
-            run_single_outersplit_num=0,
+            single_outer_split=0,
         )
 
         with (
@@ -267,7 +267,7 @@ class TestOctoManager:
             study_context=study,
             workflow=mock_workflow,
             num_cpus=1,
-            run_single_outersplit_num=None,
+            single_outer_split=None,
         )
         with pytest.raises(ValueError, match="No outersplit data defined"):
             manager.run_outersplits()
@@ -287,7 +287,7 @@ class TestOctoManager:
         ray_parallel.shutdown()  # Ensure Ray is shut down after test
 
     def test_single_outersplit_resource_allocation(self, study, mock_workflow):
-        """Test that single outersplit gets all CPUs when run_single_outersplit_num is set.
+        """Test that single outersplit gets all CPUs when single_outer_split is set.
 
         This is a regression test: previously, when running a single outersplit from
         a set of 8 outersplits on 8 CPUs, the single outersplit would only get 1 CPU
@@ -307,7 +307,7 @@ class TestOctoManager:
             study_context=study,
             workflow=mock_workflow,
             num_cpus=0,
-            run_single_outersplit_num=0,
+            single_outer_split=0,
         )
 
         with (

@@ -57,13 +57,12 @@ class TestOctoRegression:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoRegression(
-                name="test_regression",
+                study_name="test_regression",
                 target_metric="MAE",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
-                path=temp_dir,
-                ignore_data_health_warning=True,
+                study_path=temp_dir,
             )
 
             assert study.target_col == "target"
@@ -201,16 +200,15 @@ class TestOctoRegression:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoRegression(
-                name="test_octo_regression_execution",
+                study_name="test_octo_regression_execution",
                 target_metric="MAE",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
-                datasplit_seed_outer=1234,
-                n_folds_outer=2,
-                path=temp_dir,
-                ignore_data_health_warning=True,
-                run_single_outersplit_num=0,
+                outer_split_seed=1234,
+                n_outer_splits=2,
+                study_path=temp_dir,
+                single_outer_split=0,
                 workflow=[
                     Octo(
                         task_id=0,
