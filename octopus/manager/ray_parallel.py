@@ -9,7 +9,7 @@ import ray
 import threadpoolctl
 from attrs import define, field, validators
 from ray.runtime_env import RuntimeEnv
-from ray.util.placement_group import get_current_placement_group, placement_group
+from ray.util.placement_group import PlacementGroup, get_current_placement_group, placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from upath import UPath
 
@@ -322,30 +322,34 @@ def run_parallel_inner(
     )
 
 
+type _TaskReturnType[T] = tuple[int, T, PlacementGroup | None]
+
+
 def _create_parallel_task[T](
     context: str,
     task_idx: int,
     task: Callable[[], T],
     log_dir: UPath,
     num_cpus: int,
-) -> ray.ObjectRef[tuple[int, T]]:
+) -> ray.ObjectRef[_TaskReturnType[T]]:
+    task_name = f"{context}_task_{task_idx}"
+
     @ray.remote
-    def run_task(task_idx: int, task: Callable[[], T], log_dir: UPath) -> tuple[int, T]:
+    def run_task(task_idx: int, task: Callable[[], T], log_dir: UPath, pg: PlacementGroup | None) -> _TaskReturnType[T]:
         _setup_worker_logging(log_dir)
         with threadpoolctl.threadpool_limits(limits=num_cpus):
             try:
                 result = task()
                 logger.debug(f"Completed task {task_name}.")
-                return task_idx, result
+                return task_idx, result, pg
             except Exception as e:
                 logger.exception(f"Exception in task {task_name} during parallel execution: {e!s}")
                 raise e
 
-    task_name = f"{context}_task_{task_idx}"
-
     if (pg := get_current_placement_group()) is None:
         # reserve resources required for this task and all child-tasks
         pg = placement_group([{"CPU": num_cpus}], name=f"{task_name}")
+        is_child = False
 
         logger.debug(f"Waiting for Ray placement group for {task_name} to be ready...")
         while not pg.wait(timeout_seconds=5):
@@ -356,6 +360,7 @@ def _create_parallel_task[T](
         # this is a child task, we should already be within a placement group created by the parent task, so we
         # just use that one to ensure we stay colocated with the parent task and siblings
         logger.debug(f"Using existing Ray placement group {pg.id} for task {task_name}.")
+        is_child = True
 
     return run_task.options(
         name=f"{task_name}",
@@ -365,9 +370,22 @@ def _create_parallel_task[T](
         runtime_env=RuntimeEnv(env_vars=dict.fromkeys(_PARALLELIZATION_ENV_VARS, str(num_cpus))),
         # make sure task and child tasks end up inside the same PlacementGroup
         scheduling_strategy=PlacementGroupSchedulingStrategy(
-            placement_group=pg, placement_group_capture_child_tasks=True
+            placement_group=pg,
+            placement_group_capture_child_tasks=True,
         ),
-    ).remote(task_idx, task, log_dir)
+    ).remote(task_idx, task, log_dir, pg if not is_child else None)
+
+
+def _collect_results[T](task_refs: list[ray.ObjectRef[_TaskReturnType[T]]], results: list[T]) -> list[T]:
+    """Collect results from Ray tasks, ensuring placement groups are removed after task completion."""
+    for result_idx, result, pg in ray.get(task_refs):
+        results[result_idx] = result
+
+        if pg is not None:
+            logger.debug(f"Removing Ray placement group {pg.id} for completed task.")
+            ray.util.remove_placement_group(pg)
+
+    return results
 
 
 def run[T](
@@ -413,20 +431,17 @@ def run[T](
 
         results: list[T] = [None] * len(tasks)  # type: ignore[list-item]
 
-        inflight_refs: list[ray.ObjectRef[tuple[int, T]]] = []
+        inflight_refs: list[ray.ObjectRef[_TaskReturnType[T]]] = []
         for task_idx, task in enumerate(tasks):
             if len(inflight_refs) >= num_workers:
                 # wait for at least one task to complete before launching more to limit resource usage
                 ready_refs, inflight_refs = ray.wait(inflight_refs, num_returns=1)
 
-                for ref in ready_refs:
-                    result_idx, result = ray.get(ref)
-                    results[result_idx] = result
+                results = _collect_results(ready_refs, results)
 
             inflight_refs.append(_create_parallel_task(context, task_idx, task, log_dir, num_cpus_per_worker))
 
         # Wait for any remaining tasks to complete
-        for result_idx, result in ray.get(inflight_refs):
-            results[result_idx] = result
+        results = _collect_results(inflight_refs, results)
 
         return results
