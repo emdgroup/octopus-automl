@@ -10,10 +10,10 @@ from sklearn.metrics import confusion_matrix
 from octopus.types import FIResultLabel, MetricDirection
 
 
-def plot_feature_importance_chart(
+def plot_fi_chart(
     df: pd.DataFrame,
     *,
-    outersplit_id: int | str = 0,
+    outer_split_id: int | str = 0,
     task_id: int | str = 0,
     training_id: str = "",
     fi_method: str | FIResultLabel = "",
@@ -22,8 +22,8 @@ def plot_feature_importance_chart(
 
     Args:
         df: Feature importances DataFrame with columns:
-            feature, importance, fi_method, training_id, outersplit_id, task_id.
-        outersplit_id: Outer split to filter on.
+            feature, importance, fi_method, training_id, outer_split_id, task_id.
+        outer_split_id: Outer split to filter on.
         task_id: Task to filter on.
         training_id: Training ID to filter on. If empty, uses first available.
         fi_method: FI method to filter on. If empty, uses first available.
@@ -31,7 +31,7 @@ def plot_feature_importance_chart(
     Returns:
         Plotly Figure.
     """
-    mask = (df["outersplit_id"] == int(outersplit_id)) & (df["task_id"] == int(task_id))
+    mask = (df["outer_split_id"] == int(outer_split_id)) & (df["task_id"] == int(task_id))
     if training_id:
         mask &= df["training_id"] == training_id
     if fi_method:
@@ -67,7 +67,7 @@ def plot_feature_importance_chart(
 def plot_confusion_matrix_chart(
     df_predictions: pd.DataFrame,
     *,
-    outersplit_id: int | str = 0,
+    outer_split_id: int | str = 0,
     task_id: int | str = 0,
     training_id: str = "",
 ) -> go.Figure:
@@ -75,8 +75,8 @@ def plot_confusion_matrix_chart(
 
     Args:
         df_predictions: Predictions DataFrame with columns:
-            prediction, target, partition, outersplit_id, task_id, inner_split_id.
-        outersplit_id: Outer split to filter on.
+            prediction, target, partition, outer_split_id, task_id, inner_split_id.
+        outer_split_id: Outer split to filter on.
         task_id: Task to filter on.
         training_id: Training ID / inner_split_id to filter on.
 
@@ -84,7 +84,7 @@ def plot_confusion_matrix_chart(
         Plotly Figure with absolute and relative confusion matrices.
     """
     mask = (
-        (df_predictions["outersplit_id"] == int(outersplit_id))
+        (df_predictions["outer_split_id"] == int(outer_split_id))
         & (df_predictions["task_id"] == int(task_id))
         & (df_predictions["partition"] == "test")
     )
@@ -157,7 +157,7 @@ def plot_confusion_matrix_chart(
     fig.update_yaxes(title_text="True Label", row=1, col=2, autorange="reversed")
 
     fig.update_layout(
-        title_text=f"Confusion Matrix — outersplit {outersplit_id}, task {task_id}",
+        title_text=f"Confusion Matrix — outer split {outer_split_id}, task {task_id}",
         width=900,
         height=420,
         showlegend=False,
@@ -168,7 +168,7 @@ def plot_confusion_matrix_chart(
 def plot_predictions_vs_truth_chart(
     df_predictions: pd.DataFrame,
     *,
-    outersplit_id: int | str = 0,
+    outer_split_id: int | str = 0,
     task_id: int | str = 0,
     training_id: str = "",
 ) -> go.Figure:
@@ -176,14 +176,14 @@ def plot_predictions_vs_truth_chart(
 
     Args:
         df_predictions: Predictions DataFrame.
-        outersplit_id: Outer split to filter on.
+        outer_split_id: Outer split to filter on.
         task_id: Task to filter on.
         training_id: Training ID / inner_split_id to filter on.
 
     Returns:
         Plotly Figure.
     """
-    mask = (df_predictions["outersplit_id"] == int(outersplit_id)) & (df_predictions["task_id"] == int(task_id))
+    mask = (df_predictions["outer_split_id"] == int(outer_split_id)) & (df_predictions["task_id"] == int(task_id))
     if training_id and "inner_split_id" in df_predictions.columns:
         mask &= df_predictions["inner_split_id"].astype(str) == str(training_id)
 
@@ -226,7 +226,7 @@ def plot_predictions_vs_truth_chart(
     )
 
     fig.update_layout(
-        title=f"Prediction vs Ground Truth — outersplit {outersplit_id}, task {task_id}",
+        title=f"Prediction vs Ground Truth — outer split {outer_split_id}, task {task_id}",
         xaxis_title="Ground Truth",
         yaxis_title="Prediction",
         width=650,
@@ -250,17 +250,19 @@ def plot_optuna_trial_counts_chart(df_optuna: pd.DataFrame) -> go.Figure:
         return fig
 
     grouped = (
-        df_optuna.groupby(["outersplit_id", "task_id", "model_type"])["trial"].nunique().reset_index(name="trial_count")
+        df_optuna.groupby(["outer_split_id", "task_id", "model_type"])["trial"]
+        .nunique()
+        .reset_index(name="trial_count")
     )
 
-    # Create subplots: one row per task_id, one col per outersplit_id
+    # Create subplots: one row per task_id, one col per outer_split_id
     task_ids = sorted(grouped["task_id"].unique())
-    outer_ids = sorted(grouped["outersplit_id"].unique())
+    outer_ids = sorted(grouped["outer_split_id"].unique())
 
     fig = make_subplots(
         rows=len(task_ids),
         cols=len(outer_ids),
-        subplot_titles=[f"task {t}, outersplit {o}" for t in task_ids for o in outer_ids],
+        subplot_titles=[f"task {t}, outer split {o}" for t in task_ids for o in outer_ids],
         vertical_spacing=0.12,
         horizontal_spacing=0.08,
     )
@@ -279,7 +281,7 @@ def plot_optuna_trial_counts_chart(df_optuna: pd.DataFrame) -> go.Figure:
 
     for row_i, task in enumerate(task_ids, 1):
         for col_i, outer in enumerate(outer_ids, 1):
-            sub = grouped[(grouped["task_id"] == task) & (grouped["outersplit_id"] == outer)]
+            sub = grouped[(grouped["task_id"] == task) & (grouped["outer_split_id"] == outer)]
             for m_i, model in enumerate(model_types):
                 model_data = sub[sub["model_type"] == model]
                 fig.add_trace(
@@ -306,7 +308,7 @@ def plot_optuna_trial_counts_chart(df_optuna: pd.DataFrame) -> go.Figure:
 def plot_optuna_trials_chart(
     df_optuna: pd.DataFrame,
     *,
-    outersplit_id: int | str = 0,
+    outer_split_id: int | str = 0,
     task_id: int | str = 0,
     direction: MetricDirection = MetricDirection.MINIMIZE,
 ) -> go.Figure:
@@ -314,14 +316,14 @@ def plot_optuna_trials_chart(
 
     Args:
         df_optuna: Optuna results DataFrame.
-        outersplit_id: Outer split to filter on.
+        outer_split_id: Outer split to filter on.
         task_id: Task to filter on.
         direction: Optimization direction ('minimize' or 'maximize').
 
     Returns:
         Plotly Figure.
     """
-    mask = (df_optuna["outersplit_id"] == int(outersplit_id)) & (df_optuna["task_id"] == int(task_id))
+    mask = (df_optuna["outer_split_id"] == int(outer_split_id)) & (df_optuna["task_id"] == int(task_id))
     filtered = df_optuna[mask]
     if filtered.empty:
         fig = go.Figure()
@@ -380,7 +382,7 @@ def plot_optuna_trials_chart(
     )
 
     fig.update_layout(
-        title=f"Optuna Trials — outersplit {outersplit_id}, task {task_id}",
+        title=f"Optuna Trials — outer split {outer_split_id}, task {task_id}",
         xaxis_title="Trial",
         yaxis_title="Objective Value",
         yaxis_type="log",
@@ -393,7 +395,7 @@ def plot_optuna_trials_chart(
 def plot_optuna_hyperparameters_chart(
     df_optuna: pd.DataFrame,
     *,
-    outersplit_id: int | str = 0,
+    outer_split_id: int | str = 0,
     task_id: int | str = 0,
     model_type: str = "",
 ) -> go.Figure:
@@ -401,14 +403,14 @@ def plot_optuna_hyperparameters_chart(
 
     Args:
         df_optuna: Optuna results DataFrame.
-        outersplit_id: Outer split to filter on.
+        outer_split_id: Outer split to filter on.
         task_id: Task to filter on.
         model_type: Model type to filter on.
 
     Returns:
         Plotly Figure with subplots per hyperparameter.
     """
-    mask = (df_optuna["outersplit_id"] == int(outersplit_id)) & (df_optuna["task_id"] == int(task_id))
+    mask = (df_optuna["outer_split_id"] == int(outer_split_id)) & (df_optuna["task_id"] == int(task_id))
     if model_type:
         mask &= df_optuna["model_type"] == model_type
 
@@ -461,7 +463,7 @@ def plot_optuna_hyperparameters_chart(
         fig.update_yaxes(title_text="Target Metric", row=row, col=col)
 
     fig.update_layout(
-        title=f"Optuna Hyperparameters — outersplit {outersplit_id}, task {task_id}"
+        title=f"Optuna Hyperparameters — outer split {outer_split_id}, task {task_id}"
         + (f", {model_type}" if model_type else ""),
         height=300 * max(rows, 1),
         width=700,

@@ -276,7 +276,7 @@ def _run_test_body(ml_type: MLType, model_name: str, fi_method: str) -> None:
     fi_keys = _run_fi_method(training, fi_method)
 
     for key in fi_keys:
-        fi_data = training.feature_importances.get(key)
+        fi_data = training.fi.get(key)
         assert fi_data is not None, f"Feature importance key '{key}' not found after {fi_method}"
         # calculate_fi_internal legitimately returns empty for models without
         # built-in feature importances (e.g. GaussianProcess, SVM with non-linear kernel)

@@ -12,7 +12,7 @@ from sklearn.feature_selection import f_classif, f_regression
 from octopus.logger import get_logger
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import CorrelationType, FIResultLabel, LogGroup, MLType, MRMRRelevance, ResultType
+from octopus.types import CorrelationType, FIResultLabel, LogGroup, MLType, RelevanceMethod, ResultType
 
 if TYPE_CHECKING:
     from octopus.modules import StudyContext
@@ -31,14 +31,14 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         data_traindev: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        outersplit_id: int,
+        outer_split_id: int,
         prior_results: dict[str, pd.DataFrame],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit MRMR module by selecting features with maximum relevance and minimum redundancy."""
         logger.set_log_group(LogGroup.PROCESSING, "MRMR")
         self._validate_configuration(prior_results)
-        self._log_outersplit_info(outersplit_id, prior_results)
+        self._log_outer_split_info(outer_split_id, prior_results)
 
         # Extract feature matrices (local variables, not stored)
         target_cols = list(study_context.target_assignments.values())
@@ -78,34 +78,33 @@ class MrmrModule(ModuleExecution["Mrmr"]):
 
     def _get_fi_method(self) -> FIResultLabel:
         """Get FIResultLabel for the configured feature importance method."""
-        return FIResultLabel(self.config.feature_importance_method)
+        return FIResultLabel(self.config.fi_method)
 
     def _validate_configuration(self, prior_results: dict) -> None:
         """Validate MRMR configuration."""
-        if self.config.relevance_type == MRMRRelevance.PERMUTATION:
+        if self.config.relevance_method == RelevanceMethod.PERMUTATION:
             if self.config.task_id == 0:
                 raise ValueError("MRMR module should not be the first workflow task.")
-            fi_df = prior_results.get("feature_importances", pd.DataFrame())
+            fi_df = prior_results.get("fi", pd.DataFrame())
             if fi_df.empty:
                 raise ValueError("No feature importances available from prior results.")
 
             fi_method = self._get_fi_method()
-            subset = fi_df[(fi_df["module"] == self.config.results_module) & (fi_df["fi_method"] == fi_method)]
+            subset = fi_df[fi_df["fi_method"] == fi_method]
             if subset.empty:
-                available_types = fi_df[["module", "fi_method"]].drop_duplicates().to_dict("records")
+                available_methods = fi_df["fi_method"].unique().tolist()
                 raise ValueError(
-                    f"No feature importances for module={self.config.results_module}, fi_method={fi_method}. Available: {available_types}"
+                    f"No feature importances for fi_method={fi_method}. Available methods: {available_methods}"
                 )
 
-    def _log_outersplit_info(self, outersplit_id: int, prior_results: dict) -> None:
+    def _log_outer_split_info(self, outer_split_id: int, prior_results: dict) -> None:
         """Log basic MRMR info."""
         logger.info("MRMR-Module")
-        logger.info(f"Outersplit: {outersplit_id}")
+        logger.info(f"Outer Split: {outer_split_id}")
         logger.info(f"Workflow task: {self.config.task_id}")
         logger.info(f"Number of features selected by MRMR: {self.config.n_features}")
         logger.info(f"Correlation type used by MRMR: {self.config.correlation_type}")
-        logger.info(f"Relevance type used by MRMR: {self.config.relevance_type}")
-        logger.info(f"Specified results module: {self.config.results_module}")
+        logger.info(f"Relevance method used by MRMR: {self.config.relevance_method}")
 
     def _get_relevance_data(
         self,
@@ -115,22 +114,22 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         ml_type: MLType,
         prior_results: dict,
     ) -> pd.DataFrame:
-        """Get relevance data based on relevance type."""
-        if self.config.relevance_type == MRMRRelevance.PERMUTATION:
+        """Get relevance data based on relevance method."""
+        if self.config.relevance_method == RelevanceMethod.PERMUTATION:
             return self._get_permutation_relevance(feature_cols, prior_results)
-        elif self.config.relevance_type == MRMRRelevance.F_STATISTICS:
+        elif self.config.relevance_method == RelevanceMethod.F_STATISTICS:
             return self._get_fstats_relevance(x_traindev, y_traindev, feature_cols, ml_type)
         else:
-            raise ValueError(f"Relevance type {self.config.relevance_type} not supported for MRMR.")
+            raise ValueError(f"Relevance method {self.config.relevance_method} not supported for MRMR.")
 
     def _get_permutation_relevance(
         self, feature_cols: list[str], prior_results: dict[str, pd.DataFrame]
     ) -> pd.DataFrame:
         """Get permutation relevance from prior module results (flat DataFrame)."""
-        fi_df = prior_results.get("feature_importances", pd.DataFrame())
+        fi_df = prior_results.get("fi", pd.DataFrame())
         fi_method = self._get_fi_method()
 
-        subset = fi_df[(fi_df["module"] == self.config.results_module) & (fi_df["fi_method"] == fi_method)]
+        subset = fi_df[fi_df["fi_method"] == fi_method]
         n = subset["training_id"].nunique()
         re_df = (subset.groupby("feature")["importance"].sum() / n).sort_values(ascending=False).reset_index()
 

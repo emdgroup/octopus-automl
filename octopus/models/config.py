@@ -61,7 +61,7 @@ class ModelConfig:
     """Create model config."""
 
     model_class: type[BaseModel]
-    feature_method: FIComputeMethod = field(converter=FIComputeMethod)
+    fi_method: FIComputeMethod = field(converter=FIComputeMethod)
     ml_types: frozenset[MLType] = field(converter=to_ml_types_frozenset, validator=validate_ml_types)
     hyperparameters: list[Hyperparameter] = field(validator=validate_hyperparameters)
     n_repeats: None | int = field(factory=lambda: None)

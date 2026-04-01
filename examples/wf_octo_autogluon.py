@@ -65,15 +65,14 @@ print("=====================================\n")
 ### Create and run OctoClassification with PARALLEL Octo + AutoGluon workflow
 
 study = OctoClassification(
-    name="wf_octo_autogluon_parallel",
-    path=os.environ.get("STUDIES_PATH", "./studies"),
+    study_name="wf_octo_autogluon_parallel",
+    studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="AUCROC",  # Area Under ROC Curve for binary classification
     feature_cols=feature_names,
     target_col="target",
     sample_id_col="index",
     stratification_col="target",  # Ensure balanced splits
-    n_folds_outer=5,  # 5-fold outer cross-validation
-    ignore_data_health_warning=True,
+    n_outer_splits=5,  # 5-split outer cross-validation
     workflow=[
         # Step 0: octo
         Octo(
@@ -81,26 +80,24 @@ study = OctoClassification(
             task_id=0,
             depends_on=None,  # No dependency (parallel with AutoGluon)
             # Cross-validation settings
-            n_folds_inner=5,
+            n_inner_splits=5,
             # Model selection - using tree-based models for feature importance
             models=[
                 ModelName.ExtraTreesClassifier,
             ],
-            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],  # Feature importance method
+            fi_methods=[FIComputeMethod.PERMUTATION],  # Feature importance method
             n_trials=100,  # Number of hyperparameter optimization trials
             # Constrained hyperparameter optimization
             # max_features=60,  # Maximum number of features to select
-            # penalty_factor=1.0,  # Complexity penalty for feature selection
         ),
         # Step 1: AutoGluon
         AutoGluon(
             description="step_1_autogluon",
             task_id=1,
             depends_on=None,  # No dependency (parallel with Octo)
-            verbosity=3,  # Standard logging
             time_limit=600,
             presets=["medium_quality"],  # Balance between speed and accuracy
-            num_bag_folds=5,  # 5-fold bagging for ensemble models
+            n_bag_splits=5,  # 5-split bagging for ensemble models
             included_model_types=[
                 "XT",  # ExtraTrees
             ],

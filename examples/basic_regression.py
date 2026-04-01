@@ -22,8 +22,8 @@ print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict
 
 ### Create and run OctoRegression
 study = OctoRegression(
-    name="basic_regression",
-    path=os.environ.get("STUDIES_PATH", "./studies"),
+    study_name="basic_regression",
+    studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="MAE",
     feature_cols=features,
     target_col="target",

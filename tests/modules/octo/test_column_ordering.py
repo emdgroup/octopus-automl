@@ -186,7 +186,7 @@ class TestColumnOrdering:
         training.fit()
         training.calculate_fi(FIComputeMethod.INTERNAL)
 
-        fi_df = training.feature_importances[fi_storage_key(FIComputeMethod.INTERNAL)]
+        fi_df = training.fi[fi_storage_key(FIComputeMethod.INTERNAL)]
         assert not fi_df.empty, "Internal FI should not be empty"
 
         # num1 should be the most important feature (target = 10*num1 + 0.01*num2 + noise)
@@ -205,7 +205,7 @@ class TestColumnOrdering:
         training.fit()
         training.calculate_fi(FIComputeMethod.PERMUTATION, partition="dev", n_repeats=3)
 
-        fi_df = training.feature_importances[fi_storage_key(FIComputeMethod.PERMUTATION, "dev")]
+        fi_df = training.fi[fi_storage_key(FIComputeMethod.PERMUTATION, "dev")]
         assert not fi_df.empty, "Permutation FI should not be empty"
 
         # num1 (or its group numerical_group) should be the most important feature

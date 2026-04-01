@@ -68,7 +68,7 @@ def _aggregate_across_splits(
     but set to NaN on ensemble rows.
 
     Args:
-        per_split_dfs: Dict mapping outersplit_id to a DataFrame with
+        per_split_dfs: Dict mapping outer_split_id to a DataFrame with
             at least columns ``["feature", "importance"]``.  May also
             contain ``"importance_std"`` and any columns listed in
             *extra_stat_cols*.
@@ -152,10 +152,10 @@ def calculate_fi_permutation(
     union of all input features.
 
     Args:
-        models: Dict mapping outersplit_id to fitted model.
-        selected_features: Dict mapping outersplit_id to feature list.
-        test_data: Dict mapping outersplit_id to test DataFrame.
-        train_data: Dict mapping outersplit_id to train DataFrame.
+        models: Dict mapping outer_split_id to fitted model.
+        selected_features: Dict mapping outer_split_id to feature list.
+        test_data: Dict mapping outer_split_id to test DataFrame.
+        train_data: Dict mapping outer_split_id to train DataFrame.
         target_assignments: Dict mapping semantic target roles to column
             names.  For single-target tasks: ``{"default": "y"}``.
             For time-to-event: ``{"duration": "time_col", "event": "event_col"}``.
@@ -236,9 +236,9 @@ def calculate_fi_shap(
     ``_aggregate_across_splits``.
 
     Args:
-        models: Dict mapping outersplit_id to fitted model.
-        selected_features: Dict mapping outersplit_id to feature list.
-        test_data: Dict mapping outersplit_id to test DataFrame.
+        models: Dict mapping outer_split_id to fitted model.
+        selected_features: Dict mapping outer_split_id to feature list.
+        test_data: Dict mapping outer_split_id to test DataFrame.
         shap_type: SHAP explainer type (``'kernel'``, ``'permutation'``,
             ``'exact'``).
         max_samples: Maximum number of evaluation samples per split.

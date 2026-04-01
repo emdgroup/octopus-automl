@@ -24,8 +24,8 @@ print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict
 
 ### Create and run OctoClassification
 study = OctoClassification(
-    name="basic_classification",
-    path=os.environ.get("STUDIES_PATH", "./studies"),
+    study_name="basic_classification",
+    studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="AUCROC",
     feature_cols=features,
     target_col="target",
@@ -38,7 +38,7 @@ study = OctoClassification(
             depends_on=None,  # First task, depends on input
             models=[ModelName.ExtraTreesClassifier],
             n_trials=100,  # 100 trials for hyperparameter optimization
-            n_folds_inner=5,  # 5 inner folds
+            n_inner_splits=5,  # 5 inner splits
             max_features=30,  # Use all 30 features
             ensemble_selection=True,  # Enable ensemble selection
         ),

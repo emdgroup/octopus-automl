@@ -46,10 +46,10 @@ class ModuleExecution[T: Task](ABC):
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        outersplit_id: int,
+        outer_split_id: int,
         results_dir: UPath,
         scratch_dir: UPath,
-        num_assigned_cpus: int,
+        n_assigned_cpus: int,
         feature_groups: dict[str, list[str]],
         prior_results: dict[str, pd.DataFrame],
     ) -> dict[ResultType, ModuleResult]:

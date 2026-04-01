@@ -108,7 +108,7 @@ def display_table(data: Any) -> None:
 def _validate_study_structure(study_path: UPath, config: dict) -> dict:
     """Validate the study directory structure against the configuration.
 
-    Checks that expected outersplit directories and workflow task directories
+    Checks that expected outer split directories and workflow task directories
     exist.  Returns a dict of validation results without printing.
 
     Args:
@@ -117,32 +117,32 @@ def _validate_study_structure(study_path: UPath, config: dict) -> dict:
 
     Returns:
         Dictionary containing validation results with keys:
-            - 'outersplit_dirs': List of found outersplit directory paths
+            - 'outer_split_dirs': List of found outer split directory paths
             - 'expected_task_ids': List of expected task IDs
             - 'octo_workflow_tasks': List of task IDs for octo modules
-            - 'missing_outersplits': List of missing outersplit IDs
+            - 'missing_outer_splits': List of missing outer split IDs
             - 'missing_workflow_dirs': List of missing workflow directories
 
     Raises:
-        ValueError: If no outersplit directories or workflow results are found.
+        ValueError: If no outer split directories or workflow results are found.
     """
-    n_folds_outer = config["n_folds_outer"]
+    n_outer_splits = config["n_outer_splits"]
     workflow_tasks = config["workflow"]
 
-    outersplit = sorted(
+    outer_split_dirs = sorted(
         [d for d in study_path.glob("outersplit*") if d.is_dir()],
         key=lambda x: int(x.name.replace("outersplit", "")),
     )
 
-    if not outersplit:
+    if not outer_split_dirs:
         raise ValueError(
-            f"No outersplit directories found in study path.\n"
+            f"No outer split directories found in study path.\n"
             f"Study path: {study_path}\nThe study may not have been run yet."
         )
 
-    expected_outersplit_ids = list(range(n_folds_outer))
-    missing_outersplits = [
-        split_id for split_id in expected_outersplit_ids if not (study_path / f"outersplit{split_id}").exists()
+    expected_outer_split_ids = list(range(n_outer_splits))
+    missing_outer_splits = [
+        split_id for split_id in expected_outer_split_ids if not (study_path / f"outersplit{split_id}").exists()
     ]
 
     expected_task_ids = [task["task_id"] for task in workflow_tasks]
@@ -150,7 +150,7 @@ def _validate_study_structure(study_path: UPath, config: dict) -> dict:
     has_results = False
     missing_workflow_dirs: list[str] = []
 
-    for split_dir in outersplit:
+    for split_dir in outer_split_dirs:
         workflow_dirs = list(split_dir.glob("task*"))
         if workflow_dirs:
             has_results = True
@@ -160,15 +160,15 @@ def _validate_study_structure(study_path: UPath, config: dict) -> dict:
                 missing_workflow_dirs.append(f"{split_dir.name}/task{task_id}")
 
     if not has_results:
-        raise ValueError("No workflow results found in outersplits.\nThe study may not have completed successfully.")
+        raise ValueError("No workflow results found in outer splits.\nThe study may not have completed successfully.")
 
     octo_workflow_lst = [item["task_id"] for item in workflow_tasks if item["module"] == "octo"]
 
     return {
-        "outersplit_dirs": outersplit,
+        "outer_split_dirs": outer_split_dirs,
         "expected_task_ids": expected_task_ids,
         "octo_workflow_tasks": octo_workflow_lst,
-        "missing_outersplits": missing_outersplits,
+        "missing_outer_splits": missing_outer_splits,
         "missing_workflow_dirs": missing_workflow_dirs,
     }
 
@@ -178,7 +178,7 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
 
     This function reads the study configuration via ``StudyLoader``, validates
     the study structure, and displays information about the workflow tasks
-    and outersplit directories.
+    and outer split directories.
 
     Args:
         study_directory: Path to the study directory.
@@ -189,16 +189,16 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
             - 'path': UPath object of the study directory
             - 'config': Study configuration dictionary
             - 'ml_type': Machine learning type
-            - 'n_folds_outer': Number of outer folds
+            - 'n_outer_splits': Number of outer splits
             - 'workflow_tasks': List of workflow task configurations
-            - 'outersplit_dirs': List of outersplit directory paths
+            - 'outer_split_dirs': List of outer split directory paths
             - 'expected_task_ids': List of expected task IDs
             - 'octo_workflow_tasks': List of task IDs for octo modules
-            - 'missing_outersplits': List of missing outersplit IDs
+            - 'missing_outer_splits': List of missing outer split IDs
             - 'missing_workflow_dirs': List of missing workflow directories
 
     Raises:
-        ValueError: If no outersplit directories or workflow results are found.
+        ValueError: If no outer split directories or workflow results are found.
         FileNotFoundError: If the study directory does not exist.
 
     Example:
@@ -218,7 +218,7 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
     config = loader.load_config()
 
     ml_type = config["ml_type"]
-    n_folds_outer = config["n_folds_outer"]
+    n_outer_splits = config["n_outer_splits"]
     workflow_tasks = config["workflow"]
 
     if verbose:
@@ -227,23 +227,23 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
 
     # Delegate structure validation
     validation = _validate_study_structure(path_study, config)
-    outersplit = validation["outersplit_dirs"]
-    missing_outersplits = validation["missing_outersplits"]
+    outer_split_dirs = validation["outer_split_dirs"]
+    missing_outer_splits = validation["missing_outer_splits"]
     missing_workflow_dirs = validation["missing_workflow_dirs"]
     expected_task_ids = validation["expected_task_ids"]
     octo_workflow_lst = validation["octo_workflow_tasks"]
 
     if verbose:
-        print(f"Found {len(outersplit)} outersplit directory/directories")
-        expected_outersplit_ids = list(range(n_folds_outer))
-        print(f"Expected outersplit IDs: {expected_outersplit_ids}")
+        print(f"Found {len(outer_split_dirs)} outer split directory/directories")
+        expected_outer_split_ids = list(range(n_outer_splits))
+        print(f"Expected outer split IDs: {expected_outer_split_ids}")
 
-        if missing_outersplits:
-            for split_id in missing_outersplits:
+        if missing_outer_splits:
+            for split_id in missing_outer_splits:
                 print(f"  WARNING: Missing directory 'outersplit{split_id}'")
-            print(f"  {len(missing_outersplits)} outersplit directory/directories missing")
+            print(f"  {len(missing_outer_splits)} outer split directory/directories missing")
         else:
-            print("All expected outersplit directories found")
+            print("All expected outer split directories found")
 
         print(f"Expected workflow task IDs: {expected_task_ids}")
 
@@ -267,12 +267,12 @@ def show_study_details(study_directory: str | UPath, verbose: bool = True) -> di
         "path": path_study,
         "config": config,
         "ml_type": ml_type,
-        "n_folds_outer": n_folds_outer,
+        "n_outer_splits": n_outer_splits,
         "workflow_tasks": workflow_tasks,
-        "outersplit_dirs": outersplit,
+        "outer_split_dirs": outer_split_dirs,
         "expected_task_ids": expected_task_ids,
         "octo_workflow_tasks": octo_workflow_lst,
-        "missing_outersplits": missing_outersplits,
+        "missing_outer_splits": missing_outer_splits,
         "missing_workflow_dirs": missing_workflow_dirs,
     }
 
@@ -286,7 +286,7 @@ def show_target_metric_performance(
 
     Args:
         study_info: Dictionary returned by show_study_details().
-        details: If True, shows detailed information for each outersplit.
+        details: If True, shows detailed information for each outer split.
         report_test: If True, includes test-set performance columns
             (``test_avg``, ``test_ensemble``) in the output.  Default is False
             to prevent accidental data leakage during model selection.
@@ -355,7 +355,7 @@ def show_selected_features(
     Returns:
         Tuple of three DataFrames:
         - feature_table: Number of features per outer split for each task-key combination
-        - frequency_table: Feature frequency across outersplits
+        - frequency_table: Feature frequency across outer splits
         - raw_feature_table: Raw performance dataframe
 
     Example:
@@ -392,7 +392,7 @@ def show_testset_performance(
     predictor: TaskPredictorTest,
     metrics: list[str] | None = None,
 ) -> pd.DataFrame:
-    """Display test performance metrics across all outersplits for a task.
+    """Display test performance metrics across all outer splits for a task.
 
     Args:
         predictor: TaskPredictorTest instance for the task to evaluate.
@@ -400,7 +400,7 @@ def show_testset_performance(
             based on ML type.
 
     Returns:
-        DataFrame with outersplits as rows (plus a 'Mean' row), metrics as columns.
+        DataFrame with outer splits as rows (plus a 'Mean' row), metrics as columns.
 
     Example:
         >>> from octopus.predict import TaskPredictorTest
@@ -418,7 +418,7 @@ def show_testset_performance(
     print("Performance on test dataset (ensemble)")
 
     performance_long = predictor.performance(metrics=metrics)
-    df = performance_long.pivot(index="outersplit", columns="metric", values="score")
+    df = performance_long.pivot(index="outer_split", columns="metric", values="score")
 
     # Reorder columns to match metrics order
     available_cols = [m for m in metrics if m in df.columns]
@@ -483,12 +483,12 @@ def show_aucroc_plots(
 
     1. Merged ROC curve (all predictions pooled)
     2. Averaged ROC curve (mean +/- 1 std dev)
-    3. Individual ROC curves per outersplit (if show_individual=True)
+    3. Individual ROC curves per outer split (if show_individual=True)
 
     Args:
         predictor: TaskPredictorTest instance for a classification task.
         figsize: Figure size as (width, height) in inches.
-        show_individual: If True, also plot individual ROC curves per outersplit.
+        show_individual: If True, also plot individual ROC curves per outer split.
 
     Raises:
         ValueError: If the task is not for classification.
@@ -509,8 +509,8 @@ def show_aucroc_plots(
     roc_data = []
     mean_fpr = np.linspace(0, 1, 100)
 
-    for split_id in predictor.outersplits:
-        split_df = proba_df[proba_df["outersplit"] == split_id]
+    for split_id in predictor.outer_splits:
+        split_df = proba_df[proba_df["outer_split"] == split_id]
         probabilities = np.asarray(split_df[positive_class])
         target = np.asarray(split_df["target"])
 
@@ -604,9 +604,9 @@ def show_aucroc_plots(
         print("=" * 60)
 
         for key, fpr, tpr, auc_score, _ in roc_data:
-            print(f"\nOutersplit {key}: AUC = {auc_score:.3f}")
+            print(f"\nOuter Split {key}: AUC = {auc_score:.3f}")
             _create_roc_figure(
-                fpr, tpr, auc_score, f"ROC Curve - Outersplit {key}", f"Outersplit {key}", width_px, height_px
+                fpr, tpr, auc_score, f"ROC Curve - Outer Split {key}", f"Outer Split {key}", width_px, height_px
             ).show()
 
 
@@ -724,13 +724,13 @@ def show_confusionmatrix(
     threshold: float = 0.5,
     metrics: list[str] | None = None,
 ) -> None:
-    """Display confusion matrices and performance metrics for all outersplits.
+    """Display confusion matrices and performance metrics for all outer splits.
 
     Uses ``predictor.predict_proba(df=True)`` to get per-split probabilities
     and targets, avoiding manual access to models/data/features.
 
     Shows absolute and relative confusion matrices side-by-side (plotly subplots)
-    plus performance metrics for each outersplit and overall mean.
+    plus performance metrics for each outer split and overall mean.
 
     Args:
         predictor: TaskPredictorTest instance for a classification task.
@@ -756,8 +756,8 @@ def show_confusionmatrix(
 
     result_rows: list[dict[str, Any]] = []
 
-    # Compute all scores once (covers all outersplits) instead of calling
-    # predictor.performance() inside the loop for each outersplit.
+    # Compute all scores once (covers all outer splits) instead of calling
+    # predictor.performance() inside the loop for each outer split.
     all_scores = predictor.performance(metrics=metrics, threshold=threshold)
 
     print("=" * 80)
@@ -766,12 +766,12 @@ def show_confusionmatrix(
     print(f"Threshold: {threshold}")
     print(f"Metrics: {metrics}\n")
 
-    for outersplit_id in predictor.outersplits:
+    for outer_split_id in predictor.outer_splits:
         print(f"\n{'=' * 60}")
-        print(f"OUTERSPLIT {outersplit_id}")
+        print(f"OUTER SPLIT {outer_split_id}")
         print("=" * 60)
 
-        split_df = proba_df[proba_df["outersplit"] == outersplit_id]
+        split_df = proba_df[proba_df["outer_split"] == outer_split_id]
         probabilities = np.asarray(split_df[positive_class])
         target = np.asarray(split_df["target"])
 
@@ -779,25 +779,27 @@ def show_confusionmatrix(
 
         class_names = [str(c) for c in predictor.classes_]
 
-        fig = _create_confusion_figure(cm_abs, cm_rel, class_names, f"Confusion Matrices - Outersplit {outersplit_id}")
+        fig = _create_confusion_figure(
+            cm_abs, cm_rel, class_names, f"Confusion Matrices - Outer Split {outer_split_id}"
+        )
 
         print("\nConfusion Matrices:")
         fig.show()
 
-        # Filter pre-computed scores to this outersplit.  Threshold was passed
+        # Filter pre-computed scores to this outer split.  Threshold was passed
         # through to get_performance_from_model() so that prediction-type
         # metrics (ACC, F1) use the same threshold as the confusion matrix.
-        split_scores = all_scores[all_scores["outersplit"] == outersplit_id]
+        split_scores = all_scores[all_scores["outer_split"] == outer_split_id]
 
         print("\nPerformance Metrics:")
         for _, row in split_scores.iterrows():
             print(f"  {row['metric']:<15}: {row['score']:.4f}")
-            result_rows.append({"metric": row["metric"], "performance": row["score"], "outersplit_id": outersplit_id})
+            result_rows.append({"metric": row["metric"], "performance": row["score"], "outer_split_id": outer_split_id})
 
     df_results = pd.DataFrame(result_rows)
 
     print(f"\n{'=' * 80}")
-    print("OVERALL PERFORMANCE (Mean across all outersplits)")
+    print("OVERALL PERFORMANCE (Mean across all outer splits)")
     print("=" * 80)
     performance_mean = df_results.groupby("metric")["performance"].mean()
     for metric_name, value in performance_mean.items():

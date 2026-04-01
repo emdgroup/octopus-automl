@@ -9,7 +9,7 @@ from octopus.datasplit import InnerSplits
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.types import LogGroup, MetricDirection, MLType, ModelName, OptunaReturnType
+from octopus.types import LogGroup, MetricDirection, MLType, ModelName, ScoringMethod
 from octopus.utils import joblib_save
 
 from .bag import Bag, BagClassifier, BagRegressor
@@ -26,8 +26,8 @@ class ObjectiveOptuna:
 
     def __init__(
         self,
-        outersplit_task_id: str,
-        outersplit_id: int,
+        outer_split_task_id: str,
+        outer_split_id: int,
         ml_type: MLType,
         target_assignments: dict,
         feature_cols: list[str],
@@ -44,10 +44,10 @@ class ObjectiveOptuna:
         top_trials,
         mrmr_features,
         log_dir: UPath,
-        num_assigned_cpus: int,
+        n_assigned_cpus: int,
     ):
-        self.outersplit_task_id = outersplit_task_id
-        self.outersplit_id = outersplit_id
+        self.outer_split_task_id = outer_split_task_id
+        self.outer_split_id = outer_split_id
         self.ml_type = ml_type
         self.target_assignments = target_assignments
         self.feature_cols = feature_cols
@@ -65,18 +65,15 @@ class ObjectiveOptuna:
         self.mrmr_features = mrmr_features
         # saving trials
         self.ensel = self.config.ensemble_selection
-        self.n_save_trials = self.config.ensel_n_save_trials
+        self.n_save_trials = self.config.n_ensemble_candidates
         # parameters potentially used for optimizations
         self.ml_model_types = self.config.models
-        self.max_outl = self.config.max_outl
+        self.max_outl = self.config.max_outliers
         self.max_features = self.config.max_features
-        self.penalty_factor = self.config.penalty_factor
         self.hyper_parameters = self.config.hyperparameters
-        # fixed parameters
-        self.ml_seed = self.config.model_seed
         # training parameters
         self.log_dir = log_dir
-        self.num_assigned_cpus = num_assigned_cpus
+        self.n_assigned_cpus = n_assigned_cpus
 
     def __call__(self, trial: Trial) -> float:
         """Call.
@@ -99,9 +96,9 @@ class ObjectiveOptuna:
 
         # (3) number of outliers to be detected
         if self.max_outl > 0:
-            num_outl = trial.suggest_int(name="num_outl", low=0, high=self.max_outl)
+            n_outliers = trial.suggest_int(name="n_outliers", low=0, high=self.max_outl)
         else:
-            num_outl = 0
+            n_outliers = 0
 
         # (4) selected mrmr features
         if self.mrmr_features:
@@ -116,11 +113,11 @@ class ObjectiveOptuna:
             ml_model_type,
             self.hyper_parameters,
             n_jobs=1,  # inner parallelization happens over inner splits, so we do not allow any further parallelization here.  # TODO: how about setting parallelization over inner splits and then compute n_jobs accordingly?
-            model_seed=self.ml_seed,
+            model_seed=0,
         )
 
         config_training: TrainingConfig = {
-            "outl_reduction": num_outl,
+            "outl_reduction": n_outliers,
             "n_input_features": len(feature_cols),
             "ml_model_type": ml_model_type,
             "ml_model_params": model_params,
@@ -132,7 +129,7 @@ class ObjectiveOptuna:
         for key, split in self.data_splits.items():
             trainings.append(
                 Training(
-                    training_id=self.outersplit_task_id + "_" + str(key),
+                    training_id=self.outer_split_task_id + "_" + str(key),
                     ml_type=self.ml_type,
                     target_assignments=self.target_assignments,
                     feature_cols=feature_cols,
@@ -149,7 +146,7 @@ class ObjectiveOptuna:
 
         # create bag with all provided trainings
         bag_trainings = Bag(
-            bag_id=self.outersplit_task_id + "_" + str(trial.number),
+            bag_id=self.outer_split_task_id + "_" + str(trial.number),
             trainings=trainings,
             target_assignments=self.target_assignments,
             target_metric=self.target_metric,
@@ -160,10 +157,10 @@ class ObjectiveOptuna:
         )
 
         # train all models in bag
-        bag_trainings.fit(num_assigned_cpus=self.num_assigned_cpus)
+        bag_trainings.fit(n_assigned_cpus=self.n_assigned_cpus)
 
         # evaluate trainings using target metric
-        bag_performance = bag_trainings.get_performance(num_assigned_cpus=self.num_assigned_cpus)
+        bag_performance = bag_trainings.get_performance(n_assigned_cpus=self.n_assigned_cpus)
 
         # get number of features used in bag
         n_features_mean = bag_trainings.n_features_used_mean
@@ -179,7 +176,7 @@ class ObjectiveOptuna:
         self._log_trial_scores(bag_performance)
 
         # define optuna target
-        if self.config.optuna_return == OptunaReturnType.ENSEMBLE:
+        if self.config.scoring_method == ScoringMethod.COMBINED:
             optuna_target: float = bag_performance["dev_ensemble"]
         else:
             optuna_target = bag_performance["dev_avg"]
@@ -195,7 +192,7 @@ class ObjectiveOptuna:
             # only consider if n_features_mean > max_features
             diff_nfeatures = max(diff_nfeatures, 0)
             n_features = len(self.feature_cols)
-            optuna_target = optuna_target - self.penalty_factor * diff_nfeatures / n_features
+            optuna_target = optuna_target - self.config.penalty_factor * diff_nfeatures / n_features
 
         # save bag if we plan to run ensemble selection
         if self.ensel:
@@ -207,7 +204,7 @@ class ObjectiveOptuna:
         return optuna_target
 
     def _save_topn_trials(self, bag: BagClassifier | BagRegressor, target_value, n_trial):
-        max_n_trials = self.config.ensel_n_save_trials
+        max_n_trials = self.n_save_trials
         path_save = self.path_study / self.task_path / "scratch" / f"trial_{n_trial}_bag.joblib"
 
         # saving top n_trials to disk
@@ -224,7 +221,7 @@ class ObjectiveOptuna:
                 raise FileNotFoundError("Problem deleting trial-pkl file")
 
     def _log_trial_scores(self, scores):
-        logger.set_log_group(LogGroup.SCORES, f"OUTER {self.outersplit_id} SQE TBD")
+        logger.set_log_group(LogGroup.SCORES, f"OUTER {self.outer_split_id} SQE TBD")
         # Log the target metric
         logger.info(f"Trial scores for metric: {self.target_metric}")
 

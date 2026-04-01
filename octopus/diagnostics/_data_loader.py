@@ -2,7 +2,7 @@
 
 Replaces DuckDB's ``read_parquet(..., hive_partitioning=true)`` with
 :func:`load_parquet_glob` which iterates directories, reads individual
-parquet files, and extracts outersplit/task IDs from directory names.
+parquet files, and extracts outer_split/task IDs from directory names.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ def _extract_id_from_dirname(dirname: str, prefix: str) -> int | None:
 def load_parquet_glob(study_path: UPath, pattern: str) -> pd.DataFrame:
     """Load and concatenate parquet files matching a glob pattern.
 
-    Extracts ``outersplit_id`` and ``task_id`` from the directory structure,
+    Extracts ``outer_split_id`` and ``task_id`` from the directory structure,
     equivalent to DuckDB's ``hive_partitioning=true``.
 
     Args:
@@ -46,7 +46,7 @@ def load_parquet_glob(study_path: UPath, pattern: str) -> pd.DataFrame:
             (e.g. ``"outersplit*/task*/scores.parquet"``).
 
     Returns:
-        Concatenated DataFrame with ``outersplit_id`` and ``task_id``
+        Concatenated DataFrame with ``outer_split_id`` and ``task_id``
         columns added from directory names. Empty DataFrame if no
         files match.
     """
@@ -61,8 +61,8 @@ def load_parquet_glob(study_path: UPath, pattern: str) -> pd.DataFrame:
         parts = parquet_file.relative_to(study_path).parts
         for part in parts[:-1]:  # exclude filename
             outer_id = _extract_id_from_dirname(part, "outersplit")
-            if outer_id is not None and "outersplit_id" not in df.columns:
-                df["outersplit_id"] = outer_id
+            if outer_id is not None and "outer_split_id" not in df.columns:
+                df["outer_split_id"] = outer_id
             task_id = _extract_id_from_dirname(part, "task")
             if task_id is not None and "task_id" not in df.columns:
                 df["task_id"] = task_id
@@ -75,7 +75,7 @@ def load_parquet_glob(study_path: UPath, pattern: str) -> pd.DataFrame:
 
 
 def load_predictions(study_path: UPath) -> pd.DataFrame:
-    """Load all predictions parquet files across outersplits and tasks.
+    """Load all predictions parquet files across outer splits and tasks.
 
     Searches in ``outersplit*/task*/results/*/predictions.parquet`` to pick up
     results stored under ``results/best/`` and ``results/ensemble_selection/`` sub-directories.
@@ -89,8 +89,8 @@ def load_predictions(study_path: UPath) -> pd.DataFrame:
     return load_parquet_glob(study_path, "outersplit*/task*/results/*/predictions.parquet")
 
 
-def load_feature_importances(study_path: UPath) -> pd.DataFrame:
-    """Load all feature importance parquet files across outersplits and tasks.
+def load_fi(study_path: UPath) -> pd.DataFrame:
+    """Load all feature importance parquet files across outer splits and tasks.
 
     Searches in ``outersplit*/task*/results/*/feature_importances.parquet`` to pick up
     results stored under ``results/best/`` and ``results/ensemble_selection/`` sub-directories.
@@ -105,7 +105,7 @@ def load_feature_importances(study_path: UPath) -> pd.DataFrame:
 
 
 def load_optuna(study_path: UPath) -> pd.DataFrame:
-    """Load all Optuna parquet files across outersplits and tasks.
+    """Load all Optuna parquet files across outer splits and tasks.
 
     Args:
         study_path: Root path of the study directory.
@@ -117,7 +117,7 @@ def load_optuna(study_path: UPath) -> pd.DataFrame:
 
 
 def load_scores(study_path: UPath) -> pd.DataFrame:
-    """Load all scores parquet files across outersplits and tasks.
+    """Load all scores parquet files across outer splits and tasks.
 
     Searches in ``outersplit*/task*/results/*/scores.parquet`` to pick up
     results stored under ``results/best/`` and ``results/ensemble_selection/`` sub-directories.

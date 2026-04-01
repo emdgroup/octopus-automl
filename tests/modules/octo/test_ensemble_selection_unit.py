@@ -192,7 +192,7 @@ def create_partial_ensel(trials_path, target_metric="MAE", methods_to_run=None):
         path_trials=trials_path,
         max_n_iterations=10,
         row_id_col="row_id",
-        num_assigned_cpus=1,
+        n_assigned_cpus=1,
     )
 
 

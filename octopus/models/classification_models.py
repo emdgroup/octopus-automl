@@ -24,7 +24,7 @@ def extra_trees_classifier() -> ModelConfig:
     return ModelConfig(
         model_class=ExtraTreesClassifier,  # type: ignore[arg-type]
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=True,
@@ -51,7 +51,7 @@ def hist_gradient_boosting_classifier() -> ModelConfig:
     return ModelConfig(
         model_class=HistGradientBoostingClassifier,  # type: ignore[arg-type]
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,
@@ -78,7 +78,7 @@ def gradient_boosting_classifier() -> ModelConfig:
     return ModelConfig(
         model_class=GradientBoostingClassifier,  # type: ignore[arg-type]
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=True,
@@ -103,7 +103,7 @@ def random_forest_classifier() -> ModelConfig:
     return ModelConfig(
         model_class=RandomForestClassifier,  # type: ignore[arg-type]
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=True,  # maybe: False - check!
@@ -128,7 +128,7 @@ def xgb_classifier() -> ModelConfig:
     return ModelConfig(
         model_class=XGBClassifier,
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,
@@ -154,7 +154,7 @@ def catboost_classifier() -> ModelConfig:
         model_class=CatBoostClassifier,
         # Multiclass excluded: SHAP explainers segfault on CatBoost multiclass models.
         ml_types=[MLType.BINARY],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,
@@ -184,7 +184,7 @@ def logistic_regression_classifier() -> ModelConfig:
     return ModelConfig(
         model_class=LogisticRegression,  # type: ignore[arg-type]
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
-        feature_method=FIComputeMethod.PERMUTATION,
+        fi_method=FIComputeMethod.PERMUTATION,
         n_repeats=2,
         chpo_compatible=True,
         scaler="StandardScaler",
@@ -211,7 +211,7 @@ def gaussian_process_classifier() -> ModelConfig:
     return ModelConfig(
         model_class=GPClassifierWrapper,  # type: ignore[arg-type]
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
-        feature_method=FIComputeMethod.PERMUTATION,
+        fi_method=FIComputeMethod.PERMUTATION,
         n_repeats=2,
         chpo_compatible=False,
         scaler="StandardScaler",
