@@ -70,6 +70,9 @@ class ResourceConfig:
     available_cpus: int = field(validator=validators.instance_of(int))
     """Total number of CPUs available for parallel processing (inner * outer parallelization)."""
 
+    used_cpus: int = field(validator=validators.instance_of(int))
+    """Number of CPUs used based on the current configuration of workers and cpus_per_worker."""
+
     num_workers: int = field(validator=validators.instance_of(int))
     """Number of parallel outer workers."""
 
@@ -122,10 +125,13 @@ class ResourceConfig:
                 f"Cannot allocate resources: num_workers computed as 0 (effective_num_outersplits={effective_num_outersplits}, available_cpus={available_cpus})"
             )
 
+        cpus_per_worker = max(1, available_cpus // num_workers)
+
         return cls(
             available_cpus=available_cpus,
+            used_cpus=cpus_per_worker * num_workers,
             num_workers=num_workers,
-            cpus_per_worker=max(1, available_cpus // num_workers),
+            cpus_per_worker=cpus_per_worker,
             ray_nodes=ray_nodes,
             num_outersplits=num_outersplits,
             run_single_outersplit=run_single_outersplit,
@@ -139,6 +145,7 @@ class ResourceConfig:
             f"\nSingle outersplit: {self.run_single_outersplit}"
             f"\nOutersplits:       {self.num_outersplits}"
             f"\nAvailable CPUs:    {self.available_cpus}"
+            f"\nUsed CPUs:         {self.used_cpus}"
             f"\nWorkers:           {self.num_workers}"
             f"\nCPUs/outersplit:   {self.cpus_per_worker}"
             f"\nRay Nodes:\n\t{nodes}"
