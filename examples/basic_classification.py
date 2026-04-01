@@ -38,7 +38,7 @@ study = OctoClassification(
             depends_on=None,  # First task, depends on input
             models=[ModelName.ExtraTreesClassifier],
             n_trials=100,  # 100 trials for hyperparameter optimization
-            n_folds_inner=5,  # 5 inner folds
+            n_inner_splits=5,  # 5 inner folds
             max_features=30,  # Use all 30 features
             ensemble_selection=True,  # Enable ensemble selection
         ),

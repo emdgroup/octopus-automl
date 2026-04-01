@@ -80,16 +80,15 @@ study = OctoClassification(
             task_id=0,
             depends_on=None,  # No dependency (parallel with AutoGluon)
             # Cross-validation settings
-            n_folds_inner=5,
+            n_inner_splits=5,
             # Model selection - using tree-based models for feature importance
             models=[
                 ModelName.ExtraTreesClassifier,
             ],
-            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],  # Feature importance method
+            fi_methods=[FIComputeMethod.PERMUTATION],  # Feature importance method
             n_trials=100,  # Number of hyperparameter optimization trials
             # Constrained hyperparameter optimization
             # max_features=60,  # Maximum number of features to select
-            # penalty_factor=1.0,  # Complexity penalty for feature selection
         ),
         # Step 1: AutoGluon
         AutoGluon(

@@ -98,7 +98,6 @@ class TestOctoTimeToEvent:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
         )
 
         assert isinstance(octo_task, Octo)
@@ -108,7 +107,6 @@ class TestOctoTimeToEvent:
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10
         assert octo_task.models == [ModelName.CatBoostCoxSurvival]
 
     @pytest.mark.parametrize("model_name", [ModelName.CatBoostCoxSurvival, ModelName.XGBoostCoxSurvival])
@@ -122,14 +120,12 @@ class TestOctoTimeToEvent:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
         )
 
         assert octo_task.models == [model_name]
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10
 
     def test_multi_model_configuration(self):
         """Test configuration with both survival models."""
@@ -141,7 +137,6 @@ class TestOctoTimeToEvent:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
         )
 
         assert octo_task.models is not None
@@ -159,11 +154,9 @@ class TestOctoTimeToEvent:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
         )
 
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10
 
     def test_hyperparameter_optimization_configuration(self):
         """Test hyperparameter optimization configuration."""
@@ -175,10 +168,7 @@ class TestOctoTimeToEvent:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
-            optuna_seed=42,
-            n_optuna_startup_trials=5,
-            penalty_factor=1.5,
+            n_startup_trials=5,
         )
 
         assert octo_task.models is not None
@@ -187,10 +177,7 @@ class TestOctoTimeToEvent:
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10
-        assert octo_task.optuna_seed == 42
-        assert octo_task.n_optuna_startup_trials == 5
-        assert octo_task.penalty_factor == 1.5
+        assert octo_task.n_startup_trials == 5
 
     @pytest.mark.slow
     def test_octo_timetoevent_actual_execution(self, survival_dataset):
@@ -218,12 +205,8 @@ class TestOctoTimeToEvent:
                         n_trials=12,
                         max_features=6,
                         ensemble_selection=True,
-                        ensel_n_save_trials=10,
-                        model_seed=0,
-                        fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-                        optuna_seed=0,
-                        n_optuna_startup_trials=3,
-                        penalty_factor=1.0,
+                        fi_methods=[FIComputeMethod.PERMUTATION],
+                        n_startup_trials=3,
                     )
                 ],
             )
@@ -261,28 +244,20 @@ class TestOctoTimeToEvent:
             n_trials=12,
             max_features=6,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
-            model_seed=0,
-            max_outl=0,
-            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-            optuna_seed=0,
-            n_optuna_startup_trials=10,
-            penalty_factor=1.0,
-            n_folds_inner=5,
+            max_outliers=0,
+            fi_methods=[FIComputeMethod.PERMUTATION],
+            n_startup_trials=10,
+            n_inner_splits=5,
         )
 
         assert octo_task.task_id == 0
         assert octo_task.depends_on is None
         assert octo_task.description == "step_1"
         assert octo_task.models == [ModelName.CatBoostCoxSurvival]
-        assert octo_task.model_seed == 0
-        assert octo_task.max_outl == 0
-        assert octo_task.fi_methods_bestbag == [FIComputeMethod.PERMUTATION]
-        assert octo_task.optuna_seed == 0
-        assert octo_task.n_optuna_startup_trials == 10
+        assert octo_task.max_outliers == 0
+        assert octo_task.fi_methods == [FIComputeMethod.PERMUTATION]
+        assert octo_task.n_startup_trials == 10
         assert octo_task.n_trials == 12
         assert octo_task.max_features == 6
-        assert octo_task.penalty_factor == 1.0
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10
-        assert octo_task.n_folds_inner == 5
+        assert octo_task.n_inner_splits == 5

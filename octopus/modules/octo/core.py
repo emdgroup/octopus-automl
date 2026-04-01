@@ -17,8 +17,7 @@ from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult
-from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
-from octopus.types import CorrelationType, FIComputeMethod, LogGroup, MetricDirection, MLType, ResultType
+from octopus.types import FIComputeMethod, LogGroup, MetricDirection, MLType, ResultType
 from octopus.utils import joblib_load, parquet_save
 
 from .bag import Bag, BagBase
@@ -172,8 +171,8 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         # create datasplit during init
         self.data_splits_ = DataSplit(
             dataset=data_traindev,
-            seeds=self.config.datasplit_seeds_inner,
-            num_folds=self.config.n_folds_inner,
+            seeds=self.config.inner_split_seeds,
+            num_folds=self.config.n_inner_splits,
             stratification_col=study_context.stratification_col,
             process_id=f"OUTER {outersplit_id} SEQ TBD",
         ).get_inner_splits()
@@ -195,35 +194,8 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         y_traindev: pd.DataFrame,
         feature_cols: list[str],
     ):
-        """Calculate feature lists for all provided features numbers."""
+        """Initialize the feature set for Optuna optimization."""
         logger.info("Calculating MRMR feature sets...")
-        # remove duplicates and cap max number
-        feature_numbers = list(set(self.config.mrmr_feature_numbers))
-        feature_numbers = [x for x in feature_numbers if isinstance(x, int) and x <= len(feature_cols)]
-        # if no mrmr features are requested, only add original features
-        if not feature_numbers:
-            # add original features
-            self.mrmr_features_[len(feature_cols)] = feature_cols
-            return
-
-        # prepare inputs
-
-        # create relevance information
-        re_df = _relevance_fstats(
-            features=x_traindev,
-            target=y_traindev,
-            feature_cols=feature_cols,
-            ml_type=study_context.ml_type,
-        )
-
-        # calculate MRMR features for all feature_numbers
-        self.mrmr_features_ = _maxrminr(
-            features=x_traindev,
-            relevance=re_df,
-            requested_feature_counts=feature_numbers,
-            correlation_type=CorrelationType.SPEARMAN,
-        )
-        # add original features
         self.mrmr_features_[len(feature_cols)] = feature_cols
 
     def _run_ensemble_selection(
@@ -361,8 +333,8 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
                 multivariate=True,
                 group=True,
                 constant_liar=True,
-                seed=self.config.optuna_seed,
-                n_startup_trials=self.config.n_optuna_startup_trials,
+                seed=0,
+                n_startup_trials=self.config.n_startup_trials,
             )
 
         # create study with in-memory storage
@@ -479,7 +451,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         )
 
         # calculate feature importances of best bag
-        fi_methods = self.config.fi_methods_bestbag
+        fi_methods = self.config.fi_methods
         best_bag_fi = best_bag.calculate_feature_importances(
             fi_methods, partitions=["dev"], num_assigned_cpus=num_assigned_cpus
         )

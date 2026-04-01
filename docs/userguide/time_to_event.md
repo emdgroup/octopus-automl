@@ -69,7 +69,6 @@ study = OctoTimeToEvent(
             n_trials=20,
             max_features=5,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
         )
     ],
 )
@@ -131,13 +130,12 @@ Octo(
     n_trials=20,
     max_features=5,
     ensemble_selection=True,
-    ensel_n_save_trials=10,
 )
 ```
 
 ## Feature Importance
 
-The following feature importance methods are supported for T2E models via `fi_methods_bestbag`:
+The following feature importance methods are supported for T2E models via `fi_methods`:
 
 - **`permutation`** — Permutation importance using concordance index as scoring
 - **`shap`** — SHAP-based feature importance
@@ -148,6 +146,6 @@ Additionally, tree-based internal feature importances are always computed automa
 ```python
 Octo(
     ...,
-    fi_methods_bestbag=["permutation"],
+    fi_methods=["permutation"],
 )
 ```

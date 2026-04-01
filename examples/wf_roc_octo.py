@@ -55,21 +55,18 @@ study = OctoClassification(
             task_id=1,
             depends_on=0,  # Use output from ROC step
             # Cross-validation settings
-            n_folds_inner=5,
+            n_inner_splits=5,
             # Model selection
             models=[
                 ModelName.ExtraTreesClassifier,
                 # ModelName.RandomForestClassifier,
             ],
-            model_seed=0,
-            max_outl=0,  # No outlier removal
-            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],  # Feature importance method
+            max_outliers=0,  # No outlier removal
+            fi_methods=[FIComputeMethod.PERMUTATION],  # Feature importance method
             # Hyperparameter optimization with Optuna
-            optuna_seed=0,
-            n_optuna_startup_trials=10,
+            n_startup_trials=10,
             n_trials=12,  # Number of hyperparameter optimization trials
             max_features=12,  # Maximum number of features to select
-            penalty_factor=1.0,
         ),
     ],
 )

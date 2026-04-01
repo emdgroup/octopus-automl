@@ -102,7 +102,7 @@ class FIComputeMethod(StrEnum):
     """Computation methods for feature importance calculation.
 
     Used in model configuration (``ModelConfig.feature_method``), module
-    configuration (``Octo.fi_methods_bestbag``,
+    configuration (``Octo.fi_methods``,
     ``Mrmr.feature_importance_method``), and internal dispatch in bag
     and training code.
     """
@@ -197,15 +197,15 @@ class ROCFilterMethod(StrEnum):
     F_STATISTICS = "f_statistics"
 
 
-class OptunaReturnType(StrEnum):
+class ScoringMethod(StrEnum):
     """Determines which bag performance statistic is used as the Optuna optimisation target.
 
-    Used in ``Octo.optuna_return``:
-    - ``ENSEMBLE``: uses the ensembled dev score across all inner folds (dev_ensemble)
+    Used in ``Octo.scoring_method``:
+    - ``COMBINED``: uses the ensembled dev score across all inner folds (dev_ensemble)
     - ``AVERAGE``: uses the average of per-fold dev scores (dev_avg)
     """
 
-    ENSEMBLE = "ensemble"
+    COMBINED = "combined"
     AVERAGE = "average"
 
 

@@ -66,11 +66,10 @@ class TestRocOctoRocWorkflow:
                 description="step_1_octo",
                 task_id=1,
                 depends_on=0,
-                n_folds_inner=3,
+                n_inner_splits=3,
                 models=[ModelName.ExtraTreesClassifier],
-                model_seed=0,
-                max_outl=0,
-                fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
+                max_outliers=0,
+                fi_methods=[FIComputeMethod.PERMUTATION],
                 n_trials=6,
             ),
             Roc(
@@ -135,9 +134,8 @@ class TestRocOctoRocWorkflow:
                         description="step_1_octo",
                         task_id=1,
                         depends_on=0,
-                        n_folds_inner=3,
+                        n_inner_splits=3,
                         models=[ModelName.ExtraTreesClassifier],
-                        model_seed=0,
                         n_trials=15,
                     ),
                     Roc(
@@ -211,8 +209,7 @@ class TestRocOctoRocWorkflow:
                 models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
                 n_trials=10,
                 max_features=15,
-                n_folds_inner=5,
-                model_seed=42,
+                n_inner_splits=5,
             ),
             Roc(task_id=2, depends_on=1, threshold=0.5),
         ]
@@ -224,8 +221,7 @@ class TestRocOctoRocWorkflow:
         assert set(octo_step.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
         assert octo_step.n_trials == 10
         assert octo_step.max_features == 15
-        assert octo_step.n_folds_inner == 5
-        assert octo_step.model_seed == 42
+        assert octo_step.n_inner_splits == 5
 
     def test_workflow_sequence_validation(self):
         """Test that the workflow sequence is properly validated."""
@@ -275,11 +271,10 @@ class TestRocOctoRocWorkflow:
                         description="step_1_octo",
                         task_id=1,
                         depends_on=0,
-                        n_folds_inner=5,
+                        n_inner_splits=5,
                         models=[ModelName.ExtraTreesClassifier],
-                        model_seed=0,
                         n_trials=13,
-                        fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
+                        fi_methods=[FIComputeMethod.PERMUTATION],
                     ),
                     Roc(
                         description="step_2_roc_final",
