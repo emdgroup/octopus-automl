@@ -179,8 +179,8 @@ class ObjectiveOptuna:
         self._log_trial_scores(bag_performance)
 
         # define optuna target
-        if self.config.optuna_return == OptunaReturnType.POOL:
-            optuna_target: float = bag_performance["dev_pool"]
+        if self.config.optuna_return == OptunaReturnType.ENSEMBLE:
+            optuna_target: float = bag_performance["dev_ensemble"]
         else:
             optuna_target = bag_performance["dev_avg"]
 

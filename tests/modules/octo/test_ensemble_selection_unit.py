@@ -216,8 +216,8 @@ def test_collect_trials_basic(tmp_path):
         assert set(bag_data.keys()) == expected_keys
         assert isinstance(bag_data["performance"], dict)
         assert isinstance(bag_data["predictions"], dict)
-        assert "dev_pool" in bag_data["performance"]
-        assert "test_pool" in bag_data["performance"]
+        assert "dev_ensemble" in bag_data["performance"]
+        assert "test_ensemble" in bag_data["performance"]
 
 
 # Tests for EnSel._create_model_table() method
@@ -236,11 +236,11 @@ def test_create_model_table_sorting_minimize(tmp_path):
 
     # Verify model table structure
     assert len(ensel.model_table) == 3
-    expected_columns = {"id", "dev_pool", "test_pool", "dev_avg", "test_avg", "n_features_used_mean", "path"}
+    expected_columns = {"id", "dev_ensemble", "test_ensemble", "dev_avg", "test_avg", "n_features_used_mean", "path"}
     assert set(ensel.model_table.columns) == expected_columns
 
     # Verify sorting (ascending for minimize metrics)
-    dev_scores = ensel.model_table["dev_pool"].values
+    dev_scores = ensel.model_table["dev_ensemble"].values
     assert all(dev_scores[i] <= dev_scores[i + 1] for i in range(len(dev_scores) - 1))
 
     # Best model should be first
@@ -256,8 +256,8 @@ def test_create_model_table_identical_performance(tmp_path):
 
     # Should handle identical performance
     assert len(ensel.model_table) == 3
-    # All should have same dev_pool score
-    dev_scores = ensel.model_table["dev_pool"].values
+    # All should have same dev_ensemble score
+    dev_scores = ensel.model_table["dev_ensemble"].values
     assert np.all(dev_scores == 1.5)
 
 
@@ -277,10 +277,10 @@ def test_ensemble_models_single_bag(tmp_path):
 
     # Verify score structure
     assert isinstance(scores, dict)
-    expected_keys = {"dev_pool", "test_pool"}
+    expected_keys = {"dev_ensemble", "test_ensemble"}
     assert expected_keys.issubset(set(scores.keys()))
-    assert isinstance(scores["dev_pool"], (int | float))
-    assert isinstance(scores["test_pool"], (int | float))
+    assert isinstance(scores["dev_ensemble"], (int | float))
+    assert isinstance(scores["test_ensemble"], (int | float))
 
 
 # Tests for EnSel._ensemble_scan() method

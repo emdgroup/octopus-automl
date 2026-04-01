@@ -105,7 +105,7 @@ class Octo(Task):
     """List of feature numbers to be investigated by mrmr."""
 
     optuna_return: OptunaReturnType = field(
-        default=OptunaReturnType.POOL,
+        default=OptunaReturnType.ENSEMBLE,
         converter=OptunaReturnType,
         validator=validators.in_(list(OptunaReturnType)),
     )

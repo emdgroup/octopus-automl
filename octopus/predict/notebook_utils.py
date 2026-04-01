@@ -288,7 +288,7 @@ def show_target_metric_performance(
         study_info: Dictionary returned by show_study_details().
         details: If True, shows detailed information for each outersplit.
         report_test: If True, includes test-set performance columns
-            (``test_avg``, ``test_pool``) in the output.  Default is False
+            (``test_avg``, ``test_ensemble``) in the output.  Default is False
             to prevent accidental data leakage during model selection.
 
     Returns:
@@ -415,7 +415,7 @@ def show_testset_performance(
         else:
             metrics = []
 
-    print("Performance on test dataset (pooling)")
+    print("Performance on test dataset (ensemble)")
 
     performance_long = predictor.performance(metrics=metrics)
     df = performance_long.pivot(index="outersplit", columns="metric", values="score")

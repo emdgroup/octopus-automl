@@ -252,7 +252,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
     individual_performances = []
     for _model_name, bag in bags.items():
         scores = bag.get_performance(num_assigned_cpus=1)
-        individual_performances.append(scores["dev_pool"])
+        individual_performances.append(scores["dev_ensemble"])
 
     best_individual_mae = min(individual_performances)
 
@@ -273,7 +273,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
     # Calculate ensemble performance
     start_bags = list(start_ensemble.keys())
     start_scores = ensel._ensemble_models(start_bags)
-    ensemble_mae = start_scores["dev_pool"]
+    ensemble_mae = start_scores["dev_ensemble"]
 
     # Calculate true optimal ensemble performance using same bag predictions
     # Sum individual bag dev predictions instead of ensemble selection's averaging

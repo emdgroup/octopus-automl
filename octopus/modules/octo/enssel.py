@@ -89,8 +89,8 @@ class EnSel:
         for key, value in self.bags.items():
             s = pd.Series()
             s["id"] = value["id"]
-            s["dev_pool"] = value["performance"]["dev_pool"]  # relevant
-            s["test_pool"] = value["performance"]["test_pool"]
+            s["dev_ensemble"] = value["performance"]["dev_ensemble"]  # relevant
+            s["test_ensemble"] = value["performance"]["test_ensemble"]
             s["dev_avg"] = value["performance"]["dev_avg"]
             s["test_avg"] = value["performance"]["test_avg"]
             s["n_features_used_mean"] = value["n_features_used_mean"]
@@ -103,7 +103,7 @@ class EnSel:
         # (a) direction
         ascending = self.direction != MetricDirection.MAXIMIZE
 
-        self.model_table = self.model_table.sort_values(by="dev_pool", ascending=ascending).reset_index(drop=True)
+        self.model_table = self.model_table.sort_values(by="dev_ensemble", ascending=ascending).reset_index(drop=True)
 
         logger.info("Model Table:")
         logger.info(f"\n{self.model_table.head(20)}")
@@ -155,8 +155,8 @@ class EnSel:
 
         # Add ensemble performance with renamed keys
         if "ensemble" in performance:
-            performance_output["dev_pool"] = performance["ensemble"]["dev"]
-            performance_output["test_pool"] = performance["ensemble"]["test"]
+            performance_output["dev_ensemble"] = performance["ensemble"]["dev"]
+            performance_output["test_ensemble"] = performance["ensemble"]["test"]
 
         return performance_output
 
@@ -165,8 +165,8 @@ class EnSel:
         self.scan_table = pd.DataFrame(
             columns=[
                 "#models",
-                "dev_pool",
-                "test_pool",
+                "dev_ensemble",
+                "test_ensemble",
             ]
         )
 
@@ -175,8 +175,8 @@ class EnSel:
             scores = self._ensemble_models(bag_keys)
             self.scan_table.loc[i] = [
                 i + 1,
-                scores["dev_pool"],
-                scores["test_pool"],
+                scores["dev_ensemble"],
+                scores["test_ensemble"],
             ]
         logger.info("Scan Table:")
         logger.info(f"\n{self.scan_table.head(20)}")
@@ -190,16 +190,16 @@ class EnSel:
         """
         if self.direction == MetricDirection.MAXIMIZE:
             # Get all indices with the max value, then take the last one
-            best_value = self.scan_table["dev_pool"].max()
-            best_idx = self.scan_table[self.scan_table["dev_pool"] == best_value].index[-1]
+            best_value = self.scan_table["dev_ensemble"].max()
+            best_idx = self.scan_table[self.scan_table["dev_ensemble"] == best_value].index[-1]
         else:
             # Get all indices with the min value, then take the last one
-            best_value = self.scan_table["dev_pool"].min()
-            best_idx = self.scan_table[self.scan_table["dev_pool"] == best_value].index[-1]
+            best_value = self.scan_table["dev_ensemble"].min()
+            best_idx = self.scan_table[self.scan_table["dev_ensemble"] == best_value].index[-1]
         start_n = int(self.scan_table.loc[best_idx, "#models"])
         logger.info(f"Ensemble scan, number of included best models: {start_n}")
-        logger.info(f"Ensemble scan, dev_pool value: {self.scan_table.loc[best_idx, 'dev_pool']}")
-        logger.info(f"Ensemble scan, test_pool value: {self.scan_table.loc[best_idx, 'test_pool']}")
+        logger.info(f"Ensemble scan, dev_ensemble value: {self.scan_table.loc[best_idx, 'dev_ensemble']}")
+        logger.info(f"Ensemble scan, test_ensemble value: {self.scan_table.loc[best_idx, 'test_ensemble']}")
 
         # startn_bags dict with path as key and repeats=1 as value
         escan_ensemble: dict[UPath, int] = {}
@@ -210,7 +210,7 @@ class EnSel:
         # we start with the bags found in ensemble scan
         results: list[tuple[str | UPath, float, list[UPath]]] = []
         start_bags = list(escan_ensemble.keys())
-        start_perf = self._ensemble_models(start_bags)["dev_pool"]
+        start_perf = self._ensemble_models(start_bags)["dev_ensemble"]
         logger.info("Ensemble optimization")
         logger.info(f"Start performance: {start_perf}")
         # record start performance
@@ -227,7 +227,7 @@ class EnSel:
                 bags_lst = copy.deepcopy(bags_ensemble)
                 bags_lst.append(model)
                 perf = self._ensemble_models(bags_lst)
-                df.loc[len(df)] = [model, perf["dev_pool"], perf["test_pool"]]
+                df.loc[len(df)] = [model, perf["dev_ensemble"], perf["test_ensemble"]]
 
             if self.direction == MetricDirection.MAXIMIZE:
                 idx_best = df["performance_dev"].idxmax()
