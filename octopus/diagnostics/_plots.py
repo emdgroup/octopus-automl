@@ -1,238 +1,21 @@
-"""Plotly chart functions for diagnostics — replaces Altair charts from evaluation notebooks."""
+"""Plotly chart functions for study diagnostics.
+
+Provides chart functions for exploring Optuna hyperparameter tuning results
+and saved feature importances:
+
+- :func:`plot_optuna_trial_counts_chart` — bar chart of trial counts per model type
+- :func:`plot_optuna_trials_chart` — scatter + cumulative best line per trial
+- :func:`plot_optuna_hyperparameters_chart` — hyperparameter value vs objective scatter
+- :func:`plot_feature_importance_chart` — bar chart of saved feature importances
+"""
 
 from __future__ import annotations
 
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from sklearn.metrics import confusion_matrix
 
-from octopus.types import FIResultLabel, MetricDirection
-
-
-def plot_feature_importance_chart(
-    df: pd.DataFrame,
-    *,
-    outersplit_id: int | str = 0,
-    task_id: int | str = 0,
-    training_id: str = "",
-    fi_method: str | FIResultLabel = "",
-) -> go.Figure:
-    """Create a feature importance bar chart.
-
-    Args:
-        df: Feature importances DataFrame with columns:
-            feature, importance, fi_method, training_id, outersplit_id, task_id.
-        outersplit_id: Outer split to filter on.
-        task_id: Task to filter on.
-        training_id: Training ID to filter on. If empty, uses first available.
-        fi_method: FI method to filter on. If empty, uses first available.
-
-    Returns:
-        Plotly Figure.
-    """
-    mask = (df["outersplit_id"] == int(outersplit_id)) & (df["task_id"] == int(task_id))
-    if training_id:
-        mask &= df["training_id"] == training_id
-    if fi_method:
-        mask &= df["fi_method"] == fi_method
-
-    filtered = df[mask].copy()
-    if filtered.empty:
-        fig = go.Figure()
-        fig.update_layout(title="No data for selected filters")
-        return fig
-
-    filtered = filtered.sort_values("importance", ascending=False)
-
-    fig = go.Figure(
-        data=go.Bar(
-            x=filtered["feature"],
-            y=filtered["importance"],
-            marker={"color": "royalblue"},
-            hovertemplate="Feature: %{x}<br>Importance: %{y:.4f}<extra></extra>",
-        )
-    )
-    fig.update_layout(
-        title="Feature Importance",
-        xaxis_title="Feature",
-        yaxis_title="Importance",
-        xaxis={"tickangle": -45, "tickfont": {"size": 10}},
-        width=700,
-        height=450,
-    )
-    return fig
-
-
-def plot_confusion_matrix_chart(
-    df_predictions: pd.DataFrame,
-    *,
-    outersplit_id: int | str = 0,
-    task_id: int | str = 0,
-    training_id: str = "",
-) -> go.Figure:
-    """Create a confusion matrix heatmap from saved predictions.
-
-    Args:
-        df_predictions: Predictions DataFrame with columns:
-            prediction, target, partition, outersplit_id, task_id, inner_split_id.
-        outersplit_id: Outer split to filter on.
-        task_id: Task to filter on.
-        training_id: Training ID / inner_split_id to filter on.
-
-    Returns:
-        Plotly Figure with absolute and relative confusion matrices.
-    """
-    mask = (
-        (df_predictions["outersplit_id"] == int(outersplit_id))
-        & (df_predictions["task_id"] == int(task_id))
-        & (df_predictions["partition"] == "test")
-    )
-    if training_id and "inner_split_id" in df_predictions.columns:
-        mask &= df_predictions["inner_split_id"].astype(str) == str(training_id)
-
-    filtered = df_predictions[mask]
-    if filtered.empty:
-        fig = go.Figure()
-        fig.update_layout(title="No test data for selected filters")
-        return fig
-
-    y_true = filtered["target"].to_numpy()
-    y_pred = filtered["prediction"].astype(int).to_numpy()
-    class_labels = sorted(set(y_true) | set(y_pred))
-    class_names = [str(c) for c in class_labels]
-
-    cm_abs = confusion_matrix(y_true, y_pred, labels=class_labels)
-    cm_rel = confusion_matrix(y_true, y_pred, labels=class_labels, normalize="true")
-
-    fig = make_subplots(
-        rows=1,
-        cols=2,
-        subplot_titles=["Confusion Matrix (Absolute)", "Confusion Matrix (Relative %)"],
-        horizontal_spacing=0.25,
-    )
-
-    cm_rel_text = [[f"{val:.1f}%" for val in row] for row in cm_rel * 100]
-    cm_abs_max = float(cm_abs.max()) if cm_abs.size > 0 else 1
-
-    fig.add_trace(
-        go.Heatmap(
-            z=cm_abs,
-            x=class_names,  # type: ignore[arg-type]
-            y=class_names,  # type: ignore[arg-type]
-            text=cm_abs,
-            texttemplate="%{text}",
-            textfont={"size": 12},
-            colorscale="Blues",
-            showscale=True,
-            zmin=0,
-            zmax=cm_abs_max,
-            colorbar={"x": 0.42, "len": 0.75, "thickness": 15},
-        ),
-        row=1,
-        col=1,
-    )
-
-    fig.add_trace(
-        go.Heatmap(
-            z=cm_rel * 100,
-            x=class_names,  # type: ignore[arg-type]
-            y=class_names,  # type: ignore[arg-type]
-            text=cm_rel_text,  # type: ignore[arg-type]
-            texttemplate="%{text}",
-            textfont={"size": 12},
-            colorscale="Blues",
-            showscale=True,
-            zmin=0,
-            zmax=100,
-            colorbar={"x": 1.05, "len": 0.75, "thickness": 15},
-        ),
-        row=1,
-        col=2,
-    )
-
-    fig.update_xaxes(title_text="Predicted Label", row=1, col=1, side="bottom")
-    fig.update_yaxes(title_text="True Label", row=1, col=1, autorange="reversed")
-    fig.update_xaxes(title_text="Predicted Label", row=1, col=2, side="bottom")
-    fig.update_yaxes(title_text="True Label", row=1, col=2, autorange="reversed")
-
-    fig.update_layout(
-        title_text=f"Confusion Matrix — outersplit {outersplit_id}, task {task_id}",
-        width=900,
-        height=420,
-        showlegend=False,
-    )
-    return fig
-
-
-def plot_predictions_vs_truth_chart(
-    df_predictions: pd.DataFrame,
-    *,
-    outersplit_id: int | str = 0,
-    task_id: int | str = 0,
-    training_id: str = "",
-) -> go.Figure:
-    """Create a prediction vs ground truth scatter plot (regression).
-
-    Args:
-        df_predictions: Predictions DataFrame.
-        outersplit_id: Outer split to filter on.
-        task_id: Task to filter on.
-        training_id: Training ID / inner_split_id to filter on.
-
-    Returns:
-        Plotly Figure.
-    """
-    mask = (df_predictions["outersplit_id"] == int(outersplit_id)) & (df_predictions["task_id"] == int(task_id))
-    if training_id and "inner_split_id" in df_predictions.columns:
-        mask &= df_predictions["inner_split_id"].astype(str) == str(training_id)
-
-    filtered = df_predictions[mask]
-    if filtered.empty:
-        fig = go.Figure()
-        fig.update_layout(title="No data for selected filters")
-        return fig
-
-    # Color by partition (train/test/dev)
-    partitions = filtered["partition"].unique() if "partition" in filtered.columns else ["all"]
-    colors = {"train": "blue", "test": "red", "dev": "green"}
-
-    fig = go.Figure()
-
-    for part in sorted(partitions):
-        part_data = filtered[filtered["partition"] == part] if "partition" in filtered.columns else filtered
-        fig.add_trace(
-            go.Scatter(
-                x=part_data["target"],
-                y=part_data["prediction"],
-                mode="markers",
-                name=str(part),
-                marker={"color": colors.get(str(part), "gray"), "size": 5, "opacity": 0.6},
-                hovertemplate="Target: %{x:.3f}<br>Prediction: %{y:.3f}<extra></extra>",
-            )
-        )
-
-    # Diagonal reference line
-    all_vals = pd.concat([filtered["target"], filtered["prediction"]])
-    val_min, val_max = float(all_vals.min()), float(all_vals.max())
-    fig.add_trace(
-        go.Scatter(
-            x=[val_min, val_max],
-            y=[val_min, val_max],
-            mode="lines",
-            name="Perfect",
-            line={"dash": "dash", "color": "black", "width": 1},
-        )
-    )
-
-    fig.update_layout(
-        title=f"Prediction vs Ground Truth — outersplit {outersplit_id}, task {task_id}",
-        xaxis_title="Ground Truth",
-        yaxis_title="Prediction",
-        width=650,
-        height=500,
-    )
-    return fig
+from octopus.types import MetricDirection
 
 
 def plot_optuna_trial_counts_chart(df_optuna: pd.DataFrame) -> go.Figure:
@@ -321,6 +104,11 @@ def plot_optuna_trials_chart(
     Returns:
         Plotly Figure.
     """
+    if df_optuna.empty:
+        fig = go.Figure()
+        fig.update_layout(title="No Optuna data for selected filters")
+        return fig
+
     mask = (df_optuna["outersplit_id"] == int(outersplit_id)) & (df_optuna["task_id"] == int(task_id))
     filtered = df_optuna[mask]
     if filtered.empty:
@@ -379,11 +167,14 @@ def plot_optuna_trials_chart(
         )
     )
 
+    # Auto-detect whether log scale is appropriate (all values must be positive)
+    all_positive = (trial_values["value"] > 0).all()
+
     fig.update_layout(
         title=f"Optuna Trials — outersplit {outersplit_id}, task {task_id}",
         xaxis_title="Trial",
         yaxis_title="Objective Value",
-        yaxis_type="log",
+        yaxis_type="log" if all_positive else "linear",
         width=700,
         height=450,
     )
@@ -408,6 +199,11 @@ def plot_optuna_hyperparameters_chart(
     Returns:
         Plotly Figure with subplots per hyperparameter.
     """
+    if df_optuna.empty:
+        fig = go.Figure()
+        fig.update_layout(title="No Optuna data for selected filters")
+        return fig
+
     mask = (df_optuna["outersplit_id"] == int(outersplit_id)) & (df_optuna["task_id"] == int(task_id))
     if model_type:
         mask &= df_optuna["model_type"] == model_type
@@ -465,5 +261,122 @@ def plot_optuna_hyperparameters_chart(
         + (f", {model_type}" if model_type else ""),
         height=300 * max(rows, 1),
         width=700,
+    )
+    return fig
+
+
+# ── Feature Importance Charts ──────────────────────────────────
+
+
+def plot_feature_importance_chart(
+    df_fi: pd.DataFrame,
+    *,
+    outersplit_id: int | str | None = None,
+    task_id: int | str | None = None,
+    fi_method: str = "",
+    fi_dataset: str = "",
+    training_id: str = "",
+    module: str = "",
+    result_type: str = "",
+    top_n: int | None = 20,
+) -> go.Figure:
+    """Create a horizontal bar chart of saved feature importances.
+
+    Filters the FI DataFrame by any combination of available dimensions,
+    then aggregates (mean) importance per feature across remaining rows.
+
+    Args:
+        df_fi: Feature importances DataFrame (from ``load_feature_importances``).
+        outersplit_id: Filter by outer split ID. None = all.
+        task_id: Filter by task ID. None = all.
+        fi_method: Filter by FI method (e.g. ``"internal"``, ``"permutation"``).
+            Empty string = all.
+        fi_dataset: Filter by dataset partition (e.g. ``"train"``, ``"dev"``).
+            Empty string = all.
+        training_id: Filter by training ID (e.g. ``"0_0_0"``).
+            Empty string = all.
+        module: Filter by module name (e.g. ``"octo"``).
+            Empty string = all.
+        result_type: Filter by result type (e.g. ``"best"``, ``"ensemble_selection"``).
+            Empty string = all.
+        top_n: Number of top features to display (by mean importance).
+            None = show all features.
+
+    Returns:
+        Plotly Figure with horizontal bar chart sorted by importance.
+    """
+    if df_fi.empty:
+        fig = go.Figure()
+        fig.update_layout(title="No feature importance data available")
+        return fig
+
+    filtered = df_fi.copy()
+
+    # Apply filters for each dimension
+    if outersplit_id is not None and "outersplit_id" in filtered.columns:
+        filtered = filtered[filtered["outersplit_id"] == int(outersplit_id)]
+    if task_id is not None and "task_id" in filtered.columns:
+        filtered = filtered[filtered["task_id"] == int(task_id)]
+    if fi_method and "fi_method" in filtered.columns:
+        filtered = filtered[filtered["fi_method"] == fi_method]
+    if fi_dataset and "fi_dataset" in filtered.columns:
+        filtered = filtered[filtered["fi_dataset"] == fi_dataset]
+    if training_id and "training_id" in filtered.columns:
+        filtered = filtered[filtered["training_id"] == training_id]
+    if module and "module" in filtered.columns:
+        filtered = filtered[filtered["module"] == module]
+    if result_type and "result_type" in filtered.columns:
+        filtered = filtered[filtered["result_type"] == result_type]
+
+    if filtered.empty:
+        fig = go.Figure()
+        fig.update_layout(title="No feature importance data for selected filters")
+        return fig
+
+    # Aggregate: mean importance per feature
+    agg = filtered.groupby("feature")["importance"].mean().reset_index()
+    agg = agg.sort_values("importance", ascending=True)  # ascending for horizontal bar
+
+    if top_n is not None:
+        agg = agg.tail(top_n)
+
+    # Build title from active filters
+    title_parts = ["Feature Importance"]
+    if fi_method:
+        title_parts.append(f"method={fi_method}")
+    if fi_dataset:
+        title_parts.append(f"dataset={fi_dataset}")
+    if outersplit_id is not None:
+        title_parts.append(f"outersplit={outersplit_id}")
+    if task_id is not None:
+        title_parts.append(f"task={task_id}")
+    if training_id:
+        title_parts.append(f"training={training_id}")
+    if module:
+        title_parts.append(f"module={module}")
+    if result_type:
+        title_parts.append(f"result_type={result_type}")
+
+    title = " — ".join(title_parts)
+    if top_n is not None:
+        title = f"Top {min(top_n, len(agg))} {title}"
+
+    fig = go.Figure(
+        data=go.Bar(
+            x=agg["importance"],
+            y=agg["feature"],
+            orientation="h",
+            marker={"color": "royalblue"},
+            hovertemplate="%{y}: %{x:.4f}<extra></extra>",
+        )
+    )
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="Mean Importance",
+        yaxis_title="Feature",
+        height=max(400, 20 * len(agg)),
+        width=700,
+        margin={"l": 150},
     )
     return fig

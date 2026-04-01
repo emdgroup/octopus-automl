@@ -1,0 +1,279 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Diagnostics (Universal)\n",
+    "\n",
+    "This notebook provides a universal diagnostics workflow that works for **any ML type**\n",
+    "(binary classification, multiclass, regression, time-to-event).\n",
+    "\n",
+    "**Part 1 — Study Overview** (via `predict/notebook_utils`): study details, performance metrics, selected features.\n",
+    "\n",
+    "**Part 2 — Feature Importances** (via `diagnostics`): saved FI parquet files, filterable by method, dataset, etc.\n",
+    "\n",
+    "**Part 3 — Optuna Diagnostics** (via `diagnostics`): trial counts, trials scatter, hyperparameters.\n",
+    "\n",
+    "No model loading is performed."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Imports"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from octopus.predict.notebook_utils import (\n",
+    "    find_latest_study,\n",
+    "    show_study_details,\n",
+    "    show_target_metric_performance,\n",
+    "    show_selected_features,\n",
+    ")\n",
+    "from octopus.diagnostics import StudyDiagnostics"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Input"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "study_name_prefix = \"wf_octo_mrmr_octo\"\n",
+    "studies_root = \"../studies\"\n",
+    "\n",
+    "study_directory = find_latest_study(studies_root, study_name_prefix)\n",
+    "print(f\"Using study: {study_directory}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "## Part 1: Study Overview"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Study Details"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "study_info = show_study_details(study_directory)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Target Metric Performance"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "performance_tables = show_target_metric_performance(study_info)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Selected Features Summary"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "feature_table, freq_table, raw = show_selected_features(study_info)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "## Part 2: Feature Importances (from saved results)\n",
+    "\n",
+    "Two-step workflow:\n",
+    "1. **`get_feature_importances()`** — load raw FI data filtered by task/module (returns a DataFrame)\n",
+    "2. **`plot_feature_importance()`** — plot the FI data with additional filters (fi_method, fi_dataset, etc.)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "diag = StudyDiagnostics(study_info[\"path\"])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Load raw FI data for task 0"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "fi_table = diag.get_feature_importances(task_id=0, result_type=\"best\")\n",
+    "print(f\"FI rows: {len(fi_table)}\")\n",
+    "for col in [\"fi_method\", \"fi_dataset\", \"training_id\", \"module\", \"outersplit_id\"]:\n",
+    "    if col in fi_table.columns:\n",
+    "        print(f\"  {col}: {sorted(fi_table[col].unique().tolist())}\")\n",
+    "fi_table.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Internal Feature Importance (train set)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "diag.plot_feature_importance(fi_table, fi_method=\"internal\", fi_dataset=\"train\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Permutation Feature Importance (dev set)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "diag.plot_feature_importance(fi_table, fi_method=\"permutation\", fi_dataset=\"dev\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Single outersplit view"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "diag.plot_feature_importance(fi_table, fi_method=\"internal\", outersplit_id=0, top_n=15)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "---\n",
+    "## Part 3: Optuna Diagnostics"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Number of Unique Trials by Model Type"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "diag.plot_optuna_trial_counts()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Optuna Trials: Objective Value and Best Value"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "diag.plot_optuna_trials(outersplit_id=0, task_id=0)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Optuna Hyperparameters"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "diag.plot_optuna_hyperparameters(outersplit_id=0, task_id=0)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python",
+   "version": "3.12.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}

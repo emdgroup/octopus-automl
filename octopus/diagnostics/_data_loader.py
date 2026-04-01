@@ -1,13 +1,14 @@
-"""Data loading utilities for diagnostics — pandas-based parquet glob reader.
+"""Data loading utilities for diagnostics.
 
-Replaces DuckDB's ``read_parquet(..., hive_partitioning=true)`` with
-:func:`load_parquet_glob` which iterates directories, reads individual
-parquet files, and extracts outersplit/task IDs from directory names.
+Provides :func:`load_parquet_glob` as a generic glob-based parquet reader,
+:func:`load_optuna` for Optuna trial results, and
+:func:`load_feature_importances` for saved feature importance parquet files.
 """
 
 from __future__ import annotations
 
 import re
+import warnings
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -43,18 +44,22 @@ def load_parquet_glob(study_path: UPath, pattern: str) -> pd.DataFrame:
     Args:
         study_path: Root path of the study directory.
         pattern: Glob pattern relative to study_path
-            (e.g. ``"outersplit*/task*/scores.parquet"``).
+            (e.g. ``"outersplit*/task*/results/optuna_results.parquet"``).
 
     Returns:
         Concatenated DataFrame with ``outersplit_id`` and ``task_id``
-        columns added from directory names. Empty DataFrame if no
-        files match.
+        columns added from directory names (unless already present in
+        the parquet data). Empty DataFrame if no files match.
     """
     dfs: list[pd.DataFrame] = []
     for parquet_file in sorted(study_path.glob(pattern)):
         try:
             df = parquet_load(parquet_file)
         except Exception:
+            warnings.warn(
+                f"Failed to read parquet file, skipping: {parquet_file}",
+                stacklevel=2,
+            )
             continue
 
         # Extract IDs from path components
@@ -74,36 +79,6 @@ def load_parquet_glob(study_path: UPath, pattern: str) -> pd.DataFrame:
     return pd.concat(dfs, ignore_index=True)
 
 
-def load_predictions(study_path: UPath) -> pd.DataFrame:
-    """Load all predictions parquet files across outersplits and tasks.
-
-    Searches in ``outersplit*/task*/results/*/predictions.parquet`` to pick up
-    results stored under ``results/best/`` and ``results/ensemble_selection/`` sub-directories.
-
-    Args:
-        study_path: Root path of the study directory.
-
-    Returns:
-        Combined predictions DataFrame.
-    """
-    return load_parquet_glob(study_path, "outersplit*/task*/results/*/predictions.parquet")
-
-
-def load_feature_importances(study_path: UPath) -> pd.DataFrame:
-    """Load all feature importance parquet files across outersplits and tasks.
-
-    Searches in ``outersplit*/task*/results/*/feature_importances.parquet`` to pick up
-    results stored under ``results/best/`` and ``results/ensemble_selection/`` sub-directories.
-
-    Args:
-        study_path: Root path of the study directory.
-
-    Returns:
-        Combined feature importances DataFrame.
-    """
-    return load_parquet_glob(study_path, "outersplit*/task*/results/*/feature_importances.parquet")
-
-
 def load_optuna(study_path: UPath) -> pd.DataFrame:
     """Load all Optuna parquet files across outersplits and tasks.
 
@@ -116,16 +91,19 @@ def load_optuna(study_path: UPath) -> pd.DataFrame:
     return load_parquet_glob(study_path, "outersplit*/task*/results/optuna_results.parquet")
 
 
-def load_scores(study_path: UPath) -> pd.DataFrame:
-    """Load all scores parquet files across outersplits and tasks.
+def load_feature_importances(study_path: UPath) -> pd.DataFrame:
+    """Load all saved feature importance parquet files across outersplits and tasks.
 
-    Searches in ``outersplit*/task*/results/*/scores.parquet`` to pick up
-    results stored under ``results/best/`` and ``results/ensemble_selection/`` sub-directories.
+    Reads ``feature_importances.parquet`` from both ``best/`` and
+    ``ensemble_selection/`` result directories.
 
     Args:
         study_path: Root path of the study directory.
 
     Returns:
-        Combined scores DataFrame.
+        Combined feature importances DataFrame with columns including
+        ``feature``, ``importance``, ``fi_method``, ``fi_dataset``,
+        ``training_id``, ``module``, ``result_type``, plus injected
+        ``outersplit_id`` and ``task_id``.
     """
-    return load_parquet_glob(study_path, "outersplit*/task*/results/*/scores.parquet")
+    return load_parquet_glob(study_path, "outersplit*/task*/results/*/feature_importances.parquet")
