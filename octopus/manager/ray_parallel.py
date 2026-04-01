@@ -9,6 +9,8 @@ import ray
 import threadpoolctl
 from attrs import define, field, validators
 from ray.runtime_env import RuntimeEnv
+from ray.util.placement_group import get_current_placement_group, placement_group
+from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from upath import UPath
 
 from octopus.datasplit import OuterSplit, OuterSplits
@@ -313,6 +315,54 @@ def run_parallel_inner(
     )
 
 
+def _create_parallel_task[T](
+    context: str,
+    task_idx: int,
+    task: Callable[[], T],
+    log_dir: UPath,
+    num_cpus: int,
+) -> ray.ObjectRef[tuple[int, T]]:
+    @ray.remote
+    def run_task(task_idx: int, task: Callable[[], T], log_dir: UPath) -> tuple[int, T]:
+        _setup_worker_logging(log_dir)
+        with threadpoolctl.threadpool_limits(limits=num_cpus):
+            try:
+                result = task()
+                logger.debug(f"Completed task {task_name}.")
+                return task_idx, result
+            except Exception as e:
+                logger.exception(f"Exception in task {task_name} during parallel execution: {e!s}")
+                raise e
+
+    task_name = f"{context}_task_{task_idx}"
+
+    if (pg := get_current_placement_group()) is None:
+        # reserve resources required for this task and all child-tasks
+        pg = placement_group([{"CPU": num_cpus}], name=f"{task_name}")
+
+        logger.debug(f"Waiting for Ray placement group for {task_name} to be ready...")
+        while not pg.wait(timeout_seconds=5):
+            logger.debug("... still waiting ...")
+
+        logger.debug(f"Ray placement group {pg.id} for task {task_name} ready.")
+    else:
+        # this is a child task, we should already be within a placement group created by the parent task, so we
+        # just use that one to ensure we stay colocated with the parent task and siblings
+        logger.debug(f"Using existing Ray placement group {pg.id} for task {task_name}.")
+
+    return run_task.options(
+        name=f"{task_name}",
+        # logically do not reserve any CPUs as we take care of scheduling/resource allocation ourselves here...
+        num_cpus=0,
+        # ... and set environment variables to prevent oversubscription inside the tasks
+        runtime_env=RuntimeEnv(env_vars=dict.fromkeys(_PARALLELIZATION_ENV_VARS, str(num_cpus))),
+        # make sure task and child tasks end up inside the same PlacementGroup
+        scheduling_strategy=PlacementGroupSchedulingStrategy(
+            placement_group=pg, placement_group_capture_child_tasks=True
+        ),
+    ).remote(task_idx, task, log_dir)
+
+
 def run[T](
     context: str,
     tasks: list[Callable[[], T]],
@@ -351,29 +401,12 @@ def run[T](
         if not ray.is_initialized():
             raise RuntimeError("Ray is not initialized. Call ray_parallel.init() first.")
 
-        # do our best to prevent oversubscription of CPUs by setting environment variables that many libraries respect (e.g. OpenBLAS, MKL, NumExpr, etc.)
-        runtime_env = RuntimeEnv(env_vars=dict.fromkeys(_PARALLELIZATION_ENV_VARS, str(num_cpus_per_worker)))
-
-        @ray.remote
-        def run_task(task_idx: int, task: Callable[[], T], log_dir: UPath) -> tuple[int, T]:
-            _setup_worker_logging(log_dir)
-            with threadpoolctl.threadpool_limits(limits=num_cpus_per_worker):
-                try:
-                    result = task()
-                    logger.debug(f"Completed task {task_idx} in parallel execution of {context}.")
-                    return task_idx, result
-                except Exception as e:
-                    logger.exception(
-                        f"Exception in task {task_idx} during parallel execution of {context}_task{task_idx}: {e!s}"
-                    )
-                    raise e
-
         # Fill task queue and limit concurrency to num_assigned_cpus to avoid oversubscription.
         # Approach from https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html
 
         results: list[T] = [None] * len(tasks)  # type: ignore[list-item]
 
-        inflight_refs: list[ray.ObjectRef] = []
+        inflight_refs: list[ray.ObjectRef[tuple[int, T]]] = []
         for task_idx, task in enumerate(tasks):
             if len(inflight_refs) >= num_workers:
                 # wait for at least one task to complete before launching more to limit resource usage
@@ -383,15 +416,7 @@ def run[T](
                     result_idx, result = ray.get(ref)
                     results[result_idx] = result
 
-            inflight_refs.append(
-                run_task.options(
-                    name=f"{context}_task_{task_idx}",
-                    # logically do not reserve any CPUs as we take care of scheduling/resource allocation ourselves here...
-                    num_cpus=0,
-                    # ... and set environment variables to prevent oversubscription inside the tasks
-                    runtime_env=runtime_env,
-                ).remote(task_idx, task, log_dir)
-            )
+            inflight_refs.append(_create_parallel_task(context, task_idx, task, log_dir, num_cpus_per_worker))
 
         # Wait for any remaining tasks to complete
         for result_idx, result in ray.get(inflight_refs):
