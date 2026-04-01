@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from attrs import define, field, validators
 
+from octopus.types import ModelName
+
 from ..base import ModuleExecution, Task
 
 
@@ -17,21 +19,27 @@ class Boruta(Task):
     Configuration:
         model: Model to use for Boruta (defaults based on ml_type)
         cv: Number of CV folds
-        perc: Percentile threshold for shadow feature comparison
-        alpha: Significance level for p-values
+        threshold: Percentile threshold for shadow feature comparison (0-100)
+        alpha: Significance level for p-values (0-1)
     """
 
-    model: str = field(validator=[validators.instance_of(str)], default="")
-    """Model used by Boruta."""
+    model: ModelName | None = field(default=None, converter=lambda v: ModelName(v) if v is not None else None)
+    """Model used by Boruta. If None, defaults are resolved at fit time based on ml_type."""
 
     cv: int = field(validator=[validators.instance_of(int)], default=5)
     """Number of folds for CV."""
 
-    perc: int = field(validator=[validators.instance_of(int)], default=100)
-    """Percentile (threshold) for comparison between shadow and real features."""
+    threshold: int = field(
+        default=100,
+        validator=[validators.instance_of(int), validators.ge(0), validators.le(100)],
+    )
+    """Percentile threshold for comparison between shadow and real features (0-100)."""
 
-    alpha: float = field(validator=[validators.instance_of(float)], default=0.05)
-    """Level at which the corrected p-values will get rejected."""
+    alpha: float = field(
+        default=0.05,
+        validator=[validators.instance_of(float), validators.gt(0), validators.lt(1)],
+    )
+    """Significance level at which the corrected p-values will get rejected (0-1)."""
 
     def create_module(self) -> ModuleExecution:
         """Create BorutaModule execution instance."""

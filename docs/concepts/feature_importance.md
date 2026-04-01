@@ -264,7 +264,7 @@ from octopus.types import ModelName
 boruta = Boruta(
     task_id=0,
     model=ModelName.RandomForestClassifier,
-    perc=100,
+    threshold=100,
 )
 
 boruta.fit(...)

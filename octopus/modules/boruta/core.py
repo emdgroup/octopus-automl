@@ -88,7 +88,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
         else:
             raise ValueError(f"{study_context.ml_type} not supported")
 
-        model_type = ModelName(self.config.model) if self.config.model else default_model
+        model_type = self.config.model if self.config.model is not None else default_model
 
         if model_type not in supported_models:
             raise ValueError(f"{model_type} not supported")
@@ -133,7 +133,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
         boruta = BorutaPy(
             estimator=model,
             n_estimators="auto",
-            perc=self.config.perc,
+            perc=self.config.threshold,
             alpha=self.config.alpha,
             random_state=42,
             verbose=0,
