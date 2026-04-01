@@ -20,9 +20,6 @@ class AutoGluon(Task):
     engineering, hyperparameter optimization, and model selection.
     """
 
-    verbosity: int = field(default=2, validator=validators.instance_of(int))
-    """Verbosity level (0=exceptions, 1=warnings, 2=standard, 3=verbose, 4=max)."""
-
     time_limit: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
     """Training time limit in seconds."""
 

@@ -64,7 +64,6 @@ class TestAutogluonWorkflows:
                     depends_on=None,
                     presets=["medium_quality"],
                     time_limit=15,
-                    verbosity=0,
                 ),
             ],
         )
@@ -128,7 +127,6 @@ class TestAutogluonWorkflows:
                     depends_on=None,
                     presets=["medium_quality"],
                     time_limit=15,
-                    verbosity=0,
                 ),
             ],
         )

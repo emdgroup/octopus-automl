@@ -95,7 +95,6 @@ study = OctoClassification(
             description="step_1_autogluon",
             task_id=1,
             depends_on=None,  # No dependency (parallel with Octo)
-            verbosity=3,  # Standard logging
             time_limit=600,
             presets=["medium_quality"],  # Balance between speed and accuracy
             num_bag_folds=5,  # 5-fold bagging for ensemble models
