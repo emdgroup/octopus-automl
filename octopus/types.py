@@ -201,11 +201,11 @@ class OptunaReturnType(StrEnum):
     """Determines which bag performance statistic is used as the Optuna optimisation target.
 
     Used in ``Octo.optuna_return``:
-    - ``POOL``: uses the pooled dev score across all inner folds (dev_pool)
+    - ``ENSEMBLE``: uses the ensembled dev score across all inner folds (dev_ensemble)
     - ``AVERAGE``: uses the average of per-fold dev scores (dev_avg)
     """
 
-    POOL = "pool"
+    ENSEMBLE = "ensemble"
     AVERAGE = "average"
 
 

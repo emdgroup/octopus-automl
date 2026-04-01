@@ -488,7 +488,7 @@ class StudyLoader:
 
                     perf_df = loader.load_scores()
 
-                    # Filter out per_fold rows — only keep avg and pool aggregations
+                    # Filter out per_fold rows — only keep avg and ensemble aggregations
                     if not perf_df.empty and "aggregation" in perf_df.columns:
                         perf_df = perf_df[perf_df["aggregation"] != "per_fold"]
 

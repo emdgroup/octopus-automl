@@ -288,7 +288,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         logger.set_log_group(LogGroup.RESULTS)
         logger.info("Ensemble selection performance")
         logger.info(
-            f"Training: {training_id} {target_metric} (ensemble selection): Dev {ensel_scores['dev_pool']:.3f}, Test {ensel_scores['test_pool']:.3f}"
+            f"Training: {training_id} {target_metric} (ensemble selection): Dev {ensel_scores['dev_ensemble']:.3f}, Test {ensel_scores['test_ensemble']:.3f}"
         )
 
         # calculate feature importances of best bag
@@ -474,8 +474,8 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             f"Training: {training_id} "
             f"{target_metric} "
             f"(best bag - ensembled): "
-            f"Dev {best_bag_performance['dev_pool']:.3f}, "
-            f"Test {best_bag_performance['test_pool']:.3f}"
+            f"Dev {best_bag_performance['dev_ensemble']:.3f}, "
+            f"Test {best_bag_performance['test_ensemble']:.3f}"
         )
 
         # calculate feature importances of best bag

@@ -413,9 +413,9 @@ class BagBase(BaseEstimator):
 
         # Add ensemble performance with renamed keys
         if "ensemble" in performance:
-            performance_output["train_pool"] = performance["ensemble"]["train"]
-            performance_output["dev_pool"] = performance["ensemble"]["dev"]
-            performance_output["test_pool"] = performance["ensemble"]["test"]
+            performance_output["train_ensemble"] = performance["ensemble"]["train"]
+            performance_output["dev_ensemble"] = performance["ensemble"]["dev"]
+            performance_output["test_ensemble"] = performance["ensemble"]["test"]
 
         return performance_output
 
@@ -436,7 +436,7 @@ class BagBase(BaseEstimator):
         for partition in ["train", "dev", "test"]:
             lst_key = f"{partition}_lst"
             avg_key = f"{partition}_avg"
-            pool_key = f"{partition}_pool"
+            ensemble_key = f"{partition}_ensemble"
 
             if lst_key in perf:
                 for fold_idx, val in enumerate(perf[lst_key]):
@@ -459,14 +459,14 @@ class BagBase(BaseEstimator):
                         "value": perf[avg_key],
                     }
                 )
-            if pool_key in perf:
+            if ensemble_key in perf:
                 rows.append(
                     {
                         "metric": metric,
                         "partition": partition,
-                        "aggregation": "pool",
+                        "aggregation": "ensemble",
                         "fold": None,
-                        "value": perf[pool_key],
+                        "value": perf[ensemble_key],
                     }
                 )
 
