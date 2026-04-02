@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from attrs import define, field, validators
 
-from octopus.types import CorrelationType, ROCFilterMethod
+from octopus.types import CorrelationType, RelevanceMethod
 
 from ..base import ModuleExecution, Task
 
@@ -15,17 +15,17 @@ class Roc(Task):
 
     This module identifies groups of correlated features and selects the most
     informative feature from each group, removing the rest. Uses correlation
-    analysis (Spearman or RDC) combined with feature filtering (mutual information
-    or F-statistics) to determine which features to keep.
+    analysis (Spearman or RDC) combined with feature relevance scoring (mutual
+    information or F-statistics) to determine which features to keep.
 
     Configuration:
-        threshold: Correlation threshold above which features are considered correlated
+        correlation_threshold: Correlation threshold above which features are considered correlated
         correlation_type: Type of correlation measure (CorrelationType.SPEARMAN or CorrelationType.RDC)
-        filter_type: Method to select best feature in group (ROCFilterMethod.MUTUAL_INFO or ROCFilterMethod.F_STATISTICS)
+        relevance_method: Method to select best feature in group (RelevanceMethod.MUTUAL_INFO or RelevanceMethod.F_STATISTICS)
     """
 
-    threshold: float = field(validator=[validators.instance_of(float)], default=0.8)
-    """Threshold for feature removal (features with correlation > threshold are grouped)."""
+    correlation_threshold: float = field(validator=[validators.instance_of(float)], default=0.8)
+    """Correlation threshold for feature removal (features with correlation > threshold are grouped)."""
 
     correlation_type: CorrelationType = field(
         converter=CorrelationType,
@@ -34,12 +34,12 @@ class Roc(Task):
     )
     """Selection of correlation type."""
 
-    filter_type: ROCFilterMethod = field(
-        converter=ROCFilterMethod,
-        validator=validators.in_([ROCFilterMethod.MUTUAL_INFO, ROCFilterMethod.F_STATISTICS]),
-        default=ROCFilterMethod.F_STATISTICS,
+    relevance_method: RelevanceMethod = field(
+        converter=RelevanceMethod,
+        validator=validators.in_([RelevanceMethod.MUTUAL_INFO, RelevanceMethod.F_STATISTICS]),
+        default=RelevanceMethod.F_STATISTICS,
     )
-    """Selection of filter type for correlated features."""
+    """Method to score feature relevance within correlated groups."""
 
     def create_module(self) -> ModuleExecution:
         """Create RocModule execution instance."""

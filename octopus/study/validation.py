@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 
 from attrs import Attribute
 
-from octopus.modules import Task
+from octopus.modules import Mrmr, Roc, Task
+from octopus.types import RelevanceMethod
 
 if TYPE_CHECKING:
     from octopus.study.core import OctoStudy
@@ -119,4 +120,22 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Seque
                     f"'depends_on={depends_on}', which refers to an item"
                     " that comes after it in the workflow. 'depends_on' must"
                     " refer to a preceding 'task_id'."
+                )
+
+    # Condition 7: Mrmr with relevance_method=PERMUTATION must depend on a module
+    # that produces feature importances (not Roc or Mrmr)
+    _MODULES_WITHOUT_FI = (Roc, Mrmr)
+    for item in value:
+        if (
+            isinstance(item, Mrmr)
+            and item.relevance_method == RelevanceMethod.PERMUTATION
+            and item.depends_on is not None
+        ):
+            upstream_idx = task_id_to_index[item.depends_on]
+            upstream_task = value[upstream_idx]
+            if isinstance(upstream_task, _MODULES_WITHOUT_FI):
+                raise ValueError(
+                    f"Mrmr (task_id={item.task_id}) with relevance_method='permutation' cannot depend on "
+                    f"{type(upstream_task).__name__} (task_id={upstream_task.task_id}) because it does not produce "
+                    "feature importances. Use Octo, Boruta, or AutoGluon as the upstream task."
                 )

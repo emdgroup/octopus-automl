@@ -244,7 +244,7 @@ from octopus.modules import Roc
 
 roc = Roc(
     task_id=0,
-    threshold=0.8,
+    correlation_threshold=0.8,
     correlation_type=CorrelationType.SPEARMAN,
 )
 
@@ -264,7 +264,7 @@ from octopus.types import ModelName
 boruta = Boruta(
     task_id=0,
     model=ModelName.RandomForestClassifier,
-    perc=100,
+    threshold=100,
 )
 
 boruta.fit(...)

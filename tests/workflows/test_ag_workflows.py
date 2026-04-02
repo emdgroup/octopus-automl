@@ -47,17 +47,16 @@ class TestAutogluonWorkflows:
     def test_full_classification_workflow(self):
         """Test the complete classification workflow execution."""
         study = OctoClassification(
-            name="test_classification_workflow",
+            study_name="test_classification_workflow",
             target_metric="ACCBAL",
             feature_cols=self.features,
             target_col="target",
             sample_id_col="index",
             stratification_col="target",
-            datasplit_seed_outer=1234,
-            n_folds_outer=5,
-            path=self.studies_path,
-            ignore_data_health_warning=True,
-            run_single_outersplit_num=0,
+            outer_split_seed=1234,
+            n_outer_splits=5,
+            study_path=self.studies_path,
+            single_outer_split=0,
             workflow=[
                 AutoGluon(
                     description="ag_test",
@@ -65,7 +64,6 @@ class TestAutogluonWorkflows:
                     depends_on=None,
                     presets=["medium_quality"],
                     time_limit=15,
-                    verbosity=0,
                 ),
             ],
         )
@@ -113,16 +111,15 @@ class TestAutogluonWorkflows:
         df_regression = df_regression.reset_index()
 
         study = OctoRegression(
-            name="test_regression_workflow",
+            study_name="test_regression_workflow",
             target_metric="MAE",
             feature_cols=feature_names,
             target_col="target",
             sample_id_col="index",
-            datasplit_seed_outer=1234,
-            n_folds_outer=2,
-            path=self.studies_path,
-            ignore_data_health_warning=True,
-            run_single_outersplit_num=0,
+            outer_split_seed=1234,
+            n_outer_splits=2,
+            study_path=self.studies_path,
+            single_outer_split=0,
             workflow=[
                 AutoGluon(
                     description="ag_regression_test",
@@ -130,7 +127,6 @@ class TestAutogluonWorkflows:
                     depends_on=None,
                     presets=["medium_quality"],
                     time_limit=15,
-                    verbosity=0,
                 ),
             ],
         )

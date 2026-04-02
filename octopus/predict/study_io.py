@@ -383,7 +383,7 @@ class StudyLoader:
             positive_class=config.get("positive_class"),
             row_id_col=row_id_col,
             feature_cols=config.get("prepared", {}).get("feature_cols", []),
-            n_outersplits=config.get("n_folds_outer", 0),
+            n_outersplits=config.get("n_outer_splits", 0),
         )
 
     def load_task_artifacts(

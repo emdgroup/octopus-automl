@@ -41,7 +41,7 @@ class OctoStudy(ABC):
     sample_id_col: str = field(validator=validators.instance_of(str))
     """Identifier for sample instances."""
 
-    name: str = field(default="Octopus", validator=[validators.instance_of(str)])
+    study_name: str = field(default="Octopus", validator=[validators.instance_of(str)])
     """The name of the study. Defaults to 'Octopus'."""
 
     row_id_col: str | None = field(
@@ -56,24 +56,19 @@ class OctoStudy(ABC):
     )
     """Column used for stratification during data splitting."""
 
-    n_folds_outer: int = field(default=5 if not _RUNNING_IN_TESTSUITE else 2, validator=[validators.instance_of(int)])
-    """The number of outer folds for cross-validation. Defaults to 5."""
+    n_outer_splits: int = field(default=5 if not _RUNNING_IN_TESTSUITE else 2, validator=[validators.instance_of(int)])
+    """Number of outer cross-validation splits. Defaults to 5."""
 
-    datasplit_seed_outer: int = field(default=0, validator=[validators.instance_of(int)])
-    """The seed used for data splitting in outer cross-validation. Defaults to 0."""
-
-    ignore_data_health_warning: bool = field(default=Factory(lambda: False), validator=[validators.instance_of(bool)])
-    """Ignore data health checks warning and run machine learning workflow."""
+    outer_split_seed: int = field(default=0, validator=[validators.instance_of(int)])
+    """Seed for outer cross-validation splitting. Defaults to 0."""
 
     num_cpus: int = field(default=0, validator=validators.instance_of(int))
     """Number of CPUs to use for parallel processing. Default value 0 uses all available CPUs.
        Negative values indicate abs(num_cpus) to leave free, e.g. -1 means use all but one CPU.
        Set to 1 to disable all parallel processing and run sequentially."""
 
-    run_single_outersplit_num: int | None = field(
-        default=None, validator=validators.optional(validators.instance_of(int))
-    )
-    """Select a single outersplit to execute. Defaults to None to run all outersplits"""
+    single_outer_split: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
+    """Select a single outer split to execute. Defaults to None to run all outer splits."""
 
     workflow: Sequence[Task] = field(
         default=Factory(lambda: [Octo(task_id=0)]),
@@ -81,7 +76,7 @@ class OctoStudy(ABC):
     )
     """A list of tasks that defines the processing workflow. Each item in the list is an instance of `Task`."""
 
-    path: UPath = field(default=UPath("./studies/"), converter=lambda x: UPath(x))
+    study_path: UPath = field(default=UPath("./studies/"), converter=lambda x: UPath(x))
     """The path where study outputs are saved. Defaults to "./studies/"."""
 
     ml_type: MLType = field(init=False)
@@ -108,8 +103,8 @@ class OctoStudy(ABC):
         if self._fit_timestamp is None:
             raise RuntimeError("output_path is not available until fit() has been called.")
         fit_dt = datetime.datetime.fromisoformat(self._fit_timestamp)
-        folder_name = f"{self.name}-{fit_dt.strftime('%Y%m%d_%H%M%S')}"
-        return self.path / folder_name
+        folder_name = f"{self.study_name}-{fit_dt.strftime('%Y%m%d_%H%M%S')}"
+        return self.study_path / folder_name
 
     @property
     def log_dir(self) -> UPath:
@@ -247,13 +242,13 @@ class OctoStudy(ABC):
 
         outersplits = DataSplit(
             dataset=data_clean,
-            seeds=[self.datasplit_seed_outer],
-            num_folds=self.n_folds_outer,
+            seeds=[self.outer_split_seed],
+            num_folds=self.n_outer_splits,
             stratification_col=self.stratification_col,
         ).get_outer_splits()
 
-        if self.run_single_outersplit_num is not None:
-            splits_to_validate = {self.run_single_outersplit_num: outersplits[self.run_single_outersplit_num]}
+        if self.single_outer_split is not None:
+            splits_to_validate = {self.single_outer_split: outersplits[self.single_outer_split]}
         else:
             splits_to_validate = outersplits
 
@@ -294,10 +289,8 @@ class OctoStudy(ABC):
         if has_critical:
             raise ValueError(f"Critical data issues detected. Please check: {report_path}")
 
-        if has_warning and not self.ignore_data_health_warning:
-            raise ValueError(
-                f"Data issues detected. Please check: {report_path}\nTo proceed despite warnings, set `ignore_data_health_warning=True`."
-            )
+        if has_warning:
+            logger.warning("Data quality warnings detected. Please check: %s", report_path)
 
     def _flush_logger(self):
         """Flush and close the file log handler.
@@ -359,7 +352,7 @@ class OctoStudy(ABC):
             study_context=study_context,
             workflow=self.workflow,
             num_cpus=self.num_cpus,
-            run_single_outersplit_num=self.run_single_outersplit_num,
+            single_outer_split=self.single_outer_split,
         )
         manager.run_outersplits()
         logger.info("Study completed. Results saved to: %s", self.output_path)

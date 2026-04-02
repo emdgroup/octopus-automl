@@ -88,7 +88,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
         else:
             raise ValueError(f"{study_context.ml_type} not supported")
 
-        model_type = ModelName(self.config.model) if self.config.model else default_model
+        model_type = self.config.model if self.config.model is not None else default_model
 
         if model_type not in supported_models:
             raise ValueError(f"{model_type} not supported")
@@ -105,9 +105,9 @@ class BorutaModule(ModuleExecution["Boruta"]):
 
         cv: int | StratifiedKFold
         if study_context.stratification_col:
-            cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
+            cv = StratifiedKFold(n_splits=self.config.n_inner_splits, shuffle=True, random_state=42)
         else:
-            cv = self.config.cv
+            cv = self.config.n_inner_splits
 
         # Hyperparameter optimization
         grid_search = GridSearchCV(
@@ -133,7 +133,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
         boruta = BorutaPy(
             estimator=model,
             n_estimators="auto",
-            perc=self.config.perc,
+            perc=self.config.threshold,
             alpha=self.config.alpha,
             random_state=42,
             verbose=0,

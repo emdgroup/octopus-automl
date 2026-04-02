@@ -20,9 +20,6 @@ class AutoGluon(Task):
     engineering, hyperparameter optimization, and model selection.
     """
 
-    verbosity: int = field(default=2, validator=validators.instance_of(int))
-    """Verbosity level (0=exceptions, 1=warnings, 2=standard, 3=verbose, 4=max)."""
-
     time_limit: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
     """Training time limit in seconds."""
 
@@ -39,7 +36,17 @@ class AutoGluon(Task):
         converter=AutoGluonFitStrategy,
         validator=validators.in_(list(AutoGluonFitStrategy)),
     )
-    """Model fitting strategy: Sequential or parallel fitting."""
+    """Controls whether AutoGluon trains models one at a time or concurrently by
+    trading off exploration of more model types and quality of the individual
+    models.
+
+    - ``SEQUENTIAL`` (default): Trains one model at a time. Each model gets all
+      CPUs allocated to the worker, individual models train quickly and
+      benefit more from full CPU access.
+    - ``PARALLEL``: Trains multiple models in parallel, splitting CPUs across
+      them. Explores more model types within a tight ``time_limit`` but gives
+      each model fewer resources.
+    """
 
     presets: list[str] = field(
         default=["medium_quality"],

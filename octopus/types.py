@@ -102,7 +102,7 @@ class FIComputeMethod(StrEnum):
     """Computation methods for feature importance calculation.
 
     Used in model configuration (``ModelConfig.feature_method``), module
-    configuration (``Octo.fi_methods_bestbag``,
+    configuration (``Octo.fi_methods``,
     ``Mrmr.feature_importance_method``), and internal dispatch in bag
     and training code.
     """
@@ -164,16 +164,19 @@ class CorrelationType(StrEnum):
     RDC = "rdc"
 
 
-class MRMRRelevance(StrEnum):
-    """Method used to compute feature relevance to the target in MRMR.
+class RelevanceMethod(StrEnum):
+    """Method used to compute feature relevance to the target.
 
-    Used in ``Mrmr.relevance_type``:
-    - ``PERMUTATION``: re-uses permutation importances from a prior workflow module
-    - ``F_STATISTICS``: computes F-statistics (f_classif / f_regression) from scratch
+    Used in:
+    - ``Roc.relevance_method``: scoring features within correlated groups
+    - ``Mrmr.relevance_method``: computing feature-target relevance for MRMR ranking
+
+    Each module restricts the valid subset via its own attrs validator.
     """
 
+    F_STATISTICS = "f_statistics"
+    MUTUAL_INFO = "mutual_info"
     PERMUTATION = "permutation"
-    F_STATISTICS = "f-statistics"
 
 
 class AutoGluonFitStrategy(StrEnum):
@@ -186,26 +189,15 @@ class AutoGluonFitStrategy(StrEnum):
     PARALLEL = "parallel"
 
 
-class ROCFilterMethod(StrEnum):
-    """Scoring method used to rank features within a correlated group in the ROC module.
-
-    The highest-scoring feature in each group is kept; the rest are removed.
-    Used in ``Roc.filter_type``.
-    """
-
-    MUTUAL_INFO = "mutual_info"
-    F_STATISTICS = "f_statistics"
-
-
-class OptunaReturnType(StrEnum):
+class ScoringMethod(StrEnum):
     """Determines which bag performance statistic is used as the Optuna optimisation target.
 
-    Used in ``Octo.optuna_return``:
-    - ``ENSEMBLE``: uses the ensembled dev score across all inner folds (dev_ensemble)
+    Used in ``Octo.scoring_method``:
+    - ``COMBINED``: uses the ensembled dev score across all inner folds (dev_ensemble)
     - ``AVERAGE``: uses the average of per-fold dev scores (dev_avg)
     """
 
-    ENSEMBLE = "ensemble"
+    COMBINED = "combined"
     AVERAGE = "average"
 
 
@@ -237,18 +229,6 @@ class PredictionType(StrEnum):
 
     PREDICTIONS = "predictions"
     PROBABILITIES = "probabilities"
-
-
-class MRMRFIAggregation(StrEnum):
-    """How per-training feature importances are aggregated before MRMR relevance scoring.
-
-    Used in ``Mrmr.feature_importance_type``:
-    - ``MEAN``: averages importance values across training runs
-    - ``COUNT``: counts how often a feature has non-zero importance
-    """
-
-    MEAN = "mean"
-    COUNT = "count"
 
 
 ML_TYPES = [e.value for e in MLType]

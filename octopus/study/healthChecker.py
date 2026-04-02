@@ -496,8 +496,7 @@ class OctoDataHealthChecker:
                 severity="Warning",
                 description=("There are duplicated rows when considering all feature columns and the sample ID."),
                 action=(
-                    "Investigate these duplicates. They may be legitimate re-measurements or indicate data integrity problems. "
-                    "To proceed despite this warning, set `ignore_data_health_warning=True`."
+                    "Investigate these duplicates. They may be legitimate re-measurements or indicate data integrity problems."
                 ),
             )
 

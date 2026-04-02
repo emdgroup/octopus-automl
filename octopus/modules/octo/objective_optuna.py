@@ -9,7 +9,7 @@ from octopus.datasplit import InnerSplits
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.types import LogGroup, MetricDirection, MLType, ModelName, OptunaReturnType
+from octopus.types import LogGroup, MetricDirection, MLType, ModelName, ScoringMethod
 from octopus.utils import joblib_save
 
 from .bag import Bag, BagClassifier, BagRegressor
@@ -65,15 +65,12 @@ class ObjectiveOptuna:
         self.mrmr_features = mrmr_features
         # saving trials
         self.ensel = self.config.ensemble_selection
-        self.n_save_trials = self.config.ensel_n_save_trials
+        self.n_save_trials = max(50, self.config.n_trials // 2)
         # parameters potentially used for optimizations
         self.ml_model_types = self.config.models
-        self.max_outl = self.config.max_outl
+        self.max_outl = self.config.max_outliers
         self.max_features = self.config.max_features
-        self.penalty_factor = self.config.penalty_factor
         self.hyper_parameters = self.config.hyperparameters
-        # fixed parameters
-        self.ml_seed = self.config.model_seed
         # training parameters
         self.log_dir = log_dir
         self.num_assigned_cpus = num_assigned_cpus
@@ -116,7 +113,7 @@ class ObjectiveOptuna:
             ml_model_type,
             self.hyper_parameters,
             n_jobs=1,  # inner parallelization happens over inner splits, so we do not allow any further parallelization here.  # TODO: how about setting parallelization over inner splits and then compute n_jobs accordingly?
-            model_seed=self.ml_seed,
+            model_seed=0,
         )
 
         config_training: TrainingConfig = {
@@ -179,7 +176,7 @@ class ObjectiveOptuna:
         self._log_trial_scores(bag_performance)
 
         # define optuna target
-        if self.config.optuna_return == OptunaReturnType.ENSEMBLE:
+        if self.config.scoring_method == ScoringMethod.COMBINED:
             optuna_target: float = bag_performance["dev_ensemble"]
         else:
             optuna_target = bag_performance["dev_avg"]
@@ -195,7 +192,7 @@ class ObjectiveOptuna:
             # only consider if n_features_mean > max_features
             diff_nfeatures = max(diff_nfeatures, 0)
             n_features = len(self.feature_cols)
-            optuna_target = optuna_target - self.penalty_factor * diff_nfeatures / n_features
+            optuna_target = optuna_target - 1.0 * diff_nfeatures / n_features
 
         # save bag if we plan to run ensemble selection
         if self.ensel:
@@ -207,7 +204,7 @@ class ObjectiveOptuna:
         return optuna_target
 
     def _save_topn_trials(self, bag: BagClassifier | BagRegressor, target_value, n_trial):
-        max_n_trials = self.config.ensel_n_save_trials
+        max_n_trials = self.n_save_trials
         path_save = self.path_study / self.task_path / "scratch" / f"trial_{n_trial}_bag.joblib"
 
         # saving top n_trials to disk

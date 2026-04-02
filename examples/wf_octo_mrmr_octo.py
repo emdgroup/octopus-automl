@@ -56,14 +56,13 @@ print()
 
 # Create and run OctoClassification with sequential multi-step workflow
 study = OctoClassification(
-    name="wf_octo_mrmr_octo",
+    study_name="wf_octo_mrmr_octo",
     target_metric="ACCBAL",
     feature_cols=feature_names,
     target_col="target",
     sample_id_col="index",
     stratification_col="target",
-    n_folds_outer=5,  # 5 outer folds
-    ignore_data_health_warning=True,
+    n_outer_splits=5,  # 5 outer folds
     workflow=[
         # Task 0: Initial Octo with all features
         Octo(
@@ -72,7 +71,7 @@ study = OctoClassification(
             depends_on=None,  # First task, depends on input
             models=[ModelName.ExtraTreesClassifier],
             n_trials=100,  # 100 trials for hyperparameter optimization
-            n_folds_inner=5,  # 5 inner folds
+            n_inner_splits=5,  # 5 inner folds
             max_features=30,  # Use all 30 features
         ),
         # Task 1: Feature selection using Mrmr
@@ -90,7 +89,7 @@ study = OctoClassification(
             depends_on=1,
             models=[ModelName.ExtraTreesClassifier],
             n_trials=100,
-            n_folds_inner=5,
+            n_inner_splits=5,
             ensemble_selection=True,
         ),
     ],

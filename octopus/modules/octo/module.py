@@ -9,7 +9,7 @@ from attrs import Factory, define, field, validators
 from octopus.logger import get_logger
 from octopus.models import Models
 from octopus.modules import ModuleExecution, Task
-from octopus.types import FIComputeMethod, ModelName, OptunaReturnType
+from octopus.types import FIComputeMethod, ModelName, ScoringMethod
 
 logger = get_logger()
 
@@ -35,10 +35,9 @@ class Octo(Task):
 
     Configuration:
         models: List of model names to optimize
-        n_folds_inner: Number of inner CV folds
+        n_inner_splits: Number of inner CV folds
         n_trials: Number of Optuna trials
         ensemble_selection: Whether to perform ensemble selection
-        mrmr_feature_numbers: Feature counts for MRMR feature selection
     """
 
     models: list[ModelName] | None = field(
@@ -47,10 +46,10 @@ class Octo(Task):
     )
     """Models for ML. If None, defaults are resolved at fit time based on ml_type."""
 
-    n_folds_inner: int = field(validator=[validators.instance_of(int)], default=5)
+    n_inner_splits: int = field(validator=[validators.instance_of(int)], default=5)
     """Number of inner folds."""
 
-    datasplit_seeds_inner: list[int] = field(
+    inner_split_seeds: list[int] = field(
         default=Factory(lambda: [0]),
         validator=validators.deep_iterable(
             member_validator=validators.instance_of(int),
@@ -59,13 +58,10 @@ class Octo(Task):
     )
     """List of integers used as seeds for data splitting."""
 
-    model_seed: int = field(validator=[validators.instance_of(int)], default=0)
-    """Model seed."""
-
-    max_outl: int = field(validator=[validators.instance_of(int)], default=3)
+    max_outliers: int = field(validator=[validators.instance_of(int)], default=3)
     """Maximum number of outliers, optimized by Optuna"""
 
-    fi_methods_bestbag: list[FIComputeMethod] = field(
+    fi_methods: list[FIComputeMethod] = field(
         default=Factory(lambda: [FIComputeMethod.PERMUTATION]),
         converter=lambda vs: [FIComputeMethod(v) for v in vs],
         validator=validators.deep_iterable(
@@ -77,17 +73,11 @@ class Octo(Task):
     )
     """Feature importance methods for best bag."""
 
-    optuna_seed: int = field(validator=[validators.instance_of(int)], default=0)
-    """Seed for Optuna TPESampler, default=0"""
-
-    n_optuna_startup_trials: int = field(validator=[validators.instance_of(int)], default=15)
+    n_startup_trials: int = field(validator=[validators.instance_of(int)], default=15)
     """Number of Optuna startup trials (random sampler)"""
 
     ensemble_selection: bool = field(validator=[validators.in_([True, False])], default=False)
     """Whether to perform ensemble selection."""
-
-    ensel_n_save_trials: int = field(validator=[validators.instance_of(int)], default=50)
-    """Number of top trials to be saved for ensemble selection (bags)."""
 
     n_trials: int = field(validator=[validators.instance_of(int)], default=200 if not _RUNNING_IN_TESTSUITE else 3)
     """Number of Optuna trials."""
@@ -98,16 +88,10 @@ class Octo(Task):
     max_features: int = field(validator=[validators.instance_of(int)], default=0)
     """Maximum features to constrain hyperparameter optimization. Default is zero (off)."""
 
-    penalty_factor: float = field(validator=[validators.instance_of(float)], default=1.0)
-    """Factor to penalize optuna target related to feature constraint."""
-
-    mrmr_feature_numbers: list = field(validator=[validators.instance_of(list)], default=Factory(list))
-    """List of feature numbers to be investigated by mrmr."""
-
-    optuna_return: OptunaReturnType = field(
-        default=OptunaReturnType.ENSEMBLE,
-        converter=OptunaReturnType,
-        validator=validators.in_(list(OptunaReturnType)),
+    scoring_method: ScoringMethod = field(
+        default=ScoringMethod.COMBINED,
+        converter=ScoringMethod,
+        validator=validators.in_(list(ScoringMethod)),
     )
     """How to calculate the bag performance for the optuna optimization target."""
 

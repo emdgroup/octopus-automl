@@ -62,14 +62,13 @@ class TestOctoIntroClassification:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_classification",
+                study_name="test_classification",
                 target_metric="ACCBAL",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                path=temp_dir,
-                ignore_data_health_warning=True,
+                study_path=temp_dir,
             )
 
             assert study.target_col == "target"
@@ -83,23 +82,20 @@ class TestOctoIntroClassification:
             description="step_1_octo",
             task_id=0,
             depends_on=None,
-            n_folds_inner=3,
+            n_inner_splits=3,
             models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
-            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-            optuna_seed=0,
-            n_optuna_startup_trials=5,
+            fi_methods=[FIComputeMethod.PERMUTATION],
+            n_startup_trials=5,
             n_trials=6,
             max_features=5,
-            penalty_factor=1.0,
             ensemble_selection=True,
-            ensel_n_save_trials=5,
         )
 
         assert isinstance(octo_task, Octo)
         assert octo_task.task_id == 0
         assert octo_task.depends_on is None
         assert octo_task.description == "step_1_octo"
-        assert octo_task.n_folds_inner == 3
+        assert octo_task.n_inner_splits == 3
         assert octo_task.models is not None
         assert set(octo_task.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
 
@@ -112,7 +108,7 @@ class TestOctoIntroClassification:
             depends_on=None,
             models=[model],
             n_trials=3,
-            n_folds_inner=3,
+            n_inner_splits=3,
         )
 
         assert octo_task.models == [model]
@@ -126,7 +122,7 @@ class TestOctoIntroClassification:
             depends_on=None,
             models=models,
             n_trials=5,
-            n_folds_inner=3,
+            n_inner_splits=3,
         )
         assert octo_task.models is not None
         assert set(octo_task.models) == set(models)
@@ -139,11 +135,11 @@ class TestOctoIntroClassification:
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier],
-            fi_methods_bestbag=fi_methods,
+            fi_methods=fi_methods,
             n_trials=3,
         )
 
-        assert octo_task.fi_methods_bestbag == fi_methods
+        assert octo_task.fi_methods == fi_methods
 
     def test_ensemble_selection_configuration(self):
         """Test ensemble selection configuration."""
@@ -153,12 +149,10 @@ class TestOctoIntroClassification:
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
             ensemble_selection=True,
-            ensel_n_save_trials=15,
             n_trials=5,
         )
 
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 15
 
     def test_hyperparameter_optimization_configuration(self):
         """Test hyperparameter optimization configuration."""
@@ -167,18 +161,14 @@ class TestOctoIntroClassification:
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier],
-            optuna_seed=42,
-            n_optuna_startup_trials=5,
+            n_startup_trials=5,
             n_trials=5,
             max_features=5,
-            penalty_factor=1.5,
         )
 
-        assert octo_task.optuna_seed == 42
-        assert octo_task.n_optuna_startup_trials == 5
+        assert octo_task.n_startup_trials == 5
         assert octo_task.n_trials == 5
         assert octo_task.max_features == 5
-        assert octo_task.penalty_factor == 1.5
 
     @pytest.mark.slow
     def test_octo_intro_classification_actual_execution(self, breast_cancer_dataset):
@@ -187,33 +177,28 @@ class TestOctoIntroClassification:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(
-                name="test_octo_intro_execution",
+                study_name="test_octo_intro_execution",
                 target_metric="ACCBAL",
                 feature_cols=features,
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                datasplit_seed_outer=1,
-                n_folds_outer=2,
-                path=temp_dir,
-                ignore_data_health_warning=True,
+                outer_split_seed=1,
+                n_outer_splits=2,
+                study_path=temp_dir,
                 workflow=[
                     Octo(
                         description="step_1_octo",
                         task_id=0,
                         depends_on=None,
-                        n_folds_inner=3,
+                        n_inner_splits=3,
                         models=[ModelName.ExtraTreesClassifier],
-                        model_seed=0,
-                        max_outl=0,
-                        fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-                        optuna_seed=0,
-                        n_optuna_startup_trials=3,
+                        max_outliers=0,
+                        fi_methods=[FIComputeMethod.PERMUTATION],
+                        n_startup_trials=3,
                         n_trials=5,
                         max_features=5,
-                        penalty_factor=1.0,
                         ensemble_selection=True,
-                        ensel_n_save_trials=5,
                     )
                 ],
             )
@@ -246,18 +231,14 @@ class TestOctoIntroClassification:
             description="step_1_octo",
             task_id=0,
             depends_on=None,
-            n_folds_inner=5,
+            n_inner_splits=5,
             models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
-            model_seed=0,
-            max_outl=0,
-            fi_methods_bestbag=[FIComputeMethod.PERMUTATION],
-            optuna_seed=0,
-            n_optuna_startup_trials=10,
+            max_outliers=0,
+            fi_methods=[FIComputeMethod.PERMUTATION],
+            n_startup_trials=10,
             n_trials=5,
             max_features=5,
-            penalty_factor=1.0,
             ensemble_selection=True,
-            ensel_n_save_trials=10,
         )
 
         # Verify all parameters are set correctly
@@ -265,16 +246,12 @@ class TestOctoIntroClassification:
         assert octo_task.task_id == 0
         assert octo_task.depends_on is None
 
-        assert octo_task.n_folds_inner == 5
+        assert octo_task.n_inner_splits == 5
         assert octo_task.models is not None
         assert set(octo_task.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
-        assert octo_task.model_seed == 0
-        assert octo_task.max_outl == 0
-        assert octo_task.fi_methods_bestbag == [FIComputeMethod.PERMUTATION]
-        assert octo_task.optuna_seed == 0
-        assert octo_task.n_optuna_startup_trials == 10
+        assert octo_task.max_outliers == 0
+        assert octo_task.fi_methods == [FIComputeMethod.PERMUTATION]
+        assert octo_task.n_startup_trials == 10
         assert octo_task.n_trials == 5
         assert octo_task.max_features == 5
-        assert octo_task.penalty_factor == 1.0
         assert octo_task.ensemble_selection is True
-        assert octo_task.ensel_n_save_trials == 10

@@ -155,8 +155,16 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         predictor = TabularPredictor(
             label=target,
             eval_metric=scoring_type,
-            verbosity=self.config.verbosity,
+            verbosity=0,
             log_to_file=False,
+        )
+
+        # Log configuration summary
+        logger.info(
+            "Starting fit: presets=%s, time_limit=%s, model_types=%s",
+            self.config.presets,
+            self.config.time_limit,
+            self.config.included_model_types or "all",
         )
 
         # Fit predictor
@@ -174,6 +182,11 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
 
         logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outersplit_id}")
         logger.info("Fitting completed")
+
+        # Log best model summary
+        leaderboard_summary = predictor.leaderboard(silent=True)
+        best = leaderboard_summary.iloc[0]
+        logger.info("Best model: %s (score_val=%.4f)", best["model"], best["score_val"])
 
         # Save failure info
         with (results_dir / "autogluon_debug_info.txt").open("w", encoding="utf-8") as text_file:
@@ -390,7 +403,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
     ) -> None:
         """Save AutoGluon leaderboard and model information."""
         # Save leaderboard
-        leaderboard = model.leaderboard(ag_test_data, extra_info=True)
+        leaderboard = model.leaderboard(ag_test_data, extra_info=True, silent=True)
         leaderboard_path = results_dir / "leaderboard.csv"
         csv_save(leaderboard, leaderboard_path)
 
@@ -406,7 +419,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             json.dump(model_info, f, default=str, indent=4)
 
         # Save fit summary
-        fit_summary = model.fit_summary()
+        fit_summary = model.fit_summary(verbosity=0)
         with (results_dir / "model_stats.txt").open("w", encoding="utf-8") as text_file:
             print(fit_summary, file=text_file)
 

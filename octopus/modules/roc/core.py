@@ -20,7 +20,7 @@ from sklearn.feature_selection import (
 from octopus.logger import get_logger
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import CorrelationType, MLType, ResultType, ROCFilterMethod
+from octopus.types import CorrelationType, MLType, RelevanceMethod, ResultType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -33,13 +33,13 @@ if TYPE_CHECKING:
 logger = get_logger()
 
 # Filter functions for feature selection
-filter_inventory: dict[ROCFilterMethod, dict[MLType, Callable]] = {
-    ROCFilterMethod.MUTUAL_INFO: {
+filter_inventory: dict[RelevanceMethod, dict[MLType, Callable]] = {
+    RelevanceMethod.MUTUAL_INFO: {
         MLType.BINARY: mutual_info_classif,
         MLType.MULTICLASS: mutual_info_classif,
         MLType.REGRESSION: mutual_info_regression,
     },
-    ROCFilterMethod.F_STATISTICS: {
+    RelevanceMethod.F_STATISTICS: {
         MLType.BINARY: f_classif,
         MLType.MULTICLASS: f_classif,
         MLType.REGRESSION: f_regression,
@@ -68,8 +68,8 @@ class RocModule(ModuleExecution["Roc"]):
         np.random.seed(0)
 
         logger.info(f"Correlation type: {self.config.correlation_type}")
-        logger.info(f"Threshold: {self.config.threshold}")
-        logger.info(f"Filter type: {self.config.filter_type}")
+        logger.info(f"Correlation threshold: {self.config.correlation_threshold}")
+        logger.info(f"Relevance method: {self.config.relevance_method}")
 
         # Extract feature matrices (local variables)
         x_traindev = data_traindev[feature_cols]
@@ -79,15 +79,15 @@ class RocModule(ModuleExecution["Roc"]):
         logger.info("Calculating dependency to target")
         if study_context.ml_type == MLType.TIMETOEVENT:
             logger.info("Time2Event: Note, that the first group element is selected.")
-        elif self.config.filter_type == ROCFilterMethod.MUTUAL_INFO:
+        elif self.config.relevance_method == RelevanceMethod.MUTUAL_INFO:
             # Set random state
-            values = filter_inventory[self.config.filter_type][study_context.ml_type](
+            values = filter_inventory[self.config.relevance_method][study_context.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel(), random_state=0
             )
             dependency = pd.Series(values, index=feature_cols)
-        elif self.config.filter_type == ROCFilterMethod.F_STATISTICS:
+        elif self.config.relevance_method == RelevanceMethod.F_STATISTICS:
             # Ignoring p-values
-            values, _ = filter_inventory[self.config.filter_type][study_context.ml_type](
+            values, _ = filter_inventory[self.config.relevance_method][study_context.ml_type](
                 x_traindev, y_traindev.to_numpy().ravel()
             )
             dependency = pd.Series(values, index=feature_cols)
@@ -106,7 +106,7 @@ class RocModule(ModuleExecution["Roc"]):
         g: nx.Graph = nx.Graph()
         for i in range(len(feature_cols)):
             for j in range(i + 1, len(feature_cols)):
-                if pos_corr_matrix[i, j] > self.config.threshold:
+                if pos_corr_matrix[i, j] > self.config.correlation_threshold:
                     g.add_edge(i, j)
 
         # Get connected components and sort for determinism

@@ -22,7 +22,7 @@ def test_output_path_has_correct_timestamp_format():
         study.fit(data=df)
 
         # The mocked datetime returns 2024-01-15 10:30:45
-        expected_name = f"{study.name}-20240115_103045"
+        expected_name = f"{study.study_name}-20240115_103045"
         assert study.output_path.name == expected_name
 
 
