@@ -18,7 +18,7 @@ class Boruta(Task):
 
     Configuration:
         model: Model to use for Boruta (defaults based on ml_type)
-        cv: Number of CV folds
+        n_inner_splits: Number of CV folds
         threshold: Percentile threshold for shadow feature comparison (0-100)
         alpha: Significance level for p-values (0-1)
     """
@@ -26,8 +26,8 @@ class Boruta(Task):
     model: ModelName | None = field(default=None, converter=lambda v: ModelName(v) if v is not None else None)
     """Model used by Boruta. If None, defaults are resolved at fit time based on ml_type."""
 
-    cv: int = field(validator=[validators.instance_of(int)], default=5)
-    """Number of folds for CV."""
+    n_inner_splits: int = field(validator=[validators.instance_of(int)], default=5)
+    """Number of inner folds."""
 
     threshold: int = field(
         default=100,

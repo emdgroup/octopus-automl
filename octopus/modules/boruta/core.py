@@ -105,9 +105,9 @@ class BorutaModule(ModuleExecution["Boruta"]):
 
         cv: int | StratifiedKFold
         if study_context.stratification_col:
-            cv = StratifiedKFold(n_splits=self.config.cv, shuffle=True, random_state=42)
+            cv = StratifiedKFold(n_splits=self.config.n_inner_splits, shuffle=True, random_state=42)
         else:
-            cv = self.config.cv
+            cv = self.config.n_inner_splits
 
         # Hyperparameter optimization
         grid_search = GridSearchCV(
