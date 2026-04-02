@@ -95,6 +95,7 @@ class OctoManager:
             )
         elif resources.num_workers > 1:
             return ParallelRayStrategy(
+                num_workers=resources.num_workers,
                 num_cpus_per_worker=resources.cpus_per_worker,
                 log_dir=self.study_context.log_dir,
             )

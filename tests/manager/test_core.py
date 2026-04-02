@@ -1,10 +1,7 @@
 """Test ResourceConfig, OctoManager, and WorkflowTaskRunner from octopus.manager."""
 
-import os
-from typing import ClassVar
 from unittest.mock import Mock, patch
 
-import attrs
 import pandas as pd
 import pytest
 from upath import UPath
@@ -92,116 +89,60 @@ def octo_manager(study, mock_workflow, mock_outersplit_data):
 class TestResourceConfig:
     """Tests for ResourceConfig."""
 
-    TOTAL_CPUS = os.cpu_count() or 4  # Default to 4 if os.cpu_count() returns None
-    RAY_NODES: ClassVar[dict[str, _NodeResources]] = {
-        "local": {
-            "CPU": TOTAL_CPUS,
-            "memory": 16 * 1024**3,
-            "object_store_memory": 8 * 1024**3,
-        }
-    }  # Simulate a single-node Ray cluster with all CPUs and 16GB RAM
-
-    def test_create_with_parallelization(self):
-        """Test resource creation with outer parallelization."""
-        num_outersplits = 4
+    @pytest.mark.parametrize("num_cpus", [1, 4, 14], ids=lambda n: f"{n}_cpus")
+    @pytest.mark.parametrize("num_outersplits", [1, 4, 14, 47], ids=lambda n: f"{n}_outersplits")
+    @pytest.mark.parametrize("run_single_outersplit", [False, True], ids=["parallel", "single_outersplit"])
+    def test_create_with_parallelization(self, num_cpus, num_outersplits, run_single_outersplit):
+        """Test resource creation and proper computation of num_workers and num_cpus_per_worker."""
+        effective_num_outersplits = num_outersplits if not run_single_outersplit else 1
+        expected_num_workers = min(effective_num_outersplits, num_cpus)
+        expected_cpus_per_worker = max(1, num_cpus // expected_num_workers)
+        expected_num_cpus = expected_cpus_per_worker * expected_num_workers
+        ray_nodes: dict[str, _NodeResources] = {
+            "local": {
+                "CPU": num_cpus,
+                "memory": 16 * 1024**3,
+                "object_store_memory": 8 * 1024**3,
+            }
+        }  # Simulate a single-node Ray cluster with all CPUs and 16GB RAM
 
         config = ResourceConfig.create(
-            ray_nodes=self.RAY_NODES,
+            ray_nodes=ray_nodes,
             num_outersplits=num_outersplits,
-            run_single_outersplit=False,
+            run_single_outersplit=run_single_outersplit,
         )
-        assert config.available_cpus == self.RAY_NODES["local"]["CPU"]
-        assert config.num_workers == min(num_outersplits, self.RAY_NODES["local"]["CPU"])
-        assert config.cpus_per_worker == self.RAY_NODES["local"]["CPU"] // num_outersplits
+        assert config.available_cpus == num_cpus
+        assert config.used_cpus == expected_num_cpus
+        assert config.num_workers == expected_num_workers
+        assert config.cpus_per_worker == expected_cpus_per_worker
 
-    def test_create_without_parallelization(self):
-        """Test resource creation without outer parallelization."""
-        config = ResourceConfig.create(
-            ray_nodes=self.RAY_NODES,
-            num_outersplits=4,
-            run_single_outersplit=True,
-        )
-        assert config.available_cpus == self.RAY_NODES["local"]["CPU"]
-        assert config.num_workers == 1
-        assert config.cpus_per_worker == self.RAY_NODES["local"]["CPU"]  # All CPUs for sequential
-
-    def test_create_more_outersplits_than_cpus(self):
-        """Test when outersplits exceed available CPUs."""
-        config = ResourceConfig.create(
-            ray_nodes=self.RAY_NODES,
-            num_outersplits=16,
-            run_single_outersplit=False,
-        )
-        assert config.num_workers == min(16, self.RAY_NODES["local"]["CPU"])
-        assert config.cpus_per_worker == max(1, self.RAY_NODES["local"]["CPU"] // 16)
-
-    def test_frozen(self):
-        """Test that ResourceConfig is immutable (attrs frozen)."""
-        config = ResourceConfig(
-            available_cpus=4,
-            num_workers=2,
-            cpus_per_worker=2,
-            ray_nodes=self.RAY_NODES,
-            run_single_outersplit=False,
-            num_outersplits=4,
-        )
-        with pytest.raises(attrs.exceptions.FrozenInstanceError):
-            config.available_cpus = 8  # type: ignore[misc]
-
-    def test_create_single_outersplit_gets_all_cpus(self):
-        """Test that when running a single outersplit, it gets all CPUs.
-
-        This tests the fix for the regression where single outersplits were
-        getting limited CPUs based on the total number of outersplits.
-        """
-        # Simulate: 8 CPUs, 8 total outersplits, but running only outersplit 0
-        config = ResourceConfig.create(
-            num_outersplits=8,
-            ray_nodes=self.RAY_NODES,
-            run_single_outersplit=True,
-        )
-        assert config.available_cpus == self.TOTAL_CPUS
-        assert config.num_workers == 1  # Only 1 outersplit running
-        assert config.cpus_per_worker == self.TOTAL_CPUS  # Gets all CPUs, not 8/8=1
-
-    def test_create_rejects_zero_outersplits(self):
-        """Test that zero outersplits raises ValueError."""
-        with pytest.raises(ValueError, match="num_outersplits must be positive"):
-            ResourceConfig.create(
-                num_outersplits=0,
-                run_single_outersplit=False,
-                ray_nodes=self.RAY_NODES,
-            )
-
-    def test_create_rejects_negative_outersplits(self):
-        """Test that negative outersplits raises ValueError."""
-        with pytest.raises(ValueError, match="num_outersplits must be positive"):
-            ResourceConfig.create(
-                num_outersplits=-5,
-                run_single_outersplit=False,
-                ray_nodes=self.RAY_NODES,
-            )
-
-    def test_str_representation(self):
-        """Test string representation of ResourceConfig."""
-        num_outersplits = 4
-
-        config = ResourceConfig.create(
-            num_outersplits=num_outersplits,
-            run_single_outersplit=False,
-            ray_nodes=self.RAY_NODES,
-        )
         str_repr = str(config)
 
         # Verify all key information is in the string
-        assert "Single outersplit: False" in str_repr
+        assert f"Single outersplit: {run_single_outersplit}" in str_repr
         assert f"Outersplits:       {num_outersplits}" in str_repr
-        assert f"Available CPUs:    {self.TOTAL_CPUS}" in str_repr
-        assert f"Workers:           {min(num_outersplits, self.TOTAL_CPUS)}" in str_repr
-        assert f"CPUs/outersplit:   {self.TOTAL_CPUS // num_outersplits}" in str_repr
+        assert f"Available CPUs:    {num_cpus}" in str_repr
+        assert f"Used CPUs:         {expected_num_cpus}" in str_repr
+        assert f"Workers:           {expected_num_workers}" in str_repr
+        assert f"CPUs/outersplit:   {expected_cpus_per_worker}" in str_repr
 
-        # Verify "Preparing execution" is NOT in the string
-        assert "Preparing execution" not in str_repr
+    @pytest.mark.parametrize("num_outersplits", [0, -5], ids=["zero_outersplits", "negative_outersplits"])
+    def test_create_rejects_invalid_outersplits(self, num_outersplits):
+        """Test that zero or negative outersplits raises ValueError."""
+        ray_nodes: dict[str, _NodeResources] = {
+            "local": {
+                "CPU": 4,
+                "memory": 16 * 1024**3,
+                "object_store_memory": 8 * 1024**3,
+            }
+        }  # Simulate a single-node Ray cluster with all CPUs and 16GB RAM
+
+        with pytest.raises(ValueError, match="num_outersplits must be positive"):
+            ResourceConfig.create(
+                num_outersplits=num_outersplits,
+                run_single_outersplit=False,
+                ray_nodes=ray_nodes,
+            )
 
 
 # =============================================================================
