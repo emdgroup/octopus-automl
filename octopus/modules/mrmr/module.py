@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from attrs import Factory, define, field, validators
 
-from octopus.types import CorrelationType, FIComputeMethod, MRMRFIAggregation, MRMRRelevance
+from octopus.types import CorrelationType, FIComputeMethod, MRMRRelevance
 
 from ..base import ModuleExecution, Task
 
@@ -20,10 +20,8 @@ class Mrmr(Task):
     Configuration:
         n_features: Number of features to select
         correlation_type: Type of correlation to measure redundancy
-        relevance_type: Method to calculate relevance (MRMRRelevance.PERMUTATION or MRMRRelevance.INTERNAL)
-        results_module: Module name to filter prior results' feature importances (for permutation relevance)
-        feature_importance_type: Type of FI aggregation (MRMRFIAggregation.MEAN or MRMRFIAggregation.COUNT)
-        feature_importance_method: FI calculation method (FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.INTERNAL, FIComputeMethod.LOFO)
+        relevance_method: Method to calculate relevance (MRMRRelevance.PERMUTATION or MRMRRelevance.F_STATISTICS)
+        feature_importance_method: FI calculation method, only used when relevance_method is PERMUTATION
     """
 
     n_features: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 30))
@@ -36,21 +34,10 @@ class Mrmr(Task):
     )
     """Selection of correlation type."""
 
-    relevance_type: MRMRRelevance = field(
+    relevance_method: MRMRRelevance = field(
         converter=MRMRRelevance, validator=validators.in_(list(MRMRRelevance)), default=MRMRRelevance.PERMUTATION
     )
-    """Selection of relevance measure."""
-
-    results_module: str = field(
-        validator=validators.instance_of(str),
-        default="octo",
-    )
-    """Module name from which feature importances were created."""
-
-    feature_importance_type: MRMRFIAggregation = field(
-        converter=MRMRFIAggregation, validator=validators.in_(list(MRMRFIAggregation)), default=MRMRFIAggregation.MEAN
-    )
-    """Selection of feature importance type."""
+    """Method to calculate relevance (permutation or f-statistics)."""
 
     feature_importance_method: FIComputeMethod = field(
         converter=FIComputeMethod,
@@ -59,7 +46,7 @@ class Mrmr(Task):
         ),
         default=FIComputeMethod.PERMUTATION,
     )
-    """Selection of feature importance method."""
+    """FI method to use from prior results. Only relevant when relevance_method is PERMUTATION."""
 
     def create_module(self) -> ModuleExecution:
         """Create MrmrModule execution instance."""

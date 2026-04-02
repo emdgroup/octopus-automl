@@ -167,7 +167,7 @@ class CorrelationType(StrEnum):
 class MRMRRelevance(StrEnum):
     """Method used to compute feature relevance to the target in MRMR.
 
-    Used in ``Mrmr.relevance_type``:
+    Used in ``Mrmr.relevance_method``:
     - ``PERMUTATION``: re-uses permutation importances from a prior workflow module
     - ``F_STATISTICS``: computes F-statistics (f_classif / f_regression) from scratch
     """
@@ -237,18 +237,6 @@ class PredictionType(StrEnum):
 
     PREDICTIONS = "predictions"
     PROBABILITIES = "probabilities"
-
-
-class MRMRFIAggregation(StrEnum):
-    """How per-training feature importances are aggregated before MRMR relevance scoring.
-
-    Used in ``Mrmr.feature_importance_type``:
-    - ``MEAN``: averages importance values across training runs
-    - ``COUNT``: counts how often a feature has non-zero importance
-    """
-
-    MEAN = "mean"
-    COUNT = "count"
 
 
 ML_TYPES = [e.value for e in MLType]

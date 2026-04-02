@@ -4,9 +4,9 @@ import tempfile
 
 import pytest
 
-from octopus.modules import Mrmr, Octo
+from octopus.modules import Mrmr, Octo, Roc
 from octopus.study import OctoClassification
-from octopus.types import ModelName
+from octopus.types import ModelName, MRMRRelevance
 
 
 @pytest.fixture
@@ -167,3 +167,38 @@ class TestWorkflowValidation:
             assert study.workflow[0].task_id == 0
             assert study.workflow[1].task_id == 1
             assert study.workflow[2].task_id == 2
+
+    def test_mrmr_permutation_depends_on_roc_fails(self, base_study_kwargs):
+        """Test that Mrmr with permutation relevance cannot depend on Roc."""
+        workflow = [
+            Roc(task_id=0, depends_on=None),
+            Mrmr(task_id=1, depends_on=0, relevance_method=MRMRRelevance.PERMUTATION),
+        ]
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            pytest.raises(ValueError, match="does not produce feature importances"),
+        ):
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
+
+    def test_mrmr_permutation_depends_on_mrmr_fails(self, base_study_kwargs):
+        """Test that Mrmr with permutation relevance cannot depend on another Mrmr."""
+        workflow = [
+            Octo(task_id=0, depends_on=None),
+            Mrmr(task_id=1, depends_on=0),
+            Mrmr(task_id=2, depends_on=1, relevance_method=MRMRRelevance.PERMUTATION),
+        ]
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            pytest.raises(ValueError, match="does not produce feature importances"),
+        ):
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
+
+    def test_mrmr_fstats_depends_on_roc_passes(self, base_study_kwargs):
+        """Test that Mrmr with f-statistics relevance can depend on Roc."""
+        workflow = [
+            Roc(task_id=0, depends_on=None),
+            Mrmr(task_id=1, depends_on=0, relevance_method=MRMRRelevance.F_STATISTICS),
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            study = OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
+            assert len(study.workflow) == 2
