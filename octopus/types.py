@@ -164,16 +164,19 @@ class CorrelationType(StrEnum):
     RDC = "rdc"
 
 
-class MRMRRelevance(StrEnum):
-    """Method used to compute feature relevance to the target in MRMR.
+class RelevanceMethod(StrEnum):
+    """Method used to compute feature relevance to the target.
 
-    Used in ``Mrmr.relevance_method``:
-    - ``PERMUTATION``: re-uses permutation importances from a prior workflow module
-    - ``F_STATISTICS``: computes F-statistics (f_classif / f_regression) from scratch
+    Used in:
+    - ``Roc.relevance_method``: scoring features within correlated groups
+    - ``Mrmr.relevance_method``: computing feature-target relevance for MRMR ranking
+
+    Each module restricts the valid subset via its own attrs validator.
     """
 
+    F_STATISTICS = "f_statistics"
+    MUTUAL_INFO = "mutual_info"
     PERMUTATION = "permutation"
-    F_STATISTICS = "f-statistics"
 
 
 class AutoGluonFitStrategy(StrEnum):
@@ -184,17 +187,6 @@ class AutoGluonFitStrategy(StrEnum):
 
     SEQUENTIAL = "sequential"
     PARALLEL = "parallel"
-
-
-class ROCFilterMethod(StrEnum):
-    """Scoring method used to rank features within a correlated group in the ROC module.
-
-    The highest-scoring feature in each group is kept; the rest are removed.
-    Used in ``Roc.filter_type``.
-    """
-
-    MUTUAL_INFO = "mutual_info"
-    F_STATISTICS = "f_statistics"
 
 
 class ScoringMethod(StrEnum):

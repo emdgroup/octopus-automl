@@ -12,7 +12,7 @@ from sklearn.feature_selection import f_classif, f_regression
 from octopus.logger import get_logger
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import CorrelationType, FIResultLabel, LogGroup, MLType, MRMRRelevance, ResultType
+from octopus.types import CorrelationType, FIResultLabel, LogGroup, MLType, RelevanceMethod, ResultType
 
 if TYPE_CHECKING:
     from octopus.modules import StudyContext
@@ -82,7 +82,7 @@ class MrmrModule(ModuleExecution["Mrmr"]):
 
     def _validate_configuration(self, prior_results: dict) -> None:
         """Validate MRMR configuration."""
-        if self.config.relevance_method == MRMRRelevance.PERMUTATION:
+        if self.config.relevance_method == RelevanceMethod.PERMUTATION:
             if self.config.task_id == 0:
                 raise ValueError("MRMR module should not be the first workflow task.")
             fi_df = prior_results.get("feature_importances", pd.DataFrame())
@@ -115,9 +115,9 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         prior_results: dict,
     ) -> pd.DataFrame:
         """Get relevance data based on relevance method."""
-        if self.config.relevance_method == MRMRRelevance.PERMUTATION:
+        if self.config.relevance_method == RelevanceMethod.PERMUTATION:
             return self._get_permutation_relevance(feature_cols, prior_results)
-        elif self.config.relevance_method == MRMRRelevance.F_STATISTICS:
+        elif self.config.relevance_method == RelevanceMethod.F_STATISTICS:
             return self._get_fstats_relevance(x_traindev, y_traindev, feature_cols, ml_type)
         else:
             raise ValueError(f"Relevance method {self.config.relevance_method} not supported for MRMR.")

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from attrs import Attribute
 
 from octopus.modules import Mrmr, Roc, Task
-from octopus.types import MRMRRelevance
+from octopus.types import RelevanceMethod
 
 if TYPE_CHECKING:
     from octopus.study.core import OctoStudy
@@ -128,7 +128,7 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Seque
     for item in value:
         if (
             isinstance(item, Mrmr)
-            and item.relevance_method == MRMRRelevance.PERMUTATION
+            and item.relevance_method == RelevanceMethod.PERMUTATION
             and item.depends_on is not None
         ):
             upstream_idx = task_id_to_index[item.depends_on]

@@ -6,7 +6,7 @@ import pytest
 
 from octopus.modules import Mrmr, Octo, Roc
 from octopus.study import OctoClassification
-from octopus.types import ModelName, MRMRRelevance
+from octopus.types import ModelName, RelevanceMethod
 
 
 @pytest.fixture
@@ -172,7 +172,7 @@ class TestWorkflowValidation:
         """Test that Mrmr with permutation relevance cannot depend on Roc."""
         workflow = [
             Roc(task_id=0, depends_on=None),
-            Mrmr(task_id=1, depends_on=0, relevance_method=MRMRRelevance.PERMUTATION),
+            Mrmr(task_id=1, depends_on=0, relevance_method=RelevanceMethod.PERMUTATION),
         ]
         with (
             tempfile.TemporaryDirectory() as temp_dir,
@@ -185,7 +185,7 @@ class TestWorkflowValidation:
         workflow = [
             Octo(task_id=0, depends_on=None),
             Mrmr(task_id=1, depends_on=0),
-            Mrmr(task_id=2, depends_on=1, relevance_method=MRMRRelevance.PERMUTATION),
+            Mrmr(task_id=2, depends_on=1, relevance_method=RelevanceMethod.PERMUTATION),
         ]
         with (
             tempfile.TemporaryDirectory() as temp_dir,
@@ -197,7 +197,7 @@ class TestWorkflowValidation:
         """Test that Mrmr with f-statistics relevance can depend on Roc."""
         workflow = [
             Roc(task_id=0, depends_on=None),
-            Mrmr(task_id=1, depends_on=0, relevance_method=MRMRRelevance.F_STATISTICS),
+            Mrmr(task_id=1, depends_on=0, relevance_method=RelevanceMethod.F_STATISTICS),
         ]
         with tempfile.TemporaryDirectory() as temp_dir:
             study = OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)

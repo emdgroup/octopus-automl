@@ -9,7 +9,7 @@ from sklearn.datasets import make_classification
 
 from octopus.modules import Octo, Roc
 from octopus.study import OctoClassification
-from octopus.types import CorrelationType, FIComputeMethod, ModelName, ROCFilterMethod
+from octopus.types import CorrelationType, FIComputeMethod, ModelName, RelevanceMethod
 
 
 class TestRocOctoRocWorkflow:
@@ -58,9 +58,9 @@ class TestRocOctoRocWorkflow:
                 description="step_0_roc_initial",
                 task_id=0,
                 depends_on=None,
-                threshold=0.85,
+                correlation_threshold=0.85,
                 correlation_type=CorrelationType.SPEARMAN,
-                filter_type=ROCFilterMethod.F_STATISTICS,
+                relevance_method=RelevanceMethod.F_STATISTICS,
             ),
             Octo(
                 description="step_1_octo",
@@ -76,9 +76,9 @@ class TestRocOctoRocWorkflow:
                 description="step_2_roc_final",
                 task_id=2,
                 depends_on=1,
-                threshold=0.5,
+                correlation_threshold=0.5,
                 correlation_type=CorrelationType.SPEARMAN,
-                filter_type=ROCFilterMethod.MUTUAL_INFO,
+                relevance_method=RelevanceMethod.MUTUAL_INFO,
             ),
         ]
 
@@ -90,7 +90,7 @@ class TestRocOctoRocWorkflow:
         assert isinstance(first_roc, Roc)
         assert first_roc.task_id == 0
         assert first_roc.depends_on is None
-        assert first_roc.threshold == 0.85
+        assert first_roc.correlation_threshold == 0.85
         assert first_roc.description == "step_0_roc_initial"
 
         # Verify OCTO step
@@ -105,7 +105,7 @@ class TestRocOctoRocWorkflow:
         assert isinstance(second_roc, Roc)
         assert second_roc.task_id == 2
         assert second_roc.depends_on == 1
-        assert second_roc.threshold == 0.5
+        assert second_roc.correlation_threshold == 0.5
         assert second_roc.description == "step_2_roc_final"
 
     def test_octo_study_with_roc_octo_roc(self, sample_classification_dataset):
@@ -126,9 +126,9 @@ class TestRocOctoRocWorkflow:
                         description="step_0_roc_initial",
                         task_id=0,
                         depends_on=None,
-                        threshold=0.85,
+                        correlation_threshold=0.85,
                         correlation_type=CorrelationType.SPEARMAN,
-                        filter_type=ROCFilterMethod.F_STATISTICS,
+                        relevance_method=RelevanceMethod.F_STATISTICS,
                     ),
                     Octo(
                         description="step_1_octo",
@@ -142,9 +142,9 @@ class TestRocOctoRocWorkflow:
                         description="step_2_roc_final",
                         task_id=2,
                         depends_on=1,
-                        threshold=0.5,
+                        correlation_threshold=0.5,
                         correlation_type=CorrelationType.SPEARMAN,
-                        filter_type=ROCFilterMethod.MUTUAL_INFO,
+                        relevance_method=RelevanceMethod.MUTUAL_INFO,
                     ),
                 ],
             )
@@ -154,9 +154,9 @@ class TestRocOctoRocWorkflow:
     def test_sequence_dependency_chain(self):
         """Test that the sequence dependency chain is correctly configured."""
         workflow = [
-            Roc(task_id=0, depends_on=None, threshold=0.85),
+            Roc(task_id=0, depends_on=None, correlation_threshold=0.85),
             Octo(task_id=1, depends_on=0, models=[ModelName.ExtraTreesClassifier], n_trials=6),
-            Roc(task_id=2, depends_on=1, threshold=0.5),
+            Roc(task_id=2, depends_on=1, correlation_threshold=0.5),
         ]
 
         # First step has no dependencies
@@ -172,37 +172,45 @@ class TestRocOctoRocWorkflow:
         for i, step in enumerate(workflow):
             assert step.task_id == i
 
-    def test_roc_threshold_configuration(self):
-        """Test that ROC thresholds are configured correctly in the sequence."""
-        first_roc = Roc(task_id=0, depends_on=None, threshold=0.85)
-        second_roc = Roc(task_id=2, depends_on=1, threshold=0.5)
+    def test_roc_correlation_threshold_configuration(self):
+        """Test that ROC correlation thresholds are configured correctly in the sequence."""
+        first_roc = Roc(task_id=0, depends_on=None, correlation_threshold=0.85)
+        second_roc = Roc(task_id=2, depends_on=1, correlation_threshold=0.5)
 
-        assert first_roc.threshold == 0.85
-        assert second_roc.threshold == 0.5
+        assert first_roc.correlation_threshold == 0.85
+        assert second_roc.correlation_threshold == 0.5
 
         # Verify that final ROC has more aggressive filtering
-        assert second_roc.threshold < first_roc.threshold
+        assert second_roc.correlation_threshold < first_roc.correlation_threshold
 
     @pytest.mark.parametrize("correlation_type", [CorrelationType.SPEARMAN, CorrelationType.RDC])
-    @pytest.mark.parametrize("filter_type", [ROCFilterMethod.F_STATISTICS, ROCFilterMethod.MUTUAL_INFO])
-    def test_roc_configuration_variations(self, correlation_type, filter_type):
-        """Test ROC configuration with different correlation and filter types."""
+    @pytest.mark.parametrize("relevance_method", [RelevanceMethod.F_STATISTICS, RelevanceMethod.MUTUAL_INFO])
+    def test_roc_configuration_variations(self, correlation_type, relevance_method):
+        """Test ROC configuration with different correlation and relevance method types."""
         first_roc = Roc(
-            task_id=0, depends_on=None, threshold=0.85, correlation_type=correlation_type, filter_type=filter_type
+            task_id=0,
+            depends_on=None,
+            correlation_threshold=0.85,
+            correlation_type=correlation_type,
+            relevance_method=relevance_method,
         )
         second_roc = Roc(
-            task_id=2, depends_on=1, threshold=0.5, correlation_type=correlation_type, filter_type=filter_type
+            task_id=2,
+            depends_on=1,
+            correlation_threshold=0.5,
+            correlation_type=correlation_type,
+            relevance_method=relevance_method,
         )
 
         assert first_roc.correlation_type == correlation_type
-        assert first_roc.filter_type == filter_type
+        assert first_roc.relevance_method == relevance_method
         assert second_roc.correlation_type == correlation_type
-        assert second_roc.filter_type == filter_type
+        assert second_roc.relevance_method == relevance_method
 
     def test_octo_configuration_in_sequence(self):
         """Test OCTO module configuration within the ROC-OCTO-ROC sequence."""
         workflow = [
-            Roc(task_id=0, depends_on=None, threshold=0.85),
+            Roc(task_id=0, depends_on=None, correlation_threshold=0.85),
             Octo(
                 task_id=1,
                 depends_on=0,
@@ -211,7 +219,7 @@ class TestRocOctoRocWorkflow:
                 max_features=15,
                 n_inner_splits=5,
             ),
-            Roc(task_id=2, depends_on=1, threshold=0.5),
+            Roc(task_id=2, depends_on=1, correlation_threshold=0.5),
         ]
 
         octo_step = workflow[1]
@@ -226,9 +234,9 @@ class TestRocOctoRocWorkflow:
     def test_workflow_sequence_validation(self):
         """Test that the workflow sequence is properly validated."""
         workflow = [
-            Roc(task_id=0, depends_on=None, threshold=0.85),
+            Roc(task_id=0, depends_on=None, correlation_threshold=0.85),
             Octo(task_id=1, depends_on=0, models=[ModelName.ExtraTreesClassifier], n_trials=6),
-            Roc(task_id=2, depends_on=1, threshold=0.5),
+            Roc(task_id=2, depends_on=1, correlation_threshold=0.5),
         ]
 
         assert len(workflow) == 3
@@ -263,9 +271,9 @@ class TestRocOctoRocWorkflow:
                         description="step_0_roc_initial",
                         task_id=0,
                         depends_on=None,
-                        threshold=0.9,
+                        correlation_threshold=0.9,
                         correlation_type=CorrelationType.SPEARMAN,
-                        filter_type=ROCFilterMethod.F_STATISTICS,
+                        relevance_method=RelevanceMethod.F_STATISTICS,
                     ),
                     Octo(
                         description="step_1_octo",
@@ -280,9 +288,9 @@ class TestRocOctoRocWorkflow:
                         description="step_2_roc_final",
                         task_id=2,
                         depends_on=1,
-                        threshold=0.5,
+                        correlation_threshold=0.5,
                         correlation_type=CorrelationType.SPEARMAN,
-                        filter_type=ROCFilterMethod.F_STATISTICS,
+                        relevance_method=RelevanceMethod.F_STATISTICS,
                     ),
                 ],
             )

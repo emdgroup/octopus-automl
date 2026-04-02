@@ -11,7 +11,7 @@ import os
 from octopus.example_data import load_breast_cancer_data
 from octopus.modules import Octo, Roc
 from octopus.study import OctoClassification
-from octopus.types import CorrelationType, FIComputeMethod, ModelName, ROCFilterMethod
+from octopus.types import CorrelationType, FIComputeMethod, ModelName, RelevanceMethod
 
 ### Load and Preprocess Data
 
@@ -45,9 +45,9 @@ study = OctoClassification(
             description="step_0_roc",
             task_id=0,
             depends_on=None,  # First step, no input dependency
-            threshold=0.85,  # Remove features with correlation > 0.85
+            correlation_threshold=0.85,  # Remove features with correlation > 0.85
             correlation_type=CorrelationType.SPEARMAN,  # Use Spearman correlation
-            filter_type=ROCFilterMethod.F_STATISTICS,  # Apply F-statistics filtering
+            relevance_method=RelevanceMethod.F_STATISTICS,  # Apply F-statistics filtering
         ),
         # Step 1: Octo - Train models on filtered features from ROC step
         Octo(
