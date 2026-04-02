@@ -407,41 +407,29 @@ def run[T](
     Returns:
         List of results from each task in input order.
     """
-    if num_workers == 1:
-        logger.debug(f"Running {context} sequentially without Ray as num_workers=1.")
-        _setup_worker_logging(log_dir)
-        # TODO: can we locally set the environment variables and threadpoolctl limits properly here to allow inner parallelism even in the sequential case? Do we need a subprocess for that?
-        with threadpoolctl.threadpool_limits(limits=num_cpus_per_worker):
-            try:
-                return [task() for task in tasks]
-            except Exception as e:
-                logger.exception(f"Exception in sequential execution of {context}: {e!s}")
-                raise e
+    logger.debug(
+        f"Running {context} in parallel with Ray using {num_workers} workers and {num_cpus_per_worker} CPUs per worker."
+    )
 
-    else:
-        logger.debug(
-            f"Running {context} in parallel with Ray using {num_workers} workers and {num_cpus_per_worker} CPUs per worker."
-        )
+    if not ray.is_initialized():
+        raise RuntimeError("Ray is not initialized. Call ray_parallel.init() first.")
 
-        if not ray.is_initialized():
-            raise RuntimeError("Ray is not initialized. Call ray_parallel.init() first.")
+    # Fill task queue and limit concurrency to num_assigned_cpus to avoid oversubscription.
+    # Approach from https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html
 
-        # Fill task queue and limit concurrency to num_assigned_cpus to avoid oversubscription.
-        # Approach from https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html
+    results: list[T] = [None] * len(tasks)  # type: ignore[list-item]
 
-        results: list[T] = [None] * len(tasks)  # type: ignore[list-item]
+    inflight_refs: list[ray.ObjectRef[_TaskReturnType[T]]] = []
+    for task_idx, task in enumerate(tasks):
+        if len(inflight_refs) >= num_workers:
+            # wait for at least one task to complete before launching more to limit resource usage
+            ready_refs, inflight_refs = ray.wait(inflight_refs, num_returns=1)
 
-        inflight_refs: list[ray.ObjectRef[_TaskReturnType[T]]] = []
-        for task_idx, task in enumerate(tasks):
-            if len(inflight_refs) >= num_workers:
-                # wait for at least one task to complete before launching more to limit resource usage
-                ready_refs, inflight_refs = ray.wait(inflight_refs, num_returns=1)
+            results = _collect_results(ready_refs, results)
 
-                results = _collect_results(ready_refs, results)
+        inflight_refs.append(_create_parallel_task(context, task_idx, task, log_dir, num_cpus_per_worker))
 
-            inflight_refs.append(_create_parallel_task(context, task_idx, task, log_dir, num_cpus_per_worker))
+    # Wait for any remaining tasks to complete
+    results = _collect_results(inflight_refs, results)
 
-        # Wait for any remaining tasks to complete
-        results = _collect_results(inflight_refs, results)
-
-        return results
+    return results
