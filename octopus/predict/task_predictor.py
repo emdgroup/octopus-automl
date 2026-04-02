@@ -350,10 +350,10 @@ class TaskPredictor:
         """Build per-split pool data for permutation FI.
 
         In study-connected mode (constructed via ``TaskPredictor(study_path,
-        task_id)``), loads per-split ``data_traindev.parquet`` from the study
-        directory.  This provides a richer pool of replacement values for
-        permutation FI, better approximating the marginal distribution of
-        each feature.
+        task_id)``), filters ``data_prepared.parquet`` using the stored split
+        row IDs to recover per-split traindev data.  This provides a richer
+        pool of replacement values for permutation FI, better approximating
+        the marginal distribution of each feature.
 
         In deployment mode (loaded via ``TaskPredictor.load(path)``), the
         original study directory is not available, so the user-provided
@@ -374,10 +374,9 @@ class TaskPredictor:
                 task_id=self._task_id,
                 result_type=self._result_type,
             )
-            traindev_path = split_loader.fold_dir / "data_traindev.parquet"
-            if traindev_path.exists():
-                pool[split_id] = split_loader.load_train_data()
-            else:
+            try:
+                pool[split_id] = split_loader.load_partition("traindev")
+            except FileNotFoundError:
                 pool[split_id] = data
 
         return pool

@@ -55,16 +55,16 @@ class TaskPredictorTest(TaskPredictor):
         # Call parent __attrs_post_init__ to load config, validate, and load models
         super().__attrs_post_init__()
 
-        # Additionally load test and train data per split via StudyLoader factory
         loader = StudyLoader(self._study_path)
+
         for split_id in self._outersplits:
             split_loader = loader.get_outersplit_loader(
                 outersplit_id=split_id,
                 task_id=self._task_id,
                 result_type=self._result_type,
             )
-            self._test_data[split_id] = split_loader.load_test_data()
-            self._train_data[split_id] = split_loader.load_train_data()
+            self._train_data[split_id] = split_loader.load_partition("traindev")
+            self._test_data[split_id] = split_loader.load_partition("test")
 
     # ── Prediction (per-split on own test data) ─────────────────
 

@@ -186,7 +186,7 @@ class OctoStudy(ABC):
             config["positive_class"] = positive_class
         config["prepared"] = {
             "feature_cols": prepared.feature_cols,
-            "row_id": prepared.row_id_col,
+            "row_id_col": prepared.row_id_col,
             "target_assignments": self.target_assignments,
         }
 
