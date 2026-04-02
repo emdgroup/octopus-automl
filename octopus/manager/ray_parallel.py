@@ -1,8 +1,10 @@
 """Ray parallelization for outer and inner loops."""
 
+from __future__ import annotations
+
 import os
 from collections.abc import Callable, Sequence
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import ray
 import threadpoolctl
@@ -12,8 +14,10 @@ from upath import UPath
 
 from octopus.datasplit import OuterSplit, OuterSplits
 from octopus.logger import get_logger, set_logger_filename
-from octopus.modules.octo.bag import FeatureImportanceWithLogging, TrainingWithLogging
 from octopus.modules.octo.training import Training
+
+if TYPE_CHECKING:
+    from octopus.modules.octo.bag import FeatureImportanceWithLogging, TrainingWithLogging
 
 logger = get_logger()
 
