@@ -1,27 +1,17 @@
-"""Shared feature-importance computation primitives.
+"""Feature-importance computation: primitives and multi-split orchestration.
 
-This module contains the shared computation functions used by both the
-predict package (``octopus.predict.feature_importance``) and the octo
-training pipeline (``octopus.modules.octo.training``).
+Primitives
+----------
+- ``compute_per_repeat_stats`` — t-distribution stats from repeat values
+- ``compute_permutation_single`` — custom draw-from-pool permutation for a single model
+- ``compute_shap_single`` — SHAP explainer for a single model + dataset
 
-Architecture
-------------
-Only two feature-importance algorithms are truly general-purpose and
-shared between predict and octo:
-
-- **Permutation FI** — ``compute_permutation_single``
-- **SHAP FI** — ``compute_shap_single``
-
-A helper function ``compute_per_repeat_stats`` is a transitive dependency
-of ``compute_permutation_single`` and lives here as well.
-
-Octo-only primitives (``compute_internal_fi``, LOFO, constant) remain in
-``octopus.modules.octo.training`` because they depend on training-time
-context and are never called from the predict layer.
-
-Multi-split orchestrators (``calculate_fi_permutation``, ``calculate_fi_shap``)
-remain in ``octopus.predict.feature_importance`` — they coordinate
-multi-split FI across outer splits and are predict-only.
+Multi-split orchestrators
+-------------------------
+- ``calculate_fi_permutation`` — per-split + ensemble permutation FI
+- ``calculate_fi_shap`` — per-split + ensemble SHAP FI
+- ``dispatch_fi`` — dispatch to the appropriate algorithm
+- ``merge_feature_groups`` — union per-split feature groups
 """
 
 from __future__ import annotations
@@ -37,9 +27,13 @@ from octopus.metrics.utils import get_score_from_model
 from octopus.types import MLType, ShapType
 
 __all__ = [
+    "calculate_fi_permutation",
+    "calculate_fi_shap",
     "compute_per_repeat_stats",
     "compute_permutation_single",
     "compute_shap_single",
+    "dispatch_fi",
+    "merge_feature_groups",
 ]
 
 logger = logging.getLogger(__name__)
@@ -366,3 +360,323 @@ def compute_permutation_single(
         return pd.DataFrame(columns=["feature", "importance", "importance_std", "p_value", "ci_lower", "ci_upper"])
 
     return pd.DataFrame(results)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Multi-split Orchestration
+# ═══════════════════════════════════════════════════════════════
+
+
+def _aggregate_across_splits(
+    per_split_dfs: dict[int, pd.DataFrame],
+    extra_stat_cols: list[str] | None = None,
+) -> pd.DataFrame:
+    """Aggregate per-split feature-importance DataFrames into a combined result.
+
+    Builds per-split rows (``fi_source = split_id``) and ensemble rows
+    (``fi_source = "ensemble"``).  The ``importance`` column from each
+    per-split DataFrame is renamed to ``importance_mean`` in the output.
+
+    Args:
+        per_split_dfs: Dict mapping outersplit_id to a DataFrame with
+            at least columns ``["feature", "importance"]``.
+        extra_stat_cols: Additional columns to carry through from per-split
+            DataFrames (e.g. ``["p_value", "ci_lower", "ci_upper"]``).
+
+    Returns:
+        DataFrame sorted by fi_source then importance_mean descending.
+    """
+    if extra_stat_cols is None:
+        extra_stat_cols = []
+
+    rows: list[dict[str, Any]] = []
+    per_split_means: dict[str, list[float]] = {}
+
+    for split_id in sorted(per_split_dfs.keys()):
+        split_fi = per_split_dfs[split_id]
+        for _, row in split_fi.iterrows():
+            feat = row["feature"]
+            imp_mean = row["importance"]
+            row_dict: dict[str, Any] = {
+                "fi_source": split_id,
+                "feature": feat,
+                "importance_mean": imp_mean,
+                "importance_std": row["importance_std"] if "importance_std" in split_fi.columns else float("nan"),
+            }
+            for col in extra_stat_cols:
+                row_dict[col] = row[col] if col in split_fi.columns else float("nan")
+            rows.append(row_dict)
+            per_split_means.setdefault(feat, []).append(imp_mean)
+
+    for feature_name, split_means in per_split_means.items():
+        arr = np.array(split_means)
+        ensemble_mean = float(np.mean(arr))
+        ensemble_std = float(np.std(arr, ddof=1)) if len(arr) > 1 else 0.0
+        row_dict = {
+            "fi_source": "ensemble",
+            "feature": feature_name,
+            "importance_mean": ensemble_mean,
+            "importance_std": ensemble_std,
+        }
+        for col in extra_stat_cols:
+            row_dict[col] = float("nan")
+        rows.append(row_dict)
+
+    result = pd.DataFrame(rows)
+    if not result.empty:
+        per_split = result[result["fi_source"] != "ensemble"].copy()
+        ensemble = result[result["fi_source"] == "ensemble"].copy()
+
+        per_split = per_split.sort_values(["fi_source", "importance_mean"], ascending=[True, False])
+        ensemble = ensemble.sort_values("importance_mean", ascending=False)
+
+        result = pd.concat([per_split, ensemble], ignore_index=True)
+    return result
+
+
+def calculate_fi_permutation(
+    models: dict[int, Any],
+    selected_features: dict[int, list[str]],
+    test_data: dict[int, pd.DataFrame],
+    train_data: dict[int, pd.DataFrame],
+    target_assignments: dict[str, str],
+    target_metric: str,
+    positive_class: Any = None,
+    n_repeats: int = 10,
+    random_state: int = 42,
+    feature_groups: dict[str, list[str]] | None = None,
+    feature_cols: list[str] | None = None,
+) -> pd.DataFrame:
+    """Calculate permutation feature importance across all outer splits.
+
+    Args:
+        models: Dict mapping outersplit_id to fitted model.
+        selected_features: Dict mapping outersplit_id to feature list.
+        test_data: Dict mapping outersplit_id to test DataFrame.
+        train_data: Dict mapping outersplit_id to train DataFrame.
+        target_assignments: Target column assignments.
+        target_metric: Metric name for scoring.
+        positive_class: Positive class label for classification.
+        n_repeats: Number of permutation repeats per feature.
+        random_state: Random seed for reproducibility.
+        feature_groups: Optional dict mapping group names to feature lists.
+        feature_cols: Union of all input feature columns across splits.
+
+    Returns:
+        DataFrame with columns: fi_source, feature, importance_mean,
+        importance_std, p_value, ci_lower, ci_upper.
+    """
+    per_split_dfs: dict[int, pd.DataFrame] = {}
+
+    for split_id, model in models.items():
+        features = selected_features[split_id]
+        test_df = test_data[split_id]
+        train_df = train_data[split_id]
+
+        split_fi = compute_permutation_single(
+            model=model,
+            X_test=test_df,
+            X_train=train_df,
+            feature_cols=features,
+            target_metric=target_metric,
+            target_assignments=target_assignments,
+            positive_class=positive_class,
+            n_repeats=n_repeats,
+            random_state=random_state,
+            feature_groups=feature_groups,
+        )
+
+        if feature_cols is not None:
+            existing_features = set(split_fi["feature"].tolist())
+            zero_rows = []
+            for fc in feature_cols:
+                if fc not in existing_features:
+                    zero_rows.append(
+                        {
+                            "feature": fc,
+                            "importance": 0.0,
+                            "importance_std": 0.0,
+                            "p_value": float("nan"),
+                            "ci_lower": float("nan"),
+                            "ci_upper": float("nan"),
+                        }
+                    )
+            if zero_rows:
+                split_fi = pd.concat([split_fi, pd.DataFrame(zero_rows)], ignore_index=True)
+
+        per_split_dfs[split_id] = split_fi
+
+    return _aggregate_across_splits(per_split_dfs, extra_stat_cols=["p_value", "ci_lower", "ci_upper"])
+
+
+def calculate_fi_shap(
+    models: dict[int, Any],
+    selected_features: dict[int, list[str]],
+    test_data: dict[int, pd.DataFrame],
+    shap_type: str = "kernel",
+    max_samples: int = 100,
+    background_size: int = 200,
+    *,
+    ml_type: MLType,
+    feature_cols: list[str] | None = None,
+) -> pd.DataFrame:
+    """Calculate SHAP feature importance across all outer splits.
+
+    Args:
+        models: Dict mapping outersplit_id to fitted model.
+        selected_features: Dict mapping outersplit_id to feature list.
+        test_data: Dict mapping outersplit_id to test DataFrame.
+        shap_type: SHAP explainer type.
+        max_samples: Maximum number of evaluation samples per split.
+        background_size: Maximum background dataset size for kernel explainer.
+        ml_type: ML task type.
+        feature_cols: Union of all input feature columns across splits.
+
+    Returns:
+        DataFrame with columns: fi_source, feature, importance_mean, importance_std.
+    """
+    per_split_dfs: dict[int, pd.DataFrame] = {}
+
+    for split_id, model in models.items():
+        features = selected_features[split_id]
+        test_df = test_data[split_id]
+
+        x_test = test_df[features]
+
+        X_background = None
+        if shap_type == "kernel":
+            bg_size = min(background_size, len(x_test))
+            rng = np.random.default_rng(42)
+            bg_idx = rng.choice(len(x_test), size=bg_size, replace=False)
+            X_background = x_test.to_numpy()[bg_idx]
+
+        fi_df = compute_shap_single(
+            model=model,
+            X=x_test,
+            feature_names=list(x_test.columns),
+            shap_type=shap_type,
+            X_background=X_background,
+            max_samples=max_samples,
+            threshold_ratio=None,
+            ml_type=ml_type,
+        )
+
+        if feature_cols is not None:
+            existing_features = set(fi_df["feature"].tolist())
+            zero_rows = []
+            for fc in feature_cols:
+                if fc not in existing_features:
+                    zero_rows.append({"feature": fc, "importance": 0.0})
+            if zero_rows:
+                fi_df = pd.concat([fi_df, pd.DataFrame(zero_rows)], ignore_index=True)
+
+        per_split_dfs[split_id] = fi_df
+
+    return _aggregate_across_splits(per_split_dfs)
+
+
+def merge_feature_groups(
+    feature_groups_per_split: dict[int, dict[str, list[str]]],
+) -> dict[str, list[str]]:
+    """Union per-split feature groups into one dict.
+
+    Args:
+        feature_groups_per_split: Dict mapping outersplit_id to a dict
+            of group_name -> feature list.
+
+    Returns:
+        Dict mapping group names to sorted lists of feature names.
+    """
+    all_groups: dict[str, list[str]] = {}
+    for split_groups in feature_groups_per_split.values():
+        for group_name, group_features in split_groups.items():
+            if group_name in all_groups:
+                existing = set(all_groups[group_name])
+                existing.update(group_features)
+                all_groups[group_name] = sorted(existing)
+            else:
+                all_groups[group_name] = sorted(group_features)
+    return all_groups
+
+
+def dispatch_fi(
+    models: dict[int, Any],
+    selected_features: dict[int, list[str]],
+    test_data: dict[int, pd.DataFrame],
+    train_data: dict[int, pd.DataFrame],
+    target_assignments: dict[str, str],
+    target_metric: str,
+    positive_class: Any,
+    feature_cols: list[str],
+    feature_groups_per_split: dict[int, dict[str, list[str]]],
+    fi_type: str,
+    *,
+    n_repeats: int = 10,
+    feature_groups: dict[str, list[str]] | None = None,
+    random_state: int = 42,
+    ml_type: MLType | None = None,
+    **kwargs: Any,
+) -> pd.DataFrame:
+    """Dispatch FI calculation to the appropriate algorithm.
+
+    Args:
+        models: Dict mapping outersplit_id to fitted model.
+        selected_features: Dict mapping outersplit_id to feature list.
+        test_data: Dict mapping outersplit_id to test DataFrame.
+        train_data: Dict mapping outersplit_id to train DataFrame.
+        target_assignments: Target column assignments.
+        target_metric: Metric name for scoring.
+        positive_class: Positive class label for classification.
+        feature_cols: Union of feature columns across splits.
+        feature_groups_per_split: Per-split feature groups.
+        fi_type: Feature importance type (a ``FIType`` value).
+        n_repeats: Number of permutation repeats.
+        feature_groups: Explicit feature groups for group permutation.
+        random_state: Random seed.
+        ml_type: ML task type (required for SHAP).
+        **kwargs: Additional kwargs forwarded to the FI function.
+
+    Returns:
+        DataFrame with FI results including a ``fi_type`` column.
+
+    Raises:
+        ValueError: If ``fi_type`` is not recognised.
+    """
+    from octopus.types import FIType  # noqa: PLC0415
+
+    fi_type_enum = FIType(fi_type)
+
+    if fi_type_enum in (FIType.PERMUTATION, FIType.GROUP_PERMUTATION):
+        resolved_groups = None
+        if fi_type_enum == FIType.GROUP_PERMUTATION:
+            resolved_groups = feature_groups if feature_groups is not None else merge_feature_groups(feature_groups_per_split)
+
+        result = calculate_fi_permutation(
+            models=models,
+            selected_features=selected_features,
+            test_data=test_data,
+            train_data=train_data,
+            target_assignments=target_assignments,
+            target_metric=target_metric,
+            positive_class=positive_class,
+            n_repeats=n_repeats,
+            random_state=random_state,
+            feature_groups=resolved_groups,
+            feature_cols=feature_cols,
+        )
+    elif fi_type_enum == FIType.SHAP:
+        result = calculate_fi_shap(
+            models=models,
+            selected_features=selected_features,
+            test_data=test_data,
+            ml_type=ml_type,
+            feature_cols=feature_cols,
+            **kwargs,
+        )
+    else:
+        raise ValueError(
+            f"Unknown fi_type '{fi_type}'. Use FIType.PERMUTATION, FIType.GROUP_PERMUTATION, or FIType.SHAP."
+        )
+
+    result.insert(0, "fi_type", fi_type_enum.value)
+    return result

@@ -16,9 +16,9 @@ from attrs import define, field
 from upath import UPath
 
 from octopus.metrics.utils import get_performance_from_model
-from octopus.predict.study_io import StudyLoader, StudyMetadata, _to_upath
-from octopus.types import FIType, MLType
-from octopus.utils import get_version, joblib_load, joblib_save
+from octopus.predict.study_io import StudyInfo
+from octopus.types import FIType, MLType, ResultType
+from octopus.utils import get_version, joblib_load, joblib_save, parquet_load
 
 
 @define(slots=False)
@@ -30,64 +30,69 @@ class TaskPredictor:
     All results are computed fresh from loaded models.
 
     Args:
-        study_path: Path to the study directory.
+        study: Validated study (from ``load_study()``).
         task_id: Concrete workflow task index (must be >= 0).
         result_type: Result type for filtering results (default: 'best').
 
     Raises:
-        ValueError: If task_id is negative, out of range, or no models found.
-        FileNotFoundError: If expected study artifacts are missing.
+        ValueError: If task_id is out of range or no models found.
+        FileNotFoundError: If expected model artifacts are missing.
 
     Example:
-        >>> tp = TaskPredictor("studies/my_study", task_id=0)
+        >>> study = load_study("studies/my_study")
+        >>> tp = TaskPredictor(study, task_id=0)
         >>> predictions = tp.predict(new_data, df=True)
     """
 
-    _study_path: UPath = field(converter=_to_upath, alias="study_path")
-    _task_id: int = field(alias="task_id")
-    _result_type: str = field(default="best", alias="result_type")
+    study: StudyInfo = field()
+    """Validated study (from ``load_study()``)."""
 
-    # Computed fields — populated in __attrs_post_init__
-    _config: dict[str, Any] = field(init=False, factory=dict, repr=False)
-    _metadata: StudyMetadata = field(init=False)
+    task_id: int = field()
+    """Workflow task index (>= 0)."""
 
-    # Flattened from artifacts for fast access
-    _outersplits: list[int] = field(init=False, factory=list)
-    _models: dict[int, Any] = field(init=False, factory=dict, repr=False)
-    _selected_features: dict[int, list[str]] = field(init=False, factory=dict, repr=False)
-    _feature_cols_per_split: dict[int, list[str]] = field(init=False, factory=dict, repr=False)
-    _feature_groups_per_split: dict[int, dict[str, list[str]]] = field(init=False, factory=dict, repr=False)
-    _feature_cols: list[str] = field(init=False, factory=list, repr=False)
+    result_type: ResultType = field(default=ResultType.BEST, converter=ResultType)
+    """Result type: 'best' or 'ensemble_selection'."""
 
     def __attrs_post_init__(self) -> None:
-        """Load config, validate, and load artifacts from the study directory."""
-        loader = StudyLoader(self._study_path)
-        self._config = loader.load_config()
+        """Load models and per-split artifacts from the study directory."""
+        self._config = self.study.config
+        self._models: dict[int, Any] = {}
+        self._selected_features: dict[int, list[str]] = {}
+        self._feature_cols_per_split: dict[int, list[str]] = {}
+        self._feature_groups_per_split: dict[int, dict[str, list[str]]] = {}
 
-        # Validate task_id via I/O layer
-        loader.validate_task_id(self._task_id, self._config)
+        valid_task_ids = {t["task_id"] for t in self.study.workflow_tasks}
+        if self.task_id not in valid_task_ids:
+            raise ValueError(f"task_id {self.task_id} not found in study, available: {sorted(valid_task_ids)}")
 
-        # Extract metadata via I/O layer
-        self._metadata = loader.extract_metadata(self._config)
+        for fold_dir in self.study.outersplit_dirs:
+            split_id = int(fold_dir.name.replace("outersplit", ""))
+            task_dir = fold_dir / f"task{self.task_id}"
+            result_dir = task_dir / "results" / self.result_type
 
-        # Load all per-split artifacts via I/O layer
-        artifacts = loader.load_task_artifacts(
-            self._task_id,
-            self._result_type,
-            self._metadata.n_outersplits,
-        )
+            # Load model
+            model_path = result_dir / "model" / "model.joblib"
+            if not model_path.exists():
+                raise FileNotFoundError(f"Model file not found: {model_path}. Has the study completed successfully?")
+            self._models[split_id] = joblib_load(model_path)
 
-        # Flatten artifacts for fast per-split access
-        self._outersplits = list(artifacts.outersplit_ids)
-        for split_id, sa in artifacts.splits.items():
-            self._models[split_id] = sa.model
-            self._selected_features[split_id] = sa.selected_features
-            self._feature_cols_per_split[split_id] = sa.feature_cols
-            self._feature_groups_per_split[split_id] = sa.feature_groups
+            # Load selected features (required)
+            sf_path = result_dir / "selected_features.json"
+            if not sf_path.exists():
+                raise FileNotFoundError(f"Selected features not found: {sf_path}")
+            with sf_path.open() as f:
+                self._selected_features[split_id] = json.load(f)
+
+            # Load optional artifacts
+            config_dir = task_dir / "config"
+            fc_path = config_dir / "feature_cols.json"
+            self._feature_cols_per_split[split_id] = json.load(fc_path.open()) if fc_path.exists() else []
+            fg_path = config_dir / "feature_groups.json"
+            self._feature_groups_per_split[split_id] = json.load(fg_path.open()) if fg_path.exists() else {}
 
         # Compute union of feature_cols across all outersplits
         all_feature_cols: set[str] = set()
-        for split_id in self._outersplits:
+        for split_id in self._models:
             split_fcols = self._feature_cols_per_split.get(split_id, [])
             if split_fcols:
                 all_feature_cols.update(split_fcols)
@@ -95,114 +100,7 @@ class TaskPredictor:
         if all_feature_cols:
             self._feature_cols = sorted(all_feature_cols)
         else:
-            self._feature_cols = self._metadata.feature_cols
-
-    # ── Properties ──────────────────────────────────────────────
-
-    @property
-    def ml_type(self) -> MLType:
-        """Machine learning type (classification, regression, timetoevent)."""
-        return self._metadata.ml_type
-
-    @property
-    def target_metric(self) -> str:
-        """Target metric name."""
-        return self._metadata.target_metric
-
-    @property
-    def target_col(self) -> str:
-        """Target column name from config."""
-        return self._metadata.target_col
-
-    @property
-    def target_assignments(self) -> dict[str, str]:
-        """Target column assignments from prepared config."""
-        return self._metadata.target_assignments
-
-    @property
-    def positive_class(self) -> Any:
-        """Positive class label for classification."""
-        return self._metadata.positive_class
-
-    @property
-    def row_id_col(self) -> str | None:
-        """Row ID column name."""
-        return self._metadata.row_id_col
-
-    @property
-    def feature_cols(self) -> list[str]:
-        """Input feature column names from study config."""
-        return self._feature_cols
-
-    @property
-    def n_outersplits(self) -> int:
-        """Number of loaded outersplits."""
-        return len(self._outersplits)
-
-    @property
-    def outersplits(self) -> list[int]:
-        """List of loaded outersplit IDs."""
-        return list(self._outersplits)
-
-    @property
-    def config(self) -> dict[str, Any]:
-        """Full study configuration dictionary.
-
-        Note:
-            After ``TaskPredictor.load()``, this returns an empty dict
-            because the full config is not serialized — only the metadata
-            fields needed for prediction are saved.
-        """
-        return self._config
-
-    @property
-    def classes_(self) -> np.ndarray:
-        """Class labels from the first model (classification only).
-
-        Raises:
-            AttributeError: If the model does not have a classes_ attribute.
-        """
-        model = self._models[self._outersplits[0]]
-        if not hasattr(model, "classes_"):
-            raise AttributeError(f"Not a classification model: {type(model).__name__}")
-        result: np.ndarray = model.classes_
-        return result
-
-    @property
-    def feature_cols_per_split(self) -> dict[int, list[str]]:
-        """Input feature columns per outersplit (loaded from disk)."""
-        return self._feature_cols_per_split
-
-    @property
-    def feature_groups_per_split(self) -> dict[int, dict[str, list[str]]]:
-        """Feature groups per outersplit (loaded from disk)."""
-        return self._feature_groups_per_split
-
-    # ── Per-outersplit access ───────────────────────────────────
-
-    def get_model(self, outersplit_id: int) -> Any:
-        """Get the fitted model for an outersplit.
-
-        Args:
-            outersplit_id: Outer split index.
-
-        Returns:
-            The fitted model object.
-        """
-        return self._models[outersplit_id]
-
-    def get_selected_features(self, outersplit_id: int) -> list[str]:
-        """Get selected features for an outersplit.
-
-        Args:
-            outersplit_id: Outer split index.
-
-        Returns:
-            List of selected feature names.
-        """
-        return self._selected_features[outersplit_id]
-
-    # ── Prediction ──────────────────────────────────────────────
+            self._feature_cols = self._config.get("feature_cols", [])
 
     def predict(self, data: pd.DataFrame, df: bool = False) -> np.ndarray | pd.DataFrame:
         """Predict on new data using all outer-split models.
@@ -221,8 +119,8 @@ class TaskPredictor:
         per_split_preds: list[np.ndarray] = []
         all_rows: list[pd.DataFrame] = []
 
-        for split_id in self._outersplits:
-            features = self._selected_features[split_id]
+        for split_id in self._models:
+            features = self._feature_cols_per_split.get(split_id) or self._selected_features[split_id]
             preds = self._models[split_id].predict(data[features])
             per_split_preds.append(preds)
 
@@ -267,17 +165,18 @@ class TaskPredictor:
         Raises:
             TypeError: If ml_type is not classification or multiclass.
         """
-        if self.ml_type not in (MLType.BINARY, MLType.MULTICLASS):
+        ml_type = MLType(self._config["ml_type"])
+        if ml_type not in (MLType.BINARY, MLType.MULTICLASS):
             raise TypeError(
                 f"predict_proba() is only available for classification and multiclass tasks, "
-                f"but this study has ml_type='{self.ml_type}'."
+                f"but this study has ml_type='{ml_type}'."
             )
         per_split_probas: list[np.ndarray] = []
         all_rows: list[pd.DataFrame] = []
-        class_labels = self.classes_
+        class_labels = next(iter(self._models.values())).classes_
 
-        for split_id in self._outersplits:
-            features = self._selected_features[split_id]
+        for split_id in self._models:
+            features = self._feature_cols_per_split.get(split_id) or self._selected_features[split_id]
             probas = self._models[split_id].predict_proba(data[features])
             if isinstance(probas, pd.DataFrame):
                 probas = probas.values
@@ -298,8 +197,6 @@ class TaskPredictor:
             all_rows.append(ensemble_df)
             return pd.concat(all_rows, ignore_index=True)
         return ensemble
-
-    # ── Scoring ─────────────────────────────────────────────────
 
     def performance(
         self,
@@ -322,38 +219,36 @@ class TaskPredictor:
             DataFrame with columns: outersplit, metric, score.
         """
         if metrics is None:
-            metrics = [self.target_metric]
+            metrics = [self._config.get("target_metric", "")]
+        target_assignments = self._config.get("prepared", {}).get("target_assignments", {})
 
         rows = []
-        for split_id in self._outersplits:
+        for split_id in self._models:
             model = self._models[split_id]
-            features = self._selected_features[split_id]
+            features = self._feature_cols_per_split.get(split_id) or self._selected_features[split_id]
 
             for metric_name in metrics:
-                # target_assignments supports T2E (duration/event keys)
                 score = get_performance_from_model(
                     model=model,
                     data=data,
                     feature_cols=features,
                     target_metric=metric_name,
-                    target_assignments=self.target_assignments,
+                    target_assignments=target_assignments,
                     threshold=threshold,
-                    positive_class=self.positive_class,
+                    positive_class=self._config.get("positive_class"),
                 )
                 rows.append({"outersplit": split_id, "metric": metric_name, "score": score})
 
         return pd.DataFrame(rows)
 
-    # ── Feature Importance ──────────────────────────────────────
-
     def _build_pool_data(self, data: pd.DataFrame) -> dict[int, pd.DataFrame]:
         """Build per-split pool data for permutation FI.
 
-        In study-connected mode (constructed via ``TaskPredictor(study_path,
-        task_id)``), filters ``data_prepared.parquet`` using the stored split
-        row IDs to recover per-split traindev data.  This provides a richer
-        pool of replacement values for permutation FI, better approximating
-        the marginal distribution of each feature.
+        In study-connected mode (constructed via ``TaskPredictor(study,
+        task_id)``), loads per-split train/dev data from the study directory
+        via ``split_row_ids.json``.  This provides a richer pool of
+        replacement values for permutation FI, better approximating the
+        marginal distribution of each feature.
 
         In deployment mode (loaded via ``TaskPredictor.load(path)``), the
         original study directory is not available, so the user-provided
@@ -365,104 +260,23 @@ class TaskPredictor:
         Returns:
             Dict mapping outersplit_id to pool DataFrame.
         """
-        loader = StudyLoader(self._study_path)
         pool: dict[int, pd.DataFrame] = {}
 
-        for split_id in self._outersplits:
-            split_loader = loader.get_outersplit_loader(
-                outersplit_id=split_id,
-                task_id=self._task_id,
-                result_type=self._result_type,
-            )
-            try:
-                pool[split_id] = split_loader.load_partition("traindev")
-            except FileNotFoundError:
-                pool[split_id] = data
+        for split_id in self._models:
+            if self.study is not None:
+                split_ids_path = self.study.path / f"outersplit{split_id}" / "split_row_ids.json"
+                prepared_path = self.study.path / "data_prepared.parquet"
+                if split_ids_path.exists() and prepared_path.exists():
+                    with split_ids_path.open() as f:
+                        split_info = json.load(f)
+                    row_id_col = split_info["row_id_col"]
+                    prepared = parquet_load(prepared_path)
+                    indexed = prepared.set_index(row_id_col)
+                    pool[split_id] = indexed.loc[split_info["traindev_row_ids"]].reset_index()
+                    continue
+            pool[split_id] = data
 
         return pool
-
-    def _dispatch_fi(
-        self,
-        test_data: dict[int, pd.DataFrame],
-        train_data: dict[int, pd.DataFrame],
-        fi_type: FIType,
-        *,
-        n_repeats: int = 10,
-        feature_groups: dict[str, list[str]] | None = None,
-        random_state: int = 42,
-        **kwargs: Any,
-    ) -> pd.DataFrame:
-        """Dispatch FI calculation to the appropriate Layer 2 function.
-
-        Shared dispatch logic for both ``TaskPredictor`` (user-provided data)
-        and ``TaskPredictorTest`` (stored study data).  The caller is
-        responsible for constructing the ``test_data`` and ``train_data``
-        dicts; this method only handles algorithm dispatch and result
-        formatting.
-
-        Args:
-            test_data: Dict mapping outersplit_id to test DataFrame.
-            train_data: Dict mapping outersplit_id to train DataFrame
-                (used as the sampling pool for permutation FI).
-            fi_type: Feature importance type (must already be a ``FIType``).
-            n_repeats: Number of permutation repeats.
-            feature_groups: Feature groups for group permutation.
-                If ``None`` and ``fi_type`` is ``GROUP_PERMUTATION``,
-                groups are loaded from the study via
-                ``_compute_feature_groups()``.
-            random_state: Random seed.
-            **kwargs: Additional kwargs forwarded to the FI function
-                (e.g. ``shap_type``, ``max_samples`` for SHAP).
-
-        Returns:
-            DataFrame with FI results including a ``fi_type`` column
-            and per-split + ensemble rows.
-
-        Raises:
-            ValueError: If ``fi_type`` is not a recognized ``FIType``.
-        """
-        from octopus.predict.feature_importance import (  # noqa: PLC0415
-            calculate_fi_permutation,
-            calculate_fi_shap,
-        )
-
-        if fi_type in (FIType.PERMUTATION, FIType.GROUP_PERMUTATION):
-            resolved_groups = None
-            if fi_type == FIType.GROUP_PERMUTATION:
-                if feature_groups is not None:
-                    resolved_groups = feature_groups
-                else:
-                    resolved_groups = self._compute_feature_groups()
-
-            result = calculate_fi_permutation(
-                models=self._models,
-                selected_features=self._selected_features,
-                test_data=test_data,
-                train_data=train_data,
-                target_assignments=self.target_assignments,
-                target_metric=self.target_metric,
-                positive_class=self.positive_class,
-                n_repeats=n_repeats,
-                random_state=random_state,
-                feature_groups=resolved_groups,
-                feature_cols=self._feature_cols,
-            )
-        elif fi_type == FIType.SHAP:
-            result = calculate_fi_shap(
-                models=self._models,
-                selected_features=self._selected_features,
-                test_data=test_data,
-                ml_type=self.ml_type,
-                feature_cols=self._feature_cols,
-                **kwargs,
-            )
-        else:
-            raise ValueError(
-                f"Unknown fi_type '{fi_type}'. Use FIType.PERMUTATION, FIType.GROUP_PERMUTATION, or FIType.SHAP."
-            )
-
-        result.insert(0, "fi_type", fi_type.value)
-        return result
 
     def calculate_fi(
         self,
@@ -506,47 +320,31 @@ class TaskPredictor:
         Raises:
             ValueError: If fi_type is unknown.
         """
+        from octopus.feature_importance import dispatch_fi  # noqa: PLC0415
+
         fi_type = FIType(fi_type)
 
         # Build per-split data dicts
-        # All splits share the same DataFrame reference.  Safe because
-        # compute_permutation_single / compute_shap_single copy data before mutating.
-        test_data = dict.fromkeys(self._outersplits, data)
+        test_data = dict.fromkeys(self._models, data)
         train_data = self._build_pool_data(data)
 
-        return self._dispatch_fi(
-            test_data,
-            train_data,
-            fi_type,
+        return dispatch_fi(
+            models=self._models,
+            selected_features=self._selected_features,
+            test_data=test_data,
+            train_data=train_data,
+            target_assignments=self._config.get("prepared", {}).get("target_assignments", {}),
+            target_metric=self._config.get("target_metric", ""),
+            positive_class=self._config.get("positive_class"),
+            feature_cols=self._feature_cols,
+            feature_groups_per_split=self._feature_groups_per_split,
+            fi_type=fi_type,
             n_repeats=n_repeats,
             feature_groups=feature_groups,
             random_state=random_state,
+            ml_type=MLType(self._config["ml_type"]),
             **kwargs,
         )
-
-    def _compute_feature_groups(self) -> dict[str, list[str]]:
-        """Compute merged feature groups from all outersplits.
-
-        Merges the per-split feature groups loaded from disk into a single
-        dict. Groups with the same name across splits are merged by taking
-        the union of their features.
-
-        Returns:
-            Dict mapping group names to lists of feature names.
-        """
-        all_groups: dict[str, list[str]] = {}
-        for split_id in self._outersplits:
-            split_groups = self._feature_groups_per_split.get(split_id, {})
-            for group_name, group_features in split_groups.items():
-                if group_name in all_groups:
-                    existing = set(all_groups[group_name])
-                    existing.update(group_features)
-                    all_groups[group_name] = sorted(existing)
-                else:
-                    all_groups[group_name] = sorted(group_features)
-        return all_groups
-
-    # ── Serialization ───────────────────────────────────────────
 
     def save(self, path: str | UPath) -> None:
         """Save the predictor for standalone deployment.
@@ -561,34 +359,32 @@ class TaskPredictor:
         save_dir = UPath(path)
         save_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save metadata
-        metadata = {
-            "task_id": self._task_id,
-            "ml_type": self.ml_type,
-            "target_metric": self.target_metric,
-            "target_col": self.target_col,
-            "target_assignments": self.target_assignments,
-            "positive_class": self.positive_class,
-            "row_id_col": self.row_id_col,
+        # Save study config (the real one — all metadata comes from here)
+        with (save_dir / "study_config.json").open("w") as f:
+            json.dump(self._config, f, indent=2, default=str)
+
+        # Save predictor state (per-split artifacts not in the study config)
+        state = {
+            "task_id": self.task_id,
+            "result_type": self.result_type,
+            "outersplits": list(self._models.keys()),
             "feature_cols": self._feature_cols,
-            "outersplits": self._outersplits,
-            "result_type": self._result_type,
             "feature_cols_per_split": {str(k): v for k, v in self._feature_cols_per_split.items()},
             "feature_groups_per_split": {str(k): v for k, v in self._feature_groups_per_split.items()},
         }
-        with (save_dir / "metadata.json").open("w") as f:
-            json.dump(metadata, f, indent=2, default=str)
+        with (save_dir / "predictor_state.json").open("w") as f:
+            json.dump(state, f, indent=2)
 
         # Save models
         models_dir = save_dir / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
-        for split_id in self._outersplits:
+        for split_id in self._models:
             joblib_save(self._models[split_id], models_dir / f"model_{split_id:03d}.joblib")
 
         # Save selected features
         features_dir = save_dir / "selected_features"
         features_dir.mkdir(parents=True, exist_ok=True)
-        for split_id in self._outersplits:
+        for split_id in self._models:
             with (features_dir / f"split_{split_id:03d}.json").open("w") as f:
                 json.dump(self._selected_features[split_id], f)
 
@@ -609,11 +405,6 @@ class TaskPredictor:
         """
         load_dir = UPath(path)
 
-        # Load metadata
-        with (load_dir / "metadata.json").open() as f:
-            metadata_dict = json.load(f)
-
-        # Load version and warn if mismatch
         version_path = load_dir / "version.json"
         if version_path.exists():
             with version_path.open() as f:
@@ -630,44 +421,35 @@ class TaskPredictor:
                     stacklevel=2,
                 )
 
-        # Create instance without calling __init__ / __attrs_post_init__
-        # Use TaskPredictor explicitly (not cls) to avoid subclass issues
+        # Load study config
+        with (load_dir / "study_config.json").open() as f:
+            config = json.load(f)
+
+        # Load predictor state
+        with (load_dir / "predictor_state.json").open() as f:
+            state = json.load(f)
+
         instance = TaskPredictor.__new__(TaskPredictor)
 
-        instance._study_path = UPath(load_dir)
-        instance._result_type = metadata_dict.get("result_type", "best")
-        instance._task_id = metadata_dict["task_id"]
-        instance._config = {}
-        instance._metadata = StudyMetadata(
-            ml_type=metadata_dict["ml_type"],
-            target_metric=metadata_dict["target_metric"],
-            target_col=metadata_dict["target_col"],
-            target_assignments=metadata_dict.get("target_assignments", {}),
-            positive_class=metadata_dict.get("positive_class"),
-            row_id_col=metadata_dict.get("row_id_col"),
-            feature_cols=metadata_dict.get("feature_cols", []),
-            n_outersplits=len(metadata_dict.get("outersplits", [])),
-        )
-        instance._feature_cols = metadata_dict.get("feature_cols", [])
-        instance._outersplits = metadata_dict.get("outersplits", [])
-        # Restore per-split data
-        instance._feature_cols_per_split = {
-            int(k): v for k, v in metadata_dict.get("feature_cols_per_split", {}).items()
-        }
-        instance._feature_groups_per_split = {
-            int(k): v for k, v in metadata_dict.get("feature_groups_per_split", {}).items()
-        }
+        instance.study = None
+        instance.task_id = state["task_id"]
+        instance.result_type = ResultType(state.get("result_type", "best"))
+        instance._config = config
+        instance._feature_cols = state.get("feature_cols", [])
+        instance._feature_cols_per_split = {int(k): v for k, v in state.get("feature_cols_per_split", {}).items()}
+        instance._feature_groups_per_split = {int(k): v for k, v in state.get("feature_groups_per_split", {}).items()}
 
         # Load models
+        outersplits = state.get("outersplits", [])
         instance._models = {}
         models_dir = load_dir / "models"
-        for split_id in instance._outersplits:
+        for split_id in outersplits:
             instance._models[split_id] = joblib_load(models_dir / f"model_{split_id:03d}.joblib")
 
         # Load selected features
         instance._selected_features = {}
         features_dir = load_dir / "selected_features"
-        for split_id in instance._outersplits:
+        for split_id in outersplits:
             with (features_dir / f"split_{split_id:03d}.json").open() as f:
                 instance._selected_features[split_id] = json.load(f)
 
