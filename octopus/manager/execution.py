@@ -75,6 +75,8 @@ class ParallelRayStrategy(ExecutionStrategy):
     configuration set up in ray_parallel.init() and executes one outer split per worker.
     """
 
+    num_workers: int = field(validator=[validators.instance_of(int), validators.ge(1)])
+    """Number of parallel workers to use for processing outersplits. """
     num_cpus_per_worker: int = field(validator=[validators.instance_of(int), validators.ge(1)])
     """Number of CPUs to use for parallel processing within each parallel worker."""
     log_dir: UPath = field(validator=validators.instance_of(UPath))
@@ -101,5 +103,6 @@ class ParallelRayStrategy(ExecutionStrategy):
             outersplit_data=outersplit_data,
             run_fn=wrapped_run,
             log_dir=self.log_dir,
+            num_workers=self.num_workers,
             num_cpus_per_worker=self.num_cpus_per_worker,
         )

@@ -21,11 +21,12 @@ def outersplits():
     }
 
 
-def test_inner_parallelization_setup_in_workers(tmp_path, outersplits):
+@pytest.mark.parametrize("run_single_outersplit", [True, False], ids=["single_outersplit", "all_outersplits"])
+def test_inner_parallelization_setup_in_workers(tmp_path, outersplits, run_single_outersplit):
     resources = ray_parallel.init(
         num_cpus_user=0,
         num_outersplits=len(outersplits),
-        run_single_outersplit=False,
+        run_single_outersplit=run_single_outersplit,
         namespace="test_namespace",
     )
 
@@ -43,12 +44,13 @@ def test_inner_parallelization_setup_in_workers(tmp_path, outersplits):
         assert len(threadpool_info) >= 2
 
         for lib in threadpool_info:
-            assert lib["num_threads"] == 1
+            assert lib["num_threads"] == resources.cpus_per_worker
 
     ray_parallel.run_parallel_outer(
         outersplit_data=outersplits,
         run_fn=run_fn,
         log_dir=UPath(tmp_path),
+        num_workers=resources.num_workers,
         num_cpus_per_worker=resources.cpus_per_worker,
     )
 
@@ -102,6 +104,7 @@ def test_connect_to_running_ray_cluster(tmp_path, outersplits, num_nodes):
             outersplit_data=outersplits,
             run_fn=run_fn,
             log_dir=UPath(tmp_path),
+            num_workers=resources.num_workers,
             num_cpus_per_worker=resources.cpus_per_worker,
         )
     finally:
