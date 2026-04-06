@@ -136,11 +136,13 @@ def setup_logger(name="OctoManager", log_file: UPath | None = None, level=loggin
     external_handler = ExternalHandler(logger)
 
     optuna_logger = logging.getLogger("optuna")
+    optuna_logger.handlers.clear()
     optuna_logger.setLevel(level)
     optuna_logger.propagate = False
     optuna_logger.addHandler(external_handler)
 
     autogluon_logger = logging.getLogger("autogluon")
+    autogluon_logger.handlers.clear()
     autogluon_logger.setLevel(level)
     autogluon_logger.propagate = False
     autogluon_logger.addHandler(external_handler)

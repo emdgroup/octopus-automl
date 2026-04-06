@@ -180,6 +180,17 @@ class TestWorkflowValidation:
         ):
             OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
 
+    def test_mrmr_permutation_without_depends_on_fails(self, base_study_kwargs):
+        """Test that Mrmr with permutation relevance must have depends_on set."""
+        workflow = [
+            Mrmr(task_id=0, depends_on=None, relevance_method=RelevanceMethod.PERMUTATION),
+        ]
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            pytest.raises(ValueError, match="requires an upstream task"),
+        ):
+            OctoClassification(**base_study_kwargs, study_path=temp_dir, workflow=workflow)
+
     def test_mrmr_permutation_depends_on_mrmr_fails(self, base_study_kwargs):
         """Test that Mrmr with permutation relevance cannot depend on another Mrmr."""
         workflow = [

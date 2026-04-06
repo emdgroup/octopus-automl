@@ -126,11 +126,12 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Seque
     # that produces feature importances (not Roc or Mrmr)
     _MODULES_WITHOUT_FI = (Roc, Mrmr)
     for item in value:
-        if (
-            isinstance(item, Mrmr)
-            and item.relevance_method == RelevanceMethod.PERMUTATION
-            and item.depends_on is not None
-        ):
+        if isinstance(item, Mrmr) and item.relevance_method == RelevanceMethod.PERMUTATION:
+            if item.depends_on is None:
+                raise ValueError(
+                    f"Mrmr (task_id={item.task_id}) with relevance_method='permutation' requires an upstream task "
+                    "that produces feature importances. Set depends_on to an Octo, Boruta, or AutoGluon task."
+                )
             upstream_idx = task_id_to_index[item.depends_on]
             upstream_task = value[upstream_idx]
             if isinstance(upstream_task, _MODULES_WITHOUT_FI):

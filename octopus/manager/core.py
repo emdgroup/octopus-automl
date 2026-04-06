@@ -38,7 +38,7 @@ class OctoManager:
        Set to 1 to disable all parallel processing and run sequentially."""
 
     single_outer_split: int | None = field(
-        validator=validators.optional([validators.instance_of(int), validators.ge(0)])
+        validator=validators.optional(validators.and_(validators.instance_of(int), validators.ge(0)))
     )
     """Index of single outer split to run (None for all)."""
 
