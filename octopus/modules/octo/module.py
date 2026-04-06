@@ -38,7 +38,7 @@ class Octo(Task):
         n_inner_splits: Number of inner CV folds
         n_trials: Number of Optuna trials
         ensemble_selection: Whether to perform ensemble selection
-        mrmr_feature_numbers: Feature subset sizes for MRMR-based Optuna search
+        mrmr_subset_sizes: Feature subset sizes for MRMR-based Optuna search
     """
 
     models: list[ModelName] | None = field(
@@ -89,7 +89,7 @@ class Octo(Task):
     max_features: int = field(validator=[validators.instance_of(int)], default=0)
     """Maximum features to constrain hyperparameter optimization. Default is zero (off)."""
 
-    mrmr_feature_numbers: list[int] = field(validator=[validators.instance_of(list)], default=Factory(list))
+    mrmr_subset_sizes: list[int] = field(validator=[validators.instance_of(list)], default=Factory(list))
     """MRMR feature subset sizes to explore during Optuna optimization.
 
     Each integer specifies a number of top features to pre-select via MRMR
