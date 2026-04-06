@@ -65,7 +65,7 @@ class ObjectiveOptuna:
         self.mrmr_features = mrmr_features
         # saving trials
         self.ensel = self.config.ensemble_selection
-        self.n_save_trials = max(50, self.config.n_trials // 2)
+        self.n_save_trials = self.config.n_ensemble_candidates
         # parameters potentially used for optimizations
         self.ml_model_types = self.config.models
         self.max_outl = self.config.max_outliers
