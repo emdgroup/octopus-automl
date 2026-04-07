@@ -15,7 +15,7 @@ def catboost_cox_survival() -> ModelConfig:
     return ModelConfig(
         model_class=CatBoostCoxSurvival,  # type: ignore[arg-type]
         ml_types=[MLType.TIMETOEVENT],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,
@@ -43,7 +43,7 @@ def xgboost_cox_survival() -> ModelConfig:
     return ModelConfig(
         model_class=XGBoostCoxSurvival,  # type: ignore[arg-type]
         ml_types=[MLType.TIMETOEVENT],
-        feature_method=FIComputeMethod.INTERNAL,
+        fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
         scaler=None,
         imputation_required=False,

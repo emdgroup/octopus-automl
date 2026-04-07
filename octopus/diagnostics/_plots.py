@@ -10,7 +10,7 @@ from sklearn.metrics import confusion_matrix
 from octopus.types import FIResultLabel, MetricDirection
 
 
-def plot_feature_importance_chart(
+def plot_fi_chart(
     df: pd.DataFrame,
     *,
     outer_split_id: int | str = 0,

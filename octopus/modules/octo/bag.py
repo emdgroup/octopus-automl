@@ -48,7 +48,7 @@ class TrainingWithLogging:
             raise e
 
 
-class FeatureImportanceWithLogging:
+class FIWithLogging:
     """Logging wrapper for feature importance calculations."""
 
     def __init__(self, training: Training, idx, fi_type, partition, logger, log_group_cls, log_prefix="FI"):
@@ -101,9 +101,7 @@ class BagBase(BaseEstimator):
     train_status: bool = field(default=False)
 
     # bag training outputs, initialized in post_init
-    feature_importances: dict[str, pd.DataFrame | dict[str, pd.DataFrame]] = field(
-        init=False, validator=[validators.instance_of(dict)]
-    )
+    fi: dict[str, pd.DataFrame | dict[str, pd.DataFrame]] = field(init=False, validator=[validators.instance_of(dict)])
     n_features_used_mean: float = field(init=False, validator=[validators.instance_of(float)])
 
     @property
@@ -202,7 +200,7 @@ class BagBase(BaseEstimator):
 
     def __attrs_post_init__(self):
         # initialization here due to "Python immutable default"
-        self.feature_importances = {}
+        self.fi = {}
         self.n_features_used_mean = 0.0
         self._positive_class = None  # Will be inferred when needed
 
@@ -493,14 +491,14 @@ class BagBase(BaseEstimator):
             return pd.concat(all_dfs, ignore_index=True)
         return pd.DataFrame()
 
-    def get_feature_importances_df(self) -> pd.DataFrame:
-        """Concat per-training FI into a single DataFrame with fi_method, fi_dataset, and training_id columns.
+    def get_fi_df(self) -> pd.DataFrame:
+        """Concat per-training feature importances into a single DataFrame with fi_method, fi_dataset, and training_id columns.
 
         Returns:
             DataFrame with columns: feature, importance, fi_method, fi_dataset, training_id
         """
         all_dfs: list[pd.DataFrame] = []
-        for key, value in self.feature_importances.items():
+        for key, value in self.fi.items():
             # Skip aggregated keys like "internal_mean", "permutation_dev_count", etc.
             if key.endswith("_mean") or key.endswith("_count"):
                 continue
@@ -526,7 +524,7 @@ class BagBase(BaseEstimator):
         results = ray_parallel.run_parallel_inner(
             bag_id=self.bag_id,
             trainings=[
-                FeatureImportanceWithLogging(
+                FIWithLogging(
                     training=t,
                     idx=idx,
                     fi_type=fi_type,
@@ -597,18 +595,18 @@ class BagBase(BaseEstimator):
         with the following ranking: (1) permutation (2) shap (3) internal,
         (4) constant.
         """
-        # we assume that feature_importances were previously calculated
+        # we assume that feature importances were previously calculated
         if fi_methods is None:
             fi_methods = []
 
         if FIComputeMethod.PERMUTATION in fi_methods:
-            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.PERMUTATION, "dev", "mean")]
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.PERMUTATION, "dev", "mean")]
         elif FIComputeMethod.SHAP in fi_methods:
-            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.SHAP, "dev", "mean")]
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.SHAP, "dev", "mean")]
         elif FIComputeMethod.INTERNAL in fi_methods:
-            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.INTERNAL, stat="mean")]
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.INTERNAL, stat="mean")]
         elif FIComputeMethod.CONSTANT in fi_methods:
-            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.CONSTANT, stat="mean")]
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.CONSTANT, stat="mean")]
         else:
             logger.set_log_group(LogGroup.RESULTS)
             logger.info("No features selected, return empty list")
@@ -633,9 +631,9 @@ class BagBase(BaseEstimator):
             features = self.feature_groups.get(key, [])
             if features and not any(feature in feat_single for feature in features):
                 # Find the feature with the highest importance in fi_df
-                feature_importances = fi_df[fi_df["feature"].isin(features)]
-                if not feature_importances.empty:
-                    best_feature = feature_importances.loc[feature_importances["importance"].idxmax(), "feature"]
+                fi_filtered = fi_df[fi_df["feature"].isin(features)]
+                if not fi_filtered.empty:
+                    best_feature = fi_filtered.loc[fi_filtered["importance"].idxmax(), "feature"]
                     feat_additional.append(best_feature)
 
         # Add the additional features to feat_single and remove duplicates
@@ -648,7 +646,7 @@ class BagBase(BaseEstimator):
 
         return sorted(feat_all, key=lambda x: (len(x), sorted(x)))
 
-    def calculate_feature_importances(
+    def calculate_fi(
         self,
         fi_methods: list[FIComputeMethod] | None,
         partitions: list[DataPartition | str] | None,
@@ -676,7 +674,7 @@ class BagBase(BaseEstimator):
 
         # save feature importances for every training in bag
         for training in self.trainings:
-            self.feature_importances[training.training_id] = training.feature_importances
+            self.fi[training.training_id] = training.fi
 
         # summary feature importances for all trainings (mean + count)
         # Aggregate all computed partitions dynamically (not just "dev")
@@ -689,7 +687,7 @@ class BagBase(BaseEstimator):
             for method_key in keys_to_aggregate:
                 fi_pool = []
                 for training in self.trainings:
-                    fi_df = training.feature_importances.get(method_key)
+                    fi_df = training.fi.get(method_key)
                     if fi_df is not None and not fi_df.empty:
                         fi_pool.append(fi_df)
 
@@ -701,7 +699,7 @@ class BagBase(BaseEstimator):
 
                 # calculate mean feature importances, keep zero entries
                 mean_key = method_key + "_mean"
-                self.feature_importances[mean_key] = (
+                self.fi[mean_key] = (
                     fi[["feature", "importance"]]
                     .groupby(by="feature")
                     .sum()
@@ -723,11 +721,9 @@ class BagBase(BaseEstimator):
                 all_features = all_features.reset_index()
                 # Sort and reset index
                 count_key = method_key + "_count"
-                self.feature_importances[count_key] = all_features.sort_values(
-                    by="importance", ascending=False
-                ).reset_index(drop=True)
+                self.fi[count_key] = all_features.sort_values(by="importance", ascending=False).reset_index(drop=True)
 
-        return self.feature_importances
+        return self.fi
 
     def predict(self, x):
         """Predict with sklearn compatibility."""

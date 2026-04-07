@@ -146,7 +146,7 @@ def test_create_trial_parameters():
         """Test model config."""
         return ModelConfig(
             model_class=DummyModel,
-            feature_method=FIComputeMethod.INTERNAL,
+            fi_method=FIComputeMethod.INTERNAL,
             ml_types=[MLType.BINARY, MLType.MULTICLASS],
             hyperparameters=hyperparameters,
             n_jobs="n_jobs",

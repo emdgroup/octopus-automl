@@ -200,7 +200,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         raw_predictions = self._get_predictions(
             predictor, study_context, ag_test_data, row_test, row_traindev, outer_split_id
         )
-        raw_fi = self._get_feature_importances(predictor, ag_test_data, outer_split_id, feature_groups, results_dir)
+        raw_fi = self._get_fi(predictor, ag_test_data, outer_split_id, feature_groups, results_dir)
 
         # Build flat scores DataFrame
         scores_rows = []
@@ -227,7 +227,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                 pred_dfs.append(temp)
         predictions = pd.concat(pred_dfs, ignore_index=True) if pred_dfs else pd.DataFrame()
 
-        # Build flat feature_importances DataFrame
+        # Build flat feature importance DataFrame
         fi_dfs = []
         for _fi_key, fi_df in raw_fi.items():
             if isinstance(fi_df, pd.DataFrame) and not fi_df.empty:
@@ -245,7 +245,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                 temp["training_id"] = "autogluon"
                 temp["result_type"] = ResultType.BEST
                 fi_dfs.append(temp)
-        feature_importances = pd.concat(fi_dfs, ignore_index=True) if fi_dfs else pd.DataFrame()
+        fi_df = pd.concat(fi_dfs, ignore_index=True) if fi_dfs else pd.DataFrame()
 
         return {
             ResultType.BEST: ModuleResult(
@@ -254,7 +254,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                 selected_features=feature_cols,  # AutoGluon doesn't do feature selection, so return all features
                 scores=scores,
                 predictions=predictions,
-                feature_importances=feature_importances,
+                fi=fi_df,
                 model=self._get_sklearn_model(predictor, study_context),
             )
         }
@@ -268,7 +268,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         else:
             raise ValueError(f"ML type {study_context.ml_type} not supported")
 
-    def _get_feature_importances(
+    def _get_fi(
         self,
         model: TabularPredictor,
         ag_test_data: pd.DataFrame,
@@ -311,14 +311,14 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
                 group_importances[group_name] = group_importance
 
             # Combine feature and group importances
-            combined_feature_importances = [fi["autogluon_permutation_test"]]
+            combined_fi = [fi["autogluon_permutation_test"]]
 
             for group_name, importance in group_importances.items():
                 group_row = importance.copy()
                 group_row.index = [f"{group_name}"] * len(group_row)
-                combined_feature_importances.append(group_row)
+                combined_fi.append(group_row)
 
-            fi["autogluon_permutation_test"] = pd.concat(combined_feature_importances)
+            fi["autogluon_permutation_test"] = pd.concat(combined_fi)
 
         fi["autogluon_permutation_test"] = fi["autogluon_permutation_test"].sort_values(
             by="importance", ascending=False

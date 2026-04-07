@@ -227,12 +227,12 @@ class BorutaModule(ModuleExecution["Boruta"]):
             ]
         )
 
-        # Build standard feature_importances DataFrame
-        feature_importances = fi_df[["feature", "importance"]].copy()
-        feature_importances["fi_method"] = FIResultLabel.INTERNAL
-        feature_importances["fi_dataset"] = DataPartition.TRAIN
-        feature_importances["training_id"] = "boruta"
-        feature_importances["result_type"] = ResultType.BEST
+        # Build standard feature importance DataFrame
+        fi_df_out = fi_df[["feature", "importance"]].copy()
+        fi_df_out["fi_method"] = FIResultLabel.INTERNAL
+        fi_df_out["fi_dataset"] = DataPartition.TRAIN
+        fi_df_out["training_id"] = "boruta"
+        fi_df_out["result_type"] = ResultType.BEST
 
         # Save results to JSON
         results = {
@@ -254,6 +254,6 @@ class BorutaModule(ModuleExecution["Boruta"]):
                 module=self.config.module,
                 selected_features=selected_features,
                 scores=scores,
-                feature_importances=feature_importances,
+                fi=fi_df_out,
             )
         }

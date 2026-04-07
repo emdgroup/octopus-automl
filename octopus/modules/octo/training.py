@@ -209,7 +209,7 @@ def parse_fi_storage_key(key: str) -> tuple[FIResultLabel, str]:
     """Parse a FI storage key into ``(method_label, dataset)``.
 
     Reverse of :func:`fi_storage_key` for the subset of keys used in
-    ``get_feature_importances_df()``.  Recognises partition-aware methods
+    ``get_fi_df()``.  Recognises partition-aware methods
     (permutation, shap, lofo) and returns the partition suffix; for
     partition-less methods (internal, constant) returns ``"train"`` as the
     dataset label.
@@ -303,9 +303,7 @@ class Training:
     predictions: dict = field(default=Factory(dict), validator=[validators.instance_of(dict)])
     """Model predictions."""
 
-    feature_importances: dict[str, pd.DataFrame] = field(
-        default=Factory(dict), validator=[validators.instance_of(dict)]
-    )
+    fi: dict[str, pd.DataFrame] = field(default=Factory(dict), validator=[validators.instance_of(dict)])
     """Feature importances, mapping from FI method to DataFrame."""
 
     features_used: list = field(default=Factory(list), validator=[validators.instance_of(list)])
@@ -663,27 +661,27 @@ class Training:
 
     def _calculate_features_used(self):
         """Calculate used features, method based on model type."""
-        feature_method = Models.get_config(self.ml_model_type).feature_method
+        fi_method = Models.get_config(self.ml_model_type).fi_method
 
-        if feature_method == FIComputeMethod.INTERNAL:
+        if fi_method == FIComputeMethod.INTERNAL:
             self._calculate_fi_internal()
-            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.INTERNAL)]
-        elif feature_method == FIComputeMethod.SHAP:
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.INTERNAL)]
+        elif fi_method == FIComputeMethod.SHAP:
             self._calculate_fi_featuresused_shap(partition="dev")
-            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.SHAP, "dev")]
-        elif feature_method == FIComputeMethod.PERMUTATION:
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.SHAP, "dev")]
+        elif fi_method == FIComputeMethod.PERMUTATION:
             self._calculate_fi_permutation(partition="dev", n_repeats=2, use_groups=False)  # only 2 repeats!
-            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.PERMUTATION, "dev")]
-        elif feature_method == FIComputeMethod.CONSTANT:
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.PERMUTATION, "dev")]
+        elif fi_method == FIComputeMethod.CONSTANT:
             self._calculate_fi_constant()
-            fi_df = self.feature_importances[fi_storage_key(FIComputeMethod.CONSTANT)]
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.CONSTANT)]
         else:
             raise ValueError("feature method provided in model config not supported")
 
         # Check if feature importance calculation failed (empty DataFrame)
         if fi_df.empty:
             logger.warning(
-                f"Feature importance calculation failed for model {self.ml_model_type} using method {feature_method}. Returning all features as used."
+                f"Feature importance calculation failed for model {self.ml_model_type} using method {fi_method}. Returning all features as used."
             )
             return self.feature_cols.copy()
 
@@ -692,7 +690,7 @@ class Training:
         # If no features have non-zero importance, return all features as a fallback
         if not features_used:
             logger.warning(
-                f"All feature importances are zero for model {self.ml_model_type} using method {feature_method}. Returning all features as used."
+                f"All feature importances are zero for model {self.ml_model_type} using method {fi_method}. Returning all features as used."
             )
             return self.feature_cols.copy()
 
@@ -708,7 +706,7 @@ class Training:
 
         Single entry point for all FI calculations. Dispatches to the
         appropriate method and stores results in
-        ``self.feature_importances``.
+        ``self.fi``.
 
         Args:
             fi_type: The feature importance method to use.
@@ -738,7 +736,7 @@ class Training:
         fi_df = pd.DataFrame()
         fi_df["feature"] = self.feature_cols
         fi_df["importance"] = 1
-        self.feature_importances[fi_storage_key(FIComputeMethod.CONSTANT)] = fi_df
+        self.fi[fi_storage_key(FIComputeMethod.CONSTANT)] = fi_df
 
     def _calculate_fi_internal(self):
         """Sklearn-provided internal feature importance (based on train dataset).
@@ -751,7 +749,7 @@ class Training:
             feature_names=self.feature_cols,
             ml_type=self.ml_type,
         )
-        self.feature_importances[fi_storage_key(FIComputeMethod.INTERNAL)] = fi_df
+        self.fi[fi_storage_key(FIComputeMethod.INTERNAL)] = fi_df
 
     def _calculate_fi_permutation(
         self,
@@ -814,7 +812,7 @@ class Training:
 
         results_df["n"] = n_repeats
         results_df = results_df.sort_values(by="importance", ascending=False)
-        self.feature_importances[fi_storage_key(FIComputeMethod.PERMUTATION, partition)] = results_df
+        self.fi[fi_storage_key(FIComputeMethod.PERMUTATION, partition)] = results_df
 
     def _calculate_fi_lofo(self):
         """LOFO feature importance.
@@ -847,7 +845,7 @@ class Training:
         )
 
         for key, df in results.items():
-            self.feature_importances[key] = df
+            self.fi[key] = df
 
     def _calculate_fi_featuresused_shap(
         self, partition: DataPartition | str = DataPartition.DEV, bg_max: int = 200
@@ -890,7 +888,7 @@ class Training:
             threshold_ratio=1.0 / 1000.0,
             ml_type=self.ml_type,
         )
-        self.feature_importances[fi_storage_key(FIComputeMethod.SHAP, partition)] = fi_df
+        self.fi[fi_storage_key(FIComputeMethod.SHAP, partition)] = fi_df
 
     def _calculate_fi_shap(
         self, partition: DataPartition | str = DataPartition.DEV, shap_type: str = "kernel", background_size: int = 200
@@ -938,7 +936,7 @@ class Training:
             threshold_ratio=1.0 / 1000.0,
             ml_type=self.ml_type,
         )
-        self.feature_importances[fi_storage_key(FIComputeMethod.SHAP, partition)] = fi_df
+        self.fi[fi_storage_key(FIComputeMethod.SHAP, partition)] = fi_df
 
     def predict(self, x: pd.DataFrame) -> np.ndarray:
         """Predict.

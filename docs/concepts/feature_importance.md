@@ -4,7 +4,7 @@ All modules in Octopus inherit from the `Module` base class, which provides stan
 
 ## Overview
 
-The `Module` base class provides a unified interface for feature importance extraction through the `get_feature_importances()` method. This method supports three different calculation strategies:
+The `Module` base class provides a unified interface for feature importance extraction through the `get_fi()` method. This method supports three different calculation strategies:
 
 1. **Internal** - Uses built-in feature importances from tree-based models
 2. **Permutation** - Calculates permutation importance (works with any model)
@@ -26,7 +26,7 @@ module.fit(
 )
 
 # Get feature importances (default: internal method)
-importance_df = module.get_feature_importances()
+importance_df = module.get_fi()
 print(importance_df)
 ```
 
@@ -52,7 +52,7 @@ Features are sorted by importance in descending order.
 Best for: Random Forest, Gradient Boosting, XGBoost, LightGBM, CatBoost
 
 ```python
-importance_df = module.get_feature_importances(method="internal")
+importance_df = module.get_fi(method="internal")
 ```
 
 This method extracts the built-in `feature_importances_` attribute from tree-based models. It's fast and directly reflects how the model uses features during training.
@@ -82,7 +82,7 @@ octo = Octo(
 octo.fit(...)
 
 # Get internal feature importances
-fi_df = octo.get_feature_importances(method="internal")
+fi_df = octo.get_fi(method="internal")
 ```
 
 ### 2. Permutation Importance (Any Model)
@@ -90,7 +90,7 @@ fi_df = octo.get_feature_importances(method="internal")
 Best for: Any fitted model, especially when internal importances aren't available
 
 ```python
-importance_df = module.get_feature_importances(
+importance_df = module.get_fi(
     method="permutation",
     data=validation_data,
     target=validation_target,
@@ -122,7 +122,7 @@ mrmr = Mrmr(task_id=1, depends_on=0, n_features=50)
 mrmr.fit(...)
 
 # Get permutation importance on test set
-fi_df = mrmr.get_feature_importances(
+fi_df = mrmr.get_fi(
     method="permutation",
     data=test_data,
     target=test_data["target"],
@@ -134,7 +134,7 @@ fi_df = mrmr.get_feature_importances(
 Best for: Logistic Regression, Linear Regression, Ridge, Lasso, ElasticNet
 
 ```python
-importance_df = module.get_feature_importances(method="coefficients")
+importance_df = module.get_fi(method="coefficients")
 ```
 
 This method extracts and ranks features by the absolute magnitude of their coefficients in linear models.
@@ -165,7 +165,7 @@ octo = Octo(
 octo.fit(...)
 
 # Get coefficient-based importances
-fi_df = octo.get_feature_importances(method="coefficients")
+fi_df = octo.get_fi(method="coefficients")
 ```
 
 ## Error Handling
@@ -178,7 +178,7 @@ module = Octo(task_id=0)
 # Forgot to call fit()!
 
 try:
-    importance = module.get_feature_importances()
+    importance = module.get_fi()
 except ValueError as e:
     print(e)  # "Octo must be fitted before getting feature importances"
 ```
@@ -189,7 +189,7 @@ except ValueError as e:
 octo.fit(...)
 
 try:
-    importance = octo.get_feature_importances(method="internal")
+    importance = octo.get_fi(method="internal")
 except ValueError as e:
     print(e)  # "Model LogisticRegression does not have feature_importances_..."
 ```
@@ -197,7 +197,7 @@ except ValueError as e:
 ### Missing Parameters Error
 ```python
 try:
-    importance = module.get_feature_importances(method="permutation")
+    importance = module.get_fi(method="permutation")
     # Forgot to provide data and target!
 except ValueError as e:
     print(e)  # "Permutation importance requires data and target parameters"
@@ -227,10 +227,10 @@ octo.fit(
 )
 
 # Get internal importances (works if best model is tree-based)
-fi_internal = octo.get_feature_importances(method="internal")
+fi_internal = octo.get_fi(method="internal")
 
 # Get permutation importances (works for any best model)
-fi_permutation = octo.get_feature_importances(
+fi_permutation = octo.get_fi(
     method="permutation",
     data=test_data,
     target=test_data["target"],
@@ -270,7 +270,7 @@ boruta = Boruta(
 boruta.fit(...)
 
 # Boruta uses RandomForest internally
-fi_df = boruta.get_feature_importances(method="internal")
+fi_df = boruta.get_fi(method="internal")
 ```
 
 ## Best Practices
@@ -287,7 +287,7 @@ fi_df = boruta.get_feature_importances(method="internal")
 Always validate feature importances make sense:
 
 ```python
-fi_df = module.get_feature_importances(method="internal")
+fi_df = module.get_fi(method="internal")
 
 # Check that importances sum to ~1.0 for tree models
 total_importance = fi_df["importance"].sum()
@@ -303,8 +303,8 @@ print(f"Top 10 features:\n{top_features}")
 For tree-based models, compare internal and permutation importance:
 
 ```python
-fi_internal = module.get_feature_importances(method="internal")
-fi_permutation = module.get_feature_importances(
+fi_internal = module.get_fi(method="internal")
+fi_permutation = module.get_fi(
     method="permutation",
     data=test_data,
     target=test_data["target"],
@@ -325,7 +325,7 @@ print(comparison)
 
 ```python
 # Get feature importances
-fi_df = module.get_feature_importances(method="internal")
+fi_df = module.get_fi(method="internal")
 
 # Save to disk
 output_path = module.path_results / "feature_importances.parquet"
@@ -366,7 +366,7 @@ octo_dir = study.output_path / "outersplit0" / "task0" / "module"
 loaded_octo = Octo.load(octo_dir)
 
 # Get importances from loaded module
-fi_df = loaded_octo.get_feature_importances(method="internal")
+fi_df = loaded_octo.get_fi(method="internal")
 ```
 
 ## Advanced Usage
@@ -385,7 +385,7 @@ octo = Octo(task_id=0, models=[ModelName.RandomForestClassifier])
 octo.fit(...)
 
 # This automatically extracts best_estimator_ from GridSearchCV
-fi_df = octo.get_feature_importances(method="internal")
+fi_df = octo.get_fi(method="internal")
 ```
 
 ### Custom Feature Importance
@@ -413,7 +413,7 @@ class CustomModule(Task):
 
 The feature importance functionality in Octopus modules provides:
 
-- **Unified interface** across all modules via `get_feature_importances()`
+- **Unified interface** across all modules via `get_fi()`
 - **Multiple methods** (internal, permutation, coefficients) for different model types
 - **Automatic error handling** with clear, actionable error messages
 - **Standardized output** format (DataFrame with feature/importance columns)

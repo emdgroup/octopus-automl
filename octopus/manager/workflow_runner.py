@@ -100,15 +100,15 @@ class WorkflowTaskRunner:
             feature_cols = upstream_results[ResultType.BEST].selected_features
             # Build prior_results by concatenating DataFrames from all upstream ModuleResult values
             prior_results: dict[str, pd.DataFrame] = {}
-            for df_name in ["scores", "predictions", "feature_importances"]:
+            for attr_name, key in [("scores", "scores"), ("predictions", "predictions"), ("fi", "fi")]:
                 dfs = []
                 for module_result in upstream_results.values():
-                    df = getattr(module_result, df_name)
+                    df = getattr(module_result, attr_name)
                     if isinstance(df, pd.DataFrame) and not df.empty:
                         out = df.copy()
                         out["module"] = module_result.module
                         dfs.append(out)
-                prior_results[df_name] = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+                prior_results[key] = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
             logger.info(f"Prior results keys: {prior_results.keys()}")
         else:
             feature_cols = self.study_context.feature_cols

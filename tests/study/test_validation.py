@@ -180,6 +180,7 @@ class TestWorkflowValidation:
         ):
             OctoClassification(**base_study_kwargs, studies_directory=temp_dir, workflow=workflow)
 
+<<<<<<< HEAD
     def test_mrmr_permutation_without_depends_on_fails(self, base_study_kwargs):
         """Test that Mrmr with permutation relevance must have depends_on set."""
         workflow = [
@@ -191,6 +192,8 @@ class TestWorkflowValidation:
         ):
             OctoClassification(**base_study_kwargs, studies_directory=temp_dir, workflow=workflow)
 
+=======
+>>>>>>> a766788 (refactor: standardize feature_importance variables to fi prefix)
     def test_mrmr_permutation_depends_on_mrmr_fails(self, base_study_kwargs):
         """Test that Mrmr with permutation relevance cannot depend on another Mrmr."""
         workflow = [

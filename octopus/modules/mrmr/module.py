@@ -21,7 +21,7 @@ class Mrmr(Task):
         n_features: Number of features to select
         correlation_type: Type of correlation to measure redundancy
         relevance_method: Method to calculate relevance (RelevanceMethod.PERMUTATION or RelevanceMethod.F_STATISTICS)
-        feature_importance_method: FI calculation method, only used when relevance_method is PERMUTATION
+        fi_method: FI calculation method, only used when relevance_method is PERMUTATION
     """
 
     n_features: int = field(validator=[validators.instance_of(int)], default=Factory(lambda: 30))
@@ -41,7 +41,7 @@ class Mrmr(Task):
     )
     """Method to calculate relevance (permutation or f-statistics)."""
 
-    feature_importance_method: FIComputeMethod = field(
+    fi_method: FIComputeMethod = field(
         converter=FIComputeMethod,
         validator=validators.in_(
             [FIComputeMethod.PERMUTATION, FIComputeMethod.SHAP, FIComputeMethod.INTERNAL, FIComputeMethod.LOFO]

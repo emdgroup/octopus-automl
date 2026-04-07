@@ -104,7 +104,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             selected_features=best_selected_features,
             scores=best_scores,
             predictions=best_bag.get_predictions_df(n_assigned_cpus=n_assigned_cpus),
-            feature_importances=best_bag.get_feature_importances_df(),
+            fi=best_bag.get_fi_df(),
             model=best_bag,
         )
 
@@ -133,7 +133,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
                     selected_features=ensel_selected_features or best_selected_features,
                     scores=ensel_scores,
                     predictions=ensel_bag.get_predictions_df(n_assigned_cpus=n_assigned_cpus),
-                    feature_importances=ensel_bag.get_feature_importances_df(),
+                    fi=ensel_bag.get_fi_df(),
                     model=ensel_bag,
                 )
                 module_results[ResultType.ENSEMBLE_SELECTION] = ensel_result
@@ -291,7 +291,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         # calculate feature importances of best bag
         fi_methods: list[FIComputeMethod] = []  # disable calculation of pfi for ensel_bag
-        ensel_bag_fi = ensel_bag.calculate_feature_importances(
+        ensel_bag_fi = ensel_bag.calculate_fi(
             fi_methods=fi_methods, partitions=["dev"], n_assigned_cpus=n_assigned_cpus
         )
 
@@ -302,7 +302,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         results["ensel"] = {
             "scores": ensel_scores,
             "predictions": ensel_bag.get_predictions(n_assigned_cpus=n_assigned_cpus),
-            "feature_importances": ensel_bag_fi,
+            "fi": ensel_bag_fi,
             "_bag": ensel_bag,
         }
 
@@ -488,9 +488,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         # calculate feature importances of best bag
         fi_methods = self.config.fi_methods
-        best_bag_fi = best_bag.calculate_feature_importances(
-            fi_methods, partitions=["dev"], n_assigned_cpus=n_assigned_cpus
-        )
+        best_bag_fi = best_bag.calculate_fi(fi_methods, partitions=["dev"], n_assigned_cpus=n_assigned_cpus)
 
         # calculate selected features
         selected_features = best_bag.get_selected_features(fi_methods)
@@ -499,7 +497,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         results["best"] = {
             "scores": best_bag_performance,
             "predictions": best_bag.get_predictions(n_assigned_cpus=n_assigned_cpus),
-            "feature_importances": best_bag_fi,
+            "fi": best_bag_fi,
             "_bag": best_bag,
         }
 

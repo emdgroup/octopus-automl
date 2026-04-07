@@ -16,7 +16,7 @@ class ModuleResult:
     """Unified result container for a single result type from a module.
 
     Carries all 5 artifacts (selected_features, scores, predictions,
-    feature_importances, model) and knows how to save/load itself.
+    fi, model) and knows how to save/load itself.
     Each result_type gets its own directory on disk.
     """
 
@@ -25,7 +25,7 @@ class ModuleResult:
     selected_features: list[str] = field(factory=list)
     scores: pd.DataFrame | None = field(default=None)
     predictions: pd.DataFrame | None = field(default=None)
-    feature_importances: pd.DataFrame | None = field(default=None)
+    fi: pd.DataFrame | None = field(default=None)
     model: Any = field(default=None)
 
     def save(self, result_dir: UPath) -> None:
@@ -47,7 +47,7 @@ class ModuleResult:
         for name, df in [
             ("scores", self.scores),
             ("predictions", self.predictions),
-            ("feature_importances", self.feature_importances),
+            ("feature_importances", self.fi),
         ]:
             if df is not None and not df.empty:
                 out = df.copy()
@@ -88,7 +88,7 @@ class ModuleResult:
         # Load DataFrames (None if file doesn't exist)
         scores: pd.DataFrame | None = None
         predictions: pd.DataFrame | None = None
-        feature_importances: pd.DataFrame | None = None
+        fi_df: pd.DataFrame | None = None
 
         for name in ["scores", "predictions", "feature_importances"]:
             path = result_dir / f"{name}.parquet"
@@ -99,7 +99,7 @@ class ModuleResult:
                 elif name == "predictions":
                     predictions = df
                 elif name == "feature_importances":
-                    feature_importances = df
+                    fi_df = df
 
         # Load model if exists
         model = None
@@ -114,6 +114,6 @@ class ModuleResult:
             selected_features=selected_features,
             scores=scores,
             predictions=predictions,
-            feature_importances=feature_importances,
+            fi=fi_df,
             model=model,
         )

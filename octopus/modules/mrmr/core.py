@@ -78,14 +78,14 @@ class MrmrModule(ModuleExecution["Mrmr"]):
 
     def _get_fi_method(self) -> FIResultLabel:
         """Get FIResultLabel for the configured feature importance method."""
-        return FIResultLabel(self.config.feature_importance_method)
+        return FIResultLabel(self.config.fi_method)
 
     def _validate_configuration(self, prior_results: dict) -> None:
         """Validate MRMR configuration."""
         if self.config.relevance_method == RelevanceMethod.PERMUTATION:
             if self.config.task_id == 0:
                 raise ValueError("MRMR module should not be the first workflow task.")
-            fi_df = prior_results.get("feature_importances", pd.DataFrame())
+            fi_df = prior_results.get("fi", pd.DataFrame())
             if fi_df.empty:
                 raise ValueError("No feature importances available from prior results.")
 
@@ -126,7 +126,7 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         self, feature_cols: list[str], prior_results: dict[str, pd.DataFrame]
     ) -> pd.DataFrame:
         """Get permutation relevance from prior module results (flat DataFrame)."""
-        fi_df = prior_results.get("feature_importances", pd.DataFrame())
+        fi_df = prior_results.get("fi", pd.DataFrame())
         fi_method = self._get_fi_method()
 
         subset = fi_df[fi_df["fi_method"] == fi_method]

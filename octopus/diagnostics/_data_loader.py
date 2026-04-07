@@ -89,7 +89,7 @@ def load_predictions(study_path: UPath) -> pd.DataFrame:
     return load_parquet_glob(study_path, "outersplit*/task*/results/*/predictions.parquet")
 
 
-def load_feature_importances(study_path: UPath) -> pd.DataFrame:
+def load_fi(study_path: UPath) -> pd.DataFrame:
     """Load all feature importance parquet files across outer splits and tasks.
 
     Searches in ``outersplit*/task*/results/*/feature_importances.parquet`` to pick up

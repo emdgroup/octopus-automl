@@ -17,14 +17,14 @@ from typing import Any
 import pandas as pd
 
 from octopus.diagnostics._data_loader import (
-    load_feature_importances,
+    load_fi,
     load_optuna,
     load_predictions,
     load_scores,
 )
 from octopus.diagnostics._plots import (
     plot_confusion_matrix_chart,
-    plot_feature_importance_chart,
+    plot_fi_chart,
     plot_optuna_hyperparameters_chart,
     plot_optuna_trial_counts_chart,
     plot_optuna_trials_chart,
@@ -65,7 +65,7 @@ class StudyDiagnostics:
         from octopus.diagnostics import StudyDiagnostics
 
         diag = StudyDiagnostics("./studies/my_study/")
-        diag.plot_feature_importance()
+        diag.plot_fi()
         diag.plot_optuna_trials()
     """
 
@@ -84,7 +84,7 @@ class StudyDiagnostics:
 
         # Lazy-loaded DataFrames
         self._predictions: pd.DataFrame | None = None
-        self._feature_importances: pd.DataFrame | None = None
+        self._fi: pd.DataFrame | None = None
         self._optuna: pd.DataFrame | None = None
         self._scores: pd.DataFrame | None = None
 
@@ -113,11 +113,11 @@ class StudyDiagnostics:
         return self._predictions
 
     @property
-    def feature_importances(self) -> pd.DataFrame:
+    def fi(self) -> pd.DataFrame:
         """All feature importances across outer splits and tasks (lazy-loaded)."""
-        if self._feature_importances is None:
-            self._feature_importances = load_feature_importances(self._study_path)
-        return self._feature_importances
+        if self._fi is None:
+            self._fi = load_fi(self._study_path)
+        return self._fi
 
     @property
     def optuna_trials(self) -> pd.DataFrame:
@@ -149,7 +149,7 @@ class StudyDiagnostics:
 
     # ── Interactive Plots ───────────────────────────────────────
 
-    def plot_feature_importance(
+    def plot_fi(
         self,
         outer_split_id: int | None = None,
         task_id: int | None = None,
@@ -167,7 +167,7 @@ class StudyDiagnostics:
             training_id: Training ID to filter on.
             fi_method: FI method to filter on.
         """
-        df = self.feature_importances
+        df = self.fi
         if df.empty:
             print("No feature importance data found.")
             return
@@ -184,12 +184,12 @@ class StudyDiagnostics:
                 fi_method=Dropdown(options=opts.get("fi_method", [""]), description="FI Method:"),
             )
             def _plot(outer_split_id: str, task_id: str, training_id: str, fi_method: str) -> None:
-                fig = plot_feature_importance_chart(
+                fig = plot_fi_chart(
                     df, outer_split_id=outer_split_id, task_id=task_id, training_id=training_id, fi_method=fi_method
                 )
                 fig.show()
         else:
-            fig = plot_feature_importance_chart(
+            fig = plot_fi_chart(
                 df,
                 outer_split_id=outer_split_id or 0,
                 task_id=task_id or 0,

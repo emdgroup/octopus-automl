@@ -101,9 +101,9 @@ class FIResultLabel(StrEnum):
 class FIComputeMethod(StrEnum):
     """Computation methods for feature importance calculation.
 
-    Used in model configuration (``ModelConfig.feature_method``), module
+    Used in model configuration (``ModelConfig.fi_method``), module
     configuration (``Octo.fi_methods``,
-    ``Mrmr.feature_importance_method``), and internal dispatch in bag
+    ``Mrmr.fi_method``), and internal dispatch in bag
     and training code.
     """
 

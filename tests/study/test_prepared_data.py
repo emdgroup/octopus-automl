@@ -46,7 +46,7 @@ def prepared_data(sample_data_with_types):
 
 
 def test_numerical_columns(prepared_data):
-    """Test num_features property with all allowed numeric types (int, float, bool)."""
+    """Test numerical_features property with all allowed numeric types (int, float, bool)."""
     numerical_cols = prepared_data.numerical_features
     assert isinstance(numerical_cols, list)
     assert "int_feature" in numerical_cols

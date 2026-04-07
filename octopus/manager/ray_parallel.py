@@ -2,7 +2,7 @@
 
 import os
 from collections.abc import Callable, Sequence
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import ray
 import threadpoolctl
@@ -12,8 +12,10 @@ from upath import UPath
 
 from octopus.datasplit import OuterSplit, OuterSplits
 from octopus.logger import get_logger, set_logger_filename
-from octopus.modules.octo.bag import FeatureImportanceWithLogging, TrainingWithLogging
 from octopus.modules.octo.training import Training
+
+if TYPE_CHECKING:
+    from octopus.modules.octo.bag import FIWithLogging, TrainingWithLogging
 
 logger = get_logger()
 
@@ -307,7 +309,7 @@ def run_parallel_outer(
 
 def run_parallel_inner(
     bag_id: str,
-    trainings: Sequence[TrainingWithLogging | FeatureImportanceWithLogging],
+    trainings: "Sequence[TrainingWithLogging | FIWithLogging]",
     log_dir: UPath,
     n_assigned_cpus: int,
 ) -> list[Training]:
