@@ -43,7 +43,7 @@ def test_get_outer_splits_keeps_groups_together_and_covers_all_rows_once():
     splits = DataSplit(
         dataset=df,
         seeds=[7],
-        num_splits=2,
+        n_splits=2,
     ).get_outer_splits()
 
     assert len(splits) == 2
@@ -74,7 +74,7 @@ def test_get_inner_splits_keeps_groups_together_and_covers_all_rows_once():
     splits = DataSplit(
         dataset=df,
         seeds=[7],
-        num_splits=2,
+        n_splits=2,
     ).get_inner_splits()
 
     assert len(splits) == 2
@@ -96,13 +96,13 @@ def test_multiple_seeds_concatenate_seed_results_in_seed_then_split_order():
     """With multiple seeds, results are returned seed by seed, then split by split."""
     df = _grouped_df()
 
-    seed_11 = DataSplit(dataset=df.copy(), seeds=[11], num_splits=2).get_outer_splits()
-    seed_22 = DataSplit(dataset=df.copy(), seeds=[22], num_splits=2).get_outer_splits()
+    seed_11 = DataSplit(dataset=df.copy(), seeds=[11], n_splits=2).get_outer_splits()
+    seed_22 = DataSplit(dataset=df.copy(), seeds=[22], n_splits=2).get_outer_splits()
 
     combined = DataSplit(
         dataset=df.copy(),
         seeds=[11, 22],
-        num_splits=2,
+        n_splits=2,
     ).get_outer_splits()
 
     assert len(combined) == 4
@@ -117,8 +117,8 @@ def test_same_seed_is_deterministic_for_outer_splits():
     """Running the same seed twice should give the exact same partitions."""
     df = _grouped_df()
 
-    first = DataSplit(dataset=df.copy(), seeds=[123], num_splits=2).get_outer_splits()
-    second = DataSplit(dataset=df.copy(), seeds=[123], num_splits=2).get_outer_splits()
+    first = DataSplit(dataset=df.copy(), seeds=[123], n_splits=2).get_outer_splits()
+    second = DataSplit(dataset=df.copy(), seeds=[123], n_splits=2).get_outer_splits()
 
     for i in range(2):
         pdt.assert_frame_equal(_norm(first[i].traindev), _norm(second[i].traindev))
@@ -139,7 +139,7 @@ def test_stratified_splitting_preserves_class_presence_across_splits():
     splits = DataSplit(
         dataset=df,
         seeds=[0],
-        num_splits=4,
+        n_splits=4,
         stratification_col="target",
     ).get_outer_splits()
 
@@ -165,7 +165,7 @@ def test_stratified_group_split_with_mixed_label_group_has_expected_target_count
     splits = DataSplit(
         dataset=df,
         seeds=[0],
-        num_splits=2,
+        n_splits=2,
         stratification_col="target",
     ).get_outer_splits()
 
@@ -182,7 +182,7 @@ def test_datasplit_resets_input_index_in_place():
     splitter = DataSplit(
         dataset=df,
         seeds=[0],
-        num_splits=2,
+        n_splits=2,
     )
 
     assert splitter.dataset.index.tolist() == [0, 1, 2, 3, 4, 5]
@@ -203,7 +203,7 @@ def test_missing_datasplit_group_column_raises_key_error():
         DataSplit(
             dataset=df,
             seeds=[0],
-            num_splits=2,
+            n_splits=2,
         ).get_outer_splits()
 
 
@@ -222,7 +222,7 @@ def test_num_splits_greater_than_number_of_groups_raises_value_error():
         DataSplit(
             dataset=df,
             seeds=[0],
-            num_splits=3,
+            n_splits=3,
         ).get_outer_splits()
 
 
@@ -241,7 +241,7 @@ def test_stratified_split_warns_when_class_has_too_few_groups():
         splits = DataSplit(
             dataset=df,
             seeds=[0],
-            num_splits=2,
+            n_splits=2,
             stratification_col="target",
         ).get_outer_splits()
 
@@ -255,7 +255,7 @@ def test_each_split_traindev_plus_test_equals_all_rows():
     splits = DataSplit(
         dataset=df,
         seeds=[7],
-        num_splits=2,
+        n_splits=2,
     ).get_outer_splits()
 
     all_row_ids = sorted(df["row_id"].tolist())
@@ -272,7 +272,7 @@ def test_each_split_train_plus_dev_equals_all_rows_inner():
     splits = DataSplit(
         dataset=df,
         seeds=[7],
-        num_splits=2,
+        n_splits=2,
     ).get_inner_splits()
 
     all_row_ids = sorted(df["row_id"].tolist())
@@ -297,7 +297,7 @@ def test_datasplit_does_not_corrupt_global_random_state():
     DataSplit(
         dataset=_grouped_df(),
         seeds=[42],
-        num_splits=2,
+        n_splits=2,
     ).get_outer_splits()
 
     random_after = random.random()
@@ -321,7 +321,7 @@ def test_inner_splits_with_stratification_preserves_class_presence():
     splits = DataSplit(
         dataset=df,
         seeds=[0],
-        num_splits=4,
+        n_splits=4,
         stratification_col="target",
     ).get_inner_splits()
 
@@ -333,14 +333,14 @@ def test_inner_splits_with_stratification_preserves_class_presence():
 
 
 def test_single_split_raises_value_error():
-    """num_splits=1 is rejected by sklearn KFold."""
+    """n_splits=1 is rejected by sklearn KFold."""
     df = _grouped_df()
 
     with pytest.raises(ValueError, match=r"k-fold.*n_splits=2 or more"):
         DataSplit(
             dataset=df,
             seeds=[0],
-            num_splits=1,
+            n_splits=1,
         ).get_outer_splits()
 
 
@@ -350,12 +350,12 @@ def test_three_seeds_produce_correct_index_numbering():
 
     individual = {}
     for seed in [10, 20, 30]:
-        individual[seed] = DataSplit(dataset=df.copy(), seeds=[seed], num_splits=2).get_outer_splits()
+        individual[seed] = DataSplit(dataset=df.copy(), seeds=[seed], n_splits=2).get_outer_splits()
 
     combined = DataSplit(
         dataset=df.copy(),
         seeds=[10, 20, 30],
-        num_splits=2,
+        n_splits=2,
     ).get_outer_splits()
 
     assert list(combined.keys()) == [0, 1, 2, 3, 4, 5]
@@ -379,8 +379,8 @@ def test_different_seeds_produce_different_splits():
         }
     )
 
-    splits_a = DataSplit(dataset=df.copy(), seeds=[0], num_splits=5).get_outer_splits()
-    splits_b = DataSplit(dataset=df.copy(), seeds=[999], num_splits=5).get_outer_splits()
+    splits_a = DataSplit(dataset=df.copy(), seeds=[0], n_splits=5).get_outer_splits()
+    splits_b = DataSplit(dataset=df.copy(), seeds=[999], n_splits=5).get_outer_splits()
 
     some_differ = False
     for i in range(5):
@@ -408,7 +408,7 @@ def test_single_group_with_two_splits_raises_value_error():
         DataSplit(
             dataset=df,
             seeds=[0],
-            num_splits=2,
+            n_splits=2,
         ).get_outer_splits()
 
 
@@ -432,7 +432,7 @@ def test_unequal_group_sizes_balances_group_count_across_splits():
     splits = DataSplit(
         dataset=df,
         seeds=[0],
-        num_splits=2,
+        n_splits=2,
     ).get_outer_splits()
 
     for split in splits.values():

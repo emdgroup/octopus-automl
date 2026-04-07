@@ -62,9 +62,9 @@ class OctoStudy(ABC):
     outer_split_seed: int = field(default=0, validator=[validators.instance_of(int)])
     """Seed for outer cross-validation splitting. Defaults to 0."""
 
-    num_cpus: int = field(default=0, validator=validators.instance_of(int))
+    n_cpus: int = field(default=0, validator=validators.instance_of(int))
     """Number of CPUs to use for parallel processing. Default value 0 uses all available CPUs.
-       Negative values indicate abs(num_cpus) to leave free, e.g. -1 means use all but one CPU.
+       Negative values indicate abs(n_cpus) to leave free, e.g. -1 means use all but one CPU.
        Set to 1 to disable all parallel processing and run sequentially."""
 
     single_outer_split: int | None = field(default=None, validator=validators.optional(validators.instance_of(int)))
@@ -243,7 +243,7 @@ class OctoStudy(ABC):
         outer_splits = DataSplit(
             dataset=data_clean,
             seeds=[self.outer_split_seed],
-            num_splits=self.n_outer_splits,
+            n_splits=self.n_outer_splits,
             stratification_col=self.stratification_col,
         ).get_outer_splits()
 
@@ -351,7 +351,7 @@ class OctoStudy(ABC):
             outer_split_data=outer_split_data,
             study_context=study_context,
             workflow=self.workflow,
-            num_cpus=self.num_cpus,
+            n_cpus=self.n_cpus,
             single_outer_split=self.single_outer_split,
         )
         manager.run_outer_splits()

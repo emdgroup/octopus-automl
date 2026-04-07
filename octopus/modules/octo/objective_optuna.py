@@ -44,7 +44,7 @@ class ObjectiveOptuna:
         top_trials,
         mrmr_features,
         log_dir: UPath,
-        num_assigned_cpus: int,
+        n_assigned_cpus: int,
     ):
         self.outer_split_task_id = outer_split_task_id
         self.outer_split_id = outer_split_id
@@ -73,7 +73,7 @@ class ObjectiveOptuna:
         self.hyper_parameters = self.config.hyperparameters
         # training parameters
         self.log_dir = log_dir
-        self.num_assigned_cpus = num_assigned_cpus
+        self.n_assigned_cpus = n_assigned_cpus
 
     def __call__(self, trial: Trial) -> float:
         """Call.
@@ -96,9 +96,9 @@ class ObjectiveOptuna:
 
         # (3) number of outliers to be detected
         if self.max_outl > 0:
-            num_outl = trial.suggest_int(name="num_outl", low=0, high=self.max_outl)
+            n_outliers = trial.suggest_int(name="n_outliers", low=0, high=self.max_outl)
         else:
-            num_outl = 0
+            n_outliers = 0
 
         # (4) selected mrmr features
         if self.mrmr_features:
@@ -117,7 +117,7 @@ class ObjectiveOptuna:
         )
 
         config_training: TrainingConfig = {
-            "outl_reduction": num_outl,
+            "outl_reduction": n_outliers,
             "n_input_features": len(feature_cols),
             "ml_model_type": ml_model_type,
             "ml_model_params": model_params,
@@ -157,10 +157,10 @@ class ObjectiveOptuna:
         )
 
         # train all models in bag
-        bag_trainings.fit(num_assigned_cpus=self.num_assigned_cpus)
+        bag_trainings.fit(n_assigned_cpus=self.n_assigned_cpus)
 
         # evaluate trainings using target metric
-        bag_performance = bag_trainings.get_performance(num_assigned_cpus=self.num_assigned_cpus)
+        bag_performance = bag_trainings.get_performance(n_assigned_cpus=self.n_assigned_cpus)
 
         # get number of features used in bag
         n_features_mean = bag_trainings.n_features_used_mean

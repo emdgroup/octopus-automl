@@ -32,9 +32,9 @@ class OctoManager:
     workflow: Sequence[Task] = field(validator=[validators.instance_of(list)])
     """Workflow tasks to execute."""
 
-    num_cpus: int = field(validator=validators.instance_of(int))
-    """Number of CPUs to use for parallel processing. num_cpus=0 uses all available CPUs.
-       Negative values indicate abs(num_cpus) to leave free, e.g. -1 means use all but one CPU.
+    n_cpus: int = field(validator=validators.instance_of(int))
+    """Number of CPUs to use for parallel processing. n_cpus=0 uses all available CPUs.
+       Negative values indicate abs(n_cpus) to leave free, e.g. -1 means use all but one CPU.
        Set to 1 to disable all parallel processing and run sequentially."""
 
     single_outer_split: int | None = field(
@@ -49,7 +49,7 @@ class OctoManager:
 
         if self.single_outer_split is not None and not (0 <= self.single_outer_split < len(self.outer_split_data)):
             raise ValueError(
-                f"single_outer_split must be between 0 and num_outer_splits-1"
+                f"single_outer_split must be between 0 and n_outer_splits-1"
                 f" ({len(self.outer_split_data) - 1}), got {self.single_outer_split}"
             )
 
@@ -60,8 +60,8 @@ class OctoManager:
         # 2. Lifecycle clarity: Explicit init → run → shutdown at the manager level makes the
         #    Ray lifecycle predictable and easier to reason about
         resources = ray_parallel.init(
-            num_cpus_user=self.num_cpus,
-            num_outer_splits=len(self.outer_split_data),
+            n_cpus_user=self.n_cpus,
+            n_outer_splits=len(self.outer_split_data),
             run_single_outer_split=self.single_outer_split is not None,
             namespace=f"octopus_study_{self.study_context.output_path}",
         )
@@ -90,14 +90,14 @@ class OctoManager:
         if self.single_outer_split is not None:
             return SingleOuterSplitStrategy(
                 outer_split_index=self.single_outer_split,
-                num_cpus=resources.cpus_per_worker,
+                n_cpus=resources.cpus_per_worker,
             )
-        elif resources.num_workers > 1:
+        elif resources.n_workers > 1:
             return ParallelRayStrategy(
-                num_cpus_per_worker=resources.cpus_per_worker,
+                n_cpus_per_worker=resources.cpus_per_worker,
                 log_dir=self.study_context.log_dir,
             )
         else:
             return SequentialStrategy(
-                num_cpus=resources.cpus_per_worker,
+                n_cpus=resources.cpus_per_worker,
             )

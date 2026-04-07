@@ -80,7 +80,7 @@ class DataSplit:
             iterable_validator=validators.instance_of(list),
         )
     )
-    num_splits: int = field(validator=[validators.instance_of(int)])
+    n_splits: int = field(validator=[validators.instance_of(int)])
     dataset: pd.DataFrame = field(validator=[validators.instance_of(pd.DataFrame)])
     stratification_col: str | None = field(
         default=Factory(lambda: None),
@@ -118,12 +118,12 @@ class DataSplit:
     ) -> dict[int, tuple[pd.DataFrame, pd.DataFrame]]:
         """Get datasplits for single seed."""
         groups = self.dataset[DATASPLIT_COL]
-        num_groups = groups.nunique()
+        n_groups = groups.nunique()
 
         splitter: GroupKFold | StratifiedGroupKFold
         if self.stratification_col is not None:
             splitter = StratifiedGroupKFold(
-                n_splits=self.num_splits,
+                n_splits=self.n_splits,
                 shuffle=True,
                 random_state=datasplit_seed,
             )
@@ -133,22 +133,22 @@ class DataSplit:
             # Runtime sklearn (>=1.6) supports shuffle/random_state on GroupKFold,
             # but currently available sklearn stubs lag behind this signature.
             splitter = GroupKFold(
-                n_splits=self.num_splits,
+                n_splits=self.n_splits,
                 shuffle=True,  # type: ignore[call-arg]  # sklearn stubs lag behind sklearn version (>=1.6)
                 random_state=datasplit_seed,
             )
             split_iterator = splitter.split(self.dataset, groups=groups)
 
         logger.info(
-            f"{len(self.dataset)} rows, {num_groups} groups (column: {DATASPLIT_COL}), "
-            f"{type(splitter).__name__}, {self.num_splits} splits, seed {datasplit_seed}"
+            f"{len(self.dataset)} rows, {n_groups} groups (column: {DATASPLIT_COL}), "
+            f"{type(splitter).__name__}, {self.n_splits} splits, seed {datasplit_seed}"
         )
 
         raw_splits: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
         all_test_indices = []
         all_test_groups = []
 
-        for num_split, (train_ind, test_ind) in enumerate(split_iterator):
+        for split_idx, (train_ind, test_ind) in enumerate(split_iterator):
             partition_train = self.dataset.iloc[train_ind]
             partition_test = self.dataset.iloc[test_ind]
 
@@ -168,14 +168,14 @@ class DataSplit:
             partition_test.reset_index(drop=True, inplace=True)
 
             logger.info(
-                f"{self.process_id} {num_split} created: "
+                f"{self.process_id} {split_idx} created: "
                 f"{name_a} - {len(partition_train)} rows, "
                 f"{len(set(groups_train))} groups | "
                 f"{name_b} - {len(partition_test)} rows, "
                 f"{len(set(groups_test))} groups"
             )
 
-            raw_splits[num_split] = (partition_train, partition_test)
+            raw_splits[split_idx] = (partition_train, partition_test)
 
         if len(all_test_groups) != len(set(all_test_groups)):
             raise RuntimeError("Duplicate groups across test splits")

@@ -97,7 +97,7 @@ study = OctoClassification(
             depends_on=None,  # No dependency (parallel with Octo)
             time_limit=600,
             presets=["medium_quality"],  # Balance between speed and accuracy
-            num_bag_splits=5,  # 5-split bagging for ensemble models
+            n_bag_splits=5,  # 5-split bagging for ensemble models
             included_model_types=[
                 "XT",  # ExtraTrees
             ],

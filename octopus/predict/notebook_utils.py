@@ -779,7 +779,9 @@ def show_confusionmatrix(
 
         class_names = [str(c) for c in predictor.classes_]
 
-        fig = _create_confusion_figure(cm_abs, cm_rel, class_names, f"Confusion Matrices - Outer Split {outer_split_id}")
+        fig = _create_confusion_figure(
+            cm_abs, cm_rel, class_names, f"Confusion Matrices - Outer Split {outer_split_id}"
+        )
 
         print("\nConfusion Matrices:")
         fig.show()

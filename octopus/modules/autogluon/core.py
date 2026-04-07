@@ -118,7 +118,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         study_context: StudyContext,
         outer_split_id: int,
         results_dir: UPath,
-        num_assigned_cpus: int,
+        n_assigned_cpus: int,
         feature_groups: dict[str, list[str]],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
@@ -175,9 +175,9 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             memory_limit=self.config.memory_limit,
             presets=self.config.presets,
             fit_strategy="sequential",
-            num_bag_folds=self.config.num_bag_splits,
+            num_bag_folds=self.config.n_bag_splits,
             included_model_types=self.config.included_model_types,
-            num_cpus=num_assigned_cpus,
+            num_cpus=n_assigned_cpus,
         )
 
         logger.set_log_group(LogGroup.AUTOGLUON, f"OUTER {outer_split_id}")

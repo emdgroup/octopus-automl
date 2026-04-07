@@ -47,7 +47,7 @@ def prepared_data(sample_data_with_types):
 
 def test_numerical_columns(prepared_data):
     """Test num_features property with all allowed numeric types (int, float, bool)."""
-    numerical_cols = prepared_data.num_features
+    numerical_cols = prepared_data.numerical_features
     assert isinstance(numerical_cols, list)
     assert "int_feature" in numerical_cols
     assert "float_feature" in numerical_cols
@@ -84,14 +84,14 @@ def test_categorical_ordinal_columns(prepared_data):
 def test_all_columns_covered(prepared_data):
     """Test that all feature columns are covered by the three property types."""
     all_typed_columns = (
-        prepared_data.num_features + prepared_data.cat_nominal_features + prepared_data.cat_ordinal_features
+        prepared_data.numerical_features + prepared_data.cat_nominal_features + prepared_data.cat_ordinal_features
     )
     assert set(all_typed_columns) == set(prepared_data.feature_cols)
 
 
 def test_no_overlap_between_column_types(prepared_data):
     """Test that column types don't overlap and sum equals total features."""
-    numerical = set(prepared_data.num_features)
+    numerical = set(prepared_data.numerical_features)
     nominal = set(prepared_data.cat_nominal_features)
     ordinal = set(prepared_data.cat_ordinal_features)
 
@@ -102,7 +102,7 @@ def test_no_overlap_between_column_types(prepared_data):
 
     # Check sum equals total features
     total_by_type = (
-        len(prepared_data.num_features)
+        len(prepared_data.numerical_features)
         + len(prepared_data.cat_nominal_features)
         + len(prepared_data.cat_ordinal_features)
     )

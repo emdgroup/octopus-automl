@@ -23,14 +23,14 @@ def outer_splits():
 
 def test_inner_parallelization_setup_in_workers(tmp_path, outer_splits):
     resources = ray_parallel.init(
-        num_cpus_user=0,
-        num_outer_splits=len(outer_splits),
+        n_cpus_user=0,
+        n_outer_splits=len(outer_splits),
         run_single_outer_split=False,
         namespace="test_namespace",
     )
 
-    def run_fn(outersplit_id: int, outersplit: OuterSplit, num_cpus_per_worker: int):
-        assert num_cpus_per_worker == resources.cpus_per_worker
+    def run_fn(outersplit_id: int, outersplit: OuterSplit, n_cpus_per_worker: int):
+        assert n_cpus_per_worker == resources.cpus_per_worker
 
         for var in ray_parallel._PARALLELIZATION_ENV_VARS:
             assert os.environ.get(var, None) == str(resources.cpus_per_worker), (
@@ -49,7 +49,7 @@ def test_inner_parallelization_setup_in_workers(tmp_path, outer_splits):
         outer_split_data=outer_splits,
         run_fn=run_fn,
         log_dir=UPath(tmp_path),
-        num_cpus_per_worker=resources.cpus_per_worker,
+        n_cpus_per_worker=resources.cpus_per_worker,
     )
 
     ray_parallel.shutdown()
@@ -88,21 +88,21 @@ def test_connect_to_running_ray_cluster(tmp_path, outer_splits, num_nodes):
 
     try:
         resources = ray_parallel.init(
-            num_cpus_user=0,
-            num_outer_splits=len(outer_splits),
+            n_cpus_user=0,
+            n_outer_splits=len(outer_splits),
             run_single_outer_split=False,
             address=f"{HOST}:{PORT}",
             namespace="test_namespace",
         )
 
-        def run_fn(outersplit_id: int, outersplit: OuterSplit, num_cpus_per_worker: int):
-            assert num_cpus_per_worker == resources.cpus_per_worker
+        def run_fn(outersplit_id: int, outersplit: OuterSplit, n_cpus_per_worker: int):
+            assert n_cpus_per_worker == resources.cpus_per_worker
 
         ray_parallel.run_parallel_outer(
             outer_split_data=outer_splits,
             run_fn=run_fn,
             log_dir=UPath(tmp_path),
-            num_cpus_per_worker=resources.cpus_per_worker,
+            n_cpus_per_worker=resources.cpus_per_worker,
         )
     finally:
         ray.shutdown()

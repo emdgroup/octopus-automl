@@ -30,7 +30,7 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
         activation: Activation function ('relu' or 'elu'). Defaults to 'relu'.
         optimizer: Optimizer type ('adam' or 'adamw'). Defaults to 'adam'.
         random_state: Random seed. Defaults to None.
-        num_threads: Number of threads for PyTorch. Defaults to 1 (set to >1 with caution
+        n_threads: Number of threads for PyTorch. Defaults to 1 (set to >1 with caution
             due to potential deadlocks). If set to 0, number of PyTorch threads will not be limited.
     """
 
@@ -47,7 +47,7 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
         activation: str = "relu",
         optimizer: str = "adam",
         random_state: int | None = None,
-        num_threads: int = 1,
+        n_threads: int = 1,
     ) -> None:
         self.hidden_sizes = hidden_sizes if hidden_sizes is not None else [200, 100]
         self.dropout = dropout
@@ -58,18 +58,18 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
         self.activation = activation
         self.optimizer = optimizer
         self.random_state = random_state
-        self.num_threads = num_threads
+        self.n_threads = n_threads
 
-        if self.num_threads < 0:
-            raise ValueError(f"num_threads must be non-negative, got {self.num_threads}.")
-        elif self.num_threads > 0:
-            if self.num_threads > 1:
+        if self.n_threads < 0:
+            raise ValueError(f"n_threads must be non-negative, got {self.n_threads}.")
+        elif self.n_threads > 0:
+            if self.n_threads > 1:
                 logger.warning(
-                    f"Using {self.num_threads} threads for PyTorch. This may lead to deadlocks in some environments, "
+                    f"Using {self.n_threads} threads for PyTorch. This may lead to deadlocks in some environments, "
                     "see https://github.com/pytorch/pytorch/issues/91547#issuecomment-1370011188."
                 )
 
-            torch.set_num_threads(num_threads)
+            torch.set_num_threads(n_threads)
 
     def _detect_categorical_columns(self, X: Any) -> tuple[list[str], list[str] | list[int]]:
         """Detect categorical columns from DataFrame.
@@ -83,8 +83,8 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
         if isinstance(X, pd.DataFrame):
             # Use pandas dtypes to detect categorical columns
             cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
-            num_cols = X.select_dtypes(include=[np.number]).columns.tolist()
-            return cat_cols, num_cols
+            numerical_cols = X.select_dtypes(include=[np.number]).columns.tolist()
+            return cat_cols, numerical_cols
         else:
             # If numpy array, no categorical columns
             return [], list(range(X.shape[1]))
@@ -112,7 +112,7 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
         self.n_features_in_ = len(self.feature_names_in_)
 
         # Detect categorical and numerical columns
-        self.cat_cols_, self.num_cols_ = self._detect_categorical_columns(X)
+        self.cat_cols_, self.numerical_cols_ = self._detect_categorical_columns(X)
 
         # Encode categorical features
         self.label_encoders_: dict[str, LabelEncoder] = {}
@@ -134,28 +134,30 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
             X_cat_encoded.append(encoded)
 
         # Enhanced missing value handling for numerical features
-        self.num_medians_ = {}
+        self.numerical_medians_ = {}
         self.missing_indicators_ = []
 
-        X_num_list = []
-        for num_col in self.num_cols_:
-            col_data = X[num_col]
+        X_numerical_list = []
+        for numerical_col in self.numerical_cols_:
+            col_data = X[numerical_col]
             is_missing = col_data.isna()
 
             # Store median for this column
             median_val = col_data.median()
-            self.num_medians_[num_col] = median_val if not pd.isna(median_val) else 0.0
+            self.numerical_medians_[numerical_col] = median_val if not pd.isna(median_val) else 0.0
 
             # Fill missing with median
-            filled_data = col_data.fillna(self.num_medians_[num_col])
-            X_num_list.append(filled_data.to_numpy())
+            filled_data = col_data.fillna(self.numerical_medians_[numerical_col])
+            X_numerical_list.append(filled_data.to_numpy())
 
             # Add missing indicator if there are any missing values
             if is_missing.any():
-                self.missing_indicators_.append(num_col)
-                X_num_list.append(is_missing.astype(np.float32).to_numpy())
+                self.missing_indicators_.append(numerical_col)
+                X_numerical_list.append(is_missing.astype(np.float32).to_numpy())
 
-        X_num = np.column_stack(X_num_list).astype(np.float32) if X_num_list else np.zeros((len(X), 0))
+        X_numerical = (
+            np.column_stack(X_numerical_list).astype(np.float32) if X_numerical_list else np.zeros((len(X), 0))
+        )
         X_cat = np.column_stack(X_cat_encoded) if X_cat_encoded else np.zeros((len(X), 0), dtype=np.int64)
 
         # Build model
@@ -163,11 +165,11 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
 
         # Convert to tensors
         X_cat_tensor = torch.LongTensor(X_cat)
-        X_num_tensor = torch.FloatTensor(X_num)
+        X_numerical_tensor = torch.FloatTensor(X_numerical)
         y_tensor = torch.FloatTensor(y.values if isinstance(y, pd.Series) else y).unsqueeze(1)
 
         # Training
-        dataset = TensorDataset(X_cat_tensor, X_num_tensor, y_tensor)
+        dataset = TensorDataset(X_cat_tensor, X_numerical_tensor, y_tensor)
 
         # Use generator for reproducible shuffling if random_state is set
         if self.random_state is not None:
@@ -196,9 +198,9 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
         self.model_.train()
         for _epoch in range(self.epochs):
             epoch_loss = 0.0
-            for X_cat_batch, X_num_batch, y_batch in dataloader:
+            for X_cat_batch, X_numerical_batch, y_batch in dataloader:
                 optimizer.zero_grad()
-                outputs = self.model_(X_cat_batch, X_num_batch)
+                outputs = self.model_(X_cat_batch, X_numerical_batch)
                 loss = criterion(outputs, y_batch)
                 loss.backward()
 
@@ -243,29 +245,31 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
             X_cat_encoded.append(encoded)
 
         # Prepare numerical features with same missing value handling as fit
-        X_num_list = []
-        for num_col in self.num_cols_:
-            col_data = X[num_col]
+        X_numerical_list = []
+        for numerical_col in self.numerical_cols_:
+            col_data = X[numerical_col]
             is_missing = col_data.isna()
 
             # Fill missing with stored median
-            filled_data = col_data.fillna(self.num_medians_[num_col])
-            X_num_list.append(filled_data.values)
+            filled_data = col_data.fillna(self.numerical_medians_[numerical_col])
+            X_numerical_list.append(filled_data.values)
 
             # Add missing indicator if this column had missing values during training
-            if num_col in self.missing_indicators_:
-                X_num_list.append(is_missing.astype(np.float32).values)
+            if numerical_col in self.missing_indicators_:
+                X_numerical_list.append(is_missing.astype(np.float32).values)
 
-        X_num = np.column_stack(X_num_list).astype(np.float32) if X_num_list else np.zeros((len(X), 0))
+        X_numerical = (
+            np.column_stack(X_numerical_list).astype(np.float32) if X_numerical_list else np.zeros((len(X), 0))
+        )
         X_cat = np.column_stack(X_cat_encoded) if X_cat_encoded else np.zeros((len(X), 0), dtype=np.int64)
 
         # Convert to tensors and predict
         X_cat_tensor = torch.LongTensor(X_cat)
-        X_num_tensor = torch.FloatTensor(X_num)
+        X_numerical_tensor = torch.FloatTensor(X_numerical)
 
         self.model_.eval()
         with torch.no_grad():
-            predictions = self.model_(X_cat_tensor, X_num_tensor)
+            predictions = self.model_(X_cat_tensor, X_numerical_tensor)
 
         return predictions.numpy().flatten()  # type: ignore[no-any-return]
 
@@ -276,7 +280,7 @@ class TabularNNRegressor(RegressorMixin, BaseEstimator):
             The constructed PyTorch model.
         """
         # Calculate actual number of numerical features (including missing indicators)
-        n_num_features = len(self.num_cols_) + len(self.missing_indicators_)
+        n_num_features = len(self.numerical_cols_) + len(self.missing_indicators_)
 
         return TabularNNModel(
             cat_cols=self.cat_cols_,
@@ -329,12 +333,12 @@ class TabularNNModel(nn.Module):
 
         self.network = nn.Sequential(*layers)
 
-    def forward(self, X_cat: torch.Tensor, X_num: torch.Tensor) -> torch.Tensor:
+    def forward(self, X_cat: torch.Tensor, X_numerical: torch.Tensor) -> torch.Tensor:
         """Forward pass.
 
         Args:
             X_cat: Categorical features.
-            X_num: Numerical features.
+            X_numerical: Numerical features.
 
         Returns:
             Model output.
@@ -347,6 +351,6 @@ class TabularNNModel(nn.Module):
             cat_features = torch.empty(X_cat.shape[0], 0)
 
         # Concatenate with numerical features
-        x = torch.cat([cat_features, X_num], dim=1)
+        x = torch.cat([cat_features, X_numerical], dim=1)
 
         return self.network(x)

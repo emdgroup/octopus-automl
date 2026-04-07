@@ -624,13 +624,13 @@ class OctoDataHealthChecker:
         duplicated_rows = self.data[duplicated_mask]
 
         if not duplicated_rows.empty:
-            num_duplicates = len(duplicated_rows)
+            n_duplicates = len(duplicated_rows)
             self.add_issue(
                 category="rows",
                 issue_type="duplicated_rows",
                 affected_items=[str(idx) for idx in duplicated_rows.index],
                 severity="Warning",
-                description=f"Found {num_duplicates} duplicated row(s) in the dataset.",
+                description=f"Found {n_duplicates} duplicated row(s) in the dataset.",
                 action=(
                     "Investigate these duplicates and consider removing or consolidating them based on your data requirements."
                 ),

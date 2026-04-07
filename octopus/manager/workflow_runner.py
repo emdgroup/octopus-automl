@@ -38,13 +38,13 @@ class WorkflowTaskRunner:
     study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     workflow: Sequence[Task] = field(validator=[validators.instance_of(list)])
 
-    def run(self, outer_split_id: int, outer_split: OuterSplit, num_assigned_cpus: int) -> None:
+    def run(self, outer_split_id: int, outer_split: OuterSplit, n_assigned_cpus: int) -> None:
         """Process all workflow tasks for a single outer split.
 
         Args:
             outer_split_id: Current outer split ID
             outer_split: OuterSplit containing traindev and test DataFrames
-            num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
+            n_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
         """
         # Save split row IDs (not full datasets) for reproducibility
         outer_split_dir = self.study_context.output_path / f"outersplit{outer_split_id}"
@@ -63,7 +63,7 @@ class WorkflowTaskRunner:
 
         for task in self.workflow:
             self._log_task_info(task)
-            result = self._run_task(outer_split_id, outer_split, task, num_assigned_cpus, task_results, outer_split_dir)
+            result = self._run_task(outer_split_id, outer_split, task, n_assigned_cpus, task_results, outer_split_dir)
             task_results[task.task_id] = result
 
     def _run_task(
@@ -71,7 +71,7 @@ class WorkflowTaskRunner:
         outer_split_id: int,
         outer_split: OuterSplit,
         task: Task,
-        num_assigned_cpus: int,
+        n_assigned_cpus: int,
         task_results: dict[int, dict[ResultType, ModuleResult]],
         outer_split_dir: UPath,
     ) -> dict[ResultType, ModuleResult]:
@@ -81,7 +81,7 @@ class WorkflowTaskRunner:
             outer_split_id: Current outer split ID
             outer_split: OuterSplit containing traindev and test DataFrames
             task: Task to run
-            num_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
+            n_assigned_cpus: Number of CPUs assigned to this outer split for inner parallel processing
             task_results: Dictionary of results from previous tasks
             outer_split_dir: directory where all data/results relevant for this outer
               split reside / should be saved to
@@ -137,7 +137,7 @@ class WorkflowTaskRunner:
             outer_split_id=outer_split_id,
             results_dir=module_results_dir,
             scratch_dir=module_scratch_dir,
-            num_assigned_cpus=num_assigned_cpus,
+            n_assigned_cpus=n_assigned_cpus,
             feature_groups=feature_groups,
             prior_results=prior_results,
         )
