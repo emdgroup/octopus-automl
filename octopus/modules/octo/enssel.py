@@ -110,7 +110,7 @@ class EnSel:
 
     def _ensemble_models(self, bag_keys):
         """Esemble using all bags and their corresponding models provided by input."""
-        # collect all predictions over inner folds and bags
+        # collect all predictions over inner splits and bags
         predictions: dict[str, dict[str, pd.DataFrame]] = {}
         performance_output = {}
         pool: dict[str, list[pd.DataFrame]] = {key: [] for key in ["dev", "test"]}

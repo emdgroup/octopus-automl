@@ -11,7 +11,7 @@ from octopus.manager.execution import (
     ExecutionStrategy,
     ParallelRayStrategy,
     SequentialStrategy,
-    SingleOutersplitStrategy,
+    SingleOuterSplitStrategy,
 )
 from octopus.manager.workflow_runner import WorkflowTaskRunner
 from octopus.modules import StudyContext, Task
@@ -21,10 +21,10 @@ logger = get_logger()
 
 @define
 class OctoManager:
-    """Orchestrates the execution of outersplits."""
+    """Orchestrates the execution of outer splits."""
 
-    outersplit_data: OuterSplits = field(validator=[validators.instance_of(dict)])
-    """Preprocessed data for each outersplit, keyed by outersplit identifier."""
+    outer_split_data: OuterSplits = field(validator=[validators.instance_of(dict)])
+    """Preprocessed data for each outer split, keyed by outer split identifier."""
 
     study_context: StudyContext = field(validator=[validators.instance_of(StudyContext)])
     """Frozen runtime context containing study configuration."""
@@ -42,14 +42,15 @@ class OctoManager:
     )
     """Index of single outer split to run (None for all)."""
 
-    def run_outersplits(self) -> None:
-        """Run all outersplits."""
-        if not self.outersplit_data:
-            raise ValueError("No outersplit data defined")
+    def run_outer_splits(self) -> None:
+        """Run all outer splits."""
+        if not self.outer_split_data:
+            raise ValueError("No outer split data defined")
 
-        if self.single_outer_split is not None and not (0 <= self.single_outer_split < len(self.outersplit_data)):
+        if self.single_outer_split is not None and not (0 <= self.single_outer_split < len(self.outer_split_data)):
             raise ValueError(
-                f"single_outer_split must be between 0 and num_outersplits-1 ({len(self.outersplit_data) - 1}), got {self.single_outer_split}"
+                f"single_outer_split must be between 0 and num_outer_splits-1"
+                f" ({len(self.outer_split_data) - 1}), got {self.single_outer_split}"
             )
 
         # Initialize Ray upfront to ensure worker setup hooks are registered before any workflows execute.
@@ -60,8 +61,8 @@ class OctoManager:
         #    Ray lifecycle predictable and easier to reason about
         resources = ray_parallel.init(
             num_cpus_user=self.num_cpus,
-            num_outersplits=len(self.outersplit_data),
-            run_single_outersplit=self.single_outer_split is not None,
+            num_outer_splits=len(self.outer_split_data),
+            run_single_outer_split=self.single_outer_split is not None,
             namespace=f"octopus_study_{self.study_context.output_path}",
         )
 
@@ -73,7 +74,7 @@ class OctoManager:
                 workflow=self.workflow,
             )
             strategy = self._select_strategy(resources)
-            strategy.execute(self.outersplit_data, runner.run)
+            strategy.execute(self.outer_split_data, runner.run)
         finally:
             ray_parallel.shutdown()
 
@@ -87,8 +88,8 @@ class OctoManager:
             Appropriate execution strategy based on configuration.
         """
         if self.single_outer_split is not None:
-            return SingleOutersplitStrategy(
-                outersplit_index=self.single_outer_split,
+            return SingleOuterSplitStrategy(
+                outer_split_index=self.single_outer_split,
                 num_cpus=resources.cpus_per_worker,
             )
         elif resources.num_workers > 1:

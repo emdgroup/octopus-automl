@@ -35,7 +35,7 @@ study = OctoClassification(
     sample_id_col="index",
     stratification_col="target",
     outer_split_seed=1234,
-    single_outer_split=0,  # only process first outersplit, for quick testing
+    single_outer_split=0,  # only process first outer split, for quick testing
     workflow=[
         Octo(
             task_id=0,

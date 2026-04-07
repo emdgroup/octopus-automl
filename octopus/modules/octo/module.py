@@ -35,7 +35,7 @@ class Octo(Task):
 
     Configuration:
         models: List of model names to optimize
-        n_inner_splits: Number of inner CV folds
+        n_inner_splits: Number of inner CV splits
         n_trials: Number of Optuna trials
         ensemble_selection: Whether to perform ensemble selection
         n_mrmr_features: Number-of-feature options for MRMR-based Optuna search
@@ -48,7 +48,7 @@ class Octo(Task):
     """Models for ML. If None, defaults are resolved at fit time based on ml_type."""
 
     n_inner_splits: int = field(validator=[validators.instance_of(int)], default=5)
-    """Number of inner folds."""
+    """Number of inner splits."""
 
     inner_split_seeds: list[int] = field(
         default=Factory(lambda: [0]),

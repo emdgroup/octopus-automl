@@ -217,7 +217,7 @@ class TestOctoIntroClassification:
 
             assert (study_path / "study_config.json").exists(), "Config JSON file should exist"
             assert (study_path / "study_meta.json").exists(), "Study meta JSON file should exist"
-            assert (study_path / "outersplit0").exists(), "Outersplit directory should exist"
+            assert (study_path / "outersplit0").exists(), "Outer split directory should exist"
 
             # Verify that the Octo step was executed by checking for task directories
             experiment_path = study_path / "outersplit0"

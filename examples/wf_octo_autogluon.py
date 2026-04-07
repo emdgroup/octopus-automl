@@ -72,7 +72,7 @@ study = OctoClassification(
     target_col="target",
     sample_id_col="index",
     stratification_col="target",  # Ensure balanced splits
-    n_outer_splits=5,  # 5-fold outer cross-validation
+    n_outer_splits=5,  # 5-split outer cross-validation
     workflow=[
         # Step 0: octo
         Octo(
@@ -97,7 +97,7 @@ study = OctoClassification(
             depends_on=None,  # No dependency (parallel with Octo)
             time_limit=600,
             presets=["medium_quality"],  # Balance between speed and accuracy
-            num_bag_folds=5,  # 5-fold bagging for ensemble models
+            num_bag_splits=5,  # 5-split bagging for ensemble models
             included_model_types=[
                 "XT",  # ExtraTrees
             ],

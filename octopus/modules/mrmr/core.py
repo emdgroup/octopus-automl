@@ -31,14 +31,14 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         data_traindev: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        outersplit_id: int,
+        outer_split_id: int,
         prior_results: dict[str, pd.DataFrame],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit MRMR module by selecting features with maximum relevance and minimum redundancy."""
         logger.set_log_group(LogGroup.PROCESSING, "MRMR")
         self._validate_configuration(prior_results)
-        self._log_outersplit_info(outersplit_id, prior_results)
+        self._log_outer_split_info(outer_split_id, prior_results)
 
         # Extract feature matrices (local variables, not stored)
         target_cols = list(study_context.target_assignments.values())
@@ -97,10 +97,10 @@ class MrmrModule(ModuleExecution["Mrmr"]):
                     f"No feature importances for fi_method={fi_method}. Available methods: {available_methods}"
                 )
 
-    def _log_outersplit_info(self, outersplit_id: int, prior_results: dict) -> None:
+    def _log_outer_split_info(self, outer_split_id: int, prior_results: dict) -> None:
         """Log basic MRMR info."""
         logger.info("MRMR-Module")
-        logger.info(f"Outersplit: {outersplit_id}")
+        logger.info(f"Outer Split: {outer_split_id}")
         logger.info(f"Workflow task: {self.config.task_id}")
         logger.info(f"Number of features selected by MRMR: {self.config.n_features}")
         logger.info(f"Correlation type used by MRMR: {self.config.correlation_type}")

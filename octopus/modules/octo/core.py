@@ -53,7 +53,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         data_test: pd.DataFrame,
         feature_cols: list[str],
         study_context: StudyContext,
-        outersplit_id: int,
+        outer_split_id: int,
         results_dir: UPath,
         scratch_dir: UPath,
         num_assigned_cpus: int,
@@ -71,7 +71,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             x_traindev,
             y_traindev,
             feature_cols,
-            outersplit_id,
+            outer_split_id,
             scratch_dir,
             results_dir,
         )
@@ -85,7 +85,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             data_test=data_test,
             feature_cols=feature_cols,
             feature_groups=feature_groups,
-            outersplit_id=outersplit_id,
+            outer_split_id=outer_split_id,
             num_assigned_cpus=num_assigned_cpus,
             results_dir=results_dir,
             results=results,
@@ -114,7 +114,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         if self.config.ensemble_selection:
             ensel_selected_features = self._run_ensemble_selection(
                 study_context=study_context,
-                outersplit_id=outersplit_id,
+                outer_split_id=outer_split_id,
                 num_assigned_cpus=num_assigned_cpus,
                 scratch_dir=scratch_dir,
                 results=results,
@@ -147,7 +147,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         x_traindev: pd.DataFrame,
         y_traindev: pd.DataFrame,
         feature_cols: list[str],
-        outersplit_id: int,
+        outer_split_id: int,
         scratch_dir: UPath,
         results_dir: UPath,
     ):
@@ -173,9 +173,9 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         self.data_splits_ = DataSplit(
             dataset=data_traindev,
             seeds=self.config.inner_split_seeds,
-            num_folds=self.config.n_inner_splits,
+            num_splits=self.config.n_inner_splits,
             stratification_col=study_context.stratification_col,
-            process_id=f"OUTER {outersplit_id} SEQ TBD",
+            process_id=f"OUTER {outer_split_id} SEQ TBD",
         ).get_inner_splits()
 
         if study_context.ml_type in (MLType.BINARY, MLType.MULTICLASS):
@@ -183,7 +183,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         elif study_context.ml_type == MLType.TIMETOEVENT:
             validate_class_coverage(self.data_splits_, study_context.target_assignments["event"])
 
-        logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"OUTER {outersplit_id} SQE TBD")
+        logger.set_log_group(LogGroup.PREPARE_EXECUTION, f"OUTER {outer_split_id} SQE TBD")
 
         # Create MRMR feature lists
         self._create_mrmr_features(study_context, x_traindev, y_traindev, feature_cols)
@@ -225,7 +225,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         self.mrmr_features_[len(feature_cols)] = feature_cols
 
     def _run_ensemble_selection(
-        self, study_context: StudyContext, outersplit_id: int, num_assigned_cpus: int, scratch_dir: UPath, results: dict
+        self, study_context: StudyContext, outer_split_id: int, num_assigned_cpus: int, scratch_dir: UPath, results: dict
     ) -> list[str]:
         """Run ensemble selection."""
         ensel = EnSel(
@@ -238,12 +238,12 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             num_assigned_cpus=num_assigned_cpus,
         )
         ensemble_paths_dict = ensel.start_ensemble
-        return self._create_ensemble_bag(study_context, outersplit_id, num_assigned_cpus, ensemble_paths_dict, results)
+        return self._create_ensemble_bag(study_context, outer_split_id, num_assigned_cpus, ensemble_paths_dict, results)
 
     def _create_ensemble_bag(
         self,
         study_context: StudyContext,
-        outersplit_id: int,
+        outer_split_id: int,
         num_assigned_cpus: int,
         ensemble_paths_dict: dict,
         results: dict,
@@ -252,8 +252,8 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         if len(ensemble_paths_dict) == 0:
             raise ValueError("Valid ensemble information need to be provided")
 
-        # Compute outersplit_task_id from outersplit_id and task_id
-        training_id = f"{outersplit_id}_{self.config.task_id}"
+        # Compute outer_split_task_id from outer_split_id and task_id
+        training_id = f"{outer_split_id}_{self.config.task_id}"
 
         # extract trainings
         trainings = []
@@ -314,19 +314,19 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         data_test: pd.DataFrame,
         feature_cols: list[str],
         feature_groups: dict,
-        outersplit_id: int,
+        outer_split_id: int,
         num_assigned_cpus: int,
         results_dir: UPath,
         results: dict[str, dict],
     ) -> list[str]:
-        """Optimization run with a global HP set over all inner folds."""
+        """Optimization run with a global HP set over all inner splits."""
         logger.info("Running Optuna Optimization with a global HP set")
 
         # Optimize splits.
         splits = self.data_splits_
-        study_name = f"optuna_{outersplit_id}_{self.config.task_id}"
-        outersplit_task_id = f"{outersplit_id}_{self.config.task_id}"
-        task_path = f"outersplit{outersplit_id}/task{self.config.task_id}"
+        study_name = f"optuna_{outer_split_id}_{self.config.task_id}"
+        outer_split_task_id = f"{outer_split_id}_{self.config.task_id}"
+        task_path = f"outersplit{outer_split_id}/task{self.config.task_id}"
 
         # Warn when the penalty_factor may not match the metric's scale
         if self.config.max_features > 0 and study_context.target_metric in {"MAE", "MSE", "RMSE"}:
@@ -340,8 +340,8 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         # set up Optuna study
         objective = ObjectiveOptuna(
-            outersplit_task_id=outersplit_task_id,
-            outersplit_id=outersplit_id,
+            outer_split_task_id=outer_split_task_id,
+            outer_split_id=outer_split_id,
             ml_type=study_context.ml_type,
             target_assignments=study_context.target_assignments,
             feature_cols=feature_cols,
@@ -409,7 +409,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
                 dict_optuna.append(
                     {
-                        "outersplit_id": outersplit_id,
+                        "outer_split_id": outer_split_id,
                         "task_id": self.config.task_id,
                         "trial": trial.number,
                         "value": trial.value,
@@ -422,7 +422,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         parquet_save(pd.DataFrame(dict_optuna), dict_optuna_path)
 
         # display results
-        logger.set_log_group(LogGroup.SCORES, f"OUTER {outersplit_id} SQE TBD")
+        logger.set_log_group(LogGroup.SCORES, f"OUTER {outer_split_id} SQE TBD")
         logger.info("Optimization results: ")
         logger.info(f"Best trial number {study.best_trial.number}")
         logger.info(f"Best target value {study.best_value}")
@@ -435,8 +435,8 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         n_input_features = user_attrs["config_training"]["n_input_features"]
         best_bag_feature_cols = self.mrmr_features_[n_input_features]
 
-        # Compute outersplit_task_id from outersplit_id and task_id
-        training_id = f"{outersplit_id}_{self.config.task_id}"
+        # Compute outer_split_task_id from outer_split_id and task_id
+        training_id = f"{outer_split_id}_{self.config.task_id}"
 
         # create best bag from optuna info
         best_trainings = []

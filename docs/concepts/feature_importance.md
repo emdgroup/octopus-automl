@@ -21,7 +21,7 @@ module.fit(
     data_test=test_data,
     feature_cols=feature_cols,
     study=study,
-    outersplit_id=0,
+    outer_split_id=0,
     output_dir=output_dir,
 )
 
@@ -222,7 +222,7 @@ octo.fit(
     data_test=test_data,
     feature_cols=feature_cols,
     study=study,
-    outersplit_id=0,
+    outer_split_id=0,
     output_dir=output_dir,
 )
 
@@ -353,11 +353,11 @@ workflow = [
 runner = WorkflowTaskRunner(
     study=study,
     workflow=workflow,
-    cpus_per_outersplit=4,
+    cpus_per_outer_split=4,
     log_dir=log_dir,
 )
 
-runner.run(outersplit_id=0, data_train=train_data, data_test=test_data)
+runner.run(outer_split_id=0, data_train=train_data, data_test=test_data)
 
 # After workflow completes, you can load modules and get importances
 from octopus.modules import Octo

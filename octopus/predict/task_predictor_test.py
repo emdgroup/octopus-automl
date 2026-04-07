@@ -57,9 +57,9 @@ class TaskPredictorTest(TaskPredictor):
 
         loader = StudyLoader(self._study_path)
 
-        for split_id in self._outersplits:
-            split_loader = loader.get_outersplit_loader(
-                outersplit_id=split_id,
+        for split_id in self._outer_splits:
+            split_loader = loader.get_outer_split_loader(
+                outer_split_id=split_id,
                 task_id=self._task_id,
                 result_type=self._result_type,
             )
@@ -102,7 +102,7 @@ class TaskPredictorTest(TaskPredictor):
         No ensemble averaging — results are collected per split.
 
         Args:
-            df: If True, return a DataFrame with outersplit, row_id, prediction,
+            df: If True, return a DataFrame with outer_split, row_id, prediction,
                 and target columns.  For T2E tasks the target columns are
                 ``target_duration`` and ``target_event`` instead of ``target``.
                 If False (default), return concatenated ndarray.
@@ -115,7 +115,7 @@ class TaskPredictorTest(TaskPredictor):
         all_preds = []
         all_rows = []
 
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             features = self._selected_features[split_id]
             test = self._test_data[split_id]
             preds = self._models[split_id].predict(test[features])
@@ -125,7 +125,7 @@ class TaskPredictorTest(TaskPredictor):
                 row_ids = test[row_id_col] if row_id_col and row_id_col in test.columns else pd.RangeIndex(len(test))
                 split_df = pd.DataFrame(
                     {
-                        "outersplit": split_id,
+                        "outer_split": split_id,
                         "row_id": row_ids.values if hasattr(row_ids, "values") else row_ids,
                         "prediction": preds,
                         **self._get_target_columns(test),
@@ -143,7 +143,7 @@ class TaskPredictorTest(TaskPredictor):
         Each model predicts only on its own test data.  No averaging.
 
         Args:
-            df: If True, return a DataFrame with outersplit, row_id, probability
+            df: If True, return a DataFrame with outer_split, row_id, probability
                 columns per class, and target column(s).  If False (default),
                 return concatenated ndarray.
 
@@ -164,7 +164,7 @@ class TaskPredictorTest(TaskPredictor):
         all_probas = []
         all_rows = []
 
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             features = self._selected_features[split_id]
             test = self._test_data[split_id]
             probas = self._models[split_id].predict_proba(test[features])
@@ -175,7 +175,7 @@ class TaskPredictorTest(TaskPredictor):
             if df:
                 row_ids = test[row_id_col] if row_id_col and row_id_col in test.columns else pd.RangeIndex(len(test))
                 split_df = pd.DataFrame(probas, columns=class_labels)
-                split_df.insert(0, "outersplit", split_id)
+                split_df.insert(0, "outer_split", split_id)
                 row_vals: Any = row_ids.values if hasattr(row_ids, "values") else row_ids
                 split_df.insert(1, "row_id", row_vals)
                 for col_name, col_values in self._get_target_columns(test).items():
@@ -204,13 +204,13 @@ class TaskPredictorTest(TaskPredictor):
             threshold: Classification threshold for threshold-dependent metrics.
 
         Returns:
-            DataFrame with columns: outersplit, metric, score.
+            DataFrame with columns: outer_split, metric, score.
         """
         if metrics is None:
             metrics = [self.target_metric]
 
         rows = []
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             model = self._models[split_id]
             features = self._selected_features[split_id]
             test = self._test_data[split_id]
@@ -225,7 +225,7 @@ class TaskPredictorTest(TaskPredictor):
                     threshold=threshold,
                     positive_class=self.positive_class,
                 )
-                rows.append({"outersplit": split_id, "metric": metric_name, "score": score})
+                rows.append({"outer_split": split_id, "metric": metric_name, "score": score})
 
         return pd.DataFrame(rows)
 

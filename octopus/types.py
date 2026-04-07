@@ -183,8 +183,8 @@ class ScoringMethod(StrEnum):
     """Determines which bag performance statistic is used as the Optuna optimisation target.
 
     Used in ``Octo.scoring_method``:
-    - ``COMBINED``: uses the ensembled dev score across all inner folds (dev_ensemble)
-    - ``AVERAGE``: uses the average of per-fold dev scores (dev_avg)
+    - ``COMBINED``: uses the ensembled dev score across all inner splits (dev_ensemble)
+    - ``AVERAGE``: uses the average of per-split dev scores (dev_avg)
     """
 
     COMBINED = "combined"

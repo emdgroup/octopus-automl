@@ -240,24 +240,24 @@ class OctoStudy(ABC):
         relevant_cols = list(dict.fromkeys(relevant_cols))
         data_clean = prepared.data[relevant_cols]
 
-        outersplits = DataSplit(
+        outer_splits = DataSplit(
             dataset=data_clean,
             seeds=[self.outer_split_seed],
-            num_folds=self.n_outer_splits,
+            num_splits=self.n_outer_splits,
             stratification_col=self.stratification_col,
         ).get_outer_splits()
 
         if self.single_outer_split is not None:
-            splits_to_validate = {self.single_outer_split: outersplits[self.single_outer_split]}
+            splits_to_validate = {self.single_outer_split: outer_splits[self.single_outer_split]}
         else:
-            splits_to_validate = outersplits
+            splits_to_validate = outer_splits
 
         if ml_type in (MLType.BINARY, MLType.MULTICLASS) and hasattr(self, "target_col"):
             validate_class_coverage(splits_to_validate, self.target_col)
         elif ml_type == MLType.TIMETOEVENT and hasattr(self, "event_col"):
             validate_class_coverage(splits_to_validate, self.event_col)
 
-        return outersplits
+        return outer_splits
 
     def _run_health_check(self, prepared: PreparedData, config: HealthCheckConfig | None) -> None:
         """Run data health check, save results, and check for issues."""
@@ -345,16 +345,16 @@ class OctoStudy(ABC):
         self._initialize_study_outputs(data, prepared, ml_type, positive_class)
         self._run_health_check(prepared, health_check_config)
 
-        outersplit_data = self._create_datasplits(prepared, ml_type)
+        outer_split_data = self._create_datasplits(prepared, ml_type)
         study_context = self._create_study_context(prepared, ml_type, positive_class)
         manager = OctoManager(
-            outersplit_data=outersplit_data,
+            outer_split_data=outer_split_data,
             study_context=study_context,
             workflow=self.workflow,
             num_cpus=self.num_cpus,
             single_outer_split=self.single_outer_split,
         )
-        manager.run_outersplits()
+        manager.run_outer_splits()
         logger.info("Study completed. Results saved to: %s", self.output_path)
         self._flush_logger()
 

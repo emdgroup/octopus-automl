@@ -26,8 +26,8 @@ class ObjectiveOptuna:
 
     def __init__(
         self,
-        outersplit_task_id: str,
-        outersplit_id: int,
+        outer_split_task_id: str,
+        outer_split_id: int,
         ml_type: MLType,
         target_assignments: dict,
         feature_cols: list[str],
@@ -46,8 +46,8 @@ class ObjectiveOptuna:
         log_dir: UPath,
         num_assigned_cpus: int,
     ):
-        self.outersplit_task_id = outersplit_task_id
-        self.outersplit_id = outersplit_id
+        self.outer_split_task_id = outer_split_task_id
+        self.outer_split_id = outer_split_id
         self.ml_type = ml_type
         self.target_assignments = target_assignments
         self.feature_cols = feature_cols
@@ -129,7 +129,7 @@ class ObjectiveOptuna:
         for key, split in self.data_splits.items():
             trainings.append(
                 Training(
-                    training_id=self.outersplit_task_id + "_" + str(key),
+                    training_id=self.outer_split_task_id + "_" + str(key),
                     ml_type=self.ml_type,
                     target_assignments=self.target_assignments,
                     feature_cols=feature_cols,
@@ -146,7 +146,7 @@ class ObjectiveOptuna:
 
         # create bag with all provided trainings
         bag_trainings = Bag(
-            bag_id=self.outersplit_task_id + "_" + str(trial.number),
+            bag_id=self.outer_split_task_id + "_" + str(trial.number),
             trainings=trainings,
             target_assignments=self.target_assignments,
             target_metric=self.target_metric,
@@ -221,7 +221,7 @@ class ObjectiveOptuna:
                 raise FileNotFoundError("Problem deleting trial-pkl file")
 
     def _log_trial_scores(self, scores):
-        logger.set_log_group(LogGroup.SCORES, f"OUTER {self.outersplit_id} SQE TBD")
+        logger.set_log_group(LogGroup.SCORES, f"OUTER {self.outer_split_id} SQE TBD")
         # Log the target metric
         logger.info(f"Trial scores for metric: {self.target_metric}")
 

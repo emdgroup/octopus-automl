@@ -591,7 +591,7 @@ class Training:
             raise RuntimeError(f"Model training failed for {self.ml_model_type}: {e}") from e
 
         # (4) Model prediction
-        # Parse training_id to get split metadata: "outersplit_task_innersplit" (e.g., "1_0_2")
+        # Parse training_id to get split metadata: "outer_split_task_inner_split" (e.g., "1_0_2")
         parts = self.training_id.split("_")
         try:
             outer_split_id = int(parts[0])

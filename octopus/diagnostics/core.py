@@ -107,28 +107,28 @@ class StudyDiagnostics:
 
     @property
     def predictions(self) -> pd.DataFrame:
-        """All predictions across outersplits and tasks (lazy-loaded)."""
+        """All predictions across outer splits and tasks (lazy-loaded)."""
         if self._predictions is None:
             self._predictions = load_predictions(self._study_path)
         return self._predictions
 
     @property
     def feature_importances(self) -> pd.DataFrame:
-        """All feature importances across outersplits and tasks (lazy-loaded)."""
+        """All feature importances across outer splits and tasks (lazy-loaded)."""
         if self._feature_importances is None:
             self._feature_importances = load_feature_importances(self._study_path)
         return self._feature_importances
 
     @property
     def optuna_trials(self) -> pd.DataFrame:
-        """All Optuna trial results across outersplits and tasks (lazy-loaded)."""
+        """All Optuna trial results across outer splits and tasks (lazy-loaded)."""
         if self._optuna is None:
             self._optuna = load_optuna(self._study_path)
         return self._optuna
 
     @property
     def scores(self) -> pd.DataFrame:
-        """All scores across outersplits and tasks (lazy-loaded)."""
+        """All scores across outer splits and tasks (lazy-loaded)."""
         if self._scores is None:
             self._scores = load_scores(self._study_path)
         return self._scores
@@ -151,7 +151,7 @@ class StudyDiagnostics:
 
     def plot_feature_importance(
         self,
-        outersplit_id: int | None = None,
+        outer_split_id: int | None = None,
         task_id: int | None = None,
         training_id: str | None = None,
         fi_method: str | FIResultLabel | None = None,
@@ -162,7 +162,7 @@ class StudyDiagnostics:
         dropdowns. Otherwise uses provided values or defaults.
 
         Args:
-            outersplit_id: Outer split to filter on.
+            outer_split_id: Outer split to filter on.
             task_id: Task to filter on.
             training_id: Training ID to filter on.
             fi_method: FI method to filter on.
@@ -172,26 +172,26 @@ class StudyDiagnostics:
             print("No feature importance data found.")
             return
 
-        if _has_ipywidgets() and outersplit_id is None:
+        if _has_ipywidgets() and outer_split_id is None:
             from ipywidgets import Dropdown, interact  # noqa: PLC0415
 
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id", "training_id", "fi_method"])
+            opts = self._get_filter_options(df, ["outer_split_id", "task_id", "training_id", "fi_method"])
 
             @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
+                outer_split_id=Dropdown(options=opts.get("outer_split_id", ["0"]), description="Outer Split:"),
                 task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
                 training_id=Dropdown(options=opts.get("training_id", [""]), description="Training:"),
                 fi_method=Dropdown(options=opts.get("fi_method", [""]), description="FI Method:"),
             )
-            def _plot(outersplit_id: str, task_id: str, training_id: str, fi_method: str) -> None:
+            def _plot(outer_split_id: str, task_id: str, training_id: str, fi_method: str) -> None:
                 fig = plot_feature_importance_chart(
-                    df, outersplit_id=outersplit_id, task_id=task_id, training_id=training_id, fi_method=fi_method
+                    df, outer_split_id=outer_split_id, task_id=task_id, training_id=training_id, fi_method=fi_method
                 )
                 fig.show()
         else:
             fig = plot_feature_importance_chart(
                 df,
-                outersplit_id=outersplit_id or 0,
+                outer_split_id=outer_split_id or 0,
                 task_id=task_id or 0,
                 training_id=training_id or "",
                 fi_method=fi_method or "",
@@ -200,14 +200,14 @@ class StudyDiagnostics:
 
     def plot_confusion_matrix(
         self,
-        outersplit_id: int | None = None,
+        outer_split_id: int | None = None,
         task_id: int | None = None,
         training_id: str | None = None,
     ) -> None:
         """Plot confusion matrix heatmap (classification only).
 
         Args:
-            outersplit_id: Outer split to filter on.
+            outer_split_id: Outer split to filter on.
             task_id: Task to filter on.
             training_id: Inner split / training ID to filter on.
         """
@@ -216,25 +216,25 @@ class StudyDiagnostics:
             print("No prediction data found.")
             return
 
-        if _has_ipywidgets() and outersplit_id is None:
+        if _has_ipywidgets() and outer_split_id is None:
             from ipywidgets import Dropdown, interact  # noqa: PLC0415
 
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id", "inner_split_id"])
+            opts = self._get_filter_options(df, ["outer_split_id", "task_id", "inner_split_id"])
 
             @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
+                outer_split_id=Dropdown(options=opts.get("outer_split_id", ["0"]), description="Outer Split:"),
                 task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
                 training_id=Dropdown(options=opts.get("inner_split_id", [""]), description="Training:"),
             )
-            def _plot(outersplit_id: str, task_id: str, training_id: str) -> None:
+            def _plot(outer_split_id: str, task_id: str, training_id: str) -> None:
                 fig = plot_confusion_matrix_chart(
-                    df, outersplit_id=outersplit_id, task_id=task_id, training_id=training_id
+                    df, outer_split_id=outer_split_id, task_id=task_id, training_id=training_id
                 )
                 fig.show()
         else:
             fig = plot_confusion_matrix_chart(
                 df,
-                outersplit_id=outersplit_id or 0,
+                outer_split_id=outer_split_id or 0,
                 task_id=task_id or 0,
                 training_id=training_id or "",
             )
@@ -242,14 +242,14 @@ class StudyDiagnostics:
 
     def plot_predictions_vs_truth(
         self,
-        outersplit_id: int | None = None,
+        outer_split_id: int | None = None,
         task_id: int | None = None,
         training_id: str | None = None,
     ) -> None:
         """Plot prediction vs ground truth scatter (regression only).
 
         Args:
-            outersplit_id: Outer split to filter on.
+            outer_split_id: Outer split to filter on.
             task_id: Task to filter on.
             training_id: Inner split / training ID to filter on.
         """
@@ -258,25 +258,25 @@ class StudyDiagnostics:
             print("No prediction data found.")
             return
 
-        if _has_ipywidgets() and outersplit_id is None:
+        if _has_ipywidgets() and outer_split_id is None:
             from ipywidgets import Dropdown, interact  # noqa: PLC0415
 
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id", "inner_split_id"])
+            opts = self._get_filter_options(df, ["outer_split_id", "task_id", "inner_split_id"])
 
             @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
+                outer_split_id=Dropdown(options=opts.get("outer_split_id", ["0"]), description="Outer Split:"),
                 task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
                 training_id=Dropdown(options=opts.get("inner_split_id", [""]), description="Training:"),
             )
-            def _plot(outersplit_id: str, task_id: str, training_id: str) -> None:
+            def _plot(outer_split_id: str, task_id: str, training_id: str) -> None:
                 fig = plot_predictions_vs_truth_chart(
-                    df, outersplit_id=outersplit_id, task_id=task_id, training_id=training_id
+                    df, outer_split_id=outer_split_id, task_id=task_id, training_id=training_id
                 )
                 fig.show()
         else:
             fig = plot_predictions_vs_truth_chart(
                 df,
-                outersplit_id=outersplit_id or 0,
+                outer_split_id=outer_split_id or 0,
                 task_id=task_id or 0,
                 training_id=training_id or "",
             )
@@ -293,14 +293,14 @@ class StudyDiagnostics:
 
     def plot_optuna_trials(
         self,
-        outersplit_id: int | None = None,
+        outer_split_id: int | None = None,
         task_id: int | None = None,
         direction: MetricDirection = MetricDirection.MINIMIZE,
     ) -> None:
         """Plot Optuna trial scatter + cumulative best line.
 
         Args:
-            outersplit_id: Outer split to filter on.
+            outer_split_id: Outer split to filter on.
             task_id: Task to filter on.
             direction: Optimization direction ('minimize' or 'maximize').
         """
@@ -309,22 +309,22 @@ class StudyDiagnostics:
             print("No Optuna data found.")
             return
 
-        if _has_ipywidgets() and outersplit_id is None:
+        if _has_ipywidgets() and outer_split_id is None:
             from ipywidgets import Dropdown, interact  # noqa: PLC0415
 
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id"])
+            opts = self._get_filter_options(df, ["outer_split_id", "task_id"])
 
             @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
+                outer_split_id=Dropdown(options=opts.get("outer_split_id", ["0"]), description="Outer Split:"),
                 task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
             )
-            def _plot(outersplit_id: str, task_id: str) -> None:
-                fig = plot_optuna_trials_chart(df, outersplit_id=outersplit_id, task_id=task_id, direction=direction)
+            def _plot(outer_split_id: str, task_id: str) -> None:
+                fig = plot_optuna_trials_chart(df, outer_split_id=outer_split_id, task_id=task_id, direction=direction)
                 fig.show()
         else:
             fig = plot_optuna_trials_chart(
                 df,
-                outersplit_id=outersplit_id or 0,
+                outer_split_id=outer_split_id or 0,
                 task_id=task_id or 0,
                 direction=direction,
             )
@@ -332,14 +332,14 @@ class StudyDiagnostics:
 
     def plot_optuna_hyperparameters(
         self,
-        outersplit_id: int | None = None,
+        outer_split_id: int | None = None,
         task_id: int | None = None,
         model_type: str | None = None,
     ) -> None:
         """Plot Optuna hyperparameter scatter plots.
 
         Args:
-            outersplit_id: Outer split to filter on.
+            outer_split_id: Outer split to filter on.
             task_id: Task to filter on.
             model_type: Model type to filter on.
         """
@@ -348,25 +348,25 @@ class StudyDiagnostics:
             print("No Optuna data found.")
             return
 
-        if _has_ipywidgets() and outersplit_id is None:
+        if _has_ipywidgets() and outer_split_id is None:
             from ipywidgets import Dropdown, interact  # noqa: PLC0415
 
-            opts = self._get_filter_options(df, ["outersplit_id", "task_id", "model_type"])
+            opts = self._get_filter_options(df, ["outer_split_id", "task_id", "model_type"])
 
             @interact(
-                outersplit_id=Dropdown(options=opts.get("outersplit_id", ["0"]), description="Outersplit:"),
+                outer_split_id=Dropdown(options=opts.get("outer_split_id", ["0"]), description="Outer Split:"),
                 task_id=Dropdown(options=opts.get("task_id", ["0"]), description="Task:"),
                 model_type=Dropdown(options=opts.get("model_type", [""]), description="Model:"),
             )
-            def _plot(outersplit_id: str, task_id: str, model_type: str) -> None:
+            def _plot(outer_split_id: str, task_id: str, model_type: str) -> None:
                 fig = plot_optuna_hyperparameters_chart(
-                    df, outersplit_id=outersplit_id, task_id=task_id, model_type=model_type
+                    df, outer_split_id=outer_split_id, task_id=task_id, model_type=model_type
                 )
                 fig.show()
         else:
             fig = plot_optuna_hyperparameters_chart(
                 df,
-                outersplit_id=outersplit_id or 0,
+                outer_split_id=outer_split_id or 0,
                 task_id=task_id or 0,
                 model_type=model_type or "",
             )

@@ -139,7 +139,7 @@ class TestStudyIO:
     """Tests for StudyLoader and StudyMetadata."""
 
     def test_load_config(self, study_path):
-        """Verify StudyLoader loads config with correct ml_type and folds."""
+        """Verify StudyLoader loads config with correct ml_type and splits."""
         loader = StudyLoader(study_path)
         cfg = loader.load_config()
         assert cfg["ml_type"] == MLType.BINARY
@@ -196,13 +196,13 @@ class TestTaskPredictorTestProperties:
         """Verify ml_type is classification."""
         assert tpt.ml_type == MLType.BINARY
 
-    def test_n_outersplits(self, tpt):
-        """Verify n_outersplits matches study configuration."""
-        assert tpt.n_outersplits == 2
+    def test_n_outer_splits(self, tpt):
+        """Verify n_outer_splits matches study configuration."""
+        assert tpt.n_outer_splits == 2
 
-    def test_outersplits(self, tpt):
-        """Verify outersplits returns correct split indices."""
-        assert tpt.outersplits == [0, 1]
+    def test_outer_splits(self, tpt):
+        """Verify outer_splits returns correct split indices."""
+        assert tpt.outer_splits == [0, 1]
 
     def test_feature_cols(self, tpt):
         """Verify feature_cols is non-empty."""
@@ -226,9 +226,9 @@ class TestTaskPredictorTestPredict:
         """Verify predict with df=True returns DataFrame with expected columns."""
         result = tpt.predict(df=True)
         assert isinstance(result, pd.DataFrame)
-        for col in ("outersplit", "row_id", "prediction", "target"):
+        for col in ("outer_split", "row_id", "prediction", "target"):
             assert col in result.columns
-        assert result["outersplit"].nunique() == 2
+        assert result["outer_split"].nunique() == 2
 
 
 class TestTaskPredictorTestPredictProba:
@@ -242,10 +242,10 @@ class TestTaskPredictorTestPredictProba:
         assert result.shape[1] == 2
 
     def test_predict_proba_df(self, tpt):
-        """Verify predict_proba with df=True returns DataFrame with outersplit and target."""
+        """Verify predict_proba with df=True returns DataFrame with outer_split and target."""
         result = tpt.predict_proba(df=True)
         assert isinstance(result, pd.DataFrame)
-        assert "outersplit" in result.columns
+        assert "outer_split" in result.columns
         assert "target" in result.columns
 
     def test_predict_proba_sums_to_one(self, tpt):
@@ -258,10 +258,10 @@ class TestTaskPredictorTestPerformance:
     """Test TaskPredictorTest.performance()."""
 
     def test_performance_default(self, tpt):
-        """Verify default performance returns one row per outersplit."""
+        """Verify default performance returns one row per outer split."""
         result = tpt.performance()
         assert isinstance(result, pd.DataFrame)
-        assert len(result) == 2  # one per outersplit
+        assert len(result) == 2  # one per outer split
 
     def test_performance_multiple_metrics(self, tpt):
         """Verify performance with multiple metrics returns correct number of rows."""
@@ -307,7 +307,7 @@ class TestGetTargetColumns:
                 positive_class=tpt._metadata.positive_class,
                 row_id_col=tpt._metadata.row_id_col,
                 feature_cols=tpt._metadata.feature_cols,
-                n_outersplits=tpt._metadata.n_outersplits,
+                n_outer_splits=tpt._metadata.n_outer_splits,
             )
             result = tpt._get_target_columns(test_df)
             assert list(result.keys()) == ["target"]
@@ -321,7 +321,7 @@ class TestGetTargetColumns:
                 positive_class=tpt._metadata.positive_class,
                 row_id_col=tpt._metadata.row_id_col,
                 feature_cols=tpt._metadata.feature_cols,
-                n_outersplits=tpt._metadata.n_outersplits,
+                n_outer_splits=tpt._metadata.n_outer_splits,
             )
 
     def test_multi_target_returns_prefixed_keys(self, tpt):
@@ -343,7 +343,7 @@ class TestGetTargetColumns:
                 positive_class=tpt._metadata.positive_class,
                 row_id_col=tpt._metadata.row_id_col,
                 feature_cols=tpt._metadata.feature_cols,
-                n_outersplits=tpt._metadata.n_outersplits,
+                n_outer_splits=tpt._metadata.n_outer_splits,
             )
             result = tpt._get_target_columns(test_df)
             assert "target_duration" in result
@@ -360,7 +360,7 @@ class TestGetTargetColumns:
                 positive_class=tpt._metadata.positive_class,
                 row_id_col=tpt._metadata.row_id_col,
                 feature_cols=tpt._metadata.feature_cols,
-                n_outersplits=tpt._metadata.n_outersplits,
+                n_outer_splits=tpt._metadata.n_outer_splits,
             )
 
     def test_predict_df_single_target_has_target_column(self, tpt):
@@ -410,7 +410,7 @@ class TestTaskPredictorPredict:
         assert isinstance(result, pd.DataFrame)
         assert "prediction" in result.columns
         # Should have per-split + ensemble rows
-        assert "ensemble" in result["outersplit"].values
+        assert "ensemble" in result["outer_split"].values
 
     def test_predict_proba(self, tp, study_path):
         """Verify TaskPredictor predict_proba returns valid probabilities."""
@@ -424,11 +424,11 @@ class TestTaskPredictorSaveLoad:
     """Test TaskPredictor save/load round-trip."""
 
     def test_roundtrip(self, tp, tmp_path):
-        """Verify save/load preserves ml_type, n_outersplits, and feature_cols."""
+        """Verify save/load preserves ml_type, n_outer_splits, and feature_cols."""
         tp.save(tmp_path / "saved")
         loaded = TaskPredictor.load(tmp_path / "saved")
         assert loaded.ml_type == tp.ml_type
-        assert loaded.n_outersplits == tp.n_outersplits
+        assert loaded.n_outer_splits == tp.n_outer_splits
         assert loaded.feature_cols == tp.feature_cols
 
     def test_loaded_predicts(self, tp, study_path, tmp_path):
@@ -456,7 +456,7 @@ class TestPredictProbaMLTypeGuard:
                 positive_class=tp._metadata.positive_class,
                 row_id_col=tp._metadata.row_id_col,
                 feature_cols=tp._metadata.feature_cols,
-                n_outersplits=tp._metadata.n_outersplits,
+                n_outer_splits=tp._metadata.n_outer_splits,
             )
             data = pd.DataFrame({"f0": [1], "f1": [2], "f2": [3], "f3": [4], "f4": [5]})
             with pytest.raises(TypeError, match=r"predict_proba.*only available"):
@@ -470,7 +470,7 @@ class TestPredictProbaMLTypeGuard:
                 positive_class=tp._metadata.positive_class,
                 row_id_col=tp._metadata.row_id_col,
                 feature_cols=tp._metadata.feature_cols,
-                n_outersplits=tp._metadata.n_outersplits,
+                n_outer_splits=tp._metadata.n_outer_splits,
             )
 
 
@@ -487,8 +487,8 @@ class TestNotebookUtilsStudyLevel:
         info = show_study_details(study_path, verbose=False)
         assert info["ml_type"] == MLType.BINARY
         assert info["n_outer_splits"] == 2
-        assert len(info["outersplit_dirs"]) == 2
-        assert len(info["missing_outersplits"]) == 0
+        assert len(info["outer_split_dirs"]) == 2
+        assert len(info["missing_outer_splits"]) == 0
 
     def test_show_study_details_verbose(self, study_path, capsys):
         """Verify verbose mode prints ML type to stdout."""
@@ -612,6 +612,6 @@ class TestNotebookWorkflow:
         show_overall_fi_plot(fi_perm)
 
         # Cell: per-split FI access
-        for split_id in tpt_local.outersplits:
+        for split_id in tpt_local.outer_splits:
             split_fi = fi_perm[fi_perm["fi_source"] == split_id]
             assert len(split_fi) > 0

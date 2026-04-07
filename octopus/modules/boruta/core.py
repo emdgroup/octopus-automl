@@ -205,7 +205,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
                     "metric": study_context.target_metric,
                     "partition": "dev",
                     "aggregation": "avg",
-                    "fold": None,
+                    "split": None,
                     "value": dev_score_cv,
                 },
                 {
@@ -213,7 +213,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
                     "metric": study_context.target_metric,
                     "partition": "test",
                     "aggregation": "refit",
-                    "fold": None,
+                    "split": None,
                     "value": test_score_refit,
                 },
                 {
@@ -221,7 +221,7 @@ class BorutaModule(ModuleExecution["Boruta"]):
                     "metric": study_context.target_metric,
                     "partition": "test",
                     "aggregation": "gsrefit",
-                    "fold": None,
+                    "split": None,
                     "value": test_score_gsrefit,
                 },
             ]

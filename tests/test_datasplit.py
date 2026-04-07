@@ -16,7 +16,7 @@ from octopus.datasplit import (
     OuterSplits,
     validate_class_coverage,
 )
-from octopus.exceptions import SingleClassFoldError
+from octopus.exceptions import SingleClassSplitError
 
 
 def _grouped_df() -> pd.DataFrame:
@@ -43,16 +43,16 @@ def test_get_outer_splits_keeps_groups_together_and_covers_all_rows_once():
     splits = DataSplit(
         dataset=df,
         seeds=[7],
-        num_folds=2,
+        num_splits=2,
     ).get_outer_splits()
 
     assert len(splits) == 2
     assert all(isinstance(split, OuterSplit) for split in splits.values())
 
     all_test_rows = []
-    test_fold_by_row = {}
+    test_split_by_row = {}
 
-    for fold_id, split in splits.items():
+    for split_id, split in splits.items():
         train_groups = set(split.traindev[DATASPLIT_COL])
         test_groups = set(split.test[DATASPLIT_COL])
 
@@ -60,11 +60,11 @@ def test_get_outer_splits_keeps_groups_together_and_covers_all_rows_once():
 
         for row_id in split.test["row_id"]:
             all_test_rows.append(row_id)
-            test_fold_by_row[row_id] = fold_id
+            test_split_by_row[row_id] = split_id
 
     assert sorted(all_test_rows) == [10, 11, 20, 30, 31, 40]
-    assert test_fold_by_row[10] == test_fold_by_row[11]
-    assert test_fold_by_row[30] == test_fold_by_row[31]
+    assert test_split_by_row[10] == test_split_by_row[11]
+    assert test_split_by_row[30] == test_split_by_row[31]
 
 
 def test_get_inner_splits_keeps_groups_together_and_covers_all_rows_once():
@@ -74,7 +74,7 @@ def test_get_inner_splits_keeps_groups_together_and_covers_all_rows_once():
     splits = DataSplit(
         dataset=df,
         seeds=[7],
-        num_folds=2,
+        num_splits=2,
     ).get_inner_splits()
 
     assert len(splits) == 2
@@ -92,17 +92,17 @@ def test_get_inner_splits_keeps_groups_together_and_covers_all_rows_once():
     assert sorted(all_dev_rows) == [10, 11, 20, 30, 31, 40]
 
 
-def test_multiple_seeds_concatenate_seed_results_in_seed_then_fold_order():
-    """With multiple seeds, results are returned seed by seed, then fold by fold."""
+def test_multiple_seeds_concatenate_seed_results_in_seed_then_split_order():
+    """With multiple seeds, results are returned seed by seed, then split by split."""
     df = _grouped_df()
 
-    seed_11 = DataSplit(dataset=df.copy(), seeds=[11], num_folds=2).get_outer_splits()
-    seed_22 = DataSplit(dataset=df.copy(), seeds=[22], num_folds=2).get_outer_splits()
+    seed_11 = DataSplit(dataset=df.copy(), seeds=[11], num_splits=2).get_outer_splits()
+    seed_22 = DataSplit(dataset=df.copy(), seeds=[22], num_splits=2).get_outer_splits()
 
     combined = DataSplit(
         dataset=df.copy(),
         seeds=[11, 22],
-        num_folds=2,
+        num_splits=2,
     ).get_outer_splits()
 
     assert len(combined) == 4
@@ -117,16 +117,16 @@ def test_same_seed_is_deterministic_for_outer_splits():
     """Running the same seed twice should give the exact same partitions."""
     df = _grouped_df()
 
-    first = DataSplit(dataset=df.copy(), seeds=[123], num_folds=2).get_outer_splits()
-    second = DataSplit(dataset=df.copy(), seeds=[123], num_folds=2).get_outer_splits()
+    first = DataSplit(dataset=df.copy(), seeds=[123], num_splits=2).get_outer_splits()
+    second = DataSplit(dataset=df.copy(), seeds=[123], num_splits=2).get_outer_splits()
 
     for i in range(2):
         pdt.assert_frame_equal(_norm(first[i].traindev), _norm(second[i].traindev))
         pdt.assert_frame_equal(_norm(first[i].test), _norm(second[i].test))
 
 
-def test_stratified_splitting_preserves_class_presence_across_folds():
-    """In this balanced setup, each stratified test fold should include both classes."""
+def test_stratified_splitting_preserves_class_presence_across_splits():
+    """In this balanced setup, each stratified test split should include both classes."""
     df = pd.DataFrame(
         {
             "row_id": list(range(8)),
@@ -139,7 +139,7 @@ def test_stratified_splitting_preserves_class_presence_across_folds():
     splits = DataSplit(
         dataset=df,
         seeds=[0],
-        num_folds=4,
+        num_splits=4,
         stratification_col="target",
     ).get_outer_splits()
 
@@ -151,7 +151,7 @@ def test_stratified_splitting_preserves_class_presence_across_folds():
 
 
 def test_stratified_group_split_with_mixed_label_group_has_expected_target_counts():
-    """Regression test: seed 0 should yield the known stratified target counts per fold."""
+    """Regression test: seed 0 should yield the known stratified target counts per split."""
     df = pd.DataFrame(
         {
             "row_id": list(range(32)),
@@ -165,7 +165,7 @@ def test_stratified_group_split_with_mixed_label_group_has_expected_target_count
     splits = DataSplit(
         dataset=df,
         seeds=[0],
-        num_folds=2,
+        num_splits=2,
         stratification_col="target",
     ).get_outer_splits()
 
@@ -182,7 +182,7 @@ def test_datasplit_resets_input_index_in_place():
     splitter = DataSplit(
         dataset=df,
         seeds=[0],
-        num_folds=2,
+        num_splits=2,
     )
 
     assert splitter.dataset.index.tolist() == [0, 1, 2, 3, 4, 5]
@@ -203,12 +203,12 @@ def test_missing_datasplit_group_column_raises_key_error():
         DataSplit(
             dataset=df,
             seeds=[0],
-            num_folds=2,
+            num_splits=2,
         ).get_outer_splits()
 
 
-def test_num_folds_greater_than_number_of_groups_raises_value_error():
-    """KFold should reject a fold count larger than the number of groups."""
+def test_num_splits_greater_than_number_of_groups_raises_value_error():
+    """KFold should reject a split count larger than the number of groups."""
     df = pd.DataFrame(
         {
             "row_id": [0, 1],
@@ -222,7 +222,7 @@ def test_num_folds_greater_than_number_of_groups_raises_value_error():
         DataSplit(
             dataset=df,
             seeds=[0],
-            num_folds=3,
+            num_splits=3,
         ).get_outer_splits()
 
 
@@ -241,45 +241,45 @@ def test_stratified_split_warns_when_class_has_too_few_groups():
         splits = DataSplit(
             dataset=df,
             seeds=[0],
-            num_folds=2,
+            num_splits=2,
             stratification_col="target",
         ).get_outer_splits()
 
     assert len(splits) == 2
 
 
-def test_each_fold_traindev_plus_test_equals_all_rows():
-    """Within each fold, traindev + test must equal the full dataset."""
+def test_each_split_traindev_plus_test_equals_all_rows():
+    """Within each split, traindev + test must equal the full dataset."""
     df = _grouped_df()
 
     splits = DataSplit(
         dataset=df,
         seeds=[7],
-        num_folds=2,
+        num_splits=2,
     ).get_outer_splits()
 
     all_row_ids = sorted(df["row_id"].tolist())
 
     for split in splits.values():
-        fold_rows = sorted(split.traindev["row_id"].tolist() + split.test["row_id"].tolist())
-        assert fold_rows == all_row_ids
+        split_rows = sorted(split.traindev["row_id"].tolist() + split.test["row_id"].tolist())
+        assert split_rows == all_row_ids
 
 
-def test_each_fold_train_plus_dev_equals_all_rows_inner():
-    """Within each inner fold, train + dev must equal the full dataset."""
+def test_each_split_train_plus_dev_equals_all_rows_inner():
+    """Within each inner split, train + dev must equal the full dataset."""
     df = _grouped_df()
 
     splits = DataSplit(
         dataset=df,
         seeds=[7],
-        num_folds=2,
+        num_splits=2,
     ).get_inner_splits()
 
     all_row_ids = sorted(df["row_id"].tolist())
 
     for split in splits.values():
-        fold_rows = sorted(split.train["row_id"].tolist() + split.dev["row_id"].tolist())
-        assert fold_rows == all_row_ids
+        split_rows = sorted(split.train["row_id"].tolist() + split.dev["row_id"].tolist())
+        assert split_rows == all_row_ids
 
 
 def test_datasplit_does_not_corrupt_global_random_state():
@@ -297,7 +297,7 @@ def test_datasplit_does_not_corrupt_global_random_state():
     DataSplit(
         dataset=_grouped_df(),
         seeds=[42],
-        num_folds=2,
+        num_splits=2,
     ).get_outer_splits()
 
     random_after = random.random()
@@ -308,7 +308,7 @@ def test_datasplit_does_not_corrupt_global_random_state():
 
 
 def test_inner_splits_with_stratification_preserves_class_presence():
-    """Stratified inner splits should include both classes in each dev fold."""
+    """Stratified inner splits should include both classes in each dev split."""
     df = pd.DataFrame(
         {
             "row_id": list(range(8)),
@@ -321,7 +321,7 @@ def test_inner_splits_with_stratification_preserves_class_presence():
     splits = DataSplit(
         dataset=df,
         seeds=[0],
-        num_folds=4,
+        num_splits=4,
         stratification_col="target",
     ).get_inner_splits()
 
@@ -332,30 +332,30 @@ def test_inner_splits_with_stratification_preserves_class_presence():
         assert set(split.dev["target"]) == {0, 1}
 
 
-def test_single_fold_raises_value_error():
-    """num_folds=1 is rejected by sklearn KFold."""
+def test_single_split_raises_value_error():
+    """num_splits=1 is rejected by sklearn KFold."""
     df = _grouped_df()
 
     with pytest.raises(ValueError, match=r"k-fold.*n_splits=2 or more"):
         DataSplit(
             dataset=df,
             seeds=[0],
-            num_folds=1,
+            num_splits=1,
         ).get_outer_splits()
 
 
 def test_three_seeds_produce_correct_index_numbering():
-    """Three seeds x 2 folds -> 6 entries keyed 0..5 matching individual runs."""
+    """Three seeds x 2 splits -> 6 entries keyed 0..5 matching individual runs."""
     df = _grouped_df()
 
     individual = {}
     for seed in [10, 20, 30]:
-        individual[seed] = DataSplit(dataset=df.copy(), seeds=[seed], num_folds=2).get_outer_splits()
+        individual[seed] = DataSplit(dataset=df.copy(), seeds=[seed], num_splits=2).get_outer_splits()
 
     combined = DataSplit(
         dataset=df.copy(),
         seeds=[10, 20, 30],
-        num_folds=2,
+        num_splits=2,
     ).get_outer_splits()
 
     assert list(combined.keys()) == [0, 1, 2, 3, 4, 5]
@@ -379,8 +379,8 @@ def test_different_seeds_produce_different_splits():
         }
     )
 
-    splits_a = DataSplit(dataset=df.copy(), seeds=[0], num_folds=5).get_outer_splits()
-    splits_b = DataSplit(dataset=df.copy(), seeds=[999], num_folds=5).get_outer_splits()
+    splits_a = DataSplit(dataset=df.copy(), seeds=[0], num_splits=5).get_outer_splits()
+    splits_b = DataSplit(dataset=df.copy(), seeds=[999], num_splits=5).get_outer_splits()
 
     some_differ = False
     for i in range(5):
@@ -390,11 +390,11 @@ def test_different_seeds_produce_different_splits():
             some_differ = True
             break
 
-    assert some_differ, "Different seeds should produce at least one different fold"
+    assert some_differ, "Different seeds should produce at least one different split"
 
 
-def test_single_group_with_two_folds_raises_value_error():
-    """A dataset with only one group cannot be split into 2 folds."""
+def test_single_group_with_two_splits_raises_value_error():
+    """A dataset with only one group cannot be split into 2 splits."""
     df = pd.DataFrame(
         {
             "row_id": [0, 1, 2],
@@ -408,7 +408,7 @@ def test_single_group_with_two_folds_raises_value_error():
         DataSplit(
             dataset=df,
             seeds=[0],
-            num_folds=2,
+            num_splits=2,
         ).get_outer_splits()
 
 
@@ -425,14 +425,14 @@ def _unequal_groups_df() -> pd.DataFrame:
     )
 
 
-def test_unequal_group_sizes_balances_group_count_across_folds():
-    """With unequal group sizes, each fold gets the same number of groups."""
+def test_unequal_group_sizes_balances_group_count_across_splits():
+    """With unequal group sizes, each split gets the same number of groups."""
     df = _unequal_groups_df()
 
     splits = DataSplit(
         dataset=df,
         seeds=[0],
-        num_folds=2,
+        num_splits=2,
     ).get_outer_splits()
 
     for split in splits.values():
@@ -444,8 +444,8 @@ def test_unequal_group_sizes_balances_group_count_across_folds():
     assert test_group_counts == [2, 2]
 
 
-def test_validate_class_coverage_raises_on_single_class_outer_fold():
-    """validate_class_coverage raises SingleClassFoldError when an outer fold has one class."""
+def test_validate_class_coverage_raises_on_single_class_outer_split():
+    """validate_class_coverage raises SingleClassSplitError when an outer split has one class."""
     splits: OuterSplits = {
         0: OuterSplit(
             traindev=pd.DataFrame({"target": [0, 0, 1, 1], DATASPLIT_COL: [0, 0, 1, 1]}),
@@ -453,12 +453,12 @@ def test_validate_class_coverage_raises_on_single_class_outer_fold():
         ),
     }
 
-    with pytest.raises(SingleClassFoldError, match=r"Fold 0 test.*only class"):
+    with pytest.raises(SingleClassSplitError, match=r"Split 0 test.*only class"):
         validate_class_coverage(splits, "target")
 
 
-def test_validate_class_coverage_raises_on_single_class_inner_fold():
-    """validate_class_coverage raises SingleClassFoldError for inner splits too."""
+def test_validate_class_coverage_raises_on_single_class_inner_split():
+    """validate_class_coverage raises SingleClassSplitError for inner splits too."""
     splits: InnerSplits = {
         0: InnerSplit(
             train=pd.DataFrame({"target": [0, 0, 1, 1]}),
@@ -470,7 +470,7 @@ def test_validate_class_coverage_raises_on_single_class_inner_fold():
         ),
     }
 
-    with pytest.raises(SingleClassFoldError, match=r"Fold 1 train.*only class"):
+    with pytest.raises(SingleClassSplitError, match=r"Split 1 train.*only class"):
         validate_class_coverage(splits, "target")
 
 

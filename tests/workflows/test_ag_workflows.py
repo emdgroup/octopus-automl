@@ -79,11 +79,11 @@ class TestAutogluonWorkflows:
         assert (study_path / "data_raw.parquet").exists(), "Data parquet should exist"
         assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet should exist"
 
-        # Verify outersplit and task output
-        outersplit_dir = study_path / "outersplit0"
-        assert outersplit_dir.exists(), "Outersplit directory should exist"
+        # Verify outer split and task output
+        outer_split_dir = study_path / "outersplit0"
+        assert outer_split_dir.exists(), "Outer split directory should exist"
 
-        task_dirs = [d for d in outersplit_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
+        task_dirs = [d for d in outer_split_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
         assert len(task_dirs) >= 1, "Should have at least 1 task directory"
 
         # Verify AutoGluon task artifacts
@@ -142,11 +142,11 @@ class TestAutogluonWorkflows:
         assert (study_path / "data_raw.parquet").exists(), "Data parquet should exist"
         assert (study_path / "data_prepared.parquet").exists(), "Prepared data parquet should exist"
 
-        # Verify outersplit and task output
-        outersplit_dir = study_path / "outersplit0"
-        assert outersplit_dir.exists(), "Outersplit directory should exist"
+        # Verify outer split and task output
+        outer_split_dir = study_path / "outersplit0"
+        assert outer_split_dir.exists(), "Outer split directory should exist"
 
-        task_dirs = [d for d in outersplit_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
+        task_dirs = [d for d in outer_split_dir.iterdir() if d.is_dir() and d.name.startswith("task")]
         assert len(task_dirs) >= 1, "Should have at least 1 task directory"
 
         # Verify AutoGluon task artifacts

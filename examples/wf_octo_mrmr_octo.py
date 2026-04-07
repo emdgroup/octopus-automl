@@ -3,7 +3,7 @@
 This example demonstrates a multi-step workflow using:
 - Artificial dataset with 30 features
 - Binary classification problem (not too easy)
-- 5 outer folds, 5 inner folds
+- 5 outer splits, 5 inner splits
 - 100 trials for hyperparameter optimization
 - ExtraTreesClassifier model
 - Sequential tasks: Octo -> Mrmr -> Octo (with reduced features)
@@ -62,7 +62,7 @@ study = OctoClassification(
     target_col="target",
     sample_id_col="index",
     stratification_col="target",
-    n_outer_splits=5,  # 5 outer folds
+    n_outer_splits=5,  # 5 outer splits
     workflow=[
         # Task 0: Initial Octo with all features
         Octo(
@@ -71,7 +71,7 @@ study = OctoClassification(
             depends_on=None,  # First task, depends on input
             models=[ModelName.ExtraTreesClassifier],
             n_trials=100,  # 100 trials for hyperparameter optimization
-            n_inner_splits=5,  # 5 inner folds
+            n_inner_splits=5,  # 5 inner splits
             max_features=30,  # Use all 30 features
         ),
         # Task 1: Feature selection using Mrmr

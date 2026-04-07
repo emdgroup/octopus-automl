@@ -76,25 +76,25 @@ class ResourceConfig:
     ray_nodes: dict[str, _NodeResources] = field(validator=validators.instance_of(dict))
     """Dictionary of Ray nodes and their resources, used for calculating available_cpus and num_workers."""
 
-    num_outersplits: int = field(validator=validators.instance_of(int))
-    """Total number of outersplits in the study."""
+    num_outer_splits: int = field(validator=validators.instance_of(int))
+    """Total number of outer splits in the study."""
 
-    run_single_outersplit: bool = field(validator=validators.instance_of(bool))
-    """Whether to run a single outer split instead of all . This is mainly used for testing and debugging."""
+    run_single_outer_split: bool = field(validator=validators.instance_of(bool))
+    """Whether to run a single outer split instead of all. This is mainly used for testing and debugging."""
 
     @classmethod
     def create(
         cls,
         ray_nodes: dict[str, _NodeResources],
-        num_outersplits: int,
-        run_single_outersplit: bool,
+        num_outer_splits: int,
+        run_single_outer_split: bool,
     ) -> "ResourceConfig":
         """Create ResourceConfig with computed values.
 
         Args:
             ray_nodes: Dictionary of Ray nodes and their available CPU resources.
-            num_outersplits: Total number of outersplits in the study.
-            run_single_outersplit: Whether to run a single outer split instead of all.
+            num_outer_splits: Total number of outer splits in the study.
+            run_single_outer_split: Whether to run a single outer split instead of all.
               This is mainly used for testing and debugging.
 
         Returns:
@@ -103,20 +103,22 @@ class ResourceConfig:
         Raises:
             ValueError: If any input parameter is invalid.
         """
-        if num_outersplits <= 0:
-            raise ValueError(f"num_outersplits must be positive, got {num_outersplits}")
+        if num_outer_splits <= 0:
+            raise ValueError(f"num_outer_splits must be positive, got {num_outer_splits}")
 
-        # Calculate effective number of outersplits for resource allocation
-        effective_num_outersplits = 1 if run_single_outersplit else num_outersplits
+        # Calculate effective number of outer splits for resource allocation
+        effective_num_outer_splits = 1 if run_single_outer_split else num_outer_splits
 
         # TODO: instead of summing all CPUs we should properly use the node/resource architecture, i.e. num_workers should be a multiple of len(nodes)
         available_cpus = sum(int(node["CPU"]) for node in ray_nodes.values())
 
         # Calculate resource allocation
-        num_workers = min(effective_num_outersplits, available_cpus)
+        num_workers = min(effective_num_outer_splits, available_cpus)
         if num_workers == 0:
             raise ValueError(
-                f"Cannot allocate resources: num_workers computed as 0 (effective_num_outersplits={effective_num_outersplits}, available_cpus={available_cpus})"
+                f"Cannot allocate resources: num_workers computed as 0 "
+                f"(effective_num_outer_splits={effective_num_outer_splits}, "
+                f"available_cpus={available_cpus})"
             )
 
         return cls(
@@ -124,8 +126,8 @@ class ResourceConfig:
             num_workers=num_workers,
             cpus_per_worker=max(1, available_cpus // num_workers),
             ray_nodes=ray_nodes,
-            num_outersplits=num_outersplits,
-            run_single_outersplit=run_single_outersplit,
+            num_outer_splits=num_outer_splits,
+            run_single_outer_split=run_single_outer_split,
         )
 
     def __str__(self) -> str:
@@ -133,19 +135,19 @@ class ResourceConfig:
         nodes = "\n\t".join(f"Node {node}:  {res['CPU']} CPUs" for node, res in self.ray_nodes.items())
 
         return (
-            f"\nSingle outersplit: {self.run_single_outersplit}"
-            f"\nOutersplits:       {self.num_outersplits}"
+            f"\nSingle outer split: {self.run_single_outer_split}"
+            f"\nOuter splits:      {self.num_outer_splits}"
             f"\nAvailable CPUs:    {self.available_cpus}"
             f"\nWorkers:           {self.num_workers}"
-            f"\nCPUs/outersplit:   {self.cpus_per_worker}"
+            f"\nCPUs/outer split:  {self.cpus_per_worker}"
             f"\nRay Nodes:\n\t{nodes}"
         )
 
 
 def init(
     num_cpus_user: int,
-    num_outersplits: int,
-    run_single_outersplit: bool,
+    num_outer_splits: int,
+    run_single_outer_split: bool,
     address: str | None = None,
     namespace: str | None = None,
 ):
@@ -164,8 +166,8 @@ def init(
         num_cpus_user: Number of CPUs requested by the user. for parallel processing. num_cpus=0 uses all available CPUs.
           Negative values indicate abs(num_cpus) to leave free, e.g. -1 means use all but one CPU.
           Set to 1 to disable all parallel processing and run sequentially.
-        num_outersplits: Total number of outersplits in the study.
-        run_single_outersplit: Whether to run a single outer split instead of all. This is mainly used for testing and debugging.
+        num_outer_splits: Total number of outer splits in the study.
+        run_single_outer_split: Whether to run a single outer split instead of all. This is mainly used for testing and debugging.
         address: Ray head address (e.g., "auto", "127.0.0.1:6379", "local"). If None, uses
             env vars RAY_ADDRESS or RAY_HEAD_ADDRESS if set.
         namespace: Ray namespace to use for all operations. If None, uses the default namespace.
@@ -212,8 +214,8 @@ def init(
 
     resource_config = ResourceConfig.create(
         ray_nodes=ray_nodes,
-        num_outersplits=num_outersplits,
-        run_single_outersplit=run_single_outersplit,
+        num_outer_splits=num_outer_splits,
+        run_single_outer_split=run_single_outer_split,
     )
 
     if ray_address := ray.get_runtime_context().gcs_address:
@@ -245,23 +247,23 @@ def _setup_worker_logging(log_dir: UPath):
 
 
 def run_parallel_outer(
-    outersplit_data: OuterSplits,
+    outer_split_data: OuterSplits,
     run_fn: Callable[[int, OuterSplit, int], None],
     log_dir: UPath,
     num_cpus_per_worker: int,
 ) -> None:
-    """Execute run_fn(outersplit_id, outersplit, num_cpus_per_worker) in parallel using Ray.
+    """Execute run_fn(outer_split_id, outer_split, num_cpus_per_worker) in parallel using Ray.
 
     Preserves input order. Essentially, one Ray actor is created per outer task, and each
-    actor executes run_fn for its assigned outersplit_id. The runtime environment of the
+    actor executes run_fn for its assigned outer_split_id. The runtime environment of the
     subprocesses is configured to allow inner parallelism (e.g. by AutoGluon)
     without oversubscribing CPUs through setting environment variables that many
     libraries respect (e.g. OpenBLAS, MKL, NumExpr, etc.) to
     num_cpus_per_worker and via a threadpoolctl limit.
 
     Args:
-        outersplit_data: Dictionary mapping outersplit_id to OuterSplit(traindev, test).
-        run_fn: Function called as run_fn(outersplit_id, outersplit, num_cpus_per_worker).
+        outer_split_data: Dictionary mapping outer_split_id to OuterSplit(traindev, test).
+        run_fn: Function called as run_fn(outer_split_id, outer_split, num_cpus_per_worker).
         log_dir: Directory to store individual Ray worker logs.
         num_cpus_per_worker: CPUs used for each outer task to prevent
           oversubscription during inner parallel work. Outer workers do not reserve these
@@ -273,17 +275,17 @@ def run_parallel_outer(
         raise RuntimeError("Ray is not initialized. Call ray_parallel.init() first.")
 
     class OuterTask:
-        def __init__(self, outersplit_id: int, outersplit: OuterSplit, log_dir: UPath, num_cpus: int):
+        def __init__(self, outer_split_id: int, outer_split: OuterSplit, log_dir: UPath, num_cpus: int):
             _setup_worker_logging(log_dir)
-            self.outersplit_id = outersplit_id
-            self.outersplit = outersplit
+            self.outer_split_id = outer_split_id
+            self.outer_split = outer_split
             self.num_cpus = num_cpus
 
         @ray.method
         def run(self):
             with threadpoolctl.threadpool_limits(limits=self.num_cpus):
-                run_fn(self.outersplit_id, self.outersplit, self.num_cpus)
-            return self.outersplit_id
+                run_fn(self.outer_split_id, self.outer_split, self.num_cpus)
+            return self.outer_split_id
 
     OuterTaskActor = ray.remote(OuterTask)
 
@@ -292,13 +294,13 @@ def run_parallel_outer(
 
     futures = [
         OuterTaskActor.options(
-            name=f"outer_task_{outersplit_id}",
+            name=f"outer_task_{outer_split_id}",
             num_cpus=num_cpus_per_worker,  # Outer task reserves all CPUs required for individual inner parallelization
             runtime_env=runtime_env,
         )
-        .remote(outersplit_id, outersplit, log_dir, num_cpus_per_worker)
+        .remote(outer_split_id, outer_split, log_dir, num_cpus_per_worker)
         .run.remote()
-        for outersplit_id, outersplit in outersplit_data.items()
+        for outer_split_id, outer_split in outer_split_data.items()
     ]
     ray.get(futures)
 

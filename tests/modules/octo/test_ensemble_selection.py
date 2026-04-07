@@ -78,44 +78,44 @@ def create_data_splits(X, y_global, test_size=0.2):
     }
 
 
-def create_cv_folds(X_train, y_train, train_row_ids, n_folds=3):
-    """Create CV folds for training validation."""
-    kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
-    cv_folds = []
+def create_cv_splits(X_train, y_train, train_row_ids, n_splits=3):
+    """Create CV splits for training validation."""
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+    cv_splits = []
 
     for _, (train_idx, val_idx) in enumerate(kf.split(X_train)):
-        fold_data = {
-            "X_fold_train": X_train[train_idx],
-            "y_fold_train": y_train[train_idx],
-            "X_fold_val": X_train[val_idx],
-            "y_fold_val": y_train[val_idx],
-            "fold_train_row_ids": train_row_ids[train_idx],
-            "fold_val_row_ids": train_row_ids[val_idx],
+        split_data = {
+            "X_split_train": X_train[train_idx],
+            "y_split_train": y_train[train_idx],
+            "X_split_val": X_train[val_idx],
+            "y_split_val": y_train[val_idx],
+            "split_train_row_ids": train_row_ids[train_idx],
+            "split_val_row_ids": train_row_ids[val_idx],
         }
-        cv_folds.append(fold_data)
+        cv_splits.append(split_data)
 
-    return cv_folds
+    return cv_splits
 
 
-def create_fake_training(trained_model, model_name, feature_indices, fold_data, splits, training_id):
+def create_fake_training(trained_model, model_name, feature_indices, split_data, splits, training_id):
     """Create fake Training object with predictions using pre-trained model."""
     # Extract feature subset for this model
-    X_fold_train = fold_data["X_fold_train"][:, feature_indices]
-    X_fold_val = fold_data["X_fold_val"][:, feature_indices]
+    X_split_train = split_data["X_split_train"][:, feature_indices]
+    X_split_val = split_data["X_split_val"][:, feature_indices]
     X_test = splits["X_test"][:, feature_indices]
 
     # Create predictions using pre-trained model (NO retraining)
-    pred_train = trained_model.predict(X_fold_train)
-    pred_val = trained_model.predict(X_fold_val)
+    pred_train = trained_model.predict(X_split_train)
+    pred_val = trained_model.predict(X_split_val)
     pred_test = trained_model.predict(X_test)
 
     # Create prediction dataframes in octopus format (with required metadata columns)
     predictions = {
         "train": pd.DataFrame(
             {
-                "row_id": fold_data["fold_train_row_ids"],
+                "row_id": split_data["split_train_row_ids"],
                 "prediction": pred_train,
-                "target": fold_data["y_fold_train"],
+                "target": split_data["y_split_train"],
                 "outer_split_id": 0,
                 "inner_split_id": training_id,
                 "partition": "train",
@@ -124,9 +124,9 @@ def create_fake_training(trained_model, model_name, feature_indices, fold_data, 
         ),
         "dev": pd.DataFrame(
             {
-                "row_id": fold_data["fold_val_row_ids"],
+                "row_id": split_data["split_val_row_ids"],
                 "prediction": pred_val,
-                "target": fold_data["y_fold_val"],
+                "target": split_data["y_split_val"],
                 "outer_split_id": 0,
                 "inner_split_id": training_id,
                 "partition": "dev",
@@ -147,13 +147,13 @@ def create_fake_training(trained_model, model_name, feature_indices, fold_data, 
     }
 
     # Create proper dataframes for Training object
-    train_df = pd.DataFrame(X_fold_train, columns=[f"feature_{i}" for i in range(len(feature_indices))])
-    train_df["row_id"] = fold_data["fold_train_row_ids"]
-    train_df["target"] = fold_data["y_fold_train"]
+    train_df = pd.DataFrame(X_split_train, columns=[f"feature_{i}" for i in range(len(feature_indices))])
+    train_df["row_id"] = split_data["split_train_row_ids"]
+    train_df["target"] = split_data["y_split_train"]
 
-    val_df = pd.DataFrame(X_fold_val, columns=[f"feature_{i}" for i in range(len(feature_indices))])
-    val_df["row_id"] = fold_data["fold_val_row_ids"]
-    val_df["target"] = fold_data["y_fold_val"]
+    val_df = pd.DataFrame(X_split_val, columns=[f"feature_{i}" for i in range(len(feature_indices))])
+    val_df["row_id"] = split_data["split_val_row_ids"]
+    val_df["target"] = split_data["y_split_val"]
 
     test_df = pd.DataFrame(X_test, columns=[f"feature_{i}" for i in range(len(feature_indices))])
     test_df["row_id"] = splits["test_row_ids"]
@@ -188,13 +188,13 @@ def create_fake_training(trained_model, model_name, feature_indices, fold_data, 
     return training
 
 
-def create_fake_bag(log_dir, trained_model, model_name, feature_indices, cv_folds, splits, bag_id):
+def create_fake_bag(log_dir, trained_model, model_name, feature_indices, cv_splits, splits, bag_id):
     """Create complete fake Bag for one trial."""
     trainings = []
 
-    for fold_idx, fold_data in enumerate(cv_folds):
-        training_id = f"{bag_id}_{fold_idx}"
-        training = create_fake_training(trained_model, model_name, feature_indices, fold_data, splits, training_id)
+    for split_idx, split_data in enumerate(cv_splits):
+        training_id = f"{bag_id}_{split_idx}"
+        training = create_fake_training(trained_model, model_name, feature_indices, split_data, splits, training_id)
         trainings.append(training)
 
     bag = Bag(
@@ -227,7 +227,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
 
     # Create data splits
     splits = create_data_splits(X, y_global)
-    cv_folds = create_cv_folds(splits["X_train"], splits["y_train"], splits["train_row_ids"])
+    cv_splits = create_cv_splits(splits["X_train"], splits["y_train"], splits["train_row_ids"])
 
     # Create fake bags for each model
     feature_subsets = {"linear": list(range(0, 4)), "rf": list(range(4, 8)), "gb": list(range(8, 12))}
@@ -239,7 +239,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
     bags = {}
     for model_name, model in models.items():
         bag = create_fake_bag(
-            trials_path, model, model_name, feature_subsets[model_name], cv_folds, splits, bag_id=f"trial_{model_name}"
+            trials_path, model, model_name, feature_subsets[model_name], cv_splits, splits, bag_id=f"trial_{model_name}"
         )
         bags[model_name] = bag
 

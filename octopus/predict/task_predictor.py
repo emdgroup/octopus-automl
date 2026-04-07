@@ -52,7 +52,7 @@ class TaskPredictor:
     _metadata: StudyMetadata = field(init=False)
 
     # Flattened from artifacts for fast access
-    _outersplits: list[int] = field(init=False, factory=list)
+    _outer_splits: list[int] = field(init=False, factory=list)
     _models: dict[int, Any] = field(init=False, factory=dict, repr=False)
     _selected_features: dict[int, list[str]] = field(init=False, factory=dict, repr=False)
     _feature_cols_per_split: dict[int, list[str]] = field(init=False, factory=dict, repr=False)
@@ -74,20 +74,20 @@ class TaskPredictor:
         artifacts = loader.load_task_artifacts(
             self._task_id,
             self._result_type,
-            self._metadata.n_outersplits,
+            self._metadata.n_outer_splits,
         )
 
         # Flatten artifacts for fast per-split access
-        self._outersplits = list(artifacts.outersplit_ids)
+        self._outer_splits = list(artifacts.outer_split_ids)
         for split_id, sa in artifacts.splits.items():
             self._models[split_id] = sa.model
             self._selected_features[split_id] = sa.selected_features
             self._feature_cols_per_split[split_id] = sa.feature_cols
             self._feature_groups_per_split[split_id] = sa.feature_groups
 
-        # Compute union of feature_cols across all outersplits
+        # Compute union of feature_cols across all outer splits
         all_feature_cols: set[str] = set()
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             split_fcols = self._feature_cols_per_split.get(split_id, [])
             if split_fcols:
                 all_feature_cols.update(split_fcols)
@@ -135,14 +135,14 @@ class TaskPredictor:
         return self._feature_cols
 
     @property
-    def n_outersplits(self) -> int:
-        """Number of loaded outersplits."""
-        return len(self._outersplits)
+    def n_outer_splits(self) -> int:
+        """Number of loaded outer splits."""
+        return len(self._outer_splits)
 
     @property
-    def outersplits(self) -> list[int]:
-        """List of loaded outersplit IDs."""
-        return list(self._outersplits)
+    def outer_splits(self) -> list[int]:
+        """List of loaded outer split IDs."""
+        return list(self._outer_splits)
 
     @property
     def config(self) -> dict[str, Any]:
@@ -162,7 +162,7 @@ class TaskPredictor:
         Raises:
             AttributeError: If the model does not have a classes_ attribute.
         """
-        model = self._models[self._outersplits[0]]
+        model = self._models[self._outer_splits[0]]
         if not hasattr(model, "classes_"):
             raise AttributeError(f"Not a classification model: {type(model).__name__}")
         result: np.ndarray = model.classes_
@@ -170,37 +170,37 @@ class TaskPredictor:
 
     @property
     def feature_cols_per_split(self) -> dict[int, list[str]]:
-        """Input feature columns per outersplit (loaded from disk)."""
+        """Input feature columns per outer split (loaded from disk)."""
         return self._feature_cols_per_split
 
     @property
     def feature_groups_per_split(self) -> dict[int, dict[str, list[str]]]:
-        """Feature groups per outersplit (loaded from disk)."""
+        """Feature groups per outer split (loaded from disk)."""
         return self._feature_groups_per_split
 
-    # ── Per-outersplit access ───────────────────────────────────
+    # ── Per-outer-split access ──────────────────────────────────
 
-    def get_model(self, outersplit_id: int) -> Any:
-        """Get the fitted model for an outersplit.
+    def get_model(self, outer_split_id: int) -> Any:
+        """Get the fitted model for an outer split.
 
         Args:
-            outersplit_id: Outer split index.
+            outer_split_id: Outer split index.
 
         Returns:
             The fitted model object.
         """
-        return self._models[outersplit_id]
+        return self._models[outer_split_id]
 
-    def get_selected_features(self, outersplit_id: int) -> list[str]:
-        """Get selected features for an outersplit.
+    def get_selected_features(self, outer_split_id: int) -> list[str]:
+        """Get selected features for an outer split.
 
         Args:
-            outersplit_id: Outer split index.
+            outer_split_id: Outer split index.
 
         Returns:
             List of selected feature names.
         """
-        return self._selected_features[outersplit_id]
+        return self._selected_features[outer_split_id]
 
     # ── Prediction ──────────────────────────────────────────────
 
@@ -209,9 +209,9 @@ class TaskPredictor:
 
         Args:
             data: DataFrame containing feature columns.
-            df: If True, return a DataFrame with per-outersplit predictions
+            df: If True, return a DataFrame with per-outer-split predictions
                 and ensemble (averaged) predictions, with columns
-                ``outersplit``, ``row_id``, ``prediction``.
+                ``outer_split``, ``row_id``, ``prediction``.
                 If False (default), return ensemble-averaged ndarray.
 
         Returns:
@@ -221,7 +221,7 @@ class TaskPredictor:
         per_split_preds: list[np.ndarray] = []
         all_rows: list[pd.DataFrame] = []
 
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             features = self._selected_features[split_id]
             preds = self._models[split_id].predict(data[features])
             per_split_preds.append(preds)
@@ -229,7 +229,7 @@ class TaskPredictor:
             if df:
                 split_df = pd.DataFrame(
                     {
-                        "outersplit": split_id,
+                        "outer_split": split_id,
                         "row_id": data.index,
                         "prediction": preds,
                     }
@@ -241,7 +241,7 @@ class TaskPredictor:
         if df:
             ensemble_df = pd.DataFrame(
                 {
-                    "outersplit": "ensemble",
+                    "outer_split": "ensemble",
                     "row_id": data.index,
                     "prediction": ensemble,
                 }
@@ -255,9 +255,9 @@ class TaskPredictor:
 
         Args:
             data: DataFrame containing feature columns.
-            df: If True, return a DataFrame with per-outersplit probabilities
+            df: If True, return a DataFrame with per-outer-split probabilities
                 and ensemble (averaged) probabilities, with columns
-                ``outersplit``, ``row_id``, plus one column per class label.
+                ``outer_split``, ``row_id``, plus one column per class label.
                 If False (default), return ensemble-averaged ndarray.
 
         Returns:
@@ -276,7 +276,7 @@ class TaskPredictor:
         all_rows: list[pd.DataFrame] = []
         class_labels = self.classes_
 
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             features = self._selected_features[split_id]
             probas = self._models[split_id].predict_proba(data[features])
             if isinstance(probas, pd.DataFrame):
@@ -285,7 +285,7 @@ class TaskPredictor:
 
             if df:
                 split_df = pd.DataFrame(probas, columns=class_labels)
-                split_df.insert(0, "outersplit", split_id)
+                split_df.insert(0, "outer_split", split_id)
                 split_df.insert(1, "row_id", data.index.values)
                 all_rows.append(split_df)
 
@@ -293,7 +293,7 @@ class TaskPredictor:
 
         if df:
             ensemble_df = pd.DataFrame(ensemble, columns=class_labels)
-            ensemble_df.insert(0, "outersplit", "ensemble")
+            ensemble_df.insert(0, "outer_split", "ensemble")
             ensemble_df.insert(1, "row_id", data.index.values)
             all_rows.append(ensemble_df)
             return pd.concat(all_rows, ignore_index=True)
@@ -319,13 +319,13 @@ class TaskPredictor:
             threshold: Classification threshold for threshold-dependent metrics.
 
         Returns:
-            DataFrame with columns: outersplit, metric, score.
+            DataFrame with columns: outer_split, metric, score.
         """
         if metrics is None:
             metrics = [self.target_metric]
 
         rows = []
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             model = self._models[split_id]
             features = self._selected_features[split_id]
 
@@ -340,7 +340,7 @@ class TaskPredictor:
                     threshold=threshold,
                     positive_class=self.positive_class,
                 )
-                rows.append({"outersplit": split_id, "metric": metric_name, "score": score})
+                rows.append({"outer_split": split_id, "metric": metric_name, "score": score})
 
         return pd.DataFrame(rows)
 
@@ -363,14 +363,14 @@ class TaskPredictor:
             data: User-provided data (used as fallback for all splits).
 
         Returns:
-            Dict mapping outersplit_id to pool DataFrame.
+            Dict mapping outer_split_id to pool DataFrame.
         """
         loader = StudyLoader(self._study_path)
         pool: dict[int, pd.DataFrame] = {}
 
-        for split_id in self._outersplits:
-            split_loader = loader.get_outersplit_loader(
-                outersplit_id=split_id,
+        for split_id in self._outer_splits:
+            split_loader = loader.get_outer_split_loader(
+                outer_split_id=split_id,
                 task_id=self._task_id,
                 result_type=self._result_type,
             )
@@ -401,8 +401,8 @@ class TaskPredictor:
         formatting.
 
         Args:
-            test_data: Dict mapping outersplit_id to test DataFrame.
-            train_data: Dict mapping outersplit_id to train DataFrame
+            test_data: Dict mapping outer_split_id to test DataFrame.
+            train_data: Dict mapping outer_split_id to train DataFrame
                 (used as the sampling pool for permutation FI).
             fi_type: Feature importance type (must already be a ``FIType``).
             n_repeats: Number of permutation repeats.
@@ -511,7 +511,7 @@ class TaskPredictor:
         # Build per-split data dicts
         # All splits share the same DataFrame reference.  Safe because
         # compute_permutation_single / compute_shap_single copy data before mutating.
-        test_data = dict.fromkeys(self._outersplits, data)
+        test_data = dict.fromkeys(self._outer_splits, data)
         train_data = self._build_pool_data(data)
 
         return self._dispatch_fi(
@@ -525,7 +525,7 @@ class TaskPredictor:
         )
 
     def _compute_feature_groups(self) -> dict[str, list[str]]:
-        """Compute merged feature groups from all outersplits.
+        """Compute merged feature groups from all outer splits.
 
         Merges the per-split feature groups loaded from disk into a single
         dict. Groups with the same name across splits are merged by taking
@@ -535,7 +535,7 @@ class TaskPredictor:
             Dict mapping group names to lists of feature names.
         """
         all_groups: dict[str, list[str]] = {}
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             split_groups = self._feature_groups_per_split.get(split_id, {})
             for group_name, group_features in split_groups.items():
                 if group_name in all_groups:
@@ -571,7 +571,7 @@ class TaskPredictor:
             "positive_class": self.positive_class,
             "row_id_col": self.row_id_col,
             "feature_cols": self._feature_cols,
-            "outersplits": self._outersplits,
+            "outer_splits": self._outer_splits,
             "result_type": self._result_type,
             "feature_cols_per_split": {str(k): v for k, v in self._feature_cols_per_split.items()},
             "feature_groups_per_split": {str(k): v for k, v in self._feature_groups_per_split.items()},
@@ -582,13 +582,13 @@ class TaskPredictor:
         # Save models
         models_dir = save_dir / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             joblib_save(self._models[split_id], models_dir / f"model_{split_id:03d}.joblib")
 
         # Save selected features
         features_dir = save_dir / "selected_features"
         features_dir.mkdir(parents=True, exist_ok=True)
-        for split_id in self._outersplits:
+        for split_id in self._outer_splits:
             with (features_dir / f"split_{split_id:03d}.json").open("w") as f:
                 json.dump(self._selected_features[split_id], f)
 
@@ -646,10 +646,10 @@ class TaskPredictor:
             positive_class=metadata_dict.get("positive_class"),
             row_id_col=metadata_dict.get("row_id_col"),
             feature_cols=metadata_dict.get("feature_cols", []),
-            n_outersplits=len(metadata_dict.get("outersplits", [])),
+            n_outer_splits=len(metadata_dict.get("outer_splits", metadata_dict.get("outersplits", []))),
         )
         instance._feature_cols = metadata_dict.get("feature_cols", [])
-        instance._outersplits = metadata_dict.get("outersplits", [])
+        instance._outer_splits = metadata_dict.get("outer_splits", metadata_dict.get("outersplits", []))
         # Restore per-split data
         instance._feature_cols_per_split = {
             int(k): v for k, v in metadata_dict.get("feature_cols_per_split", {}).items()
@@ -661,13 +661,13 @@ class TaskPredictor:
         # Load models
         instance._models = {}
         models_dir = load_dir / "models"
-        for split_id in instance._outersplits:
+        for split_id in instance._outer_splits:
             instance._models[split_id] = joblib_load(models_dir / f"model_{split_id:03d}.joblib")
 
         # Load selected features
         instance._selected_features = {}
         features_dir = load_dir / "selected_features"
-        for split_id in instance._outersplits:
+        for split_id in instance._outer_splits:
             with (features_dir / f"split_{split_id:03d}.json").open() as f:
                 instance._selected_features[split_id] = json.load(f)
 

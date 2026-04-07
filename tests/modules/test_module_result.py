@@ -25,7 +25,7 @@ class TestModuleResultSaveLoad:
                 "metric": ["AUCROC"],
                 "partition": ["dev"],
                 "aggregation": ["avg"],
-                "fold": [None],
+                "split": [None],
                 "value": [0.85],
             }
         )

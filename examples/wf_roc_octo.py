@@ -38,7 +38,7 @@ study = OctoClassification(
     sample_id_col="index",
     stratification_col="target",
     outer_split_seed=1234,
-    single_outer_split=0,  # Process only first outersplit for quick testing
+    single_outer_split=0,  # Process only first outer split for quick testing
     workflow=[
         # Step 0: ROC - Remove highly correlated features and apply statistical filtering
         Roc(

@@ -52,8 +52,8 @@ class AutoGluon(Task):
     )
     """AutoGluon quality presets."""
 
-    num_bag_folds: int = field(default=5, validator=[validators.instance_of(int), validators.gt(1)])
-    """Number of bagging/cross-validation folds."""
+    num_bag_splits: int = field(default=5, validator=[validators.instance_of(int), validators.gt(1)])
+    """Number of bagging/cross-validation splits (passed as num_bag_folds to AutoGluon)."""
 
     included_model_types: list[str] | None = field(
         default=None,

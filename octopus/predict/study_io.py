@@ -1,8 +1,8 @@
 """File I/O for reading study directories.
 
-Provides StudyLoader and TaskOutersplitLoader classes for accessing study artifacts
+Provides StudyLoader and TaskOuterSplitLoader classes for accessing study artifacts
 from disk. These handle the actual directory structure where data files are at
-the outersplit level and model artifacts are in task/module/ subdirectories.
+the outer split level and model artifacts are in task/module/ subdirectories.
 
 Also provides frozen data classes (StudyMetadata, SplitArtifacts, TaskArtifacts)
 for type-safe, immutable data bundles at the boundary between I/O and prediction.
@@ -52,7 +52,7 @@ class StudyMetadata:
         positive_class: Positive class label for classification.
         row_id_col: Row ID column name.
         feature_cols: Union of feature columns across outer splits.
-        n_outersplits: Number of outer folds from config.
+        n_outer_splits: Number of outer splits from config.
     """
 
     ml_type: MLType
@@ -62,12 +62,12 @@ class StudyMetadata:
     positive_class: Any
     row_id_col: str | None
     feature_cols: list[str]
-    n_outersplits: int
+    n_outer_splits: int
 
 
 @frozen
 class SplitArtifacts:
-    """All artifacts loaded for one outersplit.
+    """All artifacts loaded for one outer split.
 
     Attributes:
         model: The fitted model object.
@@ -84,28 +84,28 @@ class SplitArtifacts:
 
 @frozen
 class TaskArtifacts:
-    """All artifacts for a task across all outersplits.
+    """All artifacts for a task across all outer splits.
 
     Attributes:
-        splits: Dict mapping outersplit_id to SplitArtifacts.
-        outersplit_ids: Sorted list of outersplit IDs.
+        splits: Dict mapping outer_split_id to SplitArtifacts.
+        outer_split_ids: Sorted list of outer split IDs.
     """
 
     splits: dict[int, SplitArtifacts]
-    outersplit_ids: list[int]
+    outer_split_ids: list[int]
 
 
 # ═══════════════════════════════════════════════════════════════
-# TaskOutersplitLoader — frozen path resolver + artifact loader
+# TaskOuterSplitLoader — frozen path resolver + artifact loader
 # ═══════════════════════════════════════════════════════════════
 
 
 @frozen
-class TaskOutersplitLoader:
-    """Load data for a single outersplit from disk.
+class TaskOuterSplitLoader:
+    """Load data for a single outer split from disk.
 
     Matches actual disk structure:
-    - split_row_ids.json at outersplit level (row IDs into data_prepared.parquet)
+    - split_row_ids.json at outer split level (row IDs into data_prepared.parquet)
     - feature_cols.json, feature_groups.json inside task/config/
     - model.joblib, predictor.json inside task/results/{result_type}/model/
     - selected_features.json, scores.parquet, predictions.parquet,
@@ -113,25 +113,25 @@ class TaskOutersplitLoader:
 
     Attributes:
         study_path: Path to the study directory.
-        outersplit_id: Outer split index.
+        outer_split_id: Outer split index.
         task_id: Workflow task index.
         result_type: Result type for filtering results (default: 'best').
     """
 
     study_path: UPath = field(converter=_to_upath)
-    outersplit_id: int
+    outer_split_id: int
     task_id: int
     result_type: str = "best"
 
     @property
-    def fold_dir(self) -> UPath:
-        """Outersplit directory path."""
-        return self.study_path / f"outersplit{self.outersplit_id}"
+    def outer_split_dir(self) -> UPath:
+        """Outer split directory path."""
+        return self.study_path / f"outersplit{self.outer_split_id}"
 
     @property
     def task_dir(self) -> UPath:
         """Task directory path."""
-        return self.fold_dir / f"task{self.task_id}"
+        return self.outer_split_dir / f"task{self.task_id}"
 
     @property
     def result_dir(self) -> UPath:
@@ -151,20 +151,20 @@ class TaskOutersplitLoader:
     # ── Validation ──────────────────────────────────────────────
 
     def validate_directories(self) -> None:
-        """Check that fold_dir and task_dir exist on disk.
+        """Check that outer_split_dir and task_dir exist on disk.
 
         Raises:
             FileNotFoundError: If the outer split or task directory is missing.
         """
-        if not self.fold_dir.exists():
-            raise FileNotFoundError(f"Outer split directory not found: {self.fold_dir}")
+        if not self.outer_split_dir.exists():
+            raise FileNotFoundError(f"Outer split directory not found: {self.outer_split_dir}")
         if not self.task_dir.exists():
             raise FileNotFoundError(f"Task directory not found: {self.task_dir}")
 
     # ── Artifact loading ────────────────────────────────────────
 
     def load_all_artifacts(self) -> SplitArtifacts:
-        """Load all artifacts for this outersplit in one call.
+        """Load all artifacts for this outer split in one call.
 
         Validates directories, loads required artifacts (model,
         selected_features), and optional artifacts (feature_cols,
@@ -205,7 +205,7 @@ class TaskOutersplitLoader:
         if partition not in ("traindev", "test"):
             raise ValueError(f"partition must be 'traindev' or 'test', got {partition!r}")
 
-        split_ids_path = self.fold_dir / "split_row_ids.json"
+        split_ids_path = self.outer_split_dir / "split_row_ids.json"
         if not split_ids_path.exists():
             raise FileNotFoundError(f"Split row IDs not found: {split_ids_path}")
 
@@ -383,14 +383,14 @@ class StudyLoader:
             positive_class=config.get("positive_class"),
             row_id_col=row_id_col,
             feature_cols=config.get("prepared", {}).get("feature_cols", []),
-            n_outersplits=config.get("n_outer_splits", 0),
+            n_outer_splits=config.get("n_outer_splits", 0),
         )
 
     def load_task_artifacts(
         self,
         task_id: int,
         result_type: str,
-        n_outersplits: int,
+        n_outer_splits: int,
     ) -> TaskArtifacts:
         """Load all models and features for a task across all outer splits.
 
@@ -400,7 +400,7 @@ class StudyLoader:
         Args:
             task_id: Concrete task index.
             result_type: Result type for filtering.
-            n_outersplits: Number of outer folds from config.
+            n_outer_splits: Number of outer splits from config.
 
         Returns:
             TaskArtifacts with per-split models and features.
@@ -410,43 +410,43 @@ class StudyLoader:
             ValueError: If no models are found.
         """
         splits: dict[int, SplitArtifacts] = {}
-        outersplit_ids: list[int] = []
+        outer_split_ids: list[int] = []
 
-        for split_id in range(n_outersplits):
-            loader = TaskOutersplitLoader(self.study_path, split_id, task_id, result_type)
+        for split_id in range(n_outer_splits):
+            loader = TaskOuterSplitLoader(self.study_path, split_id, task_id, result_type)
             splits[split_id] = loader.load_all_artifacts()
-            outersplit_ids.append(split_id)
+            outer_split_ids.append(split_id)
 
-        if not outersplit_ids:
+        if not outer_split_ids:
             raise ValueError(f"No models found for task {task_id}. Check that the study has been run.")
 
-        return TaskArtifacts(splits=splits, outersplit_ids=outersplit_ids)
+        return TaskArtifacts(splits=splits, outer_split_ids=outer_split_ids)
 
-    # ── Outersplit loader factory ───────────────────────────────
+    # ── Outer split loader factory ───────────────────────────────
 
-    def get_outersplit_loader(
+    def get_outer_split_loader(
         self,
-        outersplit_id: int,
+        outer_split_id: int,
         task_id: int,
         result_type: str = "best",
-    ) -> TaskOutersplitLoader:
-        """Get a TaskOutersplitLoader for a specific outersplit and task.
+    ) -> TaskOuterSplitLoader:
+        """Get a TaskOuterSplitLoader for a specific outer split and task.
 
         Args:
-            outersplit_id: Outer split index.
+            outer_split_id: Outer split index.
             task_id: Task index.
             result_type: Result type for filtering.
 
         Returns:
-            TaskOutersplitLoader instance.
+            TaskOuterSplitLoader instance.
         """
-        return TaskOutersplitLoader(self.study_path, outersplit_id, task_id, result_type)
+        return TaskOuterSplitLoader(self.study_path, outer_split_id, task_id, result_type)
 
-    def get_available_outersplits(self) -> list[int]:
-        """Get list of available outersplit IDs.
+    def get_available_outer_splits(self) -> list[int]:
+        """Get list of available outer split IDs.
 
         Returns:
-            Sorted list of outersplit IDs found on disk.
+            Sorted list of outer split IDs found on disk.
         """
         dirs = sorted(
             [d for d in self.study_path.glob("outersplit*") if d.is_dir()],
@@ -454,20 +454,20 @@ class StudyLoader:
         )
         return [int(d.name.replace("outersplit", "")) for d in dirs]
 
-    def get_task_directories(self, outersplit_id: int) -> list[tuple[int, UPath]]:
-        """Get task directories for a given outersplit.
+    def get_task_directories(self, outer_split_id: int) -> list[tuple[int, UPath]]:
+        """Get task directories for a given outer split.
 
         Args:
-            outersplit_id: Outer split index.
+            outer_split_id: Outer split index.
 
         Returns:
             Sorted list of (task_id, task_path) tuples.
         """
-        fold_dir = self.study_path / f"outersplit{outersplit_id}"
-        if not fold_dir.exists():
+        outer_split_dir = self.study_path / f"outersplit{outer_split_id}"
+        if not outer_split_dir.exists():
             return []
         task_dirs = []
-        for task_dir in fold_dir.glob("task*"):
+        for task_dir in outer_split_dir.glob("task*"):
             if task_dir.is_dir():
                 match = re.search(r"\d+$", task_dir.name)
                 if match:
@@ -479,7 +479,7 @@ class StudyLoader:
     def build_performance_summary(self) -> pd.DataFrame:
         """Aggregate scores across all outer splits and tasks.
 
-        Iterates over all outersplit directories and task directories found on
+        Iterates over all outer split directories and task directories found on
         disk, loading scores and selected features for each combination.
 
         Returns:
@@ -490,7 +490,7 @@ class StudyLoader:
         _ = self.load_config()  # Validate config exists
         rows_list: list[dict[str, Any]] = []
 
-        available_splits = self.get_available_outersplits()
+        available_splits = self.get_available_outer_splits()
 
         for split_num in available_splits:
             task_dirs = self.get_task_directories(split_num)
@@ -499,7 +499,7 @@ class StudyLoader:
                 workflow_name = str(path_workflow.name)
 
                 try:
-                    loader = self.get_outersplit_loader(outersplit_id=split_num, task_id=workflow_num)
+                    loader = self.get_outer_split_loader(outer_split_id=split_num, task_id=workflow_num)
                     try:
                         selected_features = loader.load_selected_features()
                     except FileNotFoundError:
@@ -507,9 +507,9 @@ class StudyLoader:
 
                     perf_df = loader.load_scores()
 
-                    # Filter out per_fold rows — only keep avg and ensemble aggregations
+                    # Filter out per_split rows — only keep avg and ensemble aggregations
                     if not perf_df.empty and "aggregation" in perf_df.columns:
-                        perf_df = perf_df[perf_df["aggregation"] != "per_fold"]
+                        perf_df = perf_df[perf_df["aggregation"] != "per_split"]
 
                     if not perf_df.empty and "result_type" in perf_df.columns:
                         group_cols = ["result_type"]
@@ -594,7 +594,7 @@ class StudyLoader:
             Tuple of two DataFrames:
             - feature_table: Number of features per outer split for each
               task-key combination (with Mean row).
-            - frequency_table: Feature frequency across outersplits.
+            - frequency_table: Feature frequency across outer splits.
         """
         raw = self.build_performance_summary()
 

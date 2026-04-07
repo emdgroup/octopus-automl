@@ -427,25 +427,25 @@ class BagBase(BaseEstimator):
             metric: The metric name (e.g. "MAE", "accuracy").
 
         Returns:
-            DataFrame with columns: metric, partition, aggregation, fold, value
+            DataFrame with columns: metric, partition, aggregation, split, value
         """
         perf = self.get_performance(num_assigned_cpus=num_assigned_cpus, metric=metric)
         rows = []
 
-        # Per-fold scores
+        # Per-split scores
         for partition in ["train", "dev", "test"]:
             lst_key = f"{partition}_lst"
             avg_key = f"{partition}_avg"
             ensemble_key = f"{partition}_ensemble"
 
             if lst_key in perf:
-                for fold_idx, val in enumerate(perf[lst_key]):
+                for split_idx, val in enumerate(perf[lst_key]):
                     rows.append(
                         {
                             "metric": metric,
                             "partition": partition,
-                            "aggregation": "per_fold",
-                            "fold": fold_idx,
+                            "aggregation": "per_split",
+                            "split": split_idx,
                             "value": val,
                         }
                     )
@@ -455,7 +455,7 @@ class BagBase(BaseEstimator):
                         "metric": metric,
                         "partition": partition,
                         "aggregation": "avg",
-                        "fold": None,
+                        "split": None,
                         "value": perf[avg_key],
                     }
                 )
@@ -465,7 +465,7 @@ class BagBase(BaseEstimator):
                         "metric": metric,
                         "partition": partition,
                         "aggregation": "ensemble",
-                        "fold": None,
+                        "split": None,
                         "value": perf[ensemble_key],
                     }
                 )
