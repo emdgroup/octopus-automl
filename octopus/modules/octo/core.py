@@ -198,7 +198,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         """Calculate feature lists for all provided features numbers."""
         logger.info("Calculating MRMR feature sets...")
         # remove duplicates and cap max number
-        feature_numbers = list(set(self.config.mrmr_subset_sizes))
+        feature_numbers = list(set(self.config.n_mrmr_features))
         feature_numbers = [x for x in feature_numbers if isinstance(x, int) and x <= len(feature_cols)]
         # if no mrmr features are requested, only add original features
         if not feature_numbers:
