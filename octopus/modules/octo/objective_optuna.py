@@ -181,7 +181,7 @@ class ObjectiveOptuna:
         else:
             optuna_target = bag_performance["dev_avg"]
 
-        # adjust direction, optuna in octofull always minimizes
+        # adjust direction, optuna always maximizes (higher = better)
         target_metric = self.target_metric
         if Metrics.get_direction(target_metric) == MetricDirection.MINIMIZE:
             optuna_target = -optuna_target
@@ -208,9 +208,9 @@ class ObjectiveOptuna:
         path_save = self.path_study / self.task_path / "scratch" / f"trial_{n_trial}_bag.joblib"
 
         # saving top n_trials to disk
-        # the optuna target_value will always be minimized. Heappop removes the lowest
-        # value, therefore target_value needs to be negated.
-        heapq.heappush(self.top_trials, (-1 * target_value, path_save))
+        # target_value is always "higher = better" (optuna maximizes).
+        # Min-heap naturally evicts the lowest value = worst trial via heappop.
+        heapq.heappush(self.top_trials, (target_value, path_save))
         joblib_save(bag, path_save)
         if len(self.top_trials) > max_n_trials:
             # delete trial with lowest perfomrmance in n_trials

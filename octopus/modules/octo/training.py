@@ -16,7 +16,7 @@ from sklearn.utils.validation import check_is_fitted
 from octopus.logger import get_logger
 from octopus.metrics.utils import get_score_from_model
 from octopus.models import Models
-from octopus.types import DataPartition, FIComputeMethod, FIResultLabel, LogGroup, MLType, ModelName
+from octopus.types import DataPartition, FIComputeMethod, FIResultLabel, LogGroup, MLType, ModelName, ShapType
 
 logger = get_logger()
 
@@ -84,7 +84,7 @@ def _compute_lofo(
     model: Any,
     x_train_processed: pd.DataFrame,
     y_train: Any,
-    eval_partitions: dict[str, pd.DataFrame],
+    eval_partitions: dict[DataPartition | str, pd.DataFrame],
     feature_cols: list[str],
     feature_groups: dict[str, list[str]],
     target_metric: str,
@@ -600,48 +600,48 @@ class Training:
             task_id = 0
             inner_split_id = self.training_id
 
-        self.predictions["train"] = pd.DataFrame()
-        self.predictions["train"][self.row_id_col] = data_train[self.row_id_col]
-        self.predictions["train"]["prediction"] = self.model.predict(self.x_train_processed)
-        self.predictions["train"]["outer_split_id"] = outer_split_id
-        self.predictions["train"]["inner_split_id"] = inner_split_id
-        self.predictions["train"]["partition"] = "train"
-        self.predictions["train"]["task_id"] = task_id
+        self.predictions[DataPartition.TRAIN] = pd.DataFrame()
+        self.predictions[DataPartition.TRAIN][self.row_id_col] = data_train[self.row_id_col]
+        self.predictions[DataPartition.TRAIN]["prediction"] = self.model.predict(self.x_train_processed)
+        self.predictions[DataPartition.TRAIN]["outer_split_id"] = outer_split_id
+        self.predictions[DataPartition.TRAIN]["inner_split_id"] = inner_split_id
+        self.predictions[DataPartition.TRAIN]["partition"] = DataPartition.TRAIN
+        self.predictions[DataPartition.TRAIN]["task_id"] = task_id
 
-        self.predictions["dev"] = pd.DataFrame()
-        self.predictions["dev"][self.row_id_col] = self.data_dev[self.row_id_col]
-        self.predictions["dev"]["prediction"] = self.model.predict(self.x_dev_processed)
-        self.predictions["dev"]["outer_split_id"] = outer_split_id
-        self.predictions["dev"]["inner_split_id"] = inner_split_id
-        self.predictions["dev"]["partition"] = "dev"
-        self.predictions["dev"]["task_id"] = task_id
+        self.predictions[DataPartition.DEV] = pd.DataFrame()
+        self.predictions[DataPartition.DEV][self.row_id_col] = self.data_dev[self.row_id_col]
+        self.predictions[DataPartition.DEV]["prediction"] = self.model.predict(self.x_dev_processed)
+        self.predictions[DataPartition.DEV]["outer_split_id"] = outer_split_id
+        self.predictions[DataPartition.DEV]["inner_split_id"] = inner_split_id
+        self.predictions[DataPartition.DEV]["partition"] = DataPartition.DEV
+        self.predictions[DataPartition.DEV]["task_id"] = task_id
 
-        self.predictions["test"] = pd.DataFrame()
-        self.predictions["test"][self.row_id_col] = self.data_test[self.row_id_col]
-        self.predictions["test"]["prediction"] = self.model.predict(self.x_test_processed)
-        self.predictions["test"]["outer_split_id"] = outer_split_id
-        self.predictions["test"]["inner_split_id"] = inner_split_id
-        self.predictions["test"]["partition"] = "test"
-        self.predictions["test"]["task_id"] = task_id
+        self.predictions[DataPartition.TEST] = pd.DataFrame()
+        self.predictions[DataPartition.TEST][self.row_id_col] = self.data_test[self.row_id_col]
+        self.predictions[DataPartition.TEST]["prediction"] = self.model.predict(self.x_test_processed)
+        self.predictions[DataPartition.TEST]["outer_split_id"] = outer_split_id
+        self.predictions[DataPartition.TEST]["inner_split_id"] = inner_split_id
+        self.predictions[DataPartition.TEST]["partition"] = DataPartition.TEST
+        self.predictions[DataPartition.TEST]["task_id"] = task_id
 
         # special treatment of targets due to sklearn
         if len(self.target_assignments) == 1:
             target_col = list(self.target_assignments.values())[0]
-            self.predictions["train"][target_col] = y_train.squeeze(axis=1)
-            self.predictions["dev"][target_col] = self.y_dev.squeeze(axis=1)
-            self.predictions["test"][target_col] = self.y_test.squeeze(axis=1)
+            self.predictions[DataPartition.TRAIN][target_col] = y_train.squeeze(axis=1)
+            self.predictions[DataPartition.DEV][target_col] = self.y_dev.squeeze(axis=1)
+            self.predictions[DataPartition.TEST][target_col] = self.y_test.squeeze(axis=1)
         else:
             for target_col in self.target_assignments.values():
-                self.predictions["train"][target_col] = data_train[target_col]
-                self.predictions["dev"][target_col] = self.data_dev[target_col]
-                self.predictions["test"][target_col] = self.data_test[target_col]
+                self.predictions[DataPartition.TRAIN][target_col] = data_train[target_col]
+                self.predictions[DataPartition.DEV][target_col] = self.data_dev[target_col]
+                self.predictions[DataPartition.TEST][target_col] = self.data_test[target_col]
 
         # add additional predictions for classifications (binary and multiclass)
         if self.ml_type in (MLType.BINARY, MLType.MULTICLASS):
             columns = [int(x) for x in self.model.classes_]  # column names --> int
-            self.predictions["train"][columns] = self.model.predict_proba(self.x_train_processed)
-            self.predictions["dev"][columns] = self.model.predict_proba(self.x_dev_processed)
-            self.predictions["test"][columns] = self.model.predict_proba(self.x_test_processed)
+            self.predictions[DataPartition.TRAIN][columns] = self.model.predict_proba(self.x_train_processed)
+            self.predictions[DataPartition.DEV][columns] = self.model.predict_proba(self.x_dev_processed)
+            self.predictions[DataPartition.TEST][columns] = self.model.predict_proba(self.x_test_processed)
 
         # add additional predictions for time to event predictions
         if self.ml_type == MLType.TIMETOEVENT:
@@ -667,11 +667,13 @@ class Training:
             self._calculate_fi_internal()
             fi_df = self.fi[fi_storage_key(FIComputeMethod.INTERNAL)]
         elif fi_method == FIComputeMethod.SHAP:
-            self._calculate_fi_featuresused_shap(partition="dev")
-            fi_df = self.fi[fi_storage_key(FIComputeMethod.SHAP, "dev")]
+            self._calculate_fi_featuresused_shap(partition=DataPartition.DEV)
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.SHAP, DataPartition.DEV)]
         elif fi_method == FIComputeMethod.PERMUTATION:
-            self._calculate_fi_permutation(partition="dev", n_repeats=2, use_groups=False)  # only 2 repeats!
-            fi_df = self.fi[fi_storage_key(FIComputeMethod.PERMUTATION, "dev")]
+            self._calculate_fi_permutation(
+                partition=DataPartition.DEV, n_repeats=2, use_groups=False
+            )  # only 2 repeats!
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.PERMUTATION, DataPartition.DEV)]
         elif fi_method == FIComputeMethod.CONSTANT:
             self._calculate_fi_constant()
             fi_df = self.fi[fi_storage_key(FIComputeMethod.CONSTANT)]
@@ -826,9 +828,9 @@ class Training:
             raise RuntimeError("Model must be fitted before computing LOFO FI.")
 
         target_cols = list(self.target_assignments.values())
-        eval_partitions = {
-            "dev": pd.concat([self.x_dev_processed, self.data_dev[target_cols]], axis=1),
-            "test": pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1),
+        eval_partitions: dict[DataPartition | str, pd.DataFrame] = {
+            DataPartition.DEV: pd.concat([self.x_dev_processed, self.data_dev[target_cols]], axis=1),
+            DataPartition.TEST: pd.concat([self.x_test_processed, self.data_test[target_cols]], axis=1),
         }
 
         results = _compute_lofo(
@@ -883,7 +885,7 @@ class Training:
             model=self.model,
             X=X_eval_df,
             feature_names=feature_names,
-            shap_type="auto",
+            shap_type=ShapType.AUTO,
             X_background=X_bg_df,
             threshold_ratio=1.0 / 1000.0,
             ml_type=self.ml_type,
@@ -891,7 +893,10 @@ class Training:
         self.fi[fi_storage_key(FIComputeMethod.SHAP, partition)] = fi_df
 
     def _calculate_fi_shap(
-        self, partition: DataPartition | str = DataPartition.DEV, shap_type: str = "kernel", background_size: int = 200
+        self,
+        partition: DataPartition | str = DataPartition.DEV,
+        shap_type: ShapType | str = ShapType.KERNEL,
+        background_size: int = 200,
     ) -> None:
         """Compute SHAP feature importance with a model-agnostic explainer.
 
@@ -899,11 +904,13 @@ class Training:
 
         Args:
             partition: Which partition to evaluate on (e.g. ``DataPartition.DEV``).
-            shap_type: SHAP explainer type (``"kernel"``, ``"permutation"``, ``"exact"``).
+            shap_type: SHAP explainer type (e.g. ``ShapType.KERNEL``, ``ShapType.PERMUTATION``).
             background_size: Maximum background dataset size for kernel explainer.
         """
         from octopus.feature_importance import compute_shap_single  # noqa: PLC0415
 
+        # Normalize string inputs to enum for consistent comparison
+        shap_type = ShapType(shap_type)
         logger.info(f"Calculating SHAP feature importances ({partition}, mode={shap_type})...")
 
         if partition == DataPartition.DEV:
@@ -916,7 +923,7 @@ class Training:
         feature_names = list(self.feature_cols) if self.feature_cols else list(data.columns)
 
         # Construct background set based on `background_size` for kernel SHAP
-        if shap_type == "kernel" and background_size is not None:
+        if shap_type == ShapType.KERNEL and background_size is not None:
             if len(data) > background_size:
                 rng = np.random.default_rng(42)
                 indices = rng.choice(len(data), size=background_size, replace=False)
