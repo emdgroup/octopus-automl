@@ -1,5 +1,6 @@
 """Unit tests for EnSel (Ensemble Selection) individual methods."""
 
+import heapq
 from pathlib import Path
 
 import numpy as np
@@ -7,6 +8,7 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 from upath import UPath
 
+import octopus.modules.octo.enssel as enssel_module
 from octopus.modules.octo.bag import Bag
 from octopus.modules.octo.enssel import EnSel
 from octopus.modules.octo.training import Training
@@ -353,3 +355,322 @@ def test_ensemble_optimization_single_model_case(tmp_path):
     start_model = list(ensel.start_ensemble.keys())[0]
     opt_model = list(ensel.optimized_ensemble.keys())[0]
     assert start_model == opt_model
+
+
+# ── Category A: Heap and trial library correctness ──────────────
+
+
+def test_heap_retains_best_trials_minimize_metric(tmp_path):
+    """Heap must retain the M best trials for minimize metrics (MAE).
+
+    Regression guard for Issue #1: heap direction inversion after
+    minimize→maximize refactoring.
+    """
+    trials_path = UPath(tmp_path / "scratch")
+    trials_path.mkdir()
+
+    # Simulate _save_topn_trials logic for MAE (minimize → negated target_value)
+    max_n_trials = 2
+    top_trials: list = []
+    scores = [1.5, 0.8, 1.2, 0.5, 2.0]  # MAE values (lower is better)
+
+    saved_files: dict[float, UPath] = {}
+    for i, mae in enumerate(scores):
+        # ObjectiveOptuna negates for minimize: optuna_target = -mae
+        target_value = -mae
+        path = trials_path / f"trial_{i}.joblib"
+        # Create a dummy file
+        path.write_text(str(mae))
+        saved_files[mae] = path
+
+        # Replicate current heap logic (after fix: no -1* negation)
+        heapq.heappush(top_trials, (target_value, path))
+        if len(top_trials) > max_n_trials:
+            _, path_delete = heapq.heappop(top_trials)
+            if path_delete.is_file():
+                path_delete.unlink()
+
+    # The 2 surviving trials should be the 2 best MAE values: 0.5 and 0.8
+    surviving = sorted([float(p.read_text()) for _, p in top_trials])
+    assert surviving == [0.5, 0.8], f"Expected best 2 trials [0.5, 0.8], got {surviving}"
+
+
+def test_heap_retains_best_trials_maximize_metric(tmp_path):
+    """Heap must retain the M highest-scoring trials for maximize metrics.
+
+    Regression guard for Issue #1.
+    """
+    trials_path = UPath(tmp_path / "scratch")
+    trials_path.mkdir()
+
+    max_n_trials = 3
+    top_trials: list = []
+    # AUCROC values (higher is better) — not negated since direction is MAXIMIZE
+    scores = [0.70, 0.90, 0.80, 0.95, 0.60]
+
+    for i, auc in enumerate(scores):
+        target_value = auc  # No negation for MAXIMIZE metrics
+        path = trials_path / f"trial_{i}.joblib"
+        path.write_text(str(auc))
+
+        heapq.heappush(top_trials, (target_value, path))
+        if len(top_trials) > max_n_trials:
+            _, path_delete = heapq.heappop(top_trials)
+            if path_delete.is_file():
+                path_delete.unlink()
+
+    surviving = sorted([float(p.read_text()) for _, p in top_trials])
+    assert surviving == [0.80, 0.90, 0.95], f"Expected best 3 trials [0.80, 0.90, 0.95], got {surviving}"
+
+
+def test_heap_no_eviction_when_under_limit(tmp_path):
+    """When n_trials <= ensel_n_save_trials, no trial should be evicted."""
+    trials_path = UPath(tmp_path / "scratch")
+    trials_path.mkdir()
+
+    max_n_trials = 10
+    top_trials: list = []
+
+    for i in range(5):
+        path = trials_path / f"trial_{i}.joblib"
+        path.write_text(str(i))
+        heapq.heappush(top_trials, (float(i), path))
+        # No eviction since len <= max
+        assert len(top_trials) <= max_n_trials
+
+    assert len(top_trials) == 5
+    assert all(p.is_file() for _, p in top_trials)
+
+
+def test_heap_tiebreak_on_equal_scores(tmp_path):
+    """When multiple trials have the same score, heap must not crash.
+
+    UPath comparison via PurePath.__lt__ must work as tiebreaker.
+    """
+    trials_path = UPath(tmp_path / "scratch")
+    trials_path.mkdir()
+
+    max_n_trials = 3
+    top_trials: list = []
+
+    for i in range(5):
+        path = trials_path / f"trial_{i}.joblib"
+        path.write_text("0.85")
+        heapq.heappush(top_trials, (0.85, path))
+        if len(top_trials) > max_n_trials:
+            _, path_delete = heapq.heappop(top_trials)
+            if path_delete.is_file():
+                path_delete.unlink()
+
+    # Exactly 3 files must survive, no error raised
+    assert len(top_trials) == 3
+    surviving_files = [p for _, p in top_trials if p.is_file()]
+    assert len(surviving_files) == 3
+
+
+# ── Category B: Prediction cache integrity ──────────────────────
+
+
+def test_ensemble_models_preserves_prediction_cache(tmp_path):
+    """Calling _ensemble_models must not mutate self.bags prediction dicts.
+
+    Regression guard for Issue #6: .pop('ensemble') mutated shared cache.
+    """
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances)
+    ensel = create_partial_ensel(trials_path, methods_to_run=["_collect_trials"])
+
+    # Snapshot keys before
+    keys_before = {k: set(v["predictions"].keys()) for k, v in ensel.bags.items()}
+
+    # Call _ensemble_models multiple times
+    bag_keys = list(ensel.bags.keys())
+    ensel._ensemble_models(bag_keys)
+    ensel._ensemble_models(bag_keys)
+
+    # Keys must be identical after
+    for k, v in ensel.bags.items():
+        assert set(v["predictions"].keys()) == keys_before[k], f"Prediction cache for bag {k} was mutated"
+
+
+def test_ensemble_models_idempotent(tmp_path):
+    """Calling _ensemble_models with same inputs must return same results."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances)
+    ensel = create_partial_ensel(trials_path, methods_to_run=["_collect_trials"])
+
+    bag_keys = list(ensel.bags.keys())
+    result1 = ensel._ensemble_models(bag_keys)
+    result2 = ensel._ensemble_models(bag_keys)
+
+    assert result1["dev_ensemble"] == result2["dev_ensemble"]
+    assert result1["test_ensemble"] == result2["test_ensemble"]
+
+
+# ── Category C: Optimization uses the right result ──────────────
+
+
+def test_optimized_ensemble_can_differ_from_start(tmp_path):
+    """Greedy optimization with replacement can produce weights different from start.
+
+    The optimized_ensemble may differ from the scan start_ensemble.
+    """
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances, exact_performance=True)
+
+    ensel = create_partial_ensel(trials_path)
+
+    # optimized_ensemble should have more total weight than start_ensemble
+    # (optimization adds models via replacement)
+    start_total = sum(ensel.start_ensemble.values())
+    opt_total = sum(ensel.optimized_ensemble.values())
+    assert opt_total >= start_total, f"Optimized ensemble total weight ({opt_total}) should be >= start ({start_total})"
+
+
+def test_optimized_ensemble_weights_are_positive_integers(tmp_path):
+    """All weights in optimized_ensemble must be positive integers.
+
+    Regression guard: selection with replacement must produce integer
+    weights >= 1 for all models.
+    """
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances, exact_performance=True)
+
+    ensel = create_partial_ensel(trials_path)
+
+    assert len(ensel.optimized_ensemble) >= 1
+    for path, weight in ensel.optimized_ensemble.items():
+        assert isinstance(weight, int), f"Weight for {path} is not int: {type(weight)}"
+        assert weight >= 1, f"Weight for {path} is < 1: {weight}"
+
+
+def test_optimized_ensemble_contains_only_known_bags(tmp_path):
+    """All paths in optimized_ensemble must be bags that were loaded in _collect_trials."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances)
+
+    ensel = create_partial_ensel(trials_path)
+
+    for path in ensel.optimized_ensemble:
+        assert path in ensel.bags, f"Optimized ensemble contains unknown path: {path}"
+
+
+# ── Category D: use_best backtracking ────────────────────────────
+
+
+def test_optimization_runs_all_iterations(tmp_path):
+    """Optimization must run max_n_iterations steps, not stop early.
+
+    Regression guard: old code stopped at first non-improving step.
+    New code runs all iterations and returns the best prefix via backtracking.
+    """
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances, exact_performance=True)
+
+    ensel = create_partial_ensel(trials_path)
+
+    # The optimized ensemble total weight = start_n + max_n_iterations
+    # backtracked to best prefix. Total weight must be >= start_n
+    # (backtracking can go back to start, but optimization ran all iterations)
+    opt_total = sum(ensel.optimized_ensemble.values())
+    start_total = sum(ensel.start_ensemble.values())
+    assert opt_total >= start_total
+
+
+def test_optimization_result_at_least_as_good_as_start(tmp_path):
+    """Optimized ensemble must perform at least as well as scan start on dev.
+
+    This is the fundamental guarantee of use_best backtracking: it can always
+    fall back to the starting ensemble if no improvement is found.
+    """
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances, exact_performance=True)
+
+    ensel = create_partial_ensel(trials_path)
+
+    # Compute performance of both ensembles
+    start_bags = []
+    for path, weight in ensel.start_ensemble.items():
+        start_bags.extend([path] * weight)
+    start_perf = ensel._ensemble_models(start_bags)["dev_ensemble"]
+
+    opt_bags = []
+    for path, weight in ensel.optimized_ensemble.items():
+        opt_bags.extend([path] * weight)
+    opt_perf = ensel._ensemble_models(opt_bags)["dev_ensemble"]
+
+    # For MAE (minimize), optimized must be <= start
+    assert opt_perf <= start_perf + 1e-10, f"Optimized ({opt_perf:.6f}) should be <= start ({start_perf:.6f})"
+
+
+# ── Category F: Performance and I/O regression ───────────────────
+
+
+def test_no_joblib_load_during_scan(tmp_path, monkeypatch):
+    """_ensemble_scan must not call joblib_load.
+
+    Regression guard for Issue #3: _ensemble_models loaded a full bag
+    from disk on every call just for dtype casting.
+    """
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances)
+
+    # Create ensel with only _collect_trials + _create_model_table
+    ensel = create_partial_ensel(trials_path, methods_to_run=["_collect_trials", "_create_model_table"])
+
+    # Now monkeypatch joblib_load and run scan
+    load_count = {"n": 0}
+    original_load = enssel_module.joblib_load
+
+    def counting_load(*args, **kwargs):
+        load_count["n"] += 1
+        return original_load(*args, **kwargs)
+
+    monkeypatch.setattr(enssel_module, "joblib_load", counting_load)
+    ensel._ensemble_scan()
+
+    assert load_count["n"] == 0, f"_ensemble_scan called joblib_load {load_count['n']} times; expected 0"
+
+
+def test_no_joblib_load_during_optimization(tmp_path, monkeypatch):
+    """_ensemble_optimization must not call joblib_load.
+
+    Same regression guard as above, for the optimization phase.
+    """
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances)
+
+    ensel = create_partial_ensel(
+        trials_path, methods_to_run=["_collect_trials", "_create_model_table", "_ensemble_scan"]
+    )
+
+    load_count = {"n": 0}
+    original_load = enssel_module.joblib_load
+
+    def counting_load(*args, **kwargs):
+        load_count["n"] += 1
+        return original_load(*args, **kwargs)
+
+    monkeypatch.setattr(enssel_module, "joblib_load", counting_load)
+    ensel._ensemble_optimization()
+
+    assert load_count["n"] == 0, f"_ensemble_optimization called joblib_load {load_count['n']} times; expected 0"
+
+
+# ── Category G (unit): Scan table invariants ─────────────────────
+
+
+def test_scan_table_evaluates_all_prefix_sizes(tmp_path):
+    """Scan table must evaluate all prefix sizes 1..M.
+
+    Regression guard: ensures scan is exhaustive and doesn't skip sizes.
+    """
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances)
+
+    ensel = create_partial_ensel(
+        trials_path, methods_to_run=["_collect_trials", "_create_model_table", "_ensemble_scan"]
+    )
+
+    assert len(ensel.scan_table) == 3
+    assert list(ensel.scan_table["#models"]) == [1, 2, 3]

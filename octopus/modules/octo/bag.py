@@ -319,23 +319,23 @@ class BagBase(BaseEstimator):
             self.fit(n_assigned_cpus)
 
         predictions = {}
-        pool: dict[str, list[pd.DataFrame]] = {key: [] for key in ["train", "dev", "test"]}
+        ensemble_pool: dict[str, list[pd.DataFrame]] = {p: [] for p in DataPartition}
 
         for training in self.trainings:
             predictions[training.training_id] = training.predictions
-            for part, pool_value in pool.items():
-                pool_value.append(training.predictions[part])
+            for part, part_preds in ensemble_pool.items():
+                part_preds.append(training.predictions[part])
 
         # Create ensemble predictions for each partition
         predictions["ensemble"] = {}
-        for part, pool_value in pool.items():
+        for part, part_preds in ensemble_pool.items():
             # Get metadata from first training (all have same outer_split_id and task_id)
-            first_pred = pool_value[0]
+            first_pred = part_preds[0]
             outer_split_id = first_pred["outer_split_id"].iloc[0]
             task_id = first_pred["task_id"].iloc[0]
 
             # Concatenate and group by row_id, averaging only numeric columns
-            combined = pd.concat(pool_value, axis=0)
+            combined = pd.concat(part_preds, axis=0)
             # Identify numeric columns to average (exclude metadata and row_id)
             numeric_cols = combined.select_dtypes(include=["number"]).columns.tolist()
             if self.row_id_col in numeric_cols:
@@ -397,9 +397,9 @@ class BagBase(BaseEstimator):
 
         for training_id, partitions in performance.items():
             if training_id != "ensemble":
-                train_lst.append(partitions["train"])
-                dev_lst.append(partitions["dev"])
-                test_lst.append(partitions["test"])
+                train_lst.append(partitions[DataPartition.TRAIN])
+                dev_lst.append(partitions[DataPartition.DEV])
+                test_lst.append(partitions[DataPartition.TEST])
 
         # Calculate averages
         performance_output["train_avg"] = mean(train_lst)
@@ -411,9 +411,9 @@ class BagBase(BaseEstimator):
 
         # Add ensemble performance with renamed keys
         if "ensemble" in performance:
-            performance_output["train_ensemble"] = performance["ensemble"]["train"]
-            performance_output["dev_ensemble"] = performance["ensemble"]["dev"]
-            performance_output["test_ensemble"] = performance["ensemble"]["test"]
+            performance_output["train_ensemble"] = performance["ensemble"][DataPartition.TRAIN]
+            performance_output["dev_ensemble"] = performance["ensemble"][DataPartition.DEV]
+            performance_output["test_ensemble"] = performance["ensemble"][DataPartition.TEST]
 
         return performance_output
 
@@ -431,7 +431,7 @@ class BagBase(BaseEstimator):
         rows = []
 
         # Per-split scores
-        for partition in ["train", "dev", "test"]:
+        for partition in DataPartition:
             lst_key = f"{partition}_lst"
             avg_key = f"{partition}_avg"
             ensemble_key = f"{partition}_ensemble"
@@ -600,9 +600,9 @@ class BagBase(BaseEstimator):
             fi_methods = []
 
         if FIComputeMethod.PERMUTATION in fi_methods:
-            fi_df = self.fi[fi_storage_key(FIComputeMethod.PERMUTATION, "dev", "mean")]
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.PERMUTATION, DataPartition.DEV, "mean")]
         elif FIComputeMethod.SHAP in fi_methods:
-            fi_df = self.fi[fi_storage_key(FIComputeMethod.SHAP, "dev", "mean")]
+            fi_df = self.fi[fi_storage_key(FIComputeMethod.SHAP, DataPartition.DEV, "mean")]
         elif FIComputeMethod.INTERNAL in fi_methods:
             fi_df = self.fi[fi_storage_key(FIComputeMethod.INTERNAL, stat="mean")]
         elif FIComputeMethod.CONSTANT in fi_methods:

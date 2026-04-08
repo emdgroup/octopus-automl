@@ -18,7 +18,7 @@ from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
-from octopus.types import CorrelationType, FIComputeMethod, LogGroup, MetricDirection, MLType, ResultType
+from octopus.types import CorrelationType, DataPartition, FIComputeMethod, LogGroup, MetricDirection, MLType, ResultType
 from octopus.utils import joblib_load, parquet_save
 
 from .bag import Bag, BagBase
@@ -231,13 +231,13 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         ensel = EnSel(
             target_metric=study_context.target_metric,
             path_trials=scratch_dir,
-            max_n_iterations=100,
+            max_n_iterations=50,
             row_id_col=study_context.row_id_col,
             target_assignments=study_context.target_assignments,
             positive_class=study_context.positive_class,
             n_assigned_cpus=n_assigned_cpus,
         )
-        ensemble_paths_dict = ensel.start_ensemble
+        ensemble_paths_dict = ensel.optimized_ensemble
         return self._create_ensemble_bag(study_context, outer_split_id, n_assigned_cpus, ensemble_paths_dict, results)
 
     def _create_ensemble_bag(
@@ -265,6 +265,11 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
                     train_cp = copy.deepcopy(training)
                     train_cp.training_id = training_id + "_" + str(train_id)
                     train_cp.training_weight = 1
+                    # Update inner_split_id in predictions to match new training position
+                    for part in train_cp.predictions:
+                        if isinstance(train_cp.predictions[part], pd.DataFrame):
+                            train_cp.predictions[part] = train_cp.predictions[part].copy()
+                            train_cp.predictions[part]["inner_split_id"] = str(train_id)
                     train_id += 1
                     trainings.append(train_cp)
 
@@ -292,7 +297,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         # calculate feature importances of best bag
         fi_methods: list[FIComputeMethod] = []  # disable calculation of pfi for ensel_bag
         ensel_bag_fi = ensel_bag.calculate_fi(
-            fi_methods=fi_methods, partitions=["dev"], n_assigned_cpus=n_assigned_cpus
+            fi_methods=fi_methods, partitions=[DataPartition.DEV], n_assigned_cpus=n_assigned_cpus
         )
 
         # calculate selected features
@@ -488,7 +493,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         # calculate feature importances of best bag
         fi_methods = self.config.fi_methods
-        best_bag_fi = best_bag.calculate_fi(fi_methods, partitions=["dev"], n_assigned_cpus=n_assigned_cpus)
+        best_bag_fi = best_bag.calculate_fi(fi_methods, partitions=[DataPartition.DEV], n_assigned_cpus=n_assigned_cpus)
 
         # calculate selected features
         selected_features = best_bag.get_selected_features(fi_methods)
