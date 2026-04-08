@@ -6,8 +6,6 @@ from typing import Literal
 
 from attrs import define, field, validators
 
-from octopus.types import AutoGluonFitStrategy
-
 from ..base import ModuleExecution, Task
 
 
@@ -30,23 +28,6 @@ class AutoGluon(Task):
         default="auto", validator=validators.or_(validators.instance_of(float), validators.in_(["auto"]))
     )
     """Memory limit in GB."""
-
-    fit_strategy: AutoGluonFitStrategy = field(
-        default=AutoGluonFitStrategy.SEQUENTIAL,
-        converter=AutoGluonFitStrategy,
-        validator=validators.in_(list(AutoGluonFitStrategy)),
-    )
-    """Controls whether AutoGluon trains models one at a time or concurrently by
-    trading off exploration of more model types and quality of the individual
-    models.
-
-    - ``SEQUENTIAL`` (default): Trains one model at a time. Each model gets all
-      CPUs allocated to the worker, individual models train quickly and
-      benefit more from full CPU access.
-    - ``PARALLEL``: Trains multiple models in parallel, splitting CPUs across
-      them. Explores more model types within a tight ``time_limit`` but gives
-      each model fewer resources.
-    """
 
     presets: list[str] = field(
         default=["medium_quality"],

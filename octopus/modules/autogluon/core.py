@@ -174,7 +174,7 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
             infer_limit=self.config.infer_limit,
             memory_limit=self.config.memory_limit,
             presets=self.config.presets,
-            fit_strategy=self.config.fit_strategy,
+            fit_strategy="sequential",
             num_bag_folds=self.config.num_bag_folds,
             included_model_types=self.config.included_model_types,
             num_cpus=num_assigned_cpus,

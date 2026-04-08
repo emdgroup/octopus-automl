@@ -179,16 +179,6 @@ class RelevanceMethod(StrEnum):
     PERMUTATION = "permutation"
 
 
-class AutoGluonFitStrategy(StrEnum):
-    """Controls whether AutoGluon trains models sequentially or in parallel.
-
-    Used in ``AutoGluon.fit_strategy``, passed directly to ``TabularPredictor.fit()``.
-    """
-
-    SEQUENTIAL = "sequential"
-    PARALLEL = "parallel"
-
-
 class ScoringMethod(StrEnum):
     """Determines which bag performance statistic is used as the Optuna optimisation target.
 
