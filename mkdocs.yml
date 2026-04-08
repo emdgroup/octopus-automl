@@ -28,23 +28,29 @@ theme:
     - search.highlight
     #- content.action.edit
     - content.code.copy
-  logo: assets/logo.svg
-  favicon: assets/favicon.png
+  logo: assets/white-octo.png
+  favicon: assets/white-octo.png
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
+      primary: blue
+      accent: blue
       toggle:
         icon: material/brightness-auto
         name: Switch to light mode
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      primary: blue
+      accent: blue
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: blue
+      accent: blue
       toggle:
         icon: material/brightness-4
         name: Switch to system preference
