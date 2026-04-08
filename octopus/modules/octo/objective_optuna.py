@@ -192,7 +192,7 @@ class ObjectiveOptuna:
             # only consider if n_features_mean > max_features
             diff_nfeatures = max(diff_nfeatures, 0)
             n_features = len(self.feature_cols)
-            optuna_target = optuna_target - 1.0 * diff_nfeatures / n_features
+            optuna_target = optuna_target - self.config.penalty_factor * diff_nfeatures / n_features
 
         # save bag if we plan to run ensemble selection
         if self.ensel:

@@ -92,6 +92,15 @@ class Octo(Task):
     max_features: int = field(validator=[validators.instance_of(int)], default=0)
     """Maximum features to constrain hyperparameter optimization. Default is zero (off)."""
 
+    penalty_factor: float = field(validator=[validators.instance_of(float)], default=1.0)
+    """Penalty multiplier for the feature-count constraint in Optuna optimization.
+
+    Scales the penalty applied when the number of selected features exceeds
+    ``max_features``.  For regression tasks whose target metric is not in the
+    0..1 range the default of 1.0 may be too small or too large; adjust this
+    value to balance feature reduction against prediction quality.
+    """
+
     n_mrmr_features: list[int] = field(validator=[validators.instance_of(list)], default=Factory(list))
     """Number-of-feature options for MRMR pre-selection during Optuna optimization.
 
