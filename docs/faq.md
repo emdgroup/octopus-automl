@@ -10,7 +10,7 @@ To ensure proper data type roundtrip, the module `octopus.utils` provides the fu
 Files written with `parquet_save()` are expected to be readable with every parquet-compatible code.
 Still, proper dtypes are only guaranteed to be reconstructed using `parquet_load()`.
 
-For details on which dtypes are tested and supported, see [tests/infrastructure/test_file_io.py](https://github.com/emdgroup/octopus/blob/main/tests/infrastructure/test_file_io.py).
+For details on which dtypes are tested and supported, see [tests/infrastructure/test_file_io.py](https://github.com/emdgroup/octopus-automl/blob/main/tests/infrastructure/test_file_io.py).
 
 
 ## How does parallelization work in `octopus`, what are `n_cpus`, `n_workers`,  `n_assigned_cpus`?

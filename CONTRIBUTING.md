@@ -331,7 +331,7 @@ All tools run automatically via pre-commit hooks and CI/CD.
 
 ## Questions?
 
-- Open an issue: [GitHub Issues](https://github.com/emdgroup/octopus/issues/)
+- Open an issue: [GitHub Issues](https://github.com/emdgroup/octopus-automl/issues/)
 - Contact maintainers: [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 **Thank you for contributing to Octopus!**
