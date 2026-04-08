@@ -95,10 +95,18 @@ class Octo(Task):
     penalty_factor: float = field(validator=[validators.instance_of(float)], default=1.0)
     """Penalty multiplier for the feature-count constraint in Optuna optimization.
 
-    Scales the penalty applied when the number of selected features exceeds
-    ``max_features``.  For regression tasks whose target metric is not in the
-    0..1 range the default of 1.0 may be too small or too large; adjust this
-    value to balance feature reduction against prediction quality.
+    When ``max_features > 0``, Optuna penalises trials that use more features
+    than allowed::
+
+        penalty = penalty_factor * excess_features / total_features
+
+    This penalty is subtracted from the optimisation target in the same numeric
+    space as the target metric.  The default of ``1.0`` works well for metrics
+    bounded between 0 and 1 (AUCROC, ACCBAL, R2, …).  For metrics on a larger
+    scale (MAE, MSE, RMSE, …) the penalty becomes negligible relative to the
+    score and feature constraining has no effect.  In that case, increase
+    ``penalty_factor`` to match the metric's magnitude — e.g. if MAE ≈ 100,
+    try ``penalty_factor=100.0``.
     """
 
     n_mrmr_features: list[int] = field(validator=[validators.instance_of(list)], default=Factory(list))

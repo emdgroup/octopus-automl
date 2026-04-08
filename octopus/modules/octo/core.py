@@ -328,6 +328,16 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         outersplit_task_id = f"{outersplit_id}_{self.config.task_id}"
         task_path = f"outersplit{outersplit_id}/task{self.config.task_id}"
 
+        # Warn when the penalty_factor may not match the metric's scale
+        if self.config.max_features > 0 and study_context.target_metric in {"MAE", "MSE", "RMSE"}:
+            logger.warning(
+                "penalty_factor=%.2f is used with metric '%s' whose values are not "
+                "in the 0..1 range. Make sure penalty_factor is scaled to the "
+                "metric's magnitude for the feature constraint to be effective.",
+                self.config.penalty_factor,
+                study_context.target_metric,
+            )
+
         # set up Optuna study
         objective = ObjectiveOptuna(
             outersplit_task_id=outersplit_task_id,
