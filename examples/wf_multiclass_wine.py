@@ -28,7 +28,7 @@ print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict
 # OctoClassification automatically detects multiclass (>2 classes) from the data
 study = OctoClassification(
     study_name="multiclass_wine",
-    study_path=os.environ.get("STUDIES_PATH", "./studies"),
+    studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="AUCROC_MACRO",
     feature_cols=features,
     target_col="target",

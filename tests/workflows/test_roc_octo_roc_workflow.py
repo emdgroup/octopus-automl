@@ -120,7 +120,7 @@ class TestRocOctoRocWorkflow:
                 target_col="target",
                 sample_id_col="sample_id_col",
                 stratification_col="target",
-                study_path=temp_dir,
+                studies_directory=temp_dir,
                 workflow=[
                     Roc(
                         description="step_0_roc_initial",
@@ -264,7 +264,7 @@ class TestRocOctoRocWorkflow:
                 stratification_col="target",
                 outer_split_seed=1234,
                 n_outer_splits=2,
-                study_path=temp_dir,
+                studies_directory=temp_dir,
                 single_outer_split=0,
                 workflow=[
                     Roc(

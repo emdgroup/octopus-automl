@@ -37,7 +37,7 @@ def basic_study():
             feature_cols=["feature1", "feature2", "feature3"],
             target_col="target",
             sample_id_col="sample_id_col",
-            study_path=temp_dir,
+            studies_directory=temp_dir,
         )
 
 
@@ -60,7 +60,7 @@ def test_regression_ml_type():
             feature_cols=["f1"],
             target_col="target",
             sample_id_col="id",
-            study_path=temp_dir,
+            studies_directory=temp_dir,
         )
         assert study.ml_type == MLType.REGRESSION
 
@@ -74,7 +74,7 @@ def test_default_workflow():
             feature_cols=["f1"],
             target_col="target",
             sample_id_col="id",
-            study_path=temp_dir,
+            studies_directory=temp_dir,
         )
         assert len(study.workflow) == 1
         assert isinstance(study.workflow[0], Octo)
@@ -90,7 +90,7 @@ def test_default_values():
             feature_cols=["f1"],
             target_col="target",
             sample_id_col="id",
-            study_path=temp_dir,
+            studies_directory=temp_dir,
         )
         assert study.row_id_col is None
         assert study.stratification_col is None
@@ -113,7 +113,7 @@ def test_ml_type_values():
                 target_metric=metric,
                 feature_cols=["f1"],
                 sample_id_col="id",
-                study_path=temp_dir,
+                studies_directory=temp_dir,
                 **extra_kwargs,
             )
             assert study.ml_type == expected_ml_type

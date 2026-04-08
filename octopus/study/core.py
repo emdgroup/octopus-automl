@@ -76,8 +76,8 @@ class OctoStudy(ABC):
     )
     """A list of tasks that defines the processing workflow. Each item in the list is an instance of `Task`."""
 
-    study_path: UPath = field(default=UPath("./studies/"), converter=lambda x: UPath(x))
-    """The path where study outputs are saved. Defaults to "./studies/"."""
+    studies_directory: UPath = field(default=UPath("./studies/"), converter=lambda x: UPath(x))
+    """Parent directory under which timestamped study folders are created. Defaults to \"./studies/\"."""
 
     ml_type: MLType = field(init=False)
     """The type of machine learning model. Set automatically by subclass."""
@@ -104,7 +104,7 @@ class OctoStudy(ABC):
             raise RuntimeError("output_path is not available until fit() has been called.")
         fit_dt = datetime.datetime.fromisoformat(self._fit_timestamp)
         folder_name = f"{self.study_name}-{fit_dt.strftime('%Y%m%d_%H%M%S')}"
-        return self.study_path / folder_name
+        return self.studies_directory / folder_name
 
     @property
     def log_dir(self) -> UPath:

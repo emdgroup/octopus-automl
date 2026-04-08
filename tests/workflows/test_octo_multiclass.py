@@ -77,7 +77,7 @@ class TestOctoMulticlass:
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                study_path=temp_dir,
+                studies_directory=temp_dir,
             )
 
             assert study.target_col == "target"
@@ -200,7 +200,7 @@ class TestOctoMulticlass:
                 stratification_col="target",
                 outer_split_seed=1234,
                 n_outer_splits=2,
-                study_path=temp_dir,
+                studies_directory=temp_dir,
                 single_outer_split=0,
                 workflow=[
                     Octo(
@@ -287,7 +287,7 @@ class TestOctoMulticlass:
                     feature_cols=["f1"],
                     target_col="target",
                     sample_id_col="index",
-                    study_path=temp_dir,
+                    studies_directory=temp_dir,
                 )
 
                 assert study.target_metric == target_metric

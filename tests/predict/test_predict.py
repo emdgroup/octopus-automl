@@ -78,7 +78,7 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
         stratification_col="target",
         outer_split_seed=1234,
         n_outer_splits=2,
-        study_path=tmp_path,
+        studies_directory=tmp_path,
         workflow=[
             Octo(
                 description="step_1_octo",

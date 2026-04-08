@@ -25,7 +25,7 @@ print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict
 ### Create and run OctoClassification
 study = OctoClassification(
     study_name="basic_classification",
-    study_path=os.environ.get("STUDIES_PATH", "./studies"),
+    studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="AUCROC",
     feature_cols=features,
     target_col="target",

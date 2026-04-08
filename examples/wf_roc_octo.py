@@ -31,7 +31,7 @@ print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict
 
 study = OctoClassification(
     study_name="example_roc_octo",
-    study_path=os.environ.get("STUDIES_PATH", "./studies"),
+    studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="ACCBAL",  # Balanced accuracy for binary classification
     feature_cols=features,
     target_col="target",

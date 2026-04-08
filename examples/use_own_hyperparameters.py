@@ -30,7 +30,7 @@ print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict
 ### Create and run OctoRegression with custom hyperparameters
 study = OctoRegression(
     study_name="use_own_hyperparameters_example",
-    study_path=os.environ.get("STUDIES_PATH", "./studies"),
+    studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="MAE",
     feature_cols=features,
     target_col="target",

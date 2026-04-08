@@ -23,7 +23,7 @@ print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict
 ### Create and run OctoRegression with multi-step workflow
 study = OctoRegression(
     study_name="example_multiworkflow",
-    study_path=os.environ.get("STUDIES_PATH", "./studies"),
+    studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="R2",
     feature_cols=features,
     target_col="target",

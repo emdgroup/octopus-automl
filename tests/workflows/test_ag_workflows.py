@@ -55,7 +55,7 @@ class TestAutogluonWorkflows:
             stratification_col="target",
             outer_split_seed=1234,
             n_outer_splits=5,
-            study_path=self.studies_path,
+            studies_directory=self.studies_path,
             single_outer_split=0,
             workflow=[
                 AutoGluon(
@@ -118,7 +118,7 @@ class TestAutogluonWorkflows:
             sample_id_col="index",
             outer_split_seed=1234,
             n_outer_splits=2,
-            study_path=self.studies_path,
+            studies_directory=self.studies_path,
             single_outer_split=0,
             workflow=[
                 AutoGluon(

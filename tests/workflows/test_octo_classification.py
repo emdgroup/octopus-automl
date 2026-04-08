@@ -68,7 +68,7 @@ class TestOctoIntroClassification:
                 target_col="target",
                 sample_id_col="index",
                 stratification_col="target",
-                study_path=temp_dir,
+                studies_directory=temp_dir,
             )
 
             assert study.target_col == "target"
@@ -185,7 +185,7 @@ class TestOctoIntroClassification:
                 stratification_col="target",
                 outer_split_seed=1,
                 n_outer_splits=2,
-                study_path=temp_dir,
+                studies_directory=temp_dir,
                 workflow=[
                     Octo(
                         description="step_1_octo",

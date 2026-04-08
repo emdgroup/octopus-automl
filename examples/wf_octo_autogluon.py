@@ -66,7 +66,7 @@ print("=====================================\n")
 
 study = OctoClassification(
     study_name="wf_octo_autogluon_parallel",
-    study_path=os.environ.get("STUDIES_PATH", "./studies"),
+    studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="AUCROC",  # Area Under ROC Curve for binary classification
     feature_cols=feature_names,
     target_col="target",

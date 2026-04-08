@@ -189,7 +189,7 @@ class TestFSSpecIntegration:
                     stratification_col="target",
                     outer_split_seed=1,
                     n_outer_splits=2,
-                    study_path=root_dir,
+                    studies_directory=root_dir,
                     single_outer_split=0,
                     workflow=[
                         Octo(

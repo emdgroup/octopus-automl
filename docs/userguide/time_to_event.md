@@ -59,7 +59,7 @@ study = OctoTimeToEvent(
     event_col="event",
     sample_id_col="patient_id",
     metrics=["CI"],
-    study_path="./results",
+    studies_directory="./results",
     workflow=[
         Octo(
             task_id=0,
