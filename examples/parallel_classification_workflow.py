@@ -1,12 +1,28 @@
 """Example: Parallel Octo and AutoGluon workflow for binary classification."""
 
-# This example demonstrates how to use Octopus with both Octo and AutoGluon modules
-# in a PARALLEL workflow for binary classification. In this case, both modules are run on the same input data.
+# # Parallel Classification Workflow
 #
-# The workflow includes:
-# 1. Octo module
-# 2. AutoGluon module
-# Both modules operate on the same base input data.
+# So far, all workflow examples have been *sequential* — each task feeds into the next.
+# But Octopus also supports **parallel** execution: multiple tasks that independently
+# process the same input data. This is useful when you want to compare different
+# approaches side by side, or combine specialized modules on the same feature set.
+#
+# In this example, we run **Octo** and **AutoGluon** in parallel on a synthetic
+# high-dimensional dataset (1000 features, only 60 informative). Both modules
+# receive the full feature set and work independently.
+#
+# **What this example covers:**
+#
+# - Running two modules in parallel using `depends_on=None` on both
+# - Using AutoGluon alongside Octo in the same study
+# - Working with high-dimensional synthetic data
+#
+# **How parallel execution works:**
+#
+# When two or more tasks set `depends_on=None`, they all receive the original
+# feature set and run independently. Compare this to sequential workflows where
+# `depends_on=<task_id>` chains tasks together. You can also mix both patterns —
+# for example, two parallel branches that each feed into a downstream task.
 
 import os
 
@@ -17,7 +33,11 @@ from octopus.modules import AutoGluon, Octo
 from octopus.study import OctoClassification
 from octopus.types import FIComputeMethod, ModelName
 
-### Generate Synthetic Binary Classification Dataset
+### Generate Synthetic Dataset
+#
+# We create a challenging binary classification problem with 1000 features but only
+# 30 informative and 30 redundant ones. The remaining 940 features are pure noise.
+# This simulates a real-world scenario where most measured variables are irrelevant.
 n_informative = 30
 n_redundant = 30
 n_repeated = 0
@@ -62,7 +82,11 @@ print(f"Class distribution:\n{df['target'].value_counts()}")
 print(f"Class balance: {df['target'].value_counts(normalize=True).to_dict()}")
 print("=====================================\n")
 
-### Create and run OctoClassification with PARALLEL Octo + AutoGluon workflow
+### Create and Run the Study
+#
+# Both tasks have `depends_on=None`, so they run in parallel on the full feature set.
+# After the study completes, you can compare their results to see which approach
+# worked better for this particular dataset.
 
 study = OctoClassification(
     study_name="wf_octo_autogluon_parallel",
@@ -74,32 +98,28 @@ study = OctoClassification(
     stratification_col="target",  # Ensure balanced splits
     n_outer_splits=5,  # 5-split outer cross-validation
     workflow=[
-        # Step 0: octo
+        # Task 0: Octo — Optuna-based hyperparameter optimization
         Octo(
             description="step_0_octo",
             task_id=0,
-            depends_on=None,  # No dependency (parallel with AutoGluon)
-            # Cross-validation settings
+            depends_on=None,  # parallel: receives all features
             n_inner_splits=5,
-            # Model selection - using tree-based models for feature importance
             models=[
                 ModelName.ExtraTreesClassifier,
             ],
-            fi_methods=[FIComputeMethod.PERMUTATION],  # Feature importance method
-            n_trials=100,  # Number of hyperparameter optimization trials
-            # Constrained hyperparameter optimization
-            # max_features=60,  # Maximum number of features to select
+            fi_methods=[FIComputeMethod.PERMUTATION],
+            n_trials=100,
         ),
-        # Step 1: AutoGluon
+        # Task 1: AutoGluon — AutoML with its own model selection and ensembling
         AutoGluon(
             description="step_1_autogluon",
             task_id=1,
-            depends_on=None,  # No dependency (parallel with Octo)
+            depends_on=None,  # parallel: also receives all features
             time_limit=600,
-            presets=["medium_quality"],  # Balance between speed and accuracy
-            n_bag_splits=5,  # 5-split bagging for ensemble models
+            presets=["medium_quality"],
+            n_bag_splits=5,
             included_model_types=[
-                "XT",  # ExtraTrees
+                "XT",
             ],
         ),
     ],

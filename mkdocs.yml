@@ -86,7 +86,8 @@ nav:
       - Classification: "userguide/classification.md"
       - Regression: "userguide/regression.md"
       - Time to Event: "userguide/time_to_event.md"
-      - Examples: examples/
+      - Example Workflows: examples/
+      - Analysis & Diagnostics: diagnostics/
       - Command Line Interface: "userguide/cli.md"
       - FAQ: faq.md
   - Concepts:

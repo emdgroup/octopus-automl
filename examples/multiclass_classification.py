@@ -1,12 +1,28 @@
 """Multiclass Workflow script for Octopus using Wine dataset."""
 
-# Multiclass classification example using Octopus
-
-# This example demonstrates how to use Octopus to create a multiclass classification model.
-# We will use the Wine dataset from sklearn for this purpose.
-# The Wine dataset contains 3 classes (wine types) with 13 features.
-# Please ensure your dataset is clean, with no missing values (`NaN`),
-# and that all features are numeric.
+# # Multiclass Classification
+#
+# Most classification examples deal with two classes (binary). But many real-world
+# problems have three or more categories — for example, predicting a disease subtype,
+# a product category, or in this case, the type of wine.
+#
+# **What this example covers:**
+#
+# - Running a multiclass classification study with `OctoClassification`
+# - How Octopus automatically detects multiclass problems
+# - Choosing an appropriate multiclass metric
+# - Using multiple model types in a single study
+#
+# **How multiclass differs from binary classification in Octopus:**
+#
+# - You still use `OctoClassification` — Octopus detects that there are more than two
+#   classes in the target column and switches to multiclass mode automatically.
+# - Use multiclass-aware metrics like `AUCROC_MACRO` (averages AUCROC across all classes)
+#   instead of binary metrics like `AUCROC`.
+# - Internally, models and evaluation adapt to the multiclass setting (e.g., one-vs-rest
+#   for ROC curves, macro averaging for balanced metrics).
+# - The Wine dataset used here has 3 classes and only 13 features — a small but
+#   well-separated problem.
 
 import os
 
@@ -24,8 +40,12 @@ print(f"  Samples: {df.shape[0]}")
 print(f"  Classes: {len(targets)} - {targets}")
 print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict()}")
 
-### Create and run OctoClassification for multiclass classification
-# OctoClassification automatically detects multiclass (>2 classes) from the data
+### Create and Run the Study
+#
+# We try four different tree-based models in a single Octo task. Optuna will explore
+# hyperparameters for each of them and select the best-performing configuration.
+#
+# Using `single_outer_split=0` runs only the first outer fold for faster iteration.
 study = OctoClassification(
     study_name="multiclass_wine",
     studies_directory=os.environ.get("STUDIES_PATH", "./studies"),

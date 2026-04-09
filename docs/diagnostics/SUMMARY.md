@@ -1,0 +1,3 @@
+- [Classification Analysis](analyse_study_classification.md)
+- [Classification Diagnostics](diagnostics_octo_classification.md)
+- [Regression Diagnostics](diagnostics_octo_regression.md)
