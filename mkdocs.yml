@@ -29,7 +29,7 @@ theme:
     #- content.action.edit
     - content.code.copy
   logo: assets/white-octo.png
-  favicon: assets/white-octo.png
+  favicon: assets/octo-favicon.png
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
