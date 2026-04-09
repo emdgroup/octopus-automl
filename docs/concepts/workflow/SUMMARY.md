@@ -1,0 +1,8 @@
+- [Workflow & Modules](index.md)
+- Feature Selection
+    - [Boruta](boruta.md)
+    - [MRMR](mrmr.md)
+    - [ROC](roc.md)
+- Machine Learning
+    - [AutoGluon](autogluon.md)
+    - [Octo](octo.md)

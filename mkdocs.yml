@@ -1,6 +1,6 @@
 site_name: Octopus Documentation
-site_url: https://emdgroup.github.io/octopus/
-repo_url: https://github.com/emdgroup/octopus
+site_url: https://emdgroup.github.io/octopus-automl/
+repo_url: https://github.com/emdgroup/octopus-automl
 
 edit_uri: edit/main/docs/
 
@@ -9,7 +9,7 @@ extra:
     provider: mike
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/emdgroup/octopus
+      link: https://github.com/emdgroup/octopus-automl
       name: Octopus on GitHub
 
 copyright: Copyright &copy; 2024 - 2026 Merck KGaA, Darmstadt, Germany and contributors.
@@ -28,23 +28,29 @@ theme:
     - search.highlight
     #- content.action.edit
     - content.code.copy
-  logo: assets/logo.svg
-  favicon: assets/favicon.png
+  logo: assets/white-octo.png
+  favicon: assets/octo-favicon.png
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
+      primary: blue
+      accent: blue
       toggle:
         icon: material/brightness-auto
         name: Switch to light mode
     # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      primary: blue
+      accent: blue
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: blue
+      accent: blue
       toggle:
         icon: material/brightness-4
         name: Switch to system preference
@@ -75,32 +81,38 @@ plugins:
 
 nav:
   - Octopus: index.md
+  - Getting Started: getting_started.md
   - User Guide:
       - "userguide/userguide.md"
+      - Data Health Check: "userguide/health_check.md"
       - Classification: "userguide/classification.md"
       - Regression: "userguide/regression.md"
       - Time to Event: "userguide/time_to_event.md"
-      - Examples: examples/
-      - Command Line Interface: "userguide/cli.md"
-      - FAQ: faq.md
+      - Understanding the Output: "userguide/output_structure.md"
   - Concepts:
       - "concepts/concepts.md"
       - Nested Cross-Validation: "concepts/nested_cv.md"
+      - Workflow & Modules: concepts/workflow/
       - Understanding the Results: "concepts/understanding_results.md"
       - Feature Importance: "concepts/feature_importance.md"
+      - Terminology: "concepts/terminology.md"
+  - Examples:
+      - Example Workflows: examples/
+      - Command Line Interface: "userguide/cli.md"
+  - FAQ: faq.md
+  - Analysis & Diagnostics: diagnostics/
   - API Reference:
       - "reference/reference.md"
-      - octopus.diagnostics: "reference/diagnostics.md"
-      - octopus.manager: "reference/manager.md"
-      - octopus.metrics: "reference/metrics.md"
-      - octopus.models: "reference/models.md"
-      - octopus.modules: "reference/modules.md"
-      - octopus.predict: "reference/predict.md"
-      - octopus.study: "reference/study.md"
-
+      - Study: "reference/study.md"
+      - Modules: "reference/modules.md"
+      - Models: "reference/models.md"
+      - Metrics: "reference/metrics.md"
+      - Manager: "reference/manager.md"
+      - Diagnostics: "reference/diagnostics.md"
+      - Predict: "reference/predict.md"
   - Project Info:
       - Contributing: contributing.md
       - Contributors: contributors.md
       - Changelog: changelog.md
-      - Known Issues: "https://github.com/emdgroup/octopus/issues/"
+      - Known Issues: "https://github.com/emdgroup/octopus-automl/issues/"
       - License: license.md

@@ -22,13 +22,15 @@ if not _log.hasHandlers():
 REPOSITORY_ROOT = Path(__file__).parent.parent.parent.absolute()
 EXAMPLES_DIR = REPOSITORY_ROOT / "examples"
 DOCS_DIR = REPOSITORY_ROOT / "docs"
-TARGET_DIR = DOCS_DIR / "examples"
+WORKFLOWS_TARGET_DIR = DOCS_DIR / "examples"
+DIAGNOSTICS_TARGET_DIR = DOCS_DIR / "diagnostics"
 EXCLUDED_FILES = {"__init__.py"}
 FORCE = False
 
-_log.debug(f"Converting all scripts in {EXAMPLES_DIR} to markdown files in {TARGET_DIR}")
+_log.debug(f"Converting all scripts in {EXAMPLES_DIR} to markdown files")
 
-TARGET_DIR.mkdir(parents=True, exist_ok=True)
+WORKFLOWS_TARGET_DIR.mkdir(parents=True, exist_ok=True)
+DIAGNOSTICS_TARGET_DIR.mkdir(parents=True, exist_ok=True)
 
 for example_script in chain.from_iterable([EXAMPLES_DIR.glob("*.py"), EXAMPLES_DIR.glob("*.ipynb")]):
     if example_script.name in EXCLUDED_FILES:
@@ -36,21 +38,27 @@ for example_script in chain.from_iterable([EXAMPLES_DIR.glob("*.py"), EXAMPLES_D
 
     _log.info(f"Converting {example_script.name}")
 
-    target_file = TARGET_DIR / f"{example_script.stem}.md"
+    # Route .py files (workflows) and .ipynb files (diagnostics) to separate directories
+    if example_script.suffix == ".py":
+        target_dir = WORKFLOWS_TARGET_DIR
+    else:
+        target_dir = DIAGNOSTICS_TARGET_DIR
+
+    target_file = target_dir / f"{example_script.stem}.md"
 
     if not target_file.exists() or FORCE:
         env = os.environ | {"ALWAYS_OVERWRITE_STUDY": "yes"}
 
         if example_script.suffix == ".py":
             # remove a module docstring
-            temp_script = TARGET_DIR / f"{example_script.stem}.py"
+            temp_script = target_dir / f"{example_script.stem}.py"
             with open(example_script) as inp, open(temp_script, "w", encoding="UTF-8") as out:
                 module_code = inp.read()
                 module_code_no_docstring = re.sub(r'^("""|\'\'\')[^"\']*\1\n*', "", module_code, flags=re.DOTALL)
                 out.write(module_code_no_docstring)
 
             # Convert python script to notebook first
-            temp_notebook = TARGET_DIR / f"{example_script.stem}.ipynb"
+            temp_notebook = target_dir / f"{example_script.stem}.ipynb"
             proc = subprocess.run(
                 [
                     sys.executable,

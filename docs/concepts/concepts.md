@@ -4,13 +4,10 @@ This section explains the core concepts and methodologies used in Octopus to hel
 
 ## What You'll Learn
 
-- **Nested Cross-Validation** - Understand the nested CV approach that makes Octopus suitable for small datasets
-- **Core Concepts** - Key terms, architecture, and how Octopus works internally
-- **Understanding Results** - How to interpret and use the predictions and metrics from Octopus
-
-## Quick Navigation
-
-- [Nested Cross-Validation](nested_cv.md) - Learn about the unique CV strategy that prevents overfitting
-- [Understanding Results](understanding_results.md) - How to read and use Octopus outputs
+- **[Nested Cross-Validation](nested_cv.md)** - The CV strategy that prevents overfitting and makes Octopus suitable for small datasets
+- **[Workflow & Modules](workflow/index.md)** - How to chain feature selection and ML modules into multi-step pipelines
+- **[Understanding Results](understanding_results.md)** - How to interpret the predictions and metrics from Octopus. See also [Understanding the Output](../userguide/output_structure.md) for the file-level details.
+- **[Feature Importance](feature_importance.md)** - Methods for computing and interpreting feature importances
+- **[Terminology](terminology.md)** - Definitions of key Octopus terms (Bag, Training, Outer/Inner Split, etc.)
 
 If you're new to Octopus, we recommend starting with "Nested Cross-Validation" to understand why this tool is different.
