@@ -74,6 +74,7 @@ study.fit(data=df)
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `target_metric` | Metric to optimize | `"AUCROC"` |
+| `sample_id_col` | Column identifying unique subjects (prevents correlated observation leakage) | `None` |
 | `stratification_col` | Column used to keep class ratios balanced across CV splits | `None` |
 | `n_outer_splits` | Number of outer cross-validation splits | `5` |
 | `single_outer_split` | Run only one split for quick testing (e.g., `0`) | `None` |
@@ -82,6 +83,12 @@ study.fit(data=df)
 !!! tip
     Always set `stratification_col` for classification tasks. Without it, some splits
     may end up with very few samples of the minority class, especially on small datasets.
+
+!!! tip
+    If your dataset contains multiple rows per subject (e.g. longitudinal measurements,
+    repeated experiments), set `sample_id_col` to the column identifying subjects.
+    Octopus will ensure all rows from the same subject stay in the same split,
+    preventing [information leakage](../concepts/nested_cv.md#what-is-information-leakage).
 
 ## Multiclass Classification
 

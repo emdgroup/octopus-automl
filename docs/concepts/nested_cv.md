@@ -23,6 +23,53 @@ tuning itself.
 Nested cross-validation solves this by adding a second layer of splitting that
 cleanly separates hyperparameter tuning from performance estimation.
 
+## What is information leakage?
+
+Information leakage occurs when data that would not be available at prediction
+time influences model training or evaluation. The result is an overly
+optimistic performance estimate that does not hold on truly new data. The
+selection bias described above is one form of leakage, but there are several
+others. Octopus is designed to prevent all of them.
+
+**Hyperparameter selection bias.**
+When the same validation score is used both to select hyperparameters and to
+report performance, the reported number is too optimistic. Nested CV prevents
+this by evaluating on an outer test set that the inner tuning loop never
+touches (see [How it works](#how-it-works) below).
+
+**Correlated observation leakage.**
+If your dataset contains multiple rows for the same subject (e.g. repeated
+measurements from one patient), a naive random split can place some of a
+subject's rows in the training set and others in the test set. The model then
+"recognizes" the subject rather than learning generalizable patterns. Octopus
+handles this automatically: it groups rows by `sample_id_col` and also detects
+rows with identical feature vectors using a union-find algorithm. Entire groups
+are kept together in the same split via `GroupKFold` / `StratifiedGroupKFold`.
+See the [classification](../userguide/classification.md) and
+[regression](../userguide/regression.md) user guides for how to set
+`sample_id_col`.
+
+**Feature selection leakage.**
+Selecting features on the full dataset (including test data) lets information
+about the test distribution influence which features are chosen. In Octopus
+all feature selection modules (ROC, MRMR, Boruta) run _inside_ each outer
+split and only see the train+dev portion. The outer test set never influences
+which features are selected.
+
+**Preprocessing leakage.**
+Computing imputation values or scaling statistics on the full dataset
+(including test data) subtly leaks test information into the training
+pipeline. In Octopus the preprocessing pipeline (imputation, scaling) is fit
+exclusively on the inner training partition. Dev and test partitions are
+transformed using those statistics, never contributing to them.
+
+**Runtime validation.**
+As a final safeguard Octopus performs six runtime checks after every split:
+it verifies that no group appears in both train and test, that row indices do
+not overlap, that test splits cover all rows without duplication, and that no
+group is repeated across test partitions. Any violation raises an immediate
+error.
+
 ## How it works
 
 The idea is straightforward: wrap one cross-validation loop inside another.
