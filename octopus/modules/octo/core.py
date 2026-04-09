@@ -231,7 +231,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         ensel = EnSel(
             target_metric=study_context.target_metric,
             path_trials=scratch_dir,
-            max_n_iterations=50,
+            max_n_iterations=25,
             row_id_col=study_context.row_id_col,
             target_assignments=study_context.target_assignments,
             positive_class=study_context.positive_class,

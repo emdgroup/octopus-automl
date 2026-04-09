@@ -357,7 +357,7 @@ def test_ensemble_optimization_single_model_case(tmp_path):
     assert start_model == opt_model
 
 
-# ── Category A: Heap and trial library correctness ──────────────
+# Heap and trial library correctness
 
 
 def test_heap_retains_best_trials_minimize_metric(tmp_path):
@@ -468,7 +468,7 @@ def test_heap_tiebreak_on_equal_scores(tmp_path):
     assert len(surviving_files) == 3
 
 
-# ── Category B: Prediction cache integrity ──────────────────────
+# Prediction cache integrity
 
 
 def test_ensemble_models_preserves_prediction_cache(tmp_path):
@@ -507,7 +507,7 @@ def test_ensemble_models_idempotent(tmp_path):
     assert result1["test_ensemble"] == result2["test_ensemble"]
 
 
-# ── Category C: Optimization uses the right result ──────────────
+# Optimization uses the right result
 
 
 def test_optimized_ensemble_can_differ_from_start(tmp_path):
@@ -555,7 +555,7 @@ def test_optimized_ensemble_contains_only_known_bags(tmp_path):
         assert path in ensel.bags, f"Optimized ensemble contains unknown path: {path}"
 
 
-# ── Category D: use_best backtracking ────────────────────────────
+# use_best backtracking
 
 
 def test_optimization_runs_all_iterations(tmp_path):
@@ -603,7 +603,7 @@ def test_optimization_result_at_least_as_good_as_start(tmp_path):
     assert opt_perf <= start_perf + 1e-10, f"Optimized ({opt_perf:.6f}) should be <= start ({start_perf:.6f})"
 
 
-# ── Category F: Performance and I/O regression ───────────────────
+# Performance and I/O regression
 
 
 def test_no_joblib_load_during_scan(tmp_path, monkeypatch):
@@ -657,7 +657,7 @@ def test_no_joblib_load_during_optimization(tmp_path, monkeypatch):
     assert load_count["n"] == 0, f"_ensemble_optimization called joblib_load {load_count['n']} times; expected 0"
 
 
-# ── Category G (unit): Scan table invariants ─────────────────────
+# Scan table invariants
 
 
 def test_scan_table_evaluates_all_prefix_sizes(tmp_path):
