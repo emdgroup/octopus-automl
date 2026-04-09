@@ -18,7 +18,7 @@ Octopus ships two kinds of modules:
 
 | Type | Purpose | Examples |
 |------|---------|----------|
-| **Feature Selection** | Reduce the number of features | [ROC](roc.md), [MRMR](mrmr.md), [RFE](rfe.md), [RFE2](rfe2.md), [SFS](sfs.md), [Boruta](boruta.md), [EFS](efs.md) |
+| **Feature Selection** | Reduce the number of features | [ROC](roc.md), [MRMR](mrmr.md), [Boruta](boruta.md) |
 | **Machine Learning** | Train models, optimize hyperparameters, and optionally select features | [Octo](octo.md), [AutoGluon](autogluon.md) |
 
 Both types return a list of **selected features** that the next task in the workflow can consume.
@@ -100,11 +100,7 @@ expensive:
 |--------|-------|-------------|
 | **[ROC](roc.md)** | scipy, networkx (custom) | Removes correlated features using graph-based grouping |
 | **[MRMR](mrmr.md)** | Custom implementation | Maximum Relevance Minimum Redundancy filter |
-| **[RFE](rfe.md)** | sklearn `RFECV` | Recursive Feature Elimination with cross-validation |
-| **[RFE2](rfe2.md)** | Extends Octo (custom) | RFE using Octo's Optuna-based models |
-| **[SFS](sfs.md)** | mlxtend / sklearn | Sequential forward/backward selection |
 | **[Boruta](boruta.md)** | Custom (based on BorutaPy) | Shadow-feature statistical test |
-| **[EFS](efs.md)** | Custom implementation | Ensemble of models on random feature subsets |
 
 ---
 
