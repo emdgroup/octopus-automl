@@ -15,7 +15,7 @@ relevance signal and compresses the feature set for the next training round.
    the permutation feature importances produced by a prior Octo task (specified
    via `results_key`, `feature_importance_method`, and
    `feature_importance_type`). It aggregates importance values across inner
-   folds, keeps only features with positive importance, and uses these as the
+   splits, keeps only features with positive importance, and uses these as the
    relevance vector. Alternatively, when `relevance_type="f-statistics"`, MRMR
    computes univariate F-statistics directly from the data (no prior task
    needed).

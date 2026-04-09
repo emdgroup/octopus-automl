@@ -44,7 +44,7 @@ which real features carry true signal.
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `model` | `""` (auto) | Tree-based model only (`RandomForest`, `ExtraTrees`, or `XGB`) |
-| `cv` | `5` | Cross-validation folds for hyperparameter tuning |
+| `cv` | `5` | Cross-validation splits for hyperparameter tuning |
 | `perc` | `100` | Percentile threshold for shadow-feature comparison (100 = max shadow importance) |
 | `alpha` | `0.05` | Significance level for the statistical test |
 

@@ -19,7 +19,7 @@ wrapped in nested cross-validation.
   class discrimination (AUCROC, F1).
 - There is no `positive_class` or `ml_type` parameter.
 - Stratification is optional — it can still be useful if you have a categorical column
-  that should be balanced across folds (e.g., site or batch).
+  that should be balanced across splits (e.g., site or batch).
 
 ## Data Format
 
@@ -75,8 +75,8 @@ study.fit(data=df)
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `target_metric` | Metric to optimize | `"RMSE"` |
-| `n_outer_splits` | Number of outer cross-validation folds | `5` |
-| `single_outer_split` | Run only one fold for quick testing (e.g., `0`) | `None` |
+| `n_outer_splits` | Number of outer cross-validation splits | `5` |
+| `single_outer_split` | Run only one split for quick testing (e.g., `0`) | `None` |
 | `n_cpus` | Number of CPUs (`0` = all, `-1` = all but one) | `0` |
 
 ## Choosing a Metric

@@ -54,6 +54,6 @@ An optional post-processing step where the top-performing Bags from Optuna
 trials are greedily combined into a meta-ensemble. The selection procedure
 (hill-climbing with replacement) picks the subset of Bags that maximizes dev
 performance. The resulting ensemble Bag replaces the best single-trial Bag as
-the primary model for that outer fold.
+the primary model for that outer split.
 
 Enabled by setting `ensemble_selection=True` on the Octo task.

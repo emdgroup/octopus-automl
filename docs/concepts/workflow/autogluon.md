@@ -27,7 +27,7 @@ handles the rest.
     - Uses `num_bag_folds` for bagging/cross-validation within each model.
 
 3. **Evaluate performance.** After training, the module evaluates on train, dev
-   (out-of-fold), and test partitions. Scores are computed using both
+   (out-of-split), and test partitions. Scores are computed using both
    AutoGluon's built-in metrics and Octopus's metric implementations for
    cross-comparison.
 
@@ -68,7 +68,7 @@ model families:
 |-----------|---------|-------------|
 | `presets` | `["medium_quality"]` | Quality presets: `"best_quality"`, `"high_quality"`, `"good_quality"`, `"medium_quality"` |
 | `time_limit` | `None` | Total training time in seconds |
-| `num_bag_folds` | `5` | Bagging folds |
+| `num_bag_folds` | `5` | Bagging splits |
 | `included_model_types` | `None` | Restrict to specific model types (see table above) |
 | `fit_strategy` | `"sequential"` | `"sequential"` or `"parallel"` |
 | `verbosity` | `2` | Logging level (0--4) |

@@ -11,17 +11,17 @@ importances, the last to train a final model on the refined feature set.
 
 ### Hyperparameter optimization
 
-1. **Inner cross-validation setup.** The train+dev data is split into inner
-   folds (controlled by `n_folds_inner` and `datasplit_seeds_inner`). Each
-   Optuna trial trains a [Bag](../terminology.md#bag) of models -- one per
-   inner fold -- and evaluates them on the held-out dev folds. See
+1. **Inner cross-validation setup.** The train+dev data is divided into inner
+   splits (controlled by `n_folds_inner` and `datasplit_seeds_inner`). Each
+   Optuna trial trains a [Bag](../terminology.md#bag) of models, one per
+   inner split, and evaluates them on the held-out dev splits. See
    [Nested Cross-Validation](../nested_cv.md) for the full picture.
 
 2. **Optuna optimization.** A TPE (Tree-structured Parzen Estimator) sampler
    explores the hyperparameter space over `n_trials` trials. The first
    `n_optuna_startup_trials` use random sampling; the rest use multivariate TPE
    with grouping and constant-liar parallelism. The optimization target is
-   either the *pooled* or *averaged* dev-set performance across inner folds
+   either the *pooled* or *averaged* dev-set performance across inner splits
    (controlled by `optuna_return`).
 
 3. **MRMR feature subsets (optional).** When `mrmr_feature_numbers` is set, Octo
@@ -37,7 +37,7 @@ importances, the last to train a final model on the refined feature set.
 ### Best bag construction
 
 5. **Build the best bag.** After optimization, the best trial's hyperparameters
-   are used to train a fresh bag of models (one per inner fold) on the full
+   are used to train a fresh bag of models (one per inner split) on the full
    train+dev data. This "best bag" is the primary output model.
 
 6. **Feature importance calculation.** Feature importances are computed on the
@@ -61,7 +61,7 @@ importances, the last to train a final model on the refined feature set.
 ### Parallelization
 
 Octo supports inner parallelization via Ray. When `inner_parallelization=True`
-(the default), inner-fold model training is distributed across `n_workers`
+(the default), inner-split model training is distributed across `n_workers`
 workers. Each worker uses `n_jobs` CPUs for individual model fits.
 
 ## Key parameters
@@ -70,7 +70,7 @@ workers. Each worker uses `n_jobs` CPUs for individual model fits.
 |-----------|---------|-------------|
 | `models` | `["ExtraTreesClassifier"]` | Models to train (e.g., `ExtraTrees`, `RandomForest`, `XGB`, `CatBoost`) |
 | `n_trials` | `100` | Number of Optuna hyperparameter optimization trials |
-| `n_folds_inner` | `5` | Inner cross-validation folds |
+| `n_folds_inner` | `5` | Inner cross-validation splits |
 | `max_features` | `0` | Constrain maximum features during HPO (0 = no constraint) |
 | `penalty_factor` | `1.0` | Penalty for exceeding `max_features` |
 | `ensemble_selection` | `False` | Enable ensemble selection over top trials |
@@ -78,7 +78,7 @@ workers. Each worker uses `n_jobs` CPUs for individual model fits.
 | `fi_methods_bestbag` | `["permutation"]` | Feature importance methods: `"permutation"`, `"shap"`, `"constant"` |
 | `optuna_seed` | `0` | Optuna sampler seed |
 | `n_optuna_startup_trials` | `10` | Random trials before TPE sampler kicks in |
-| `inner_parallelization` | `True` | Parallelize inner folds via Ray |
+| `inner_parallelization` | `True` | Parallelize inner splits via Ray |
 | `n_workers` | *(n_folds_inner)* | Number of parallel workers |
 | `n_jobs` | `1` | CPUs per individual model fit |
 | `model_seed` | `0` | Random seed for models |

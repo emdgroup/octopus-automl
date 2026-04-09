@@ -74,13 +74,13 @@ study.fit(data=df)
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `target_metric` | Metric to optimize | `"AUCROC"` |
-| `stratification_col` | Column used to keep class ratios balanced across CV folds | `None` |
-| `n_outer_splits` | Number of outer cross-validation folds | `5` |
-| `single_outer_split` | Run only one fold for quick testing (e.g., `0`) | `None` |
+| `stratification_col` | Column used to keep class ratios balanced across CV splits | `None` |
+| `n_outer_splits` | Number of outer cross-validation splits | `5` |
+| `single_outer_split` | Run only one split for quick testing (e.g., `0`) | `None` |
 | `n_cpus` | Number of CPUs (`0` = all, `-1` = all but one) | `0` |
 
 !!! tip
-    Always set `stratification_col` for classification tasks. Without it, some folds
+    Always set `stratification_col` for classification tasks. Without it, some splits
     may end up with very few samples of the minority class, especially on small datasets.
 
 ## Multiclass Classification
