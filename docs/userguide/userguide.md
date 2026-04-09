@@ -11,8 +11,14 @@
 The most commonly used interface Octopus provides is the central
 [`OctoStudy`](../reference/study.md) object.
 
-Detailed examples of how to use individual API components can be found via the links below:
+## What You'll Learn
 
-* [Classification](classification.md)
-* [Regression](regression.md)
-* [Time to Event](time_to_event.md)
+- **[Data Health Check](health_check.md)** — Automatic dataset validation that runs before every training. Detects missing values, class imbalance, potential leakage, and more.
+- **Task-specific guides** — How to set up, configure, and run each study type:
+    - **[Classification](classification.md)** — Binary and multiclass classification with `OctoClassification`
+    - **[Regression](regression.md)** — Continuous target prediction with `OctoRegression`
+    - **[Time to Event](time_to_event.md)** — Survival analysis with censored observations using `OctoTimeToEvent`
+- **[Example Workflows](../examples/)** — End-to-end runnable examples covering common use cases.
+- **[Analysis & Diagnostics](../diagnostics/)** — Tools for inspecting study results, plotting performance, and computing feature importances.
+- **[Command Line Interface](cli.md)** — The `octopus` CLI for listing and opening examples.
+- **[FAQ](../faq.md)** — Answers to common questions on parallelization, data formats, and troubleshooting.
