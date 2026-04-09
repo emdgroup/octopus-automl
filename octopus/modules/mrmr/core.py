@@ -12,7 +12,7 @@ from sklearn.feature_selection import f_classif, f_regression
 from octopus.logger import get_logger
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.utils import rdc_correlation_matrix
-from octopus.types import CorrelationType, FIResultLabel, LogGroup, MLType, RelevanceMethod, ResultType
+from octopus.types import CorrelationType, FIResultLabel, LogGroup, MLType, MRMRRelevance, ResultType
 
 if TYPE_CHECKING:
     from octopus.modules import StudyContext
@@ -20,7 +20,14 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
+_EPS = 1e-8  # near-perfect correlation tolerance
+_LARGE_RED = 1e6  # large finite penalty for near-perfect redundancy
+_MIN_RED = 1e-6  # minimum redundancy to avoid division by zero
 
+
+# TODO
+# What happens if features importance from dependency is empty or has no positive values? Should we raise an error or fallback to another relevance method?
+# Should we allow ResultType.ensemble_selection or just use ResultType.BEST
 @define
 class MrmrModule(ModuleExecution["Mrmr"]):
     """MRMR execution module. Created by Mrmr.create_module()."""
@@ -32,33 +39,36 @@ class MrmrModule(ModuleExecution["Mrmr"]):
         feature_cols: list[str],
         study_context: StudyContext,
         outer_split_id: int,
-        prior_results: dict[str, pd.DataFrame],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
         """Fit MRMR module by selecting features with maximum relevance and minimum redundancy."""
-        logger.set_log_group(LogGroup.PROCESSING, "MRMR")
-        self._validate_configuration(prior_results)
-        self._log_outer_split_info(outer_split_id, prior_results)
+        dependency_results: dict[ResultType, ModuleResult] = kwargs["dependency_results"]
 
-        # Extract feature matrices (local variables, not stored)
+        logger.set_log_group(LogGroup.PROCESSING, "MRMR")
+        logger.info(
+            f"Outersplit {outer_split_id} | n_features_list={self.config.n_features} "
+            f"correlation={self.config.correlation_type} relevance={self.config.relevance_type} "
+            f"depends_on={self.config.depends_on}"
+        )
+
         target_cols = list(study_context.target_assignments.values())
         x_traindev = data_traindev[feature_cols]
         y_traindev = data_traindev[target_cols]
 
         # Get relevance data
-        relevance_df = self._get_relevance_data(
-            x_traindev=x_traindev,
-            y_traindev=y_traindev,
-            feature_cols=feature_cols,
-            ml_type=study_context.ml_type,
-            prior_results=prior_results,
-        )
+        if self.config.relevance_type == MRMRRelevance.FROM_DEPENDENCY:
+            fi_method = FIResultLabel(self.config.feature_importance_method)
+            relevance_df = _relevance_from_dependency(feature_cols, dependency_results, fi_method)
+        elif self.config.relevance_type == MRMRRelevance.F_STATISTICS:
+            relevance_df = _relevance_fstats(x_traindev, y_traindev, feature_cols, study_context.ml_type)
+        else:
+            raise ValueError(f"Relevance type {self.config.relevance_type} not supported for MRMR.")
 
         # Calculate MRMR features
         mrmr_dict = _maxrminr(
-            features=x_traindev,
-            relevance=relevance_df,
-            requested_feature_counts=[self.config.n_features],
+            df_features=x_traindev,
+            df_relevance=relevance_df,
+            n_features_list=[self.config.n_features],
             correlation_type=self.config.correlation_type,
         )
 
@@ -76,78 +86,29 @@ class MrmrModule(ModuleExecution["Mrmr"]):
             )
         }
 
-    def _get_fi_method(self) -> FIResultLabel:
-        """Get FIResultLabel for the configured feature importance method."""
-        return FIResultLabel(self.config.fi_method)
 
-    def _validate_configuration(self, prior_results: dict) -> None:
-        """Validate MRMR configuration."""
-        if self.config.relevance_method == RelevanceMethod.PERMUTATION:
-            if self.config.task_id == 0:
-                raise ValueError("MRMR module should not be the first workflow task.")
-            fi_df = prior_results.get("fi", pd.DataFrame())
-            if fi_df.empty:
-                raise ValueError("No feature importances available from prior results.")
+def _relevance_from_dependency(
+    feature_cols: list[str],
+    dependency_results: dict[ResultType, ModuleResult],
+    fi_method: FIResultLabel,
+) -> pd.DataFrame:
+    """Derive MRMR relevance scores from the upstream task's feature importances.
 
-            fi_method = self._get_fi_method()
-            subset = fi_df[fi_df["fi_method"] == fi_method]
-            if subset.empty:
-                available_methods = fi_df["fi_method"].unique().tolist()
-                raise ValueError(
-                    f"No feature importances for fi_method={fi_method}. Available methods: {available_methods}"
-                )
+    Extracts per-feature importance values (filtered by ``fi_method``) from the
+    dependency's BEST result and averages across inner CV splits.
+    """
+    df_fi_all = dependency_results[ResultType.BEST].fi
+    if df_fi_all is None or df_fi_all.empty:
+        raise ValueError("Dependency task produced no feature importances.")
 
-    def _log_outer_split_info(self, outer_split_id: int, prior_results: dict) -> None:
-        """Log basic MRMR info."""
-        logger.info("MRMR-Module")
-        logger.info(f"Outer Split: {outer_split_id}")
-        logger.info(f"Workflow task: {self.config.task_id}")
-        logger.info(f"Number of features selected by MRMR: {self.config.n_features}")
-        logger.info(f"Correlation type used by MRMR: {self.config.correlation_type}")
-        logger.info(f"Relevance method used by MRMR: {self.config.relevance_method}")
-
-    def _get_relevance_data(
-        self,
-        x_traindev: pd.DataFrame,
-        y_traindev: pd.DataFrame,
-        feature_cols: list[str],
-        ml_type: MLType,
-        prior_results: dict,
-    ) -> pd.DataFrame:
-        """Get relevance data based on relevance method."""
-        if self.config.relevance_method == RelevanceMethod.PERMUTATION:
-            return self._get_permutation_relevance(feature_cols, prior_results)
-        elif self.config.relevance_method == RelevanceMethod.F_STATISTICS:
-            return self._get_fstats_relevance(x_traindev, y_traindev, feature_cols, ml_type)
-        else:
-            raise ValueError(f"Relevance method {self.config.relevance_method} not supported for MRMR.")
-
-    def _get_permutation_relevance(
-        self, feature_cols: list[str], prior_results: dict[str, pd.DataFrame]
-    ) -> pd.DataFrame:
-        """Get permutation relevance from prior module results (flat DataFrame)."""
-        fi_df = prior_results.get("fi", pd.DataFrame())
-        fi_method = self._get_fi_method()
-
-        subset = fi_df[fi_df["fi_method"] == fi_method]
-        n = subset["training_id"].nunique()
-        re_df = (subset.groupby("feature")["importance"].sum() / n).sort_values(ascending=False).reset_index()
-
-        # Reduce to current feature_cols
-        re_df = re_df[re_df["feature"].isin(feature_cols)]
-        logger.info(f"Number of features in FI table (based on previous selected features): {len(re_df)}")
-
-        # Keep only positive importance
-        re_df = re_df[re_df["importance"] > 0].reset_index(drop=True)
-        logger.info(f"Number features with positive importance: {len(re_df)}")
-
-        return re_df
-
-    def _get_fstats_relevance(
-        self, x_traindev: pd.DataFrame, y_traindev: pd.DataFrame, feature_cols: list[str], ml_type: MLType
-    ) -> pd.DataFrame:
-        """Get f-statistics based relevance."""
-        return _relevance_fstats(x_traindev, y_traindev, feature_cols, ml_type)
+    return (
+        df_fi_all[df_fi_all["fi_method"] == fi_method]
+        .loc[lambda df: df["feature"].isin(feature_cols)]
+        .groupby("feature")["importance"]
+        .mean()
+        .sort_values(ascending=False)
+        .reset_index()
+    )
 
 
 def _relevance_fstats(
@@ -171,9 +132,9 @@ def _relevance_fstats(
 
 
 def _maxrminr(
-    features: pd.DataFrame,
-    relevance: pd.DataFrame,
-    requested_feature_counts: list[int],
+    df_features: pd.DataFrame,
+    df_relevance: pd.DataFrame,
+    n_features_list: list[int],
     correlation_type: CorrelationType = CorrelationType.PEARSON,
 ) -> dict[int, list[str]]:
     """Perform mRMR feature selection.
@@ -182,96 +143,74 @@ def _maxrminr(
     among selected features.
 
     Args:
-        features: Dataset with columns as feature names
-        relevance: DataFrame with "feature" and "importance" columns
-        requested_feature_counts: List of feature counts for partial snapshots
+        df_features: Dataset with columns as feature names
+        df_relevance: DataFrame with "feature" and "importance" columns
+        n_features_list: List of feature counts for partial snapshots
         correlation_type: Correlation method (CorrelationType.PEARSON, CorrelationType.SPEARMAN, or CorrelationType.RDC)
 
     Returns:
         Dictionary mapping feature counts to lists of selected features
     """
-    # Constants for numeric stability
-    EPS = 1e-8  # near-perfect correlation tolerance
-    LARGE_RED = 1e6  # large finite penalty for near-perfect redundancy
-    MIN_RED = 1e-6  # minimum redundancy to avoid division by zero
+    # Drop features with NaN importance (e.g. zero-variance features from f_classif/f_regression)
+    # Drop features with NaN or non-positive importance (smazzanti/mrmr convention)
+    df_relevance = df_relevance.dropna(subset=["importance"])
+    df_relevance = df_relevance[df_relevance["importance"] > 0]
 
-    # Validate arguments
-    if "feature" not in relevance.columns or "importance" not in relevance.columns:
-        raise ValueError("relevance must contain 'feature' and 'importance' columns")
+    feature_names = list(df_relevance["feature"].unique())
+    if not feature_names:
+        raise ValueError("No features with positive relevance. Check upstream feature importances or input data.")
 
-    # Coerce importance to numeric
-    rel = relevance.copy(deep=True)
-    rel["importance"] = pd.to_numeric(rel["importance"], errors="coerce")
-    if rel["importance"].isna().any():
-        bad = rel.loc[rel["importance"].isna(), "feature"].tolist()
-        raise ValueError(f"relevance.importance contains non-numeric/NaN for: {bad}")
+    max_features = len(feature_names)
+    n_features_clamped = sorted({min(c, max_features) for c in n_features_list} | {max_features})
 
-    relevant = list(rel["feature"].unique())
-    if not relevant:
-        return {}
-
-    # Clean requested_feature_counts
-    max_feats = len(relevant)
-    cleaned_counts = sorted(
-        {int(c) for c in requested_feature_counts if isinstance(c, int | np.integer) and 1 <= int(c) <= max_feats}
-    )
-    if max_feats not in cleaned_counts:
-        cleaned_counts.append(max_feats)
-
-    # Ensure features are numeric
-    missing = set(relevant) - set(features.columns)
-    if missing:
-        raise ValueError(f"Missing features in `features` DataFrame: {sorted(missing)}")
-
-    feats = features[relevant].apply(pd.to_numeric, errors="coerce")
-    if feats.isna().any().any():
-        bad_cols = feats.columns[feats.isna().any()].tolist()
-        raise ValueError(f"Some relevant feature columns contain non-numeric/NaN values: {bad_cols}")
+    # Ensure all feature columns are numeric (categorical columns would be coerced to NaN)
+    df_features = df_features[feature_names].apply(pd.to_numeric, errors="coerce")
+    if df_features.isna().any().any():
+        bad_cols = df_features.columns[df_features.isna().any()].tolist()
+        raise ValueError(f"Non-numeric or NaN feature columns: {bad_cols}")
 
     # Calculate correlation matrix
     if correlation_type in (CorrelationType.PEARSON, CorrelationType.SPEARMAN):
-        corr = feats.corr(method=correlation_type).abs()
-    else:  # rdc
-        corr_vals = rdc_correlation_matrix(feats)
-        corr = pd.DataFrame(corr_vals, index=feats.columns, columns=feats.columns).abs()
+        corr = df_features.corr(method=correlation_type.value).abs()  # type: ignore[arg-type]
+    elif correlation_type == CorrelationType.RDC:
+        corr_vals = rdc_correlation_matrix(df_features)
+        corr = pd.DataFrame(corr_vals, index=df_features.columns, columns=df_features.columns).abs()
+    else:
+        raise ValueError(f"Correlation type {correlation_type} not supported for MRMR.")
 
-    corr = corr.reindex(index=feats.columns, columns=feats.columns)
+    # Convert to numpy for fast iteration
+    corr_matrix = corr.reindex(index=feature_names, columns=feature_names).to_numpy()
+    importance = df_relevance.set_index("feature").loc[feature_names, "importance"].to_numpy()
 
-    # Iterative selection
-    selected: list[str] = []
-    not_selected = set(feats.columns)
+    n = len(feature_names)
+    is_selected = np.zeros(n, dtype=bool)
+    selected_indices: list[int] = []
     results: dict[int, list[str]] = {}
 
-    for i in range(1, max_feats + 1):
-        candidates = rel[rel["feature"].isin(not_selected)].copy()
+    for i in range(1, n + 1):
+        candidate_mask = ~is_selected
 
         if i == 1:
-            candidates["score"] = candidates["importance"]
+            scores = np.where(candidate_mask, importance, -np.inf)
         else:
-            cand_feats = candidates["feature"].values
-            candidate_corrs = corr.loc[cand_feats, selected]
+            # Mean correlation with already-selected features
+            redundancy = corr_matrix[np.ix_(candidate_mask, np.array(selected_indices))]
 
             # Handle near-perfect correlations
-            perfect_mask = candidate_corrs >= (1.0 - EPS)
-            mean_red = candidate_corrs.mask(perfect_mask, np.nan).mean(axis=1)
-            mean_red = mean_red.fillna(LARGE_RED).clip(lower=MIN_RED)
+            redundancy = np.where(redundancy >= (1.0 - _EPS), np.nan, redundancy)
+            with np.errstate(all="ignore"):
+                mean_red = np.nanmean(redundancy, axis=1)
+            mean_red = np.where(np.isnan(mean_red), _LARGE_RED, mean_red)
+            mean_red = np.clip(mean_red, _MIN_RED, None)
 
-            candidates["redundancy"] = mean_red.values
-            candidates["score"] = candidates["importance"] / candidates["redundancy"]
+            scores = np.full(n, -np.inf)
+            scores[candidate_mask] = importance[candidate_mask] / mean_red
 
-        # Replace infinite scores with NaN
-        candidates["score"] = candidates["score"].replace([np.inf, -np.inf], np.nan)
-        if candidates["score"].dropna().empty:
-            raise ValueError(f"No valid candidate scores at selection step {i}. Check inputs.")
+        best_idx = int(np.argmax(scores))
+        is_selected[best_idx] = True
+        selected_indices.append(best_idx)
 
-        # Deterministic tie-handling
-        candidates["score"] = candidates["score"].fillna(-np.finfo(float).max / 10)
-
-        best = candidates.loc[candidates["score"].idxmax(), "feature"]
-        selected.append(best)  # type: ignore[arg-type]
-        not_selected.remove(best)
-
-        if i in cleaned_counts:
-            results[i] = selected.copy()
+        if i in n_features_clamped:
+            results[i] = [feature_names[j] for j in selected_indices]
 
     return results

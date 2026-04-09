@@ -1,14 +1,14 @@
 """Test MRMR."""
 
-import time
-
 import numpy as np
 import pandas as pd
 import pytest
 from sklearn.datasets import make_regression
 
 from octopus.modules.mrmr.core import _maxrminr as maxrminr
-from octopus.types import CorrelationType
+from octopus.modules.mrmr.core import _relevance_from_dependency, _relevance_fstats
+from octopus.modules.result import ModuleResult
+from octopus.types import CorrelationType, FIResultLabel, MLType, ResultType
 
 
 def generate_sample_data(n_samples, n_features, random_state):
@@ -94,35 +94,106 @@ def test_mrmr_feature_selection_order(sample_data):
         assert results["rdc"][15][-1] == "feature_10"
 
 
-@pytest.fixture(params=[(200, 1000, 0, "many_features")])
-def scalability_data(request):
-    """Create sample data for scalability testing."""
-    n_samples, n_features, random_state, name = request.param
-    return generate_sample_data(n_samples, n_features, random_state), name
+def test_mrmr_suppresses_redundant_features():
+    """Test that MRMR prefers a less relevant but non-redundant feature over a redundant one.
+
+    Setup: 3 features where A and B are highly correlated (redundant).
+    - A: importance=0.9, B: importance=0.8, C: importance=0.3
+    - corr(A, B)~0.95, corr(A, C)~0, corr(B, C)~0
+
+    Expected: MRMR selects A first (highest relevance), then C (low redundancy
+    with A beats B's high redundancy), then B.
+    Without redundancy penalization, the order would be A, B, C.
+    """
+    np.random.seed(0)
+    n = 500
+    a = np.random.randn(n)
+    b = 0.95 * a + 0.05 * np.random.randn(n)  # highly correlated with A
+    c = np.random.randn(n)  # independent
+
+    df_features = pd.DataFrame({"A": a, "B": b, "C": c})
+    df_relevance = pd.DataFrame({"feature": ["A", "B", "C"], "importance": [0.9, 0.8, 0.3]})
+
+    result = maxrminr(df_features, df_relevance, [3], correlation_type=CorrelationType.PEARSON)
+
+    assert result[3][0] == "A", "Most relevant feature should be selected first"
+    assert result[3][1] == "C", "Non-redundant feature C should be preferred over redundant B"
+    assert result[3][2] == "B", "Redundant feature B should be selected last"
 
 
-def test_mrmr_scalability(scalability_data):
-    """Test MRMR algorithm scalability with large feature sets."""
-    (df_features, fi_df), data_name = scalability_data
+def test_mrmr_drops_negative_importance():
+    """Test that features with non-positive importance are excluded from selection."""
+    np.random.seed(0)
+    n = 100
+    df_features = pd.DataFrame(
+        {
+            "good": np.random.randn(n),
+            "neutral": np.random.randn(n),
+            "bad": np.random.randn(n),
+        }
+    )
+    df_relevance = pd.DataFrame(
+        {
+            "feature": ["good", "neutral", "bad"],
+            "importance": [0.5, 0.0, -0.3],
+        }
+    )
 
-    # Dictionary to store execution times
-    execution_times = {}
+    result = maxrminr(df_features, df_relevance, [1], correlation_type=CorrelationType.PEARSON)
 
-    # Test different correlation types: pearson only
-    for corr_type in [CorrelationType.PEARSON]:
-        start_time = time.time()
+    assert result[1] == ["good"]
+    assert max(result.keys()) == 1, "Only 1 feature with positive importance should be selectable"
 
-        # Select top 20 features
-        results = maxrminr(df_features, fi_df, [20], correlation_type=corr_type)
+def test_mrmr_raises_on_no_positive_relevance():
+    """Test that MRMR raises when all features have non-positive importance."""
+    df_features = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
+    df_relevance = pd.DataFrame({"feature": ["A", "B"], "importance": [0.0, -1.0]})
 
-        end_time = time.time()
-        execution_times[corr_type] = end_time - start_time
+    with pytest.raises(ValueError, match="No features with positive relevance"):
+        maxrminr(df_features, df_relevance, [1], correlation_type=CorrelationType.PEARSON)
 
-        # Basic assertions to ensure the function works
-        assert len(results[20]) == 20
-        assert isinstance(results[20][0], str)
 
-    # Print execution times
-    print(f"MRMR Scalability Test ({data_name}):")
-    for corr_type, exec_time in execution_times.items():
-        print(f"  {corr_type}: {exec_time:.4f} seconds")
+def test_relevance_fstats_ranks_informative_feature_highest():
+    """Test that f-statistics relevance correctly ranks a predictive feature above noise."""
+    np.random.seed(42)
+    n = 500
+    target = np.random.choice([0, 1], size=n)
+    informative = target + 0.1 * np.random.randn(n)  # strongly predictive
+    noise = np.random.randn(n)  # random noise
+
+    df_features = pd.DataFrame({"informative": informative, "noise": noise})
+    df_target = pd.DataFrame({"target": target})
+
+    result = _relevance_fstats(df_features, df_target, ["informative", "noise"], MLType.BINARY)
+
+    informative_importance = result.loc[result["feature"] == "informative", "importance"].iloc[0]
+    noise_importance = result.loc[result["feature"] == "noise", "importance"].iloc[0]
+    assert informative_importance > noise_importance
+
+
+def test_relevance_from_dependency_averages_across_splits():
+    """Test that relevance from dependency correctly averages feature importances across CV splits."""
+    df_fi = pd.DataFrame(
+        {
+            "feature": ["A", "A", "B", "B", "C", "C"],
+            "importance": [0.8, 0.6, 0.3, 0.1, -0.1, -0.2],
+            "fi_method": ["permutation"] * 6,
+            "training_id": [0, 1, 0, 1, 0, 1],
+        }
+    )
+    dependency_results = {
+        ResultType.BEST: ModuleResult(
+            result_type=ResultType.BEST,
+            module="octo",
+            fi=df_fi,
+        )
+    }
+
+    result = _relevance_from_dependency(["A", "B", "C"], dependency_results, FIResultLabel.PERMUTATION)
+
+    # A: mean(0.8, 0.6) = 0.7, B: mean(0.3, 0.1) = 0.2, C: mean(-0.1, -0.2) = -0.15
+    # Positive filtering happens in _maxrminr, not here — all features returned
+    assert list(result["feature"]) == ["A", "B", "C"]
+    assert result.loc[result["feature"] == "A", "importance"].iloc[0] == pytest.approx(0.7)
+    assert result.loc[result["feature"] == "B", "importance"].iloc[0] == pytest.approx(0.2)
+    assert result.loc[result["feature"] == "C", "importance"].iloc[0] == pytest.approx(-0.15)

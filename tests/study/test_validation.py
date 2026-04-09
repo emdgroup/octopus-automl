@@ -4,9 +4,9 @@ import tempfile
 
 import pytest
 
-from octopus.modules import Mrmr, Octo, Roc
-from octopus.study import OctoClassification
-from octopus.types import ModelName, RelevanceMethod
+from octopus.modules import Mrmr, Octo
+from octopus.study import OctoClassification, OctoTimeToEvent
+from octopus.types import ModelName, MRMRRelevance
 
 
 @pytest.fixture
@@ -154,6 +154,46 @@ class TestWorkflowValidation:
         ):
             OctoClassification(**base_study_kwargs, studies_directory=temp_dir, workflow=workflow)
 
+    def test_mrmr_from_dependency_without_dependency(self, base_study_kwargs):
+        """Test that MRMR with FROM_DEPENDENCY relevance requires a dependency."""
+        workflow = [
+            Mrmr(task_id=0, depends_on=None, relevance_type=MRMRRelevance.FROM_DEPENDENCY),
+        ]
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            pytest.raises(ValueError, match="FROM_DEPENDENCY relevance but has no dependency"),
+        ):
+            OctoClassification(**base_study_kwargs, studies_directory=temp_dir, workflow=workflow)
+
+    def test_mrmr_fstatistics_without_dependency(self, base_study_kwargs):
+        """Test that MRMR with F_STATISTICS relevance works without a dependency."""
+        workflow = [
+            Mrmr(task_id=0, depends_on=None, relevance_type=MRMRRelevance.F_STATISTICS),
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            study = OctoClassification(**base_study_kwargs, studies_directory=temp_dir, workflow=workflow)
+            assert len(study.workflow) == 1
+
+    def test_mrmr_fstatistics_not_supported_for_timetoevent(self):
+        """Test that MRMR with F_STATISTICS relevance is rejected for time-to-event studies."""
+        workflow = [
+            Mrmr(task_id=0, depends_on=None, relevance_type=MRMRRelevance.F_STATISTICS),
+        ]
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            pytest.raises(ValueError, match="F_STATISTICS relevance which is not supported for time-to-event"),
+        ):
+            OctoTimeToEvent(
+                study_name="test",
+                target_metric="CI",
+                feature_cols=["f1"],
+                sample_id_col="id",
+                duration_col="duration",
+                event_col="event",
+                studies_directory=temp_dir,
+                workflow=workflow,
+            )
+
     def test_valid_multi_task_workflow(self, base_study_kwargs):
         """Test a valid multi-task workflow."""
         workflow = [
@@ -167,49 +207,3 @@ class TestWorkflowValidation:
             assert study.workflow[0].task_id == 0
             assert study.workflow[1].task_id == 1
             assert study.workflow[2].task_id == 2
-
-    def test_mrmr_permutation_depends_on_roc_fails(self, base_study_kwargs):
-        """Test that Mrmr with permutation relevance cannot depend on Roc."""
-        workflow = [
-            Roc(task_id=0, depends_on=None),
-            Mrmr(task_id=1, depends_on=0, relevance_method=RelevanceMethod.PERMUTATION),
-        ]
-        with (
-            tempfile.TemporaryDirectory() as temp_dir,
-            pytest.raises(ValueError, match="does not produce feature importances"),
-        ):
-            OctoClassification(**base_study_kwargs, studies_directory=temp_dir, workflow=workflow)
-
-    def test_mrmr_permutation_without_depends_on_fails(self, base_study_kwargs):
-        """Test that Mrmr with permutation relevance must have depends_on set."""
-        workflow = [
-            Mrmr(task_id=0, depends_on=None, relevance_method=RelevanceMethod.PERMUTATION),
-        ]
-        with (
-            tempfile.TemporaryDirectory() as temp_dir,
-            pytest.raises(ValueError, match="requires an upstream task"),
-        ):
-            OctoClassification(**base_study_kwargs, studies_directory=temp_dir, workflow=workflow)
-
-    def test_mrmr_permutation_depends_on_mrmr_fails(self, base_study_kwargs):
-        """Test that Mrmr with permutation relevance cannot depend on another Mrmr."""
-        workflow = [
-            Octo(task_id=0, depends_on=None),
-            Mrmr(task_id=1, depends_on=0),
-            Mrmr(task_id=2, depends_on=1, relevance_method=RelevanceMethod.PERMUTATION),
-        ]
-        with (
-            tempfile.TemporaryDirectory() as temp_dir,
-            pytest.raises(ValueError, match="does not produce feature importances"),
-        ):
-            OctoClassification(**base_study_kwargs, studies_directory=temp_dir, workflow=workflow)
-
-    def test_mrmr_fstats_depends_on_roc_passes(self, base_study_kwargs):
-        """Test that Mrmr with f-statistics relevance can depend on Roc."""
-        workflow = [
-            Roc(task_id=0, depends_on=None),
-            Mrmr(task_id=1, depends_on=0, relevance_method=RelevanceMethod.F_STATISTICS),
-        ]
-        with tempfile.TemporaryDirectory() as temp_dir:
-            study = OctoClassification(**base_study_kwargs, studies_directory=temp_dir, workflow=workflow)
-            assert len(study.workflow) == 2
