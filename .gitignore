@@ -70,6 +70,7 @@ htmlcov
 env*
 *.code-workspace
 docs/examples
+docs/diagnostics
 site
 .ipynb_checkpoints
 dist
