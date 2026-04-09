@@ -9,7 +9,7 @@
     expiration) will be noted in the [changelog](../changelog.md).
 
 This section contains hands-on, step-by-step guides that show you how to
-configure, run, and interpret each type of Octopus study. 
+configure, run, and interpret each type of Octopus study.
 The central interface for all study types is the
 [`OctoStudy`](../reference/study.md) object.
 
