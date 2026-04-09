@@ -209,7 +209,7 @@ class ObjectiveOptuna:
 
         # saving top n_trials to disk
         # target_value is always "higher = better" (optuna maximizes).
-        # Min-heap naturally evicts the lowest value = worst trial via heappop.
+        # Min-heap: heappop removes the lowest value (worst trial).
         heapq.heappush(self.top_trials, (target_value, path_save))
         joblib_save(bag, path_save)
         if len(self.top_trials) > max_n_trials:

@@ -81,6 +81,26 @@ class FIWithLogging:
             return self._training
 
 
+def recompute_prediction_from_probabilities(df: pd.DataFrame) -> None:
+    """Recompute the ``prediction`` column from averaged probability columns.
+
+    After averaging predictions across models or folds, the ``prediction``
+    column (discrete class labels) contains fractional values that are
+    meaningless. This function replaces it with the argmax over the
+    integer-named probability columns (class probabilities from
+    ``predict_proba``), which is the correct soft-vote prediction.
+
+    No-op when fewer than 2 integer-named columns exist (regression, T2E,
+    or predictions without probability columns).
+
+    Args:
+        df: DataFrame with averaged predictions. Modified in place.
+    """
+    prob_cols = [c for c in df.columns if isinstance(c, int)]
+    if len(prob_cols) >= 2 and "prediction" in df.columns:
+        df["prediction"] = df[prob_cols].idxmax(axis=1)
+
+
 @define
 class BagBase(BaseEstimator):
     """Base Container for Trainings.
@@ -352,6 +372,8 @@ class BagBase(BaseEstimator):
             for column in list(self.target_assignments.values()):
                 if column in ensemble.columns:
                     ensemble[column] = ensemble[column].astype(self.trainings[0].data_train[column].dtype)
+
+            recompute_prediction_from_probabilities(ensemble)
 
             # Add metadata columns for ensemble predictions
             ensemble["outer_split_id"] = outer_split_id

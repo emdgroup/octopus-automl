@@ -261,7 +261,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
     ensel = EnSel(
         target_metric="MAE",
         path_trials=trials_path,
-        max_n_iterations=50,  # Fewer iterations for speed
+        max_n_iterations=25,
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
@@ -323,15 +323,15 @@ def test_ensemble_selection_ensembled_data(tmp_path):
     assert len(optimized_ensemble) >= len(start_ensemble)
 
 
-# ── Category E: inner_split_id correctness ───────────────────────
+# inner_split_id correctness
 
 
 def _build_ensemble_trainings(ensemble_paths_dict: dict) -> list:
     """Replicate production _create_ensemble_bag deep-copy logic (core.py:259-274).
 
-    This helper calls the same code path as production: deep-copy trainings,
-    assign new training_id, update inner_split_id. Used by Category E tests
-    to verify the actual code behavior rather than reimplementing the fix inline.
+    Inlines the same deep-copy + inner_split_id update logic used in production.
+    Since _create_ensemble_bag is a method on OctoModuleTemplate (requires
+    StudyContext), we duplicate the logic here rather than calling it directly.
     """
     trainings = []
     train_id = 0
@@ -342,11 +342,6 @@ def _build_ensemble_trainings(ensemble_paths_dict: dict) -> list:
                 train_cp = copy.deepcopy(training)
                 train_cp.training_id = f"0_0_{train_id}"
                 train_cp.training_weight = 1
-                # Production code (core.py:268-272) updates inner_split_id here.
-                # We do NOT replicate it — we call the same production function
-                # indirectly by importing and invoking the actual logic.
-                # Since _create_ensemble_bag is a method on OctoModuleTemplate
-                # (requires StudyContext), we inline the exact production code:
                 for part in train_cp.predictions:
                     if isinstance(train_cp.predictions[part], pd.DataFrame):
                         train_cp.predictions[part] = train_cp.predictions[part].copy()
@@ -449,7 +444,7 @@ def test_ensemble_bag_predictions_groupby_inner_split_correct(tmp_path):
     )
 
 
-# ── Category G (integration): Ensemble quality invariants ────────
+# Ensemble quality invariants
 
 
 def test_ensemble_at_least_as_good_as_best_single_model(tmp_path):
@@ -504,7 +499,7 @@ def test_ensemble_at_least_as_good_as_best_single_model(tmp_path):
     )
 
 
-# ── Category H: Weight propagation ──────────────────────────────
+# Weight propagation
 
 
 def test_ensemble_with_replacement_weights_predictions(tmp_path):

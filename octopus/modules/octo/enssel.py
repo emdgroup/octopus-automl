@@ -1,14 +1,5 @@
 """Ensemble selection."""
 
-# TODO
-# - issue: ACC and BALACC need integer pooling values!
-# - potential issue: check start_n, +1 or not
-# - get FI and counts
-# - display results summary
-# - save results to experiment
-# - create finale ensemble_bag containing all the models
-# - ensemble models needs to provide finale predictions (dev, test)
-
 from collections import Counter
 from typing import Any
 
@@ -19,7 +10,7 @@ from upath import UPath
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_performance_from_predictions
-from octopus.modules.octo.bag import BagBase
+from octopus.modules.octo.bag import BagBase, recompute_prediction_from_probabilities
 from octopus.types import DataPartition, MetricDirection
 from octopus.utils import joblib_load
 
@@ -53,6 +44,7 @@ class EnSel:
     _pred_arrays: dict[UPath, dict[DataPartition, pd.DataFrame]] = field(
         init=False, validator=[validators.instance_of(dict)]
     )
+    _target_dtypes: dict[str, Any] = field(init=False, factory=dict)
 
     @property
     def direction(self) -> MetricDirection:
@@ -108,6 +100,13 @@ class EnSel:
             performance["dev_avg"] = sum(dev_scores) / len(dev_scores) if dev_scores else 0.0
             performance["test_avg"] = sum(test_scores) / len(test_scores) if test_scores else 0.0
 
+            # Cache target column dtypes from the first bag for dtype restoration
+            if not self._target_dtypes and bag.trainings:
+                first_train_data = bag.trainings[0].data_train
+                for col in self.target_assignments.values():
+                    if col in first_train_data.columns:
+                        self._target_dtypes[col] = first_train_data[col].dtype
+
             self.bags[file] = {
                 "id": bag.bag_id,
                 "performance": performance,
@@ -140,6 +139,24 @@ class EnSel:
         logger.info("Model Table:")
         logger.info(f"\n{self.model_table.head(20)}")
 
+    def _restore_target_dtypes(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Restore target column dtypes after averaging.
+
+        After groupby().mean(), integer/boolean target columns become float.
+        This restores them to their original dtype for consistency with
+        Bag.get_predictions() behavior.
+
+        Args:
+            df: DataFrame with averaged predictions.
+
+        Returns:
+            DataFrame with target columns cast to original dtypes.
+        """
+        for col, dtype in self._target_dtypes.items():
+            if col in df.columns:
+                df[col] = df[col].astype(dtype)
+        return df
+
     def _ensemble_models(self, bag_keys):
         """Esemble using all bags and their corresponding models provided by input."""
         # collect all predictions over inner splits and bags
@@ -169,6 +186,8 @@ class EnSel:
                     numeric_cols.remove(col)
 
             ensemble = combined.groupby(by=self.row_id_col)[numeric_cols].mean().reset_index()
+            self._restore_target_dtypes(ensemble)
+            recompute_prediction_from_probabilities(ensemble)
             predictions["ensemble"][part] = ensemble
 
         # Calculate performance using the utility function
@@ -237,6 +256,8 @@ class EnSel:
                         numeric_cols.remove(col)
 
                 avg = combined.groupby(self.row_id_col)[numeric_cols].mean()
+                self._restore_target_dtypes(avg)
+                recompute_prediction_from_probabilities(avg)
                 if key not in self._pred_arrays:
                     self._pred_arrays[key] = {}
                 self._pred_arrays[key][part_name] = avg
@@ -252,10 +273,7 @@ class EnSel:
         """
         avg_dev = avg_dev.copy()
 
-        # F0a: Renormalize class probability columns after averaging.
-        # After averaging predictions from multiple models, class probabilities
-        # may not sum to 1. Detect integer-named columns (class labels from
-        # predict_proba) and renormalize each row.
+        # Renormalize class probability columns that may not sum to 1 after averaging.
         prob_cols = [c for c in avg_dev.columns if isinstance(c, int)]
         if len(prob_cols) >= 2:
             row_sums = avg_dev[prob_cols].sum(axis=1)
@@ -265,6 +283,8 @@ class EnSel:
                 avg_dev.loc[needs_renorm, prob_cols] = avg_dev.loc[needs_renorm, prob_cols].div(
                     row_sums[needs_renorm], axis=0
                 )
+
+        recompute_prediction_from_probabilities(avg_dev)
 
         predictions = {"ensemble": {DataPartition.DEV: avg_dev.reset_index()}}
         perf = get_performance_from_predictions(
@@ -342,7 +362,7 @@ class EnSel:
                 fantasy_dev = running_dev.add(self._pred_arrays[model][DataPartition.DEV]) / (n_members + 1)
                 score = self._compute_metric_from_avg(fantasy_dev)
 
-                # F0b: Round scores to 6 decimals to collapse near-ties from float noise
+                # Round scores to 6 decimals to collapse near-ties from float noise
                 if i > 0 and best_score_this_iter is not None and abs(best_score_this_iter) > 1e-4:
                     score = round(score, 6)
 
@@ -376,8 +396,7 @@ class EnSel:
         best_score = trajectory[best_traj_idx][0]
         logger.info(f"Backtracking: best at step {best_traj_idx} (score={best_score:.6f}, {len(best_bags)} bags)")
 
-        # F0c: Prune zero-weight models (Counter only produces positive counts,
-        # but guard defensively against future changes)
+        # Prune zero-weight models
         self.optimized_ensemble = {k: v for k, v in Counter(best_bags).items() if v > 0}
         logger.info("Ensemble selection completed.")
 
