@@ -26,6 +26,22 @@ Your dataset should be a pandas DataFrame with:
 - **Target column** — integer or boolean class labels (e.g., 0/1 for binary, 0/1/2 for multiclass).
 - **Sample ID column** — a column that uniquely identifies each row.
 
+**Requirements and constraints:**
+
+| Column | Type | Missing values allowed | Notes |
+|--------|------|----------------------|-------|
+| Feature columns | int, float, bool, categorical | Yes (imputed automatically) | Single-value features are removed automatically. Bool is converted to int. |
+| Target column | int or bool | No | Exactly 2 unique values for binary, 3+ for multiclass |
+| Sample ID column | any | No | Used for group-aware splitting. Rows with the same ID are kept together. |
+| Stratification column | int or bool | No | Optional. Cannot be the same as `sample_id_col`. |
+
+Octopus also auto-converts null-like strings (`"None"`, `"null"`, `"nan"`, `"NA"`, `""`)
+to `NaN` in feature and target columns. The reserved column names `datasplit_group` and
+`row_id` cannot appear in your data.
+
+For binary classification you must specify `positive_class` (the integer value
+representing the positive class).
+
 ```python
 import pandas as pd
 

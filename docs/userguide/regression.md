@@ -29,6 +29,19 @@ Your dataset should be a pandas DataFrame with:
 - **Target column** — a continuous numeric value.
 - **Sample ID column** — a column that uniquely identifies each row.
 
+**Requirements and constraints:**
+
+| Column | Type | Missing values allowed | Notes |
+|--------|------|----------------------|-------|
+| Feature columns | int, float, bool, categorical | Yes (imputed automatically) | Single-value features are removed automatically. Bool is converted to int. |
+| Target column | int or float | No | Continuous numeric value |
+| Sample ID column | any | No | Used for group-aware splitting. Rows with the same ID are kept together. |
+| Stratification column | int or bool | No | Optional. Cannot be the same as `sample_id_col`. |
+
+Octopus also auto-converts null-like strings (`"None"`, `"null"`, `"nan"`, `"NA"`, `""`)
+to `NaN` in feature and target columns. The reserved column names `datasplit_group` and
+`row_id` cannot appear in your data.
+
 ```python
 import pandas as pd
 

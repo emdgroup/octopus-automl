@@ -32,6 +32,19 @@ Your dataset must contain:
 - **Event column**: Binary (0/1 or True/False), where 1 = event observed, 0 = censored
 - **Sample ID column**: Sample identifier column
 
+**Requirements and constraints:**
+
+| Column | Type | Missing values allowed | Notes |
+|--------|------|----------------------|-------|
+| Feature columns | int, float, bool, categorical | Yes (imputed automatically) | Single-value features are removed automatically. Bool is converted to int. |
+| Duration column | int or float | No | Must be non-negative (>= 0) |
+| Event column | int or bool | No | Binary indicator. At least one event (1) must be present. |
+| Sample ID column | any | No | Used for group-aware splitting. Rows with the same ID are kept together. |
+
+Octopus also auto-converts null-like strings (`"None"`, `"null"`, `"nan"`, `"NA"`, `""`)
+to `NaN` in feature columns. The reserved column names `datasplit_group` and
+`row_id` cannot appear in your data.
+
 ```python
 import pandas as pd
 
