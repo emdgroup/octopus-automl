@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 500" font-family="'Segoe UI', system-ui, -apple-system, sans-serif" font-size="13">
+  <defs>
+    <style>
+      .label { font-weight: 600; fill: #333; }
+      .sublabel { font-size: 11px; fill: #555; }
+      .title { font-size: 16px; font-weight: 700; fill: #1565C0; }
+      .section-title { font-size: 13px; font-weight: 700; fill: #1565C0; }
+      .train { fill: #E3F2FD; stroke: #1E88E5; stroke-width: 1.2; rx: 4; }
+      .dev { fill: #FFF3E0; stroke: #FB8C00; stroke-width: 1.2; rx: 4; }
+      .test { fill: #E8F5E9; stroke: #43A047; stroke-width: 1.2; rx: 4; }
+      .test-held { fill: #C8E6C9; stroke: #2E7D32; stroke-width: 1.5; rx: 4; }
+      .outer-box { fill: none; stroke: #1565C0; stroke-width: 1.5; stroke-dasharray: 6 3; rx: 8; }
+      .arrow { stroke: #666; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .arrow-blue { stroke: #1E88E5; stroke-width: 1.5; fill: none; marker-end: url(#arrowblue); }
+      .note { font-size: 11px; fill: #777; font-style: italic; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#666"/>
+    </marker>
+    <marker id="arrowblue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1E88E5"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="410" y="28" text-anchor="middle" class="title">Nested Cross-Validation in Octopus</text>
+
+  <!-- ===== OUTER LOOP SECTION ===== -->
+  <text x="20" y="60" class="section-title">Outer Loop: Unbiased Performance Estimate</text>
+
+  <!-- Outer split labels -->
+  <text x="90" y="82" text-anchor="middle" class="sublabel">Split 1</text>
+  <text x="90" y="112" text-anchor="middle" class="sublabel">Split 2</text>
+  <text x="90" y="142" text-anchor="middle" class="sublabel">Split 3</text>
+  <text x="90" y="172" text-anchor="middle" class="sublabel">Split 4</text>
+
+  <!-- Outer Split 1: test first, then traindev -->
+  <rect x="130" y="70" width="110" height="20" class="test-held"/>
+  <rect x="244" y="70" width="110" height="20" class="train"/>
+  <rect x="358" y="70" width="110" height="20" class="train"/>
+  <rect x="472" y="70" width="110" height="20" class="train"/>
+
+  <!-- Outer Split 2 -->
+  <rect x="130" y="100" width="110" height="20" class="train"/>
+  <rect x="244" y="100" width="110" height="20" class="test-held"/>
+  <rect x="358" y="100" width="110" height="20" class="train"/>
+  <rect x="472" y="100" width="110" height="20" class="train"/>
+
+  <!-- Outer Split 3 -->
+  <rect x="130" y="130" width="110" height="20" class="train"/>
+  <rect x="244" y="130" width="110" height="20" class="train"/>
+  <rect x="358" y="130" width="110" height="20" class="test-held"/>
+  <rect x="472" y="130" width="110" height="20" class="train"/>
+
+  <!-- Outer Split 4 -->
+  <rect x="130" y="160" width="110" height="20" class="train"/>
+  <rect x="244" y="160" width="110" height="20" class="train"/>
+  <rect x="358" y="160" width="110" height="20" class="train"/>
+  <rect x="472" y="160" width="110" height="20" class="test-held"/>
+
+  <!-- Outer split legend labels -->
+  <text x="185" y="84" text-anchor="middle" font-size="10" fill="#2E7D32" font-weight="600">Test</text>
+  <text x="400" y="84" text-anchor="middle" font-size="10" fill="#1565C0" font-weight="600">Train + Dev (used by inner loop)</text>
+
+  <!-- Legend -->
+  <rect x="610" y="72" width="14" height="14" class="train"/>
+  <text x="630" y="83" class="sublabel">Train/Dev</text>
+  <rect x="610" y="94" width="14" height="14" class="test-held"/>
+  <text x="630" y="105" class="sublabel">Test</text>
+
+  <!-- ===== INNER LOOP SECTION ===== -->
+  <rect x="15" y="210" width="790" height="260" class="outer-box"/>
+  <text x="25" y="232" class="section-title">Inner Loop (per outer split): Hyperparameter Tuning</text>
+
+  <!-- Inner split visualization -->
+  <text x="40" y="272" class="sublabel">Inner splits:</text>
+
+  <!-- Inner Split 1 -->
+  <rect x="145" y="252" width="60" height="16" class="dev"/>
+  <rect x="209" y="252" width="60" height="16" class="train"/>
+  <rect x="273" y="252" width="60" height="16" class="train"/>
+  <rect x="337" y="252" width="60" height="16" class="train"/>
+
+  <!-- Inner Split 2 -->
+  <rect x="145" y="272" width="60" height="16" class="train"/>
+  <rect x="209" y="272" width="60" height="16" class="dev"/>
+  <rect x="273" y="272" width="60" height="16" class="train"/>
+  <rect x="337" y="272" width="60" height="16" class="train"/>
+
+  <!-- Inner Split 3 -->
+  <rect x="145" y="292" width="60" height="16" class="train"/>
+  <rect x="209" y="292" width="60" height="16" class="train"/>
+  <rect x="273" y="292" width="60" height="16" class="dev"/>
+  <rect x="337" y="292" width="60" height="16" class="train"/>
+
+  <!-- Inner Split 4 -->
+  <rect x="145" y="312" width="60" height="16" class="train"/>
+  <rect x="209" y="312" width="60" height="16" class="train"/>
+  <rect x="273" y="312" width="60" height="16" class="train"/>
+  <rect x="337" y="312" width="60" height="16" class="dev"/>
+
+  <!-- Inner legend -->
+  <rect x="145" y="340" width="12" height="12" class="train"/>
+  <text x="163" y="350" font-size="10" class="sublabel">Train</text>
+  <rect x="205" y="340" width="12" height="12" class="dev"/>
+  <text x="223" y="350" font-size="10" class="sublabel">Dev (validation)</text>
+
+  <!-- HPO box -->
+  <rect x="470" y="248" width="160" height="90" rx="6" fill="#E8EAF6" stroke="#5C6BC0" stroke-width="1.2"/>
+  <text x="550" y="272" text-anchor="middle" font-size="12" font-weight="600" fill="#283593">Optuna HPO</text>
+  <text x="550" y="290" text-anchor="middle" font-size="10" fill="#555">n_trials candidates</text>
+  <text x="550" y="306" text-anchor="middle" font-size="10" fill="#555">(each trial is trained on all</text>
+  <text x="550" y="320" text-anchor="middle" font-size="10" fill="#555">inner splits and scored on dev)</text>
+
+  <!-- Arrow from inner splits to HPO -->
+  <path d="M 435 295 L 465 295" class="arrow"/>
+
+  <!-- Bag box -->
+  <rect x="470" y="358" width="160" height="70" rx="6" fill="#E3F2FD" stroke="#1E88E5" stroke-width="1.5"/>
+  <text x="550" y="380" text-anchor="middle" font-size="12" font-weight="700" fill="#1565C0">Best Bag</text>
+  <text x="550" y="398" text-anchor="middle" font-size="10" fill="#555">One training per inner split</text>
+  <text x="550" y="414" text-anchor="middle" font-size="10" fill="#555">with best hyperparameters</text>
+
+  <!-- Arrow from HPO to Bag -->
+  <path d="M 550 341 L 550 354" class="arrow-blue"/>
+  <text x="560" y="353" font-size="9" fill="#1E88E5">best trial</text>
+
+  <!-- Arrow from Bag to test evaluation -->
+  <path d="M 634 393 L 680 393" class="arrow-blue"/>
+
+  <!-- Test evaluation box -->
+  <rect x="684" y="363" width="110" height="60" rx="6" fill="#E8F5E9" stroke="#43A047" stroke-width="1.5"/>
+  <text x="739" y="393" text-anchor="middle" font-size="11" font-weight="600" fill="#2E7D32">Evaluate on</text>
+  <text x="739" y="409" text-anchor="middle" font-size="11" font-weight="600" fill="#2E7D32">Outer Test Set</text>
+
+  <!-- Bottom summary -->
+  <text x="410" y="490" text-anchor="middle" class="note">Final performance = average of test scores across all outer splits</text>
+</svg>

@@ -1,3 +1,151 @@
 # Nested Cross-Validation
 
-To be added.
+Nested cross-validation is the central evaluation strategy in Octopus. It
+provides unbiased performance estimates even when hyperparameter tuning is
+involved, a property that matters most when data is scarce.
+
+## Why it matters
+
+In a typical ML workflow you split data into training and validation sets, tune
+hyperparameters on the training set, and pick the configuration that scores best
+on the validation set. The problem is that the validation score now _also_
+reflects how well you searched the hyperparameter space. It is no longer an
+unbiased estimate of how the model will perform on truly unseen data.
+
+For large datasets this optimistic bias is usually small. For small datasets
+(< 1 000 samples) the effect can be dramatic: with fewer data points each
+split is more sensitive to the exact partition, and the optimizer has a much
+easier time "memorizing" the validation set.
+[Cawley & Talbot (2010)](http://jmlr.csail.mit.edu/papers/volume11/cawley10a/cawley10a.pdf)
+showed that this selection bias can be as large as the performance gain from
+tuning itself.
+
+Nested cross-validation solves this by adding a second layer of splitting that
+cleanly separates hyperparameter tuning from performance estimation.
+
+## How it works
+
+The idea is straightforward: wrap one cross-validation loop inside another.
+
+![Nested Cross-Validation Diagram](../assets/nested_cv_diagram.svg)
+
+### Outer loop: performance estimation
+
+The dataset is split into `n_outer_splits` splits (default: 5). In each
+iteration one split is held out as the **outer test set** and the remaining
+splits form the **train+dev set**. The outer test set is never used during
+model training or hyperparameter tuning. It only serves as an unbiased
+evaluation target.
+
+After all outer splits have been processed the final reported performance is the
+**average of the outer test scores**. This average is an honest estimate of how
+the model generalizes.
+
+### Inner loop: hyperparameter tuning
+
+Inside each outer split the train+dev set is further divided into
+`n_inner_splits` splits (default: 5). One inner split becomes the **dev set**
+(validation), the rest become the **training set**. Hyperparameter
+optimization then runs entirely within these inner splits:
+
+1. **Optuna proposes** a set of candidate hyperparameters (a "trial").
+2. The trial is trained on **every inner training split** and evaluated on the
+   corresponding **dev split**.
+3. The trial's score is the aggregated dev performance across inner splits.
+4. Optuna repeats for `n_trials` iterations, guided by its TPE sampler.
+
+Because the outer test set is never touched during this process, the final
+outer test score remains unbiased.
+
+### From trials to predictions
+
+After hyperparameter tuning completes:
+
+1. The best trial's hyperparameters are used to train a fresh set of models,
+   one per inner split, forming a **[Bag](terminology.md#bag)**.
+2. This Bag's predictions on the outer test set are computed by averaging the
+   predictions of all its inner models (called
+   **[Trainings](terminology.md#training)**).
+3. This process repeats for every outer split.
+
+When making predictions on new data all outer Bags contribute: their
+predictions are averaged into a single ensemble prediction.
+
+## Nested CV in Octopus
+
+### Data splitting
+
+Octopus creates outer and inner splits with several safeguards:
+
+- **Stratification.** For classification tasks the target distribution is
+  preserved in every split (`StratifiedGroupKFold`).
+- **Group-aware splitting.** When a `datasplit_group` column is provided,
+  related rows (e.g. multiple measurements from one patient) are kept together
+  in the same split. This prevents data leakage from correlated observations.
+- **Runtime validation.** After splitting, Octopus checks that no group
+  appears in both train and test, that test splits cover all rows, and that no
+  row is duplicated.
+
+### Workflow execution per outer split
+
+Each outer split runs the full workflow defined by the user, typically one or
+more feature-selection tasks followed by an [Octo](workflow/octo.md) ML task.
+Feature selection also happens inside the outer split, using only the train+dev
+portion. This prevents the feature set from leaking information about the
+outer test data.
+
+### Multiple inner split seeds
+
+Setting `inner_split_seeds` to a list of several seeds (e.g. `[0, 1, 2]`)
+makes the inner loop repeat with different random splits. This creates more
+Trainings per Bag and increases the robustness of both the hyperparameter
+ranking and the final predictions, at the cost of proportionally longer
+runtime.
+
+## Key parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `n_outer_splits` | 5 | Number of outer CV splits |
+| `outer_split_seed` | 0 | Random seed for outer splits |
+| `n_inner_splits` | 5 | Number of inner CV splits (set on the Octo task) |
+| `inner_split_seeds` | `[0]` | Seeds for inner splits; more seeds = more robust |
+| `n_trials` | 200 | Number of Optuna trials per outer split |
+| `ensemble_selection` | `False` | Combine multiple trial Bags into a meta-ensemble |
+
+```python
+from octopus import OctoClassification, Octo
+
+study = OctoClassification(
+    target="diagnosis",
+    target_metric="aucroc",
+    n_outer_splits=5,
+    workflow=[
+        Octo(
+            n_inner_splits=5,
+            inner_split_seeds=[0],
+            n_trials=200,
+        )
+    ],
+)
+```
+
+## Practical guidance
+
+**Defaults work well for most cases.** With 5 outer and 5 inner splits
+Octopus already trains 25 models per Optuna trial. This gives stable
+estimates for datasets in the 100 to 1 000 sample range.
+
+**When to increase splits.** If your dataset is very small (< 100 samples)
+you may benefit from more outer splits (e.g. 10) to reduce variance in the
+performance estimate. More inner splits help stabilize hyperparameter
+selection.
+
+**Multiple inner split seeds.** For extra robustness, set
+`inner_split_seeds=[0, 1, 2]`. This triples the number of Trainings per Bag
+and smooths out the effect of any single unlucky split.
+
+**Runtime trade-offs.** More splits and more seeds mean linearly more model
+fits. Octopus mitigates this with parallelization across outer splits (via
+Ray) and across inner trainings within each split. See the
+[FAQ](../faq.md) for details on parallelization settings.

@@ -96,6 +96,7 @@ nav:
       - Workflow & Modules: concepts/workflow/
       - Understanding the Results: "concepts/understanding_results.md"
       - Feature Importance: "concepts/feature_importance.md"
+      - Terminology: "concepts/terminology.md"
   - API Reference:
       - "reference/reference.md"
       - octopus.diagnostics: "reference/diagnostics.md"

@@ -13,8 +13,9 @@ importances, the last to train a final model on the refined feature set.
 
 1. **Inner cross-validation setup.** The train+dev data is split into inner
    folds (controlled by `n_folds_inner` and `datasplit_seeds_inner`). Each
-   Optuna trial trains a "bag" of models -- one per inner fold -- and evaluates
-   them on the held-out dev folds.
+   Optuna trial trains a [Bag](../terminology.md#bag) of models -- one per
+   inner fold -- and evaluates them on the held-out dev folds. See
+   [Nested Cross-Validation](../nested_cv.md) for the full picture.
 
 2. **Optuna optimization.** A TPE (Tree-structured Parzen Estimator) sampler
    explores the hyperparameter space over `n_trials` trials. The first
