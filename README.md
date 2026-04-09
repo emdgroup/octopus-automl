@@ -36,7 +36,7 @@
 
 <div>
 <a href="https://github.com/emdgroup/octopus-automl/">
-   <img src="https://raw.githubusercontent.com/emdgroup/octopus-automl/docs/module-descriptions/docs/assets/octo-font.png" alt="Logo">
+   <img src="https://raw.githubusercontent.com/emdgroup/octopus-automl/docs/module-descriptions/docs/assets/octo-font.png" alt="Logo" width="200">
 </a>
 </div>
 
