@@ -83,6 +83,7 @@ nav:
   - Octopus: index.md
   - User Guide:
       - "userguide/userguide.md"
+      - Data Health Check: "userguide/health_check.md"
       - Classification: "userguide/classification.md"
       - Regression: "userguide/regression.md"
       - Time to Event: "userguide/time_to_event.md"
