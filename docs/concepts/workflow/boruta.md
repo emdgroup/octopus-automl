@@ -43,9 +43,9 @@ which real features carry true signal.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `model` | `""` (auto) | Tree-based model only (`RandomForest`, `ExtraTrees`, or `XGB`) |
-| `cv` | `5` | Cross-validation splits for hyperparameter tuning |
-| `perc` | `100` | Percentile threshold for shadow-feature comparison (100 = max shadow importance) |
+| `model` | `None` (auto) | Tree-based model only (`RandomForest`, `ExtraTrees`, or `XGB`) |
+| `n_inner_splits` | `5` | Cross-validation splits for hyperparameter tuning |
+| `threshold` | `100` | Percentile threshold for shadow-feature comparison (100 = max shadow importance) |
 | `alpha` | `0.05` | Significance level for the statistical test |
 
 ## When to use
@@ -67,6 +67,6 @@ Boruta is particularly well-suited when:
   `feature_importances_`.
 - Runtime grows with the number of features (shadow features double the feature
   space) and the number of Boruta iterations.
-- The `perc` parameter (percentile of shadow importances) can affect sensitivity:
-  lowering it below 100 makes the test more conservative.
+- The `threshold` parameter (percentile of shadow importances) can affect
+  sensitivity: lowering it below 100 makes the test more conservative.
 - Does not support time-to-event targets.

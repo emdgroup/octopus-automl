@@ -24,7 +24,7 @@ handles the rest.
     - Tunes hyperparameters using the strategy defined by the `presets`.
     - Builds multi-layer stacking ensembles when using higher-quality presets
       (`"good_quality"` and above).
-    - Uses `num_bag_folds` for bagging/cross-validation within each model.
+    - Uses `n_bag_splits` for bagging/cross-validation within each model.
 
 3. **Evaluate performance.** After training, the module evaluates on train, dev
    (out-of-split), and test partitions. Scores are computed using both
@@ -68,11 +68,9 @@ model families:
 |-----------|---------|-------------|
 | `presets` | `["medium_quality"]` | Quality presets: `"best_quality"`, `"high_quality"`, `"good_quality"`, `"medium_quality"` |
 | `time_limit` | `None` | Total training time in seconds |
-| `num_bag_folds` | `5` | Bagging splits |
+| `infer_limit` | `None` | Per-row inference time limit in seconds |
+| `n_bag_splits` | `5` | Bagging splits |
 | `included_model_types` | `None` | Restrict to specific model types (see table above) |
-| `fit_strategy` | `"sequential"` | `"sequential"` or `"parallel"` |
-| `verbosity` | `2` | Logging level (0--4) |
-| `num_cpus` | `"auto"` | CPUs to allocate |
 | `memory_limit` | `"auto"` | Memory limit in GB |
 
 ## When to use

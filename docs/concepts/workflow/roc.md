@@ -37,9 +37,9 @@ of each group.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `threshold` | `0.8` | Correlation above which features are considered redundant |
-| `correlation_type` | `"spearmanr"` | `"spearmanr"` or `"rdc"` |
-| `filter_type` | `"f_statistics"` | `"f_statistics"` or `"mutual_info"` -- used to pick the best feature in each group |
+| `correlation_threshold` | `0.8` | Correlation above which features are considered redundant |
+| `correlation_type` | `"spearman"` | `"spearman"` or `"rdc"` |
+| `relevance_method` | `"f_statistics"` | `"f_statistics"` or `"mutual_info"`, used to pick the best feature in each group |
 
 ## When to use
 

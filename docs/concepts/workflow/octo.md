@@ -12,19 +12,19 @@ importances, the last to train a final model on the refined feature set.
 ### Hyperparameter optimization
 
 1. **Inner cross-validation setup.** The train+dev data is divided into inner
-   splits (controlled by `n_folds_inner` and `datasplit_seeds_inner`). Each
+   splits (controlled by `n_inner_splits` and `inner_split_seeds`). Each
    Optuna trial trains a [Bag](../terminology.md#bag) of models, one per
    inner split, and evaluates them on the held-out dev splits. See
    [Nested Cross-Validation](../nested_cv.md) for the full picture.
 
 2. **Optuna optimization.** A TPE (Tree-structured Parzen Estimator) sampler
    explores the hyperparameter space over `n_trials` trials. The first
-   `n_optuna_startup_trials` use random sampling; the rest use multivariate TPE
+   `n_startup_trials` use random sampling; the rest use multivariate TPE
    with grouping and constant-liar parallelism. The optimization target is
-   either the *pooled* or *averaged* dev-set performance across inner splits
-   (controlled by `optuna_return`).
+   either the *combined* or *averaged* dev-set performance across inner splits
+   (controlled by `scoring_method`).
 
-3. **MRMR feature subsets (optional).** When `mrmr_feature_numbers` is set, Octo
+3. **MRMR feature subsets (optional).** When `n_mrmr_features` is set, Octo
    pre-computes MRMR feature subsets of various sizes. Optuna can then sample
    from these subsets during optimization, effectively searching over both
    hyperparameters and feature counts simultaneously.
@@ -41,51 +41,40 @@ importances, the last to train a final model on the refined feature set.
    train+dev data. This "best bag" is the primary output model.
 
 6. **Feature importance calculation.** Feature importances are computed on the
-   best bag using the methods specified in `fi_methods_bestbag`:
+   best bag using the methods specified in `fi_methods`:
     - **`"permutation"`**: Permutation importance on the dev partition.
     - **`"shap"`**: SHAP values on the dev partition.
     - **`"constant"`**: A baseline method that returns equal importance for all
       features.
 
 7. **Feature selection.** Features are selected based on the computed
-   importances -- typically those with positive permutation importance.
+   importances, typically those with positive permutation importance.
 
 ### Ensemble selection (optional)
 
 8. **Ensemble selection.** When `ensemble_selection=True`, the top
-   `ensel_n_save_trials` trial bags are used as candidates. An ensemble
+   `n_ensemble_candidates` trial bags are used as candidates. An ensemble
    optimization procedure (hill-climbing with replacement) finds the combination
    of trial bags that maximizes dev-set performance. The resulting ensemble bag
    replaces the best bag as the primary output.
-
-### Parallelization
-
-Octo supports inner parallelization via Ray. When `inner_parallelization=True`
-(the default), inner-split model training is distributed across `n_workers`
-workers. Each worker uses `n_jobs` CPUs for individual model fits.
 
 ## Key parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `models` | `["ExtraTreesClassifier"]` | Models to train (e.g., `ExtraTrees`, `RandomForest`, `XGB`, `CatBoost`) |
-| `n_trials` | `100` | Number of Optuna hyperparameter optimization trials |
-| `n_folds_inner` | `5` | Inner cross-validation splits |
+| `n_trials` | `200` | Number of Optuna hyperparameter optimization trials |
+| `n_inner_splits` | `5` | Inner cross-validation splits |
+| `inner_split_seeds` | `[0]` | Seeds for inner splits; more seeds = more robust |
 | `max_features` | `0` | Constrain maximum features during HPO (0 = no constraint) |
 | `penalty_factor` | `1.0` | Penalty for exceeding `max_features` |
 | `ensemble_selection` | `False` | Enable ensemble selection over top trials |
-| `ensel_n_save_trials` | `50` | Number of top trials saved for ensemble selection |
-| `fi_methods_bestbag` | `["permutation"]` | Feature importance methods: `"permutation"`, `"shap"`, `"constant"` |
-| `optuna_seed` | `0` | Optuna sampler seed |
-| `n_optuna_startup_trials` | `10` | Random trials before TPE sampler kicks in |
-| `inner_parallelization` | `True` | Parallelize inner splits via Ray |
-| `n_workers` | *(n_folds_inner)* | Number of parallel workers |
-| `n_jobs` | `1` | CPUs per individual model fit |
-| `model_seed` | `0` | Random seed for models |
-| `max_outl` | `3` | Maximum outlier samples to optimize/remove |
-| `resume_optimization` | `False` | Resume a previous Optuna study |
-| `mrmr_feature_numbers` | `[]` | Feature counts for integrated MRMR feature selection |
-| `optuna_return` | `"pool"` | Bag performance mode: `"pool"` or `"average"` |
+| `n_ensemble_candidates` | `50` | Number of top trials saved for ensemble selection |
+| `fi_methods` | `["permutation"]` | Feature importance methods: `"permutation"`, `"shap"`, `"constant"` |
+| `n_startup_trials` | `15` | Random trials before TPE sampler kicks in |
+| `max_outliers` | `3` | Maximum outlier samples to optimize/remove |
+| `n_mrmr_features` | `[]` | Feature counts for integrated MRMR feature selection |
+| `scoring_method` | `"combined"` | Bag performance mode: `"combined"` or `"average"` |
 
 ## When to use
 
@@ -101,9 +90,7 @@ Octo is the workhorse of Octopus and should be used:
 
 ## Limitations
 
-- Computationally expensive: `n_trials` x `n_folds_inner` model fits, plus
+- Computationally expensive: `n_trials` x `n_inner_splits` model fits, plus
   feature importance computation.
-- Resume (`resume_optimization=True`) requires the Optuna journal log to be
-  accessible at the same path.
 - The constrained HPO mode requires models with `chpo_compatible=True` in their
   model configuration.

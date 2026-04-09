@@ -13,12 +13,10 @@ relevance signal and compresses the feature set for the next training round.
 
 1. **Obtain relevance scores.** In the default `"permutation"` mode, MRMR reads
    the permutation feature importances produced by a prior Octo task (specified
-   via `results_key`, `feature_importance_method`, and
-   `feature_importance_type`). It aggregates importance values across inner
-   splits, keeps only features with positive importance, and uses these as the
-   relevance vector. Alternatively, when `relevance_type="f-statistics"`, MRMR
-   computes univariate F-statistics directly from the data (no prior task
-   needed).
+   via `fi_method`). It aggregates importance values across inner splits, keeps
+   only features with positive importance, and uses these as the relevance
+   vector. Alternatively, when `relevance_method="f_statistics"`, MRMR computes
+   univariate F-statistics directly from the data (no prior task needed).
 
 2. **Compute a pairwise correlation matrix.** Absolute Pearson, Spearman, or
    RDC correlations are calculated among all candidate features.
@@ -41,10 +39,8 @@ relevance signal and compresses the feature set for the next training round.
 |-----------|---------|-------------|
 | `n_features` | `30` | Number of features to select |
 | `correlation_type` | `"spearman"` | `"pearson"`, `"spearman"`, or `"rdc"` |
-| `relevance_type` | `"permutation"` | `"permutation"` (uses prior task's feature importances) or `"f-statistics"` |
-| `results_key` | `"octo_best"` | Which prior task result type to read for permutation relevance |
-| `feature_importance_type` | `"mean"` | `"mean"` or `"count"` -- how to aggregate importances |
-| `feature_importance_method` | `"permutation"` | `"permutation"`, `"shap"`, `"internal"`, or `"lofo"` |
+| `relevance_method` | `"permutation"` | `"permutation"` (uses prior task's feature importances) or `"f_statistics"` |
+| `fi_method` | `"permutation"` | `"permutation"`, `"shap"`, `"internal"`, or `"lofo"` |
 
 ## When to use
 
@@ -61,8 +57,8 @@ target feature count in mind and want a fast, non-iterative way to get there.
 
 ## Limitations
 
-- When using `relevance_type="permutation"`, MRMR **cannot be the first task**
-  in a workflow -- it requires feature importances from a prior module.
+- When using `relevance_method="permutation"`, MRMR **cannot be the first task**
+  in a workflow, it requires feature importances from a prior module.
 - Only features with strictly positive importance are considered. If the prior
   model assigns zero or negative importance to many features, the effective
   candidate pool shrinks.
