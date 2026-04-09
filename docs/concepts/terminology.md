@@ -57,3 +57,9 @@ performance. The resulting ensemble Bag replaces the best single-trial Bag as
 the primary model for that outer split.
 
 Enabled by setting `ensemble_selection=True` on the Octo task.
+
+## See also
+
+- [Understanding the Results](understanding_results.md) — how to interpret predictions and metrics from Octopus.
+- [Understanding the Output](../userguide/output_structure.md) — directory structure and result files.
+- [Feature Importance](feature_importance.md) — methods for computing feature importances.

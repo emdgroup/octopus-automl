@@ -75,3 +75,9 @@ study = OctoClassification(
 study.fit(data=df)
 
 print("Workflow completed")
+
+# ## Learn more
+#
+# - [Classification User Guide](../userguide/classification.md) — all options for binary and multiclass classification, available models, and metrics.
+# - [Nested Cross-Validation](../concepts/nested_cv.md) — why nested CV matters for small datasets.
+# - [Understanding the Output](../userguide/output_structure.md) — what files Octopus creates and how to load the results.

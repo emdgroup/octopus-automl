@@ -103,3 +103,9 @@ study.fit(data=df)
 
 print("Workflow completed successfully!")
 print(f"Results saved to: {study.output_path}")
+
+# ## Learn more
+#
+# - [Classification User Guide](../userguide/classification.md) — binary and multiclass classification options.
+# - [ROC Module](../concepts/workflow/roc.md) — how correlation-based feature filtering works.
+# - [Workflow & Modules](../concepts/workflow/index.md) — how to chain tasks into multi-step pipelines.

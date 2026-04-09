@@ -70,3 +70,8 @@ Boruta is particularly well-suited when:
 - The `threshold` parameter (percentile of shadow importances) can affect
   sensitivity: lowering it below 100 makes the test more conservative.
 - Does not support time-to-event targets.
+
+!!! note
+    There is currently no runnable example for Boruta in the documentation.
+    See the [Workflow & Modules](index.md) overview for how to include Boruta
+    in a pipeline.

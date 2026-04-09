@@ -57,3 +57,7 @@ RFE reduces their runtime and search space significantly.
   computation.
 - For time-to-event targets the relevance scoring is not available; ROC simply
   keeps the first feature in each group.
+
+## Examples
+
+- [Feature Filtering](../../examples/feature_filtering.md) — ROC → Octo pipeline that removes correlated features before model training.

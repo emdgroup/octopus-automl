@@ -131,3 +131,9 @@ study.fit(data=df)
 
 print("Workflow completed successfully!")
 print(f"Results saved to: {study.output_path}")
+
+# ## Learn more
+#
+# - [Workflow & Modules](../concepts/workflow/index.md) — how to chain and parallelize tasks.
+# - [AutoGluon Module](../concepts/workflow/autogluon.md) — AutoGluon TabularPredictor integration.
+# - [Octo Module](../concepts/workflow/octo.md) — Optuna-based HPO with ensembling.

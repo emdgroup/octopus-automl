@@ -94,3 +94,7 @@ AutoGluon is ideal when:
   stacking which is memory-intensive and can be slow.
 - The module integrates with Ray for resource management, which can conflict with
   Octo's own Ray usage if not configured carefully.
+
+## Examples
+
+- [Parallel Classification Workflow](../../examples/parallel_classification_workflow.md) — runs Octo and AutoGluon side by side on the same dataset.

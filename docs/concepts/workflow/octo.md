@@ -94,3 +94,9 @@ Octo is the workhorse of Octopus and should be used:
   feature importance computation.
 - The constrained HPO mode requires models with `chpo_compatible=True` in their
   model configuration.
+
+## Examples
+
+- [Basic Classification](../../examples/basic_classification.md) — simplest Octo setup with a single task.
+- [Sequential Classification Workflow](../../examples/sequential_classification_workflow.md) — Octo as first and last task in a multi-step pipeline.
+- [Custom Hyperparameters](../../examples/custom_hyperparameters.md) — overriding Octo's default search space.

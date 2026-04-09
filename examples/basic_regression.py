@@ -52,3 +52,9 @@ study = OctoRegression(
 study.fit(data=df)
 
 print("Workflow completed")
+
+# ## Learn more
+#
+# - [Regression User Guide](../userguide/regression.md) — all options for regression, available models, and metrics.
+# - [Nested Cross-Validation](../concepts/nested_cv.md) — why nested CV matters for small datasets.
+# - [Understanding the Output](../userguide/output_structure.md) — what files Octopus creates and how to load the results.

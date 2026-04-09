@@ -189,3 +189,9 @@ For runnable end-to-end examples, see:
 - [Basic Regression](../examples/basic_regression.md): The simplest way to run a regression study using the diabetes dataset.
 - [Custom Hyperparameters](../examples/custom_hyperparameters.md): Shows how to define your own hyperparameter search ranges instead of using the defaults.
 - [Sequential Regression Workflow](../examples/sequential_regression_workflow.md): Chains Octo and MRMR into a multi-step pipeline that selects features before final model training.
+
+## See also
+
+- [Nested Cross-Validation](../concepts/nested_cv.md) — how Octopus evaluates models and prevents information leakage.
+- [Terminology](../concepts/terminology.md) — definitions of Bag, Training, Outer/Inner Split, and other key terms.
+- [Understanding the Output](output_structure.md) — what files Octopus creates after a study completes.

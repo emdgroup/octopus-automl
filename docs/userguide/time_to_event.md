@@ -157,8 +157,16 @@ The following feature importance methods are supported for T2E models via `fi_me
 Additionally, tree-based internal feature importances are always computed automatically by the underlying models.
 
 ```python
+from octopus.types import FIComputeMethod
+
 Octo(
     ...,
-    fi_methods=["permutation"],
+    fi_methods=[FIComputeMethod.PERMUTATION],
 )
 ```
+
+## See also
+
+- [Nested Cross-Validation](../concepts/nested_cv.md) — how Octopus evaluates models and prevents information leakage.
+- [Terminology](../concepts/terminology.md) — definitions of Bag, Training, Outer/Inner Split, and other key terms.
+- [Understanding the Output](output_structure.md) — what files Octopus creates after a study completes.

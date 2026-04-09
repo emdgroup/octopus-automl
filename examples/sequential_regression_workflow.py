@@ -91,3 +91,9 @@ study = OctoRegression(
 study.fit(data=df)
 
 print("Multi-workflow completed")
+
+# ## Learn more
+#
+# - [Regression User Guide](../userguide/regression.md) — regression setup, models, and metrics.
+# - [MRMR Module](../concepts/workflow/mrmr.md) — Maximum Relevance Minimum Redundancy feature selection.
+# - [Workflow & Modules](../concepts/workflow/index.md) — how multi-step pipelines work.

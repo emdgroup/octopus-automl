@@ -131,3 +131,9 @@ study.fit(data=df)
 
 print("Workflow completed successfully!")
 print(f"Results saved to: {study.output_path}")
+
+# ## Learn more
+#
+# - [Workflow & Modules](../concepts/workflow/index.md) — how multi-step pipelines work.
+# - [MRMR Module](../concepts/workflow/mrmr.md) — Maximum Relevance Minimum Redundancy feature selection.
+# - [Octo Module](../concepts/workflow/octo.md) — Optuna-based HPO with ensembling.

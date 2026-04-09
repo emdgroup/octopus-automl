@@ -49,8 +49,9 @@ Task 2 (Octo)          receives 15 features from Task 1
 In Python this translates to:
 
 ```python
-from octopus import OctoClassification
+from octopus.study import OctoClassification
 from octopus.modules import Mrmr, Octo
+from octopus.types import ModelName
 
 study = OctoClassification(
     ...,
@@ -59,7 +60,7 @@ study = OctoClassification(
             task_id=0,
             depends_on=None,
             description="step1_octo_full",
-            models=["ExtraTreesClassifier"],
+            models=[ModelName.ExtraTreesClassifier],
             n_trials=200,
             n_inner_splits=5,
             max_features=30,
@@ -74,7 +75,7 @@ study = OctoClassification(
             task_id=2,
             depends_on=1,
             description="step3_octo_reduced",
-            models=["ExtraTreesClassifier"],
+            models=[ModelName.ExtraTreesClassifier],
             n_trials=200,
             n_inner_splits=5,
             ensemble_selection=True,

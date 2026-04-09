@@ -63,3 +63,8 @@ The report is saved as a CSV file with one row per issue found:
 
 If any critical issues are found, `fit()` raises a `ValueError` pointing to the
 report file. Fix the issues and call `fit()` again on a new study instance.
+
+## See also
+
+- [Classification](classification.md), [Regression](regression.md), [Time to Event](time_to_event.md) — task-specific guides showing how to set up a study.
+- [Understanding the Output](output_structure.md) — where the health check report file is saved.

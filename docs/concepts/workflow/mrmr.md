@@ -64,3 +64,8 @@ target feature count in mind and want a fast, non-iterative way to get there.
   candidate pool shrinks.
 - The greedy selection is not globally optimal; the quality of the result
   depends heavily on accurate relevance estimates from the prior task.
+
+## Examples
+
+- [Sequential Classification Workflow](../../examples/sequential_classification_workflow.md) — Octo → MRMR → Octo pipeline for classification.
+- [Sequential Regression Workflow](../../examples/sequential_regression_workflow.md) — same pattern applied to regression.

@@ -75,3 +75,8 @@ study = OctoRegression(
 study.fit(data=df)
 
 print("Workflow completed")
+
+# ## Learn more
+#
+# - [Regression User Guide](../userguide/regression.md) — regression setup, models, and metrics.
+# - [Octo Module](../concepts/workflow/octo.md) — how Optuna-based hyperparameter optimization works inside Octo.

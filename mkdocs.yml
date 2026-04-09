@@ -81,16 +81,14 @@ plugins:
 
 nav:
   - Octopus: index.md
+  - Getting Started: getting_started.md
   - User Guide:
       - "userguide/userguide.md"
       - Data Health Check: "userguide/health_check.md"
       - Classification: "userguide/classification.md"
       - Regression: "userguide/regression.md"
       - Time to Event: "userguide/time_to_event.md"
-      - Example Workflows: examples/
-      - Analysis & Diagnostics: diagnostics/
-      - Command Line Interface: "userguide/cli.md"
-      - FAQ: faq.md
+      - Understanding the Output: "userguide/output_structure.md"
   - Concepts:
       - "concepts/concepts.md"
       - Nested Cross-Validation: "concepts/nested_cv.md"
@@ -98,15 +96,20 @@ nav:
       - Understanding the Results: "concepts/understanding_results.md"
       - Feature Importance: "concepts/feature_importance.md"
       - Terminology: "concepts/terminology.md"
+  - Examples:
+      - Example Workflows: examples/
+      - Command Line Interface: "userguide/cli.md"
+  - FAQ: faq.md
+  - Analysis & Diagnostics: diagnostics/
   - API Reference:
       - "reference/reference.md"
-      - octopus.diagnostics: "reference/diagnostics.md"
-      - octopus.manager: "reference/manager.md"
-      - octopus.metrics: "reference/metrics.md"
-      - octopus.models: "reference/models.md"
-      - octopus.modules: "reference/modules.md"
-      - octopus.predict: "reference/predict.md"
-      - octopus.study: "reference/study.md"
+      - Study: "reference/study.md"
+      - Modules: "reference/modules.md"
+      - Models: "reference/models.md"
+      - Metrics: "reference/metrics.md"
+      - Manager: "reference/manager.md"
+      - Diagnostics: "reference/diagnostics.md"
+      - Predict: "reference/predict.md"
   - Project Info:
       - Contributing: contributing.md
       - Contributors: contributors.md

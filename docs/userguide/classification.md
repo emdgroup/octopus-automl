@@ -39,8 +39,9 @@ Octopus also auto-converts null-like strings (`"None"`, `"null"`, `"nan"`, `"NA"
 to `NaN` in feature and target columns. The reserved column names `datasplit_group` and
 `row_id` cannot appear in your data.
 
-For binary classification you must specify `positive_class` (the integer value
-representing the positive class).
+For binary classification, Octopus automatically sets `positive_class=1` if you
+don't specify it. If your positive class is encoded as a different value (e.g.,
+`0`), set `positive_class` explicitly.
 
 ```python
 import pandas as pd
@@ -92,6 +93,7 @@ study.fit(data=df)
 | `target_metric` | Metric to optimize | `"AUCROC"` |
 | `sample_id_col` | Column identifying unique subjects (prevents correlated observation leakage) | `None` |
 | `stratification_col` | Column used to keep class ratios balanced across CV splits | `None` |
+| `positive_class` | Integer label of the positive class (binary only). Auto-detected as `1` if omitted. | `None` |
 | `n_outer_splits` | Number of outer cross-validation splits | `5` |
 | `single_outer_split` | Run only one split for quick testing (e.g., `0`) | `None` |
 | `n_cpus` | Number of CPUs (`0` = all, `-1` = all but one) | `0` |
@@ -219,3 +221,9 @@ For runnable end-to-end examples, see:
 - [Feature Filtering](../examples/feature_filtering.md): Demonstrates removing correlated features with ROC before training a model.
 - [Sequential Classification Workflow](../examples/sequential_classification_workflow.md): Chains Octo, MRMR, and Octo into a three-step pipeline that progressively narrows the feature set.
 - [Parallel Classification Workflow](../examples/parallel_classification_workflow.md): Runs Octo and AutoGluon independently on the same data to compare approaches.
+
+## See also
+
+- [Nested Cross-Validation](../concepts/nested_cv.md) — how Octopus evaluates models and prevents information leakage.
+- [Terminology](../concepts/terminology.md) — definitions of Bag, Training, Outer/Inner Split, and other key terms.
+- [Understanding the Output](output_structure.md) — what files Octopus creates after a study completes.

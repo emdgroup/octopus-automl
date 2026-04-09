@@ -161,14 +161,21 @@ runtime.
 | `ensemble_selection` | `False` | Combine multiple trial Bags into a meta-ensemble |
 
 ```python
-from octopus import OctoClassification, Octo
+from octopus.study import OctoClassification
+from octopus.modules import Octo
 
 study = OctoClassification(
-    target="diagnosis",
-    target_metric="aucroc",
+    study_name="nested_cv_example",
+    target_metric="AUCROC",
+    feature_cols=["feature_1", "feature_2", "feature_3"],
+    target_col="diagnosis",
+    sample_id_col="patient_id",
+    stratification_col="diagnosis",
     n_outer_splits=5,
     workflow=[
         Octo(
+            task_id=0,
+            depends_on=None,
             n_inner_splits=5,
             inner_split_seeds=[0],
             n_trials=200,

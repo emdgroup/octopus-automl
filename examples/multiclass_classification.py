@@ -79,3 +79,8 @@ study.fit(data=df)
 
 print("Workflow completed successfully!")
 print(f"Results saved to: {study.output_path}")
+
+# ## Learn more
+#
+# - [Classification User Guide](../userguide/classification.md#multiclass-classification) — multiclass-specific metrics and model support.
+# - [Nested Cross-Validation](../concepts/nested_cv.md) — how Octopus evaluates models on small datasets.
