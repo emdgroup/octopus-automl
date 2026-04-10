@@ -745,7 +745,7 @@ def show_confusionmatrix(
         >>> show_confusionmatrix(tp, threshold=0.5, metrics=["AUCROC", "ACC", "F1"])
     """
     if metrics is None:
-        metrics = ["AUCROC", "ACCBAL", "ACC", "F1", "AUCPR", "NEGBRIERSCORE"]
+        metrics = ["AUCROC", "ACCBAL", "ACC", "F1", "AUCPR", "BRIERSCORE"]
 
     if predictor.ml_type != MLType.BINARY:
         raise ValueError("show_confusionmatrix() is only applicable for binary classification tasks")
