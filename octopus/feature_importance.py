@@ -19,9 +19,10 @@ Octo-only primitives (``compute_internal_fi``, LOFO, constant) remain in
 ``octopus.modules.octo.training`` because they depend on training-time
 context and are never called from the predict layer.
 
-Multi-split orchestrators (``calculate_fi_permutation``, ``calculate_fi_shap``)
-remain in ``octopus.predict.feature_importance`` — they coordinate
-multi-split FI across outer splits and are predict-only.
+Multi-split orchestrators (``calculate_fi_permutation``, ``calculate_fi_shap``,
+``dispatch_fi``, ``merge_feature_groups``) live in
+``octopus.predict.feature_importance`` — they coordinate multi-split FI
+across outer splits and are predict-only.
 """
 
 from __future__ import annotations

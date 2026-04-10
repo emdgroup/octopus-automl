@@ -1,6 +1,5 @@
-"""Octopus predict package — standalone prediction and analysis from saved studies."""
+"""Octopus predict package — standalone prediction from saved studies."""
 
-from octopus.predict.task_predictor import TaskPredictor
-from octopus.predict.task_predictor_test import TaskPredictorTest
+from octopus.predict.predictor import OctoPredictor
 
-__all__ = ["TaskPredictor", "TaskPredictorTest"]
+__all__ = ["OctoPredictor"]
