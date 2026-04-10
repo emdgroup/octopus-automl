@@ -97,7 +97,7 @@ metrics_inventory_autogluon = {
     "MAE": mean_absolute_error,
     "MCC": mcc,
     "MSE": root_mean_squared_error,
-    "NEGBRIERSCORE": "brier_score_loss",
+    "BRIERSCORE": "brier_score_loss",
     "PRECISION": precision,
     "RECALL": recall,
     "R2": r2,

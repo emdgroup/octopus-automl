@@ -65,7 +65,7 @@ def logloss_metric() -> Metric:
         name="LOGLOSS",
         metric_function=log_loss,
         ml_types=[MLType.BINARY, MLType.MULTICLASS],
-        higher_is_better=True,
+        higher_is_better=False,
         prediction_type=PredictionType.PROBABILITIES,
         scorer_string="neg_log_loss",
     )
@@ -84,14 +84,14 @@ def f1_metric() -> Metric:
     )
 
 
-@Metrics.register("NEGBRIERSCORE")
-def negbrierscore_metric() -> Metric:
+@Metrics.register("BRIERSCORE")
+def brierscore_metric() -> Metric:
     """Brier score metric configuration."""
     return Metric(
-        name="NEGBRIERSCORE",
+        name="BRIERSCORE",
         metric_function=brier_score_loss,
         ml_types=[MLType.BINARY],
-        higher_is_better=True,
+        higher_is_better=False,
         prediction_type=PredictionType.PROBABILITIES,
         scorer_string="neg_brier_score",
     )
