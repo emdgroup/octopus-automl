@@ -1,7 +1,7 @@
 """Shared feature-importance computation primitives.
 
 This module contains the shared computation functions used by both the
-predict package (``octopus.predict.feature_importance``) and the octo
+predict package (``octopus.poststudy.feature_importance``) and the octo
 training pipeline (``octopus.modules.octo.training``).
 
 Architecture
@@ -20,7 +20,7 @@ Octo-only primitives (``compute_internal_fi``, LOFO, constant) remain in
 context and are never called from the predict layer.
 
 Multi-split orchestrators (``calculate_fi_permutation``, ``calculate_fi_shap``)
-remain in ``octopus.predict.feature_importance`` — they coordinate
+remain in ``octopus.poststudy.feature_importance`` — they coordinate
 multi-split FI across outer splits and are predict-only.
 """
 

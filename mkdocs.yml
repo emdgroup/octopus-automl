@@ -95,7 +95,7 @@ nav:
       - octopus.metrics: "reference/metrics.md"
       - octopus.models: "reference/models.md"
       - octopus.modules: "reference/modules.md"
-      - octopus.predict: "reference/predict.md"
+      - octopus.poststudy: "reference/poststudy.md"
       - octopus.study: "reference/study.md"
 
   - Project Info:
