@@ -3,6 +3,7 @@
 from collections import Counter
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from attrs import define, field, validators
 from upath import UPath
@@ -15,6 +16,78 @@ from octopus.types import DataPartition, MetricDirection
 from octopus.utils import joblib_load
 
 logger = get_logger()
+
+_BAGGING_ROUNDS = 20
+_BAGGING_FRACTION = 0.5
+
+
+def _average_and_quantize(weight_vectors: list[Counter]) -> dict:
+    """Average B weight vectors and quantize to positive integers.
+
+    Uses int(x + 0.5) instead of round() to avoid Python's banker's
+    rounding, where round(0.5) = 0.
+
+    Args:
+        weight_vectors: List of Counter dicts mapping bag path to integer weight.
+
+    Returns:
+        Dict mapping bag path to quantized positive integer weight.
+    """
+    all_paths: set[UPath] = set()
+    for wv in weight_vectors:
+        all_paths.update(wv.keys())
+
+    n_rounds = len(weight_vectors)
+    result: dict[UPath, int] = {}
+    for path in all_paths:
+        total = sum(wv.get(path, 0) for wv in weight_vectors)
+        quantized = int(total / n_rounds + 0.5)
+        if quantized > 0:
+            result[path] = quantized
+    return result
+
+
+def _stratified_subsample(
+    row_ids: pd.Index,
+    targets: pd.Series,
+    n_subset: int,
+    rng: np.random.Generator,
+) -> pd.Index:
+    """Subsample row IDs preserving class distribution.
+
+    When n_subset >= n_classes, ensures each class has at least 1
+    representative, preventing single-class subsets that crash metrics
+    like AUCROC. When n_subset < n_classes (rare edge case), falls back
+    to plain random subsampling without class guarantees.
+
+    Args:
+        row_ids: Full set of row IDs (index-aligned with targets).
+        targets: Target values for each row ID.
+        n_subset: Desired subset size.
+        rng: Numpy random generator.
+
+    Returns:
+        Subsampled row IDs as pd.Index.
+    """
+    classes = targets.unique()
+    if n_subset < len(classes):
+        idx = rng.choice(len(row_ids), size=n_subset, replace=False)
+        return row_ids[idx]
+
+    selected = []
+    for c in classes:
+        class_row_ids = row_ids[targets == c]
+        pick = rng.choice(len(class_row_ids), size=1, replace=False)
+        selected.append(class_row_ids[pick[0]])
+
+    remaining = n_subset - len(selected)
+    pool = row_ids.difference(pd.Index(selected))
+    if remaining > 0 and len(pool) > 0:
+        extra_idx = rng.choice(len(pool), size=min(remaining, len(pool)), replace=False)
+        selected.extend(pool[extra_idx])
+
+    result: pd.Index = pd.Index(selected)
+    return result
 
 
 @define
@@ -64,55 +137,88 @@ class EnSel:
         self._ensemble_optimization()
 
     def _collect_trials(self):
-        """Get all trials saved in path_trials and store properties in self.bags.
+        """Load trial data into self.bags.
 
-        Computes predictions once per bag and derives performance from them,
-        avoiding the double computation that occurs when calling both
-        bag.get_performance() and bag.get_predictions() separately.
+        For each trial, prefers the lightweight prediction file (_preds.joblib)
+        when available, falling back to the full bag file (_bag.joblib).
         """
-        # Get all .joblib files in the directory
-        joblib_files = [file for file in self.path_trials.iterdir() if file.is_file() and file.suffix == ".joblib"]
+        bag_files = {
+            f.name.replace("_bag.joblib", ""): f for f in self.path_trials.iterdir() if f.name.endswith("_bag.joblib")
+        }
+        pred_files = {
+            f.name.replace("_preds.joblib", ""): f
+            for f in self.path_trials.iterdir()
+            if f.name.endswith("_preds.joblib")
+        }
 
-        # fill bags dict
-        for file in joblib_files:
-            bag: BagBase = joblib_load(file)
+        if not bag_files and not pred_files:
+            bag_files = {f.stem: f for f in self.path_trials.iterdir() if f.is_file() and f.suffix == ".joblib"}
 
-            # Compute predictions once (get_performance internally calls get_predictions again)
-            predictions = bag.get_predictions(n_assigned_cpus=self.n_assigned_cpus)
+        for trial_key in bag_files.keys() | pred_files.keys():
+            if trial_key in pred_files:
+                self._load_trial_from_preds(pred_files[trial_key])
+            elif trial_key in bag_files:
+                self._load_trial_from_bag(bag_files[trial_key])
 
-            # Derive performance from already-computed predictions
-            performance_raw = get_performance_from_predictions(
-                predictions=predictions,
-                target_metric=self.target_metric,
-                target_assignments=self.target_assignments,
-                positive_class=self.positive_class,
-            )
+    def _load_trial_from_preds(self, file: UPath):
+        """Fast path: load a single lightweight prediction file."""
+        preds_data = joblib_load(file)
 
-            # Restructure into the format expected by _create_model_table
-            performance: dict[str, float] = {}
-            if "ensemble" in performance_raw:
-                performance["dev_ensemble"] = performance_raw["ensemble"][DataPartition.DEV]
-                performance["test_ensemble"] = performance_raw["ensemble"][DataPartition.TEST]
+        predictions = preds_data["predictions"]
+        if not self._target_dtypes and "target_dtypes" in preds_data:
+            self._target_dtypes = preds_data["target_dtypes"]
 
-            # Compute average across individual trainings
-            dev_scores = [v[DataPartition.DEV] for k, v in performance_raw.items() if k != "ensemble"]
-            test_scores = [v[DataPartition.TEST] for k, v in performance_raw.items() if k != "ensemble"]
-            performance["dev_avg"] = sum(dev_scores) / len(dev_scores) if dev_scores else 0.0
-            performance["test_avg"] = sum(test_scores) / len(test_scores) if test_scores else 0.0
+        performance = self._compute_trial_performance(predictions)
 
-            # Cache target column dtypes from the first bag for dtype restoration
-            if not self._target_dtypes and bag.trainings:
-                first_train_data = bag.trainings[0].data_train
-                for col in self.target_assignments.values():
-                    if col in first_train_data.columns:
-                        self._target_dtypes[col] = first_train_data[col].dtype
+        bag_path = file.with_name(file.name.replace("_preds.joblib", "_bag.joblib"))
+        self.bags[bag_path] = {
+            "id": preds_data["bag_id"],
+            "performance": performance,
+            "predictions": predictions,
+            "n_features_used_mean": preds_data["n_features_used_mean"],
+        }
 
-            self.bags[file] = {
-                "id": bag.bag_id,
-                "performance": performance,
-                "predictions": predictions,
-                "n_features_used_mean": bag.n_features_used_mean,
-            }
+    def _load_trial_from_bag(self, file: UPath):
+        """Slow path: load a full bag file."""
+        bag: BagBase = joblib_load(file)
+
+        predictions = bag.get_predictions(n_assigned_cpus=self.n_assigned_cpus)
+
+        if not self._target_dtypes and bag.trainings:
+            first_train_data = bag.trainings[0].data_train
+            for col in self.target_assignments.values():
+                if col in first_train_data.columns:
+                    self._target_dtypes[col] = first_train_data[col].dtype
+
+        performance = self._compute_trial_performance(predictions)
+
+        self.bags[file] = {
+            "id": bag.bag_id,
+            "performance": performance,
+            "predictions": predictions,
+            "n_features_used_mean": bag.n_features_used_mean,
+        }
+
+    def _compute_trial_performance(self, predictions: dict) -> dict[str, float]:
+        """Compute performance metrics from a predictions dict."""
+        performance_raw = get_performance_from_predictions(
+            predictions=predictions,
+            target_metric=self.target_metric,
+            target_assignments=self.target_assignments,
+            positive_class=self.positive_class,
+        )
+
+        performance: dict[str, float] = {}
+        if "ensemble" in performance_raw:
+            performance["dev_ensemble"] = performance_raw["ensemble"][DataPartition.DEV]
+            performance["test_ensemble"] = performance_raw["ensemble"][DataPartition.TEST]
+
+        dev_scores = [v[DataPartition.DEV] for k, v in performance_raw.items() if k != "ensemble"]
+        test_scores = [v[DataPartition.TEST] for k, v in performance_raw.items() if k != "ensemble"]
+        performance["dev_avg"] = sum(dev_scores) / len(dev_scores) if dev_scores else 0.0
+        performance["test_avg"] = sum(test_scores) / len(test_scores) if test_scores else 0.0
+
+        return performance
 
     def _create_model_table(self):
         """Create model table."""
@@ -302,21 +408,109 @@ class EnSel:
             return score_a > score_b
         return score_a < score_b
 
+    def _diversity_column(self) -> str | int:
+        """Return the column to use for diversity measurement.
+
+        For classification with probability columns, uses the first
+        probability column (class 0). For regression/T2E, uses 'prediction'.
+        """
+        first_key = next(iter(self._pred_arrays))
+        cols = self._pred_arrays[first_key][DataPartition.DEV].columns
+        prob_cols = [c for c in cols if isinstance(c, int)]
+        if prob_cols:
+            return prob_cols[0]
+        return "prediction"
+
+    def _run_single_greedy(
+        self,
+        start_bags: list[UPath],
+        pred_arrays: dict[UPath, dict[DataPartition, pd.DataFrame]],
+    ) -> Counter:
+        """Run one greedy forward selection pass with use_best backtracking.
+
+        Args:
+            start_bags: Starting ensemble from scan.
+            pred_arrays: Per-bag averaged prediction DataFrames. May be subsetted
+                (fewer rows) for bagged ensemble selection.
+
+        Returns:
+            Counter mapping bag path to selection count.
+        """
+        first_key = start_bags[0]
+        running_dev = pd.DataFrame(
+            0.0,
+            index=pred_arrays[first_key][DataPartition.DEV].index,
+            columns=pred_arrays[first_key][DataPartition.DEV].columns,
+        )
+        for bag_path in start_bags:
+            running_dev = running_dev.add(pred_arrays[bag_path][DataPartition.DEV])
+        n_members = len(start_bags)
+
+        bags_ensemble = list(start_bags)
+        all_candidates = self.model_table["path"].tolist()
+        start_perf = self._compute_metric_from_avg(running_dev / n_members)
+        trajectory: list[tuple[float, list[UPath]]] = [(start_perf, list(bags_ensemble))]
+        div_col = self._diversity_column()
+
+        for i in range(self.max_n_iterations):
+            current_avg = running_dev / n_members
+            best_score_this_iter: float | None = None
+            best_model_this_iter: UPath | None = None
+
+            for model in all_candidates:
+                candidate_avg = running_dev.add(pred_arrays[model][DataPartition.DEV]) / (n_members + 1)
+                score = self._compute_metric_from_avg(candidate_avg)
+
+                if pd.isna(score):
+                    continue
+
+                if i > 0 and best_score_this_iter is not None and abs(best_score_this_iter) > 1e-4:
+                    score = round(score, 6)
+
+                if best_score_this_iter is None or self._is_better(score, best_score_this_iter):
+                    best_score_this_iter = score
+                    best_model_this_iter = model
+                elif score == best_score_this_iter:
+                    if model in bags_ensemble and best_model_this_iter not in bags_ensemble:
+                        best_model_this_iter = model
+                    elif (model in bags_ensemble) == (best_model_this_iter in bags_ensemble):
+                        corr_new = current_avg[div_col].corr(pred_arrays[model][DataPartition.DEV][div_col])
+                        corr_old = current_avg[div_col].corr(
+                            pred_arrays[best_model_this_iter][DataPartition.DEV][div_col]
+                        )
+                        if pd.isna(corr_new):
+                            corr_new = 1.0
+                        if pd.isna(corr_old):
+                            corr_old = 1.0
+                        if abs(corr_new) < abs(corr_old):
+                            best_model_this_iter = model
+
+            if best_model_this_iter is None or best_score_this_iter is None:
+                break
+            bags_ensemble.append(best_model_this_iter)
+            running_dev = running_dev.add(pred_arrays[best_model_this_iter][DataPartition.DEV])
+            n_members += 1
+            trajectory.append((best_score_this_iter, list(bags_ensemble)))
+
+        best_traj_idx = 0
+        for idx in range(1, len(trajectory)):
+            if self._is_better(trajectory[idx][0], trajectory[best_traj_idx][0]):
+                best_traj_idx = idx
+
+        return Counter(trajectory[best_traj_idx][1])
+
     def _ensemble_optimization(self):
-        """Greedy forward selection with replacement and use_best backtracking.
+        """Greedy forward selection, optionally bagged (Caruana ICDM 2006).
 
         Starts from the best prefix found by _ensemble_scan. Each iteration
         tries adding every candidate model and keeps the one that maximizes
-        ensemble performance on the dev set. Runs for max_n_iterations and
-        returns the prefix with best overall performance (backtracking).
+        ensemble performance on the dev set. With use_best backtracking.
 
-        Reference: Caruana et al. (2004) "Ensemble selection from libraries of
-        models", with use_best backtracking from AutoGluon.
+        When bagging_rounds > 1, runs the greedy selection B times on random
+        dev-row subsets and averages the resulting weight vectors.
         """
-        # Precompute per-bag averaged predictions for fast incremental computation
         self._precompute_prediction_arrays()
 
-        # Determine starting ensemble from scan
         if self.direction == MetricDirection.MAXIMIZE:
             best_value = self.scan_table["dev_ensemble"].max()
             best_idx = self.scan_table[self.scan_table["dev_ensemble"] == best_value].index[-1]
@@ -328,77 +522,47 @@ class EnSel:
         logger.info(f"Ensemble scan, dev_ensemble value: {self.scan_table.loc[best_idx, 'dev_ensemble']}")
         logger.info(f"Ensemble scan, test_ensemble value: {self.scan_table.loc[best_idx, 'test_ensemble']}")
 
-        # Build starting bags list
         start_bags = self.model_table.head(start_n)["path"].tolist()
         start_perf = self._ensemble_models(start_bags)["dev_ensemble"]
         logger.info("Ensemble optimization")
         logger.info(f"Start performance: {start_perf}")
 
-        # Store scan result
         self.start_ensemble = dict(Counter(start_bags))
 
-        # Initialize running dev sum for incremental computation
-        first_key = start_bags[0]
-        running_dev = pd.DataFrame(
-            0.0,
-            index=self._pred_arrays[first_key][DataPartition.DEV].index,
-            columns=self._pred_arrays[first_key][DataPartition.DEV].columns,
-        )
-        for bag_path in start_bags:
-            running_dev = running_dev.add(self._pred_arrays[bag_path][DataPartition.DEV])
-        n_members = len(start_bags)
+        weights: dict
+        if _BAGGING_ROUNDS <= 1:
+            weights = self._run_single_greedy(start_bags, self._pred_arrays)
+        else:
+            first_key = start_bags[0]
+            all_row_ids = self._pred_arrays[first_key][DataPartition.DEV].index
+            n_subset = max(2, min(int(len(all_row_ids) * _BAGGING_FRACTION), len(all_row_ids)))
+            rng = np.random.default_rng(42)
 
-        # Greedy optimization with replacement and trajectory tracking
-        bags_ensemble = list(start_bags)
-        all_candidates = self.model_table["path"].tolist()
-        trajectory: list[tuple[float, list[UPath]]] = [(start_perf, list(bags_ensemble))]
+            target_col = list(self.target_assignments.values())[0]
+            first_dev = self._pred_arrays[first_key][DataPartition.DEV]
+            is_classification = target_col in first_dev.columns and first_dev[target_col].nunique() <= 20
 
-        for i in range(self.max_n_iterations):
-            best_score_this_iter: float | None = None
-            best_model_this_iter: UPath | None = None
+            weight_vectors: list[Counter] = []
+            for b in range(_BAGGING_ROUNDS):
+                if is_classification:
+                    subset = _stratified_subsample(all_row_ids, first_dev[target_col], n_subset, rng)
+                else:
+                    subset_idx = rng.choice(len(all_row_ids), size=n_subset, replace=False)
+                    subset = all_row_ids[subset_idx]
 
-            for model in all_candidates:
-                # Fantasy prediction: (running_sum + candidate) / (n + 1)
-                fantasy_dev = running_dev.add(self._pred_arrays[model][DataPartition.DEV]) / (n_members + 1)
-                score = self._compute_metric_from_avg(fantasy_dev)
+                pred_arrays_subset = {
+                    key: {DataPartition.DEV: arr[DataPartition.DEV].loc[subset]}
+                    for key, arr in self._pred_arrays.items()
+                }
 
-                # Round scores to 6 decimals to collapse near-ties from float noise
-                if i > 0 and best_score_this_iter is not None and abs(best_score_this_iter) > 1e-4:
-                    score = round(score, 6)
+                weights_b = self._run_single_greedy(start_bags, pred_arrays_subset)
+                weight_vectors.append(weights_b)
+                logger.info(f"Bagging round {b}: {len(weights_b)} distinct bags")
 
-                if best_score_this_iter is None or self._is_better(score, best_score_this_iter):
-                    best_score_this_iter = score
-                    best_model_this_iter = model
-                elif score == best_score_this_iter:
-                    # Tie-breaking: prefer model already in ensemble (smaller final ensemble)
-                    if model in bags_ensemble and best_model_this_iter not in bags_ensemble:
-                        best_model_this_iter = model
+            weights = _average_and_quantize(weight_vectors)
 
-            # Add best model to ensemble
-            assert best_model_this_iter is not None
-            bags_ensemble.append(best_model_this_iter)
-            running_dev = running_dev.add(self._pred_arrays[best_model_this_iter][DataPartition.DEV])
-            n_members += 1
-
-            assert best_score_this_iter is not None
-            trajectory.append((best_score_this_iter, list(bags_ensemble)))
-            logger.info(
-                f"Optimization iter {i}: dev_ensemble={best_score_this_iter:.6f}, ensemble_size={len(bags_ensemble)}"
-            )
-
-        # use_best backtracking: find the trajectory entry with the best score
-        best_traj_idx = 0
-        for idx in range(1, len(trajectory)):
-            if self._is_better(trajectory[idx][0], trajectory[best_traj_idx][0]):
-                best_traj_idx = idx
-
-        best_bags = trajectory[best_traj_idx][1]
-        best_score = trajectory[best_traj_idx][0]
-        logger.info(f"Backtracking: best at step {best_traj_idx} (score={best_score:.6f}, {len(best_bags)} bags)")
-
-        # Prune zero-weight models
-        self.optimized_ensemble = {k: v for k, v in Counter(best_bags).items() if v > 0}
-        logger.info("Ensemble selection completed.")
+        self.optimized_ensemble = {k: v for k, v in weights.items() if v > 0}
+        logger.info("Ensemble optimization completed.")
 
     def get_ens_input(self):
         """Get ensemble dict."""

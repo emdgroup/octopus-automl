@@ -9,7 +9,7 @@ from octopus.datasplit import InnerSplits
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.types import LogGroup, MetricDirection, MLType, ModelName, ScoringMethod
+from octopus.types import DataPartition, LogGroup, MetricDirection, MLType, ModelName, ScoringMethod
 from octopus.utils import joblib_save
 
 from .bag import Bag, BagClassifier, BagRegressor
@@ -205,20 +205,43 @@ class ObjectiveOptuna:
 
     def _save_topn_trials(self, bag: BagClassifier | BagRegressor, target_value, n_trial):
         max_n_trials = self.n_save_trials
-        path_save = self.path_study / self.task_path / "scratch" / f"trial_{n_trial}_bag.joblib"
+        path_bag = self.path_study / self.task_path / "scratch" / f"trial_{n_trial}_bag.joblib"
+        path_preds = self.path_study / self.task_path / "scratch" / f"trial_{n_trial}_preds.joblib"
 
         # saving top n_trials to disk
         # target_value is always "higher = better" (optuna maximizes).
         # Min-heap: heappop removes the lowest value (worst trial).
-        heapq.heappush(self.top_trials, (target_value, path_save))
-        joblib_save(bag, path_save)
+        heapq.heappush(self.top_trials, (target_value, path_bag))
+        joblib_save(bag, path_bag)
+
+        # Save lightweight predictions for fast EnSel loading
+        full_predictions = bag.get_predictions(n_assigned_cpus=self.n_assigned_cpus)
+        predictions_ensel = {}
+        for key, partitions in full_predictions.items():
+            predictions_ensel[key] = {p: df for p, df in partitions.items() if p != DataPartition.TRAIN}
+        predictions_data = {
+            "predictions": predictions_ensel,
+            "bag_id": bag.bag_id,
+            "n_features_used_mean": bag.n_features_used_mean,
+            "target_dtypes": {
+                col: bag.trainings[0].data_train[col].dtype
+                for col in self.target_assignments.values()
+                if col in bag.trainings[0].data_train.columns
+            },
+        }
+        joblib_save(predictions_data, path_preds)
+
         if len(self.top_trials) > max_n_trials:
-            # delete trial with lowest perfomrmance in n_trials
             _, path_delete = heapq.heappop(self.top_trials)
             if path_delete.is_file():
                 path_delete.unlink()
             else:
                 raise FileNotFoundError("Problem deleting trial-pkl file")
+            path_preds_delete = path_delete.with_name(path_delete.name.replace("_bag.joblib", "_preds.joblib"))
+            if path_preds_delete.is_file():
+                path_preds_delete.unlink()
+            else:
+                raise FileNotFoundError("Problem deleting trial predictions file")
 
     def _log_trial_scores(self, scores):
         logger.set_log_group(LogGroup.SCORES, f"OUTER {self.outer_split_id} SQE TBD")
