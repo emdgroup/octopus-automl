@@ -1,7 +1,8 @@
 """Ray parallelization for outer and inner loops."""
 
+from __future__ import annotations
+
 import os
-from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import ray
@@ -15,6 +16,8 @@ from octopus.logger import get_logger, set_logger_filename
 from octopus.modules.octo.training import Training
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
     from octopus.modules.octo.bag import FIWithLogging, TrainingWithLogging
 
 logger = get_logger()
@@ -90,7 +93,7 @@ class ResourceConfig:
         ray_nodes: dict[str, _NodeResources],
         n_outer_splits: int,
         run_single_outer_split: bool,
-    ) -> "ResourceConfig":
+    ) -> ResourceConfig:
         """Create ResourceConfig with computed values.
 
         Args:
@@ -309,7 +312,7 @@ def run_parallel_outer(
 
 def run_parallel_inner(
     bag_id: str,
-    trainings: "Sequence[TrainingWithLogging | FIWithLogging]",
+    trainings: Sequence[TrainingWithLogging | FIWithLogging],
     log_dir: UPath,
     n_assigned_cpus: int,
 ) -> list[Training]:
