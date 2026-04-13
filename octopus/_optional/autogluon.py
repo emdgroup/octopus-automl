@@ -11,10 +11,13 @@ try:
         log_loss,
         mcc,
         mean_absolute_error,
+        mean_squared_error,
         precision,
         r2,
         recall,
         roc_auc,
+        roc_auc_ovr,
+        roc_auc_ovr_weighted,
         root_mean_squared_error,
     )
     from autogluon.tabular import TabularPredictor
@@ -37,9 +40,12 @@ __all__ = [
     "log_loss",
     "mcc",
     "mean_absolute_error",
+    "mean_squared_error",
     "precision",
     "r2",
     "recall",
     "roc_auc",
+    "roc_auc_ovr",
+    "roc_auc_ovr_weighted",
     "root_mean_squared_error",
 ]

@@ -1,129 +1,100 @@
 """Test metrics coverage between octopus metrics and autogluon metrics inventory."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from octopus.metrics import Metrics
-from octopus.modules.autogluon.core import metrics_inventory_autogluon
+from octopus.modules.autogluon.core import AutoGluonModule, metrics_inventory_autogluon
 from octopus.types import MLType
 
 
+def _get_octopus_metrics_for_type(ml_type: MLType) -> list[str]:
+    """Get all octopus metric names that support a given ML type."""
+    result = []
+    for metric_name in Metrics.get_all_metrics():
+        config = Metrics.get_instance(metric_name)
+        if config.supports_ml_type(ml_type):
+            result.append(metric_name)
+    return result
+
+
+def _assert_all_covered(ml_type: MLType) -> None:
+    """Assert every octopus metric for ml_type is in the AG inventory."""
+    octopus_metrics = _get_octopus_metrics_for_type(ml_type)
+    ag_metrics = set(metrics_inventory_autogluon.keys())
+    missing = sorted(set(octopus_metrics) - ag_metrics)
+    assert not missing, (
+        f"Octopus {ml_type.value} metrics missing from autogluon inventory: {missing}. "
+        f"Octopus: {sorted(octopus_metrics)}. AG: {sorted(ag_metrics)}"
+    )
+
+
 class TestAutogluonMetricsCoverage:
-    """Test that all octopus classification and regression metrics are available in autogluon."""
+    """Test that all octopus classification, multiclass, and regression metrics are in AG."""
 
-    def setup_method(self):
-        """Set up test fixtures."""
-        self.autogluon_metrics_inventory = metrics_inventory_autogluon
+    def test_all_binary_metrics_covered(self):
+        """Every octopus BINARY metric must have an AG mapping."""
+        _assert_all_covered(MLType.BINARY)
 
-    def get_octopus_classification_metrics(self):
-        """Get all octopus classification metrics."""
-        all_metrics = Metrics.get_all_metrics()
-        classification_metrics = []
+    def test_all_multiclass_metrics_covered(self):
+        """Every octopus MULTICLASS metric must have an AG mapping."""
+        _assert_all_covered(MLType.MULTICLASS)
 
-        for metric_name in all_metrics:
-            try:
-                config = Metrics.get_instance(metric_name)
-                if config.supports_ml_type(MLType.BINARY):
-                    classification_metrics.append(metric_name)
-            except Exception:
-                # Skip metrics that can't be configured
-                continue
+    def test_all_regression_metrics_covered(self):
+        """Every octopus REGRESSION metric must have an AG mapping."""
+        _assert_all_covered(MLType.REGRESSION)
 
-        return classification_metrics
-
-    def get_octopus_regression_metrics(self):
-        """Get all octopus regression metrics."""
-        all_metrics = Metrics.get_all_metrics()
-        regression_metrics = []
-
-        for metric_name in all_metrics:
-            try:
-                config = Metrics.get_instance(metric_name)
-                if config.supports_ml_type(MLType.REGRESSION):
-                    regression_metrics.append(metric_name)
-            except Exception:
-                # Skip metrics that can't be configured
-                continue
-
-        return regression_metrics
-
-    def test_all_classification_metrics_in_autogluon(self):
-        """Test that all octopus classification metrics are available in autogluon."""
-        octopus_classification_metrics = self.get_octopus_classification_metrics()
-        autogluon_metrics = set(self.autogluon_metrics_inventory.keys())
-
-        missing_metrics = []
-        for metric in octopus_classification_metrics:
-            if metric not in autogluon_metrics:
-                missing_metrics.append(metric)
-
-        assert not missing_metrics, (
-            f"The following octopus classification metrics are missing from autogluon inventory: "
-            f"{missing_metrics}. "
-            f"Octopus classification metrics: {sorted(octopus_classification_metrics)}. "
-            f"Autogluon metrics: {sorted(autogluon_metrics)}"
+    def test_mse_maps_to_mse_not_rmse(self):
+        """MSE and RMSE must map to different AG scorers."""
+        mse_scorer = metrics_inventory_autogluon["MSE"]
+        rmse_scorer = metrics_inventory_autogluon["RMSE"]
+        assert mse_scorer is not rmse_scorer, (
+            f"MSE and RMSE must map to different AG scorers, but both map to {mse_scorer}"
         )
 
-    def test_all_regression_metrics_in_autogluon(self):
-        """Test that all octopus regression metrics are available in autogluon."""
-        octopus_regression_metrics = self.get_octopus_regression_metrics()
-        autogluon_metrics = set(self.autogluon_metrics_inventory.keys())
+    def test_t2e_metrics_excluded(self):
+        """Time-to-event metrics should NOT be in the AG inventory."""
+        t2e_metrics = _get_octopus_metrics_for_type(MLType.TIMETOEVENT)
+        ag_metrics = set(metrics_inventory_autogluon.keys())
+        assert t2e_metrics, "Expected at least one T2E metric to exist"
+        overlap = set(t2e_metrics) & ag_metrics
+        assert not overlap, f"T2E metrics should not be in AG inventory: {overlap}"
 
-        missing_metrics = []
-        for metric in octopus_regression_metrics:
-            if metric not in autogluon_metrics:
-                missing_metrics.append(metric)
+    def test_full_coverage(self):
+        """100% coverage across binary + multiclass + regression."""
+        all_relevant = set()
+        for ml_type in (MLType.BINARY, MLType.MULTICLASS, MLType.REGRESSION):
+            all_relevant.update(_get_octopus_metrics_for_type(ml_type))
 
-        assert not missing_metrics, (
-            f"The following octopus regression metrics are missing from autogluon inventory: "
-            f"{missing_metrics}. "
-            f"Octopus regression metrics: {sorted(octopus_regression_metrics)}. "
-            f"Autogluon metrics: {sorted(autogluon_metrics)}"
-        )
+        ag_metrics = set(metrics_inventory_autogluon.keys())
+        missing = sorted(all_relevant - ag_metrics)
+        assert not missing, f"Missing metrics: {missing}"
 
-    def test_metrics_coverage_summary(self):
-        """Provide a summary of metrics coverage."""
-        octopus_classification = self.get_octopus_classification_metrics()
-        octopus_regression = self.get_octopus_regression_metrics()
-        autogluon_metrics = set(self.autogluon_metrics_inventory.keys())
 
-        total_octopus_metrics = len(octopus_classification) + len(octopus_regression)
-        covered_metrics = len([m for m in octopus_classification + octopus_regression if m in autogluon_metrics])
+class TestAutogluonT2EGuard:
+    """Test that AutoGluon rejects time-to-event tasks."""
 
-        coverage_percentage = (covered_metrics / total_octopus_metrics) * 100 if total_octopus_metrics > 0 else 0
+    def test_fit_raises_on_timetoevent(self):
+        """fit() must raise ValueError for T2E tasks."""
+        module = AutoGluonModule(config=MagicMock())
+        study_context = MagicMock()
+        study_context.ml_type = MLType.TIMETOEVENT
 
-        print("\n=== Metrics Coverage Summary ===")
-        print(f"Octopus Classification Metrics ({len(octopus_classification)}): {sorted(octopus_classification)}")
-        print(f"Octopus Regression Metrics ({len(octopus_regression)}): {sorted(octopus_regression)}")
-        print(f"Autogluon Metrics ({len(autogluon_metrics)}): {sorted(autogluon_metrics)}")
-        print(f"Coverage: {covered_metrics}/{total_octopus_metrics} ({coverage_percentage:.1f}%)")
-
-        # This test should always pass if the above tests pass
-        assert coverage_percentage == 100.0, f"Expected 100% coverage, got {coverage_percentage:.1f}%"
-
-    def test_no_time_to_event_metrics_included(self):
-        """Verify that time-to-event metrics are excluded from the comparison."""
-        all_metrics = Metrics.get_all_metrics()
-        time_to_event_metrics = []
-
-        for metric_name in all_metrics:
-            try:
-                config = Metrics.get_instance(metric_name)
-                if config.supports_ml_type(MLType.TIMETOEVENT):
-                    time_to_event_metrics.append(metric_name)
-            except Exception:
-                continue
-
-        # Verify that time-to-event metrics exist but are not in autogluon inventory
-        if time_to_event_metrics:
-            for metric in time_to_event_metrics:
-                # It's OK if time-to-event metrics are not in autogluon inventory
-                # This test just documents that they exist and are excluded
-                print(f"Time-to-event metric excluded from comparison: {metric}")
-
-        # This test always passes - it's for documentation
-        assert True, "Time-to-event metrics are properly excluded from the comparison"
+        with pytest.raises(ValueError, match="time-to-event"):
+            module.fit(
+                data_traindev=MagicMock(),
+                data_test=MagicMock(),
+                feature_cols=[],
+                study_context=study_context,
+                outer_split_id=0,
+                results_dir=MagicMock(),
+                scratch_dir=MagicMock(),
+                n_assigned_cpus=1,
+                feature_groups={},
+                prior_results={},
+            )
 
 
 if __name__ == "__main__":
-    # Allow running the test directly
     pytest.main([__file__, "-v"])
