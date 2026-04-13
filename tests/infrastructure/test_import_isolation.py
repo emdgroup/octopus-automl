@@ -3,7 +3,7 @@
 These tests ensure that ``import octopus.predict`` does NOT pull in
 heavy or unnecessary dependencies that are only needed for running
 studies.  This guards long-term version stability of the deployment
-interface (TaskPredictor / TaskPredictorTest).
+interface (OctoPredictor / OctoTestEvaluator).
 
 Each test runs in a **subprocess** so the import state is clean and
 unaffected by whatever the test suite has already loaded.

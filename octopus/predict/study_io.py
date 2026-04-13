@@ -1,651 +1,329 @@
-"""File I/O for reading study directories.
+"""Study I/O: load config, resolve paths, validate study directories.
 
-Provides StudyLoader and TaskOuterSplitLoader classes for accessing study artifacts
-from disk. These handle the actual directory structure where data files are at
-the outer split level and model artifacts are in task/module/ subdirectories.
-
-Also provides frozen data classes (StudyMetadata, SplitArtifacts, TaskArtifacts)
-for type-safe, immutable data bundles at the boundary between I/O and prediction.
+The ``StudyInfo`` dataclass and ``load_study_info`` entry-point are the public
+interface for post-hoc analysis.  ``load_config`` is used by the predictor
+classes to read study configuration.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from typing import Any, Literal
+import warnings
+from typing import Any
 
 import pandas as pd
-from attrs import field, frozen
+from attrs import frozen
 from upath import UPath
 
-from octopus.types import MLType
-from octopus.utils import parquet_load
+from octopus.types import ResultType
 
 __all__ = [
-    "SplitArtifacts",
-    "StudyLoader",
-    "StudyMetadata",
-    "TaskArtifacts",
-    "_to_upath",
+    "StudyInfo",
+    "load_config",
+    "load_feature_cols",
+    "load_feature_groups",
+    "load_model",
+    "load_prepared_data",
+    "load_scores",
+    "load_selected_features",
+    "load_split_data",
+    "load_study_info",
 ]
 
 
-def _to_upath(value: str | UPath) -> UPath:
-    """Convert a string or UPath to UPath."""
-    return UPath(value)
+def _split_id(outer_split_dir: UPath) -> int:
+    return int(outer_split_dir.name.removeprefix("outersplit"))
 
 
-# ═══════════════════════════════════════════════════════════════
-# Frozen data classes — immutable bundles at the I/O ↔ prediction boundary
-# ═══════════════════════════════════════════════════════════════
+def _split_dir(study: StudyInfo, split_id: int) -> UPath:
+    return study.path / f"outersplit{split_id}"
 
 
-@frozen
-class StudyMetadata:
-    """Immutable study-level metadata extracted from config.
-
-    Attributes:
-        ml_type: Machine learning type as MLType enum.
-        target_metric: Primary metric name.
-        target_col: Target column name.
-        target_assignments: Target column assignments from prepared config.
-        positive_class: Positive class label for classification.
-        row_id_col: Row ID column name.
-        feature_cols: Union of feature columns across outer splits.
-        n_outer_splits: Number of outer splits from config.
-    """
-
-    ml_type: MLType
-    target_metric: str
-    target_col: str
-    target_assignments: dict[str, str]
-    positive_class: Any
-    row_id_col: str | None
-    feature_cols: list[str]
-    n_outer_splits: int
+def _task_result_dir(study: StudyInfo, split_id: int, task_id: int, result_type: ResultType) -> UPath:
+    return _split_dir(study, split_id) / f"task{task_id}" / "results" / str(result_type)
 
 
-@frozen
-class SplitArtifacts:
-    """All artifacts loaded for one outer split.
-
-    Attributes:
-        model: The fitted model object.
-        selected_features: List of selected feature names.
-        feature_cols: Input feature columns (before selection).
-        feature_groups: Feature groups dict (group name → feature list).
-    """
-
-    model: Any
-    selected_features: list[str]
-    feature_cols: list[str]
-    feature_groups: dict[str, list[str]]
+def _task_config_dir(study: StudyInfo, split_id: int, task_id: int) -> UPath:
+    return _split_dir(study, split_id) / f"task{task_id}" / "config"
 
 
-@frozen
-class TaskArtifacts:
-    """All artifacts for a task across all outer splits.
+def load_model(study: StudyInfo, split_id: int, task_id: int, result_type: ResultType = ResultType.BEST) -> Any:
+    """Load model.joblib for a task within an outer split.
 
-    Attributes:
-        splits: Dict mapping outer_split_id to SplitArtifacts.
-        outer_split_ids: Sorted list of outer split IDs.
-    """
-
-    splits: dict[int, SplitArtifacts]
-    outer_split_ids: list[int]
-
-
-# ═══════════════════════════════════════════════════════════════
-# TaskOuterSplitLoader — frozen path resolver + artifact loader
-# ═══════════════════════════════════════════════════════════════
-
-
-@frozen
-class TaskOuterSplitLoader:
-    """Load data for a single outer split from disk.
-
-    Matches actual disk structure:
-    - split_row_ids.json at outer split level (row IDs into data_prepared.parquet)
-    - feature_cols.json, feature_groups.json inside task/config/
-    - model.joblib, predictor.json inside task/results/{result_type}/model/
-    - selected_features.json, scores.parquet, predictions.parquet,
-      feature_importances.parquet inside task/results/{result_type}/
-
-    Attributes:
-        study_path: Path to the study directory.
-        outer_split_id: Outer split index.
+    Args:
+        study: Validated study (from ``load_study_info()``).
+        split_id: Outer-split index.
         task_id: Workflow task index.
-        result_type: Result type for filtering results (default: 'best').
+        result_type: Result type (default ``"best"``).
+
+    Returns:
+        The deserialized model object.
     """
+    from octopus.utils import joblib_load  # noqa: PLC0415
 
-    study_path: UPath = field(converter=_to_upath)
-    outer_split_id: int
-    task_id: int
-    result_type: str = "best"
-
-    @property
-    def outer_split_dir(self) -> UPath:
-        """Outer split directory path."""
-        return self.study_path / f"outersplit{self.outer_split_id}"
-
-    @property
-    def task_dir(self) -> UPath:
-        """Task directory path."""
-        return self.outer_split_dir / f"task{self.task_id}"
-
-    @property
-    def result_dir(self) -> UPath:
-        """Result type directory path (e.g. task0/results/best/)."""
-        return self.task_dir / "results" / self.result_type
-
-    @property
-    def config_dir(self) -> UPath:
-        """Config artifact directory path (feature_cols, feature_groups)."""
-        return self.task_dir / "config"
-
-    @property
-    def model_dir(self) -> UPath:
-        """Model directory path inside result_dir (model.joblib, predictor.json)."""
-        return self.result_dir / "model"
-
-    # ── Validation ──────────────────────────────────────────────
-
-    def validate_directories(self) -> None:
-        """Check that outer_split_dir and task_dir exist on disk.
-
-        Raises:
-            FileNotFoundError: If the outer split or task directory is missing.
-        """
-        if not self.outer_split_dir.exists():
-            raise FileNotFoundError(f"Outer split directory not found: {self.outer_split_dir}")
-        if not self.task_dir.exists():
-            raise FileNotFoundError(f"Task directory not found: {self.task_dir}")
-
-    # ── Artifact loading ────────────────────────────────────────
-
-    def load_all_artifacts(self) -> SplitArtifacts:
-        """Load all artifacts for this outer split in one call.
-
-        Validates directories, loads required artifacts (model,
-        selected_features), and optional artifacts (feature_cols,
-        feature_groups).
-
-        Returns:
-            SplitArtifacts with model, selected_features, feature_cols,
-            feature_groups.
-
-        Raises:
-            FileNotFoundError: If directories or required files are missing.
-        """
-        self.validate_directories()
-        return SplitArtifacts(
-            model=self.load_model(),
-            selected_features=self.load_selected_features(),
-            feature_cols=self.load_feature_cols(),
-            feature_groups=self.load_feature_groups(),
-        )
-
-    def load_partition(self, partition: Literal["traindev", "test"]) -> pd.DataFrame:
-        """Load one data partition by filtering prepared data with stored row IDs.
-
-        Rows are returned in the order they were stored in split_row_ids.json,
-        matching the original split order. Raises if any stored row IDs are
-        missing from the prepared data.
-
-        Args:
-            partition: Which partition to load — ``"traindev"`` or ``"test"``.
-
-        Returns:
-            DataFrame for the requested partition.
-
-        Raises:
-            FileNotFoundError: If split_row_ids.json or data_prepared.parquet is missing.
-            KeyError: If any stored row IDs are not found in data_prepared.parquet.
-        """
-        if partition not in ("traindev", "test"):
-            raise ValueError(f"partition must be 'traindev' or 'test', got {partition!r}")
-
-        split_ids_path = self.outer_split_dir / "split_row_ids.json"
-        if not split_ids_path.exists():
-            raise FileNotFoundError(f"Split row IDs not found: {split_ids_path}")
-
-        prepared_path = self.study_path / "data_prepared.parquet"
-        if not prepared_path.exists():
-            raise FileNotFoundError(f"Prepared data not found: {prepared_path}")
-
-        with split_ids_path.open() as f:
-            split_info: dict[str, Any] = json.load(f)
-        row_ids: list = split_info[f"{partition}_row_ids"]
-        row_id_col: str = split_info["row_id_col"]
-
-        prepared_data = parquet_load(prepared_path)
-
-        indexed = prepared_data.set_index(row_id_col)
-        missing = set(row_ids) - set(indexed.index)
-        if missing:
-            raise KeyError(
-                f"{len(missing)} {partition} row IDs not found in data_prepared.parquet "
-                f"(first 5: {sorted(missing)[:5]})"
-            )
-        return indexed.loc[row_ids].reset_index()
-
-    def load_model(self) -> Any:
-        """Load fitted model from result_dir/model/model.joblib.
-
-        Returns:
-            The deserialized fitted model object.
-
-        Raises:
-            FileNotFoundError: If model file is missing.
-        """
-        from octopus.utils import joblib_load  # noqa: PLC0415
-
-        path = self.model_dir / "model.joblib"
-        if not path.exists():
-            raise FileNotFoundError(f"Model file not found: {path}. Has the study completed successfully?")
-        return joblib_load(path)
-
-    def load_selected_features(self) -> list[str]:
-        """Load selected_features.json from result_dir.
-
-        Returns:
-            List of selected feature names.
-
-        Raises:
-            FileNotFoundError: If selected features file is missing.
-        """
-        path = self.result_dir / "selected_features.json"
-        if not path.exists():
-            raise FileNotFoundError(f"Selected features not found: {path}")
-        with path.open() as f:
-            result: list[str] = json.load(f)
-            return result
-
-    def load_feature_cols(self) -> list[str]:
-        """Load feature_cols.json from module directory.
-
-        These are the input feature columns used by this task (before feature
-        selection). Saved by ``WorkflowTaskRunner._save_task_context()``
-        during study execution.
-
-        Returns:
-            List of input feature column names, or empty list if not found.
-        """
-        path = self.config_dir / "feature_cols.json"
-        if not path.exists():
-            return []
-        with path.open() as f:
-            result: list[str] = json.load(f)
-            return result
-
-    def load_feature_groups(self) -> dict[str, list[str]]:
-        """Load feature_groups.json from module directory.
-
-        These are correlation-based feature groups computed from training data.
-        Saved by ``WorkflowTaskRunner._save_task_context()`` during study
-        execution.
-
-        Returns:
-            Dict mapping group names to lists of feature names, or empty dict.
-        """
-        path = self.config_dir / "feature_groups.json"
-        if not path.exists():
-            return {}
-        with path.open() as f:
-            result: dict[str, list[str]] = json.load(f)
-            return result
-
-    def load_scores(self) -> pd.DataFrame:
-        """Load scores.parquet from result_dir.
-
-        Returns:
-            DataFrame with scores, or empty DataFrame if not found.
-        """
-        path = self.result_dir / "scores.parquet"
-        return parquet_load(path) if path.exists() else pd.DataFrame()
+    model_path = _task_result_dir(study, split_id, task_id, result_type) / "model" / "model.joblib"
+    if not model_path.exists():
+        raise FileNotFoundError(f"Model file not found: {model_path}. Has the study completed successfully?")
+    return joblib_load(model_path)
 
 
-# ═══════════════════════════════════════════════════════════════
-# StudyLoader — frozen study-level reader with validation + aggregation
-# ═══════════════════════════════════════════════════════════════
+def load_selected_features(
+    study: StudyInfo, split_id: int, task_id: int, result_type: ResultType = ResultType.BEST
+) -> list[str]:
+    """Load selected_features.json for a task within an outer split.
+
+    Args:
+        study: Validated study (from ``load_study_info()``).
+        split_id: Outer-split index.
+        task_id: Workflow task index.
+        result_type: Result type (default ``"best"``).
+
+    Returns:
+        List of selected feature names.
+    """
+    sf_path = _task_result_dir(study, split_id, task_id, result_type) / "selected_features.json"
+    if not sf_path.exists():
+        raise FileNotFoundError(f"Selected features not found: {sf_path}")
+    with sf_path.open() as f:
+        result: list[str] = json.load(f)
+    return result
+
+
+def load_feature_cols(study: StudyInfo, split_id: int, task_id: int) -> list[str]:
+    """Load feature_cols.json for a task within an outer split.
+
+    Args:
+        study: Validated study (from ``load_study_info()``).
+        split_id: Outer-split index.
+        task_id: Workflow task index.
+
+    Returns:
+        List of feature column names.
+    """
+    fc_path = _task_config_dir(study, split_id, task_id) / "feature_cols.json"
+    if not fc_path.exists():
+        raise FileNotFoundError(f"Feature columns not found: {fc_path}")
+    with fc_path.open() as f:
+        result: list[str] = json.load(f)
+    return result
+
+
+def load_feature_groups(study: StudyInfo, split_id: int, task_id: int) -> dict[str, list[str]]:
+    """Load feature_groups.json for a task within an outer split, returning {} if not found.
+
+    Args:
+        study: Validated study (from ``load_study_info()``).
+        split_id: Outer-split index.
+        task_id: Workflow task index.
+
+    Returns:
+        Mapping of group name to feature lists, or ``{}`` if not found.
+    """
+    fg_path = _task_config_dir(study, split_id, task_id) / "feature_groups.json"
+    if not fg_path.exists():
+        return {}
+    with fg_path.open() as f:
+        result: dict[str, list[str]] = json.load(f)
+    return result
+
+
+def load_scores(
+    study: StudyInfo, split_id: int, task_id: int, result_type: ResultType = ResultType.BEST
+) -> pd.DataFrame:
+    """Load scores.parquet for a task within an outer split.
+
+    Args:
+        study: Validated study (from ``load_study_info()``).
+        split_id: Outer-split index.
+        task_id: Workflow task index.
+        result_type: Result type (default ``"best"``).
+
+    Returns:
+        DataFrame with scores.
+
+    Raises:
+        FileNotFoundError: If scores.parquet is missing.
+    """
+    scores_path = _task_result_dir(study, split_id, task_id, result_type) / "scores.parquet"
+    if not scores_path.exists():
+        raise FileNotFoundError(f"Scores not found: {scores_path}")
+    return pd.read_parquet(scores_path)
+
+
+def load_prepared_data(study: StudyInfo) -> pd.DataFrame:
+    """Load data_prepared.parquet from a study directory.
+
+    Args:
+        study: Validated study (from ``load_study_info()``).
+
+    Returns:
+        The prepared data DataFrame.
+
+    Raises:
+        FileNotFoundError: If data_prepared.parquet is missing.
+    """
+    from octopus.utils import parquet_load  # noqa: PLC0415
+
+    prepared_path = study.path / "data_prepared.parquet"
+    if not prepared_path.exists():
+        raise FileNotFoundError(f"Prepared data not found: {prepared_path}")
+    return parquet_load(prepared_path)
+
+
+def load_split_data(
+    study: StudyInfo, split_id: int, *, prepared_data: pd.DataFrame | None = None
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load test/train data via split_row_ids.json + data_prepared.parquet.
+
+    Args:
+        study: Validated study (from ``load_study_info()``).
+        split_id: Outer-split index.
+        prepared_data: Pre-loaded prepared data to avoid repeated parquet reads.
+            If None, data_prepared.parquet is read from disk.
+
+    Returns:
+        Tuple of (test_data, train_data).
+    """
+    outer_split_dir = _split_dir(study, split_id)
+    split_ids_path = outer_split_dir / "split_row_ids.json"
+    if not split_ids_path.exists():
+        raise FileNotFoundError(f"Split row IDs not found: {split_ids_path}")
+
+    if prepared_data is None:
+        prepared_data = load_prepared_data(study)
+
+    with split_ids_path.open() as f:
+        split_info: dict[str, Any] = json.load(f)
+    row_id_col: str = split_info["row_id_col"]
+    indexed = prepared_data.set_index(row_id_col)
+
+    test_data = indexed.loc[split_info["test_row_ids"]].reset_index()
+    train_data = indexed.loc[split_info["traindev_row_ids"]].reset_index()
+    return test_data, train_data
+
+
+def load_config(study_path: str | UPath) -> dict[str, Any]:
+    """Load study_config.json from a study directory.
+
+    Args:
+        study_path: Path to the study directory.
+
+    Returns:
+        Study configuration dictionary.
+
+    Raises:
+        FileNotFoundError: If study_config.json is missing.
+    """
+    path = UPath(study_path) / "study_config.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Study config not found at {path}")
+    with path.open() as f:
+        result: dict[str, Any] = json.load(f)
+        return result
 
 
 @frozen
-class StudyLoader:
-    """Study-level data access for reading study configuration and structure.
+class StudyInfo:
+    """Validated, loaded view of a completed study directory."""
 
-    Used by study-level notebook functions (show_study_details,
-    show_target_metric_performance, show_selected_features) and by
-    TaskPredictor for loading study artifacts.
+    path: UPath
+    config: dict[str, Any]
+    workflow_tasks: tuple[dict[str, Any], ...]
+    outer_split_dirs: tuple[UPath, ...]
 
-    Attributes:
-        study_path: Path to the study directory.
+
+def _resolve_study_path(path: UPath) -> UPath:
+    """Resolve a study path, searching for the latest timestamped match if needed.
+
+    If *path* is an existing directory, return it as-is.  Otherwise, treat the
+    last component as a name prefix and search the parent directory for
+    ``<prefix>-YYYYMMDD_HHMMSS`` directories, returning the latest one.
+
+    Args:
+        path: Study directory path or name prefix.
+
+    Returns:
+        Resolved path to the study directory.
+
+    Raises:
+        FileNotFoundError: If the path does not exist and no timestamped match
+            is found in the parent directory.
     """
+    if path.is_dir():
+        return path
 
-    study_path: UPath = field(converter=_to_upath)
+    root = path.parent
+    prefix = path.name
+    timestamp_pattern = re.compile(re.escape(prefix) + r"-\d{8}_\d{6}$")
+    candidates = sorted(
+        [d for d in root.glob(f"{prefix}-*") if d.is_dir() and timestamp_pattern.match(d.name)],
+        key=lambda p: p.name,
+        reverse=True,
+    )
+    if candidates:
+        return candidates[0]
 
-    # ── Config + validation ─────────────────────────────────────
+    raise FileNotFoundError(f"No study directory found for '{prefix}' in {root}")
 
-    def load_config(self) -> dict[str, Any]:
-        """Load study_config.json.
 
-        Returns:
-            Study configuration dictionary.
+def load_study_info(study_directory: str | UPath) -> StudyInfo:
+    """Load and validate a completed study directory.
 
-        Raises:
-            FileNotFoundError: If study_config.json is missing.
-        """
-        path = self.study_path / "study_config.json"
-        if not path.exists():
-            raise FileNotFoundError(f"Study config not found at {path}")
-        with path.open() as f:
-            result: dict[str, Any] = json.load(f)
-            return result
+    Accepts either a full path to a study directory or a path whose last
+    component is a name prefix (e.g. ``"./studies/wf_octo_mrmr_octo"``).
+    In the latter case the latest timestamped directory matching
+    ``<prefix>-YYYYMMDD_HHMMSS`` is used automatically.
 
-    def validate_task_id(self, task_id: int, config: dict[str, Any]) -> None:
-        """Validate task_id against the study config.
+    Args:
+        study_directory: Path to the study directory, or a path ending in a
+            study name prefix.
 
-        Args:
-            task_id: Task index to validate.
-            config: Study configuration dictionary.
+    Returns:
+        A ``StudyInfo`` instance containing study metadata and validation results.
 
-        Raises:
-            ValueError: If task_id is negative or out of range.
-        """
-        if task_id < 0:
-            raise ValueError(f"task_id must be >= 0, got {task_id}")
+    Raises:
+        ValueError: If no outersplit directories exist at all (study not run).
+        FileNotFoundError: If the study directory does not exist and no
+            timestamped match is found.
+    """
+    path_study = _resolve_study_path(UPath(study_directory))
 
-        workflow = config.get("workflow", [])
-        if task_id >= len(workflow):
-            raise ValueError(f"task_id {task_id} out of range, study has {len(workflow)} tasks")
+    config = load_config(path_study)
 
-    def extract_metadata(self, config: dict[str, Any]) -> StudyMetadata:
-        """Extract study-level metadata from config into a frozen data class.
+    workflow_tasks = config["workflow"]
+    n_outer_splits = config["n_outer_splits"]
 
-        Args:
-            config: Study configuration dictionary.
-
-        Returns:
-            StudyMetadata with all study-level properties.
-        """
-        row_id_col = config.get("prepared", {}).get("row_id_col")
-        if not row_id_col:
-            raise ValueError(
-                "row_id_col not found in study config under 'prepared.row_id_col'. "
-                "The study config may be from an incompatible version."
-            )
-
-        return StudyMetadata(
-            ml_type=MLType(config["ml_type"]),
-            target_metric=config.get("target_metric", ""),
-            target_col=config.get("target_col", ""),
-            target_assignments=config.get("prepared", {}).get("target_assignments", {}),
-            positive_class=config.get("positive_class"),
-            row_id_col=row_id_col,
-            feature_cols=config.get("prepared", {}).get("feature_cols", []),
-            n_outer_splits=config.get("n_outer_splits", 0),
+    outer_split_dirs = sorted(
+        [d for d in path_study.glob("outersplit*") if d.is_dir()],
+        key=_split_id,
+    )
+    if not outer_split_dirs:
+        raise ValueError(
+            f"No outersplit directories found in study path.\n"
+            f"Study path: {path_study}\nThe study may not have been run yet."
         )
 
-    def load_task_artifacts(
-        self,
-        task_id: int,
-        result_type: str,
-        n_outer_splits: int,
-    ) -> TaskArtifacts:
-        """Load all models and features for a task across all outer splits.
+    missing_outersplits = [i for i in range(n_outer_splits) if not (path_study / f"outersplit{i}").exists()]
+    if missing_outersplits:
+        warnings.warn(f"Missing outersplit directories: {missing_outersplits}\nStudy path: {path_study}", stacklevel=2)
 
-        Validates directories exist, loads models and features, and bundles
-        them into an immutable TaskArtifacts.
+    task_ids = [task["task_id"] for task in workflow_tasks]
+    missing_workflow_dirs: list[str] = []
 
-        Args:
-            task_id: Concrete task index.
-            result_type: Result type for filtering.
-            n_outer_splits: Number of outer splits from config.
+    for split_dir in outer_split_dirs:
+        for task_id in task_ids:
+            if not (split_dir / f"task{task_id}").exists():
+                missing_workflow_dirs.append(f"{split_dir.name}/task{task_id}")
 
-        Returns:
-            TaskArtifacts with per-split models and features.
-
-        Raises:
-            FileNotFoundError: If any expected directory or artifact is missing.
-            ValueError: If no models are found.
-        """
-        splits: dict[int, SplitArtifacts] = {}
-        outer_split_ids: list[int] = []
-
-        for split_id in range(n_outer_splits):
-            loader = TaskOuterSplitLoader(self.study_path, split_id, task_id, result_type)
-            splits[split_id] = loader.load_all_artifacts()
-            outer_split_ids.append(split_id)
-
-        if not outer_split_ids:
-            raise ValueError(f"No models found for task {task_id}. Check that the study has been run.")
-
-        return TaskArtifacts(splits=splits, outer_split_ids=outer_split_ids)
-
-    # ── Outer split loader factory ───────────────────────────────
-
-    def get_outer_split_loader(
-        self,
-        outer_split_id: int,
-        task_id: int,
-        result_type: str = "best",
-    ) -> TaskOuterSplitLoader:
-        """Get a TaskOuterSplitLoader for a specific outer split and task.
-
-        Args:
-            outer_split_id: Outer split index.
-            task_id: Task index.
-            result_type: Result type for filtering.
-
-        Returns:
-            TaskOuterSplitLoader instance.
-        """
-        return TaskOuterSplitLoader(self.study_path, outer_split_id, task_id, result_type)
-
-    def get_available_outer_splits(self) -> list[int]:
-        """Get list of available outer split IDs.
-
-        Returns:
-            Sorted list of outer split IDs found on disk.
-        """
-        dirs = sorted(
-            [d for d in self.study_path.glob("outersplit*") if d.is_dir()],
-            key=lambda x: int(x.name.replace("outersplit", "")),
+    if missing_workflow_dirs:
+        warnings.warn(
+            f"Missing workflow task directories: {missing_workflow_dirs}\nStudy path: {path_study}", stacklevel=2
         )
-        return [int(d.name.replace("outersplit", "")) for d in dirs]
 
-    def get_task_directories(self, outer_split_id: int) -> list[tuple[int, UPath]]:
-        """Get task directories for a given outer split.
-
-        Args:
-            outer_split_id: Outer split index.
-
-        Returns:
-            Sorted list of (task_id, task_path) tuples.
-        """
-        outer_split_dir = self.study_path / f"outersplit{outer_split_id}"
-        if not outer_split_dir.exists():
-            return []
-        task_dirs = []
-        for task_dir in outer_split_dir.glob("task*"):
-            if task_dir.is_dir():
-                match = re.search(r"\d+$", task_dir.name)
-                if match:
-                    task_dirs.append((int(match.group()), task_dir))
-        return sorted(task_dirs)
-
-    # ── Aggregation (used by notebook_utils) ────────────────────
-
-    def build_performance_summary(self) -> pd.DataFrame:
-        """Aggregate scores across all outer splits and tasks.
-
-        Iterates over all outer split directories and task directories found on
-        disk, loading scores and selected features for each combination.
-
-        Returns:
-            DataFrame with columns: OuterSplit, Task, Task_name, Module,
-            Results_key, Performance_dict, n_features, Selected_features.
-            Sorted by Task, OuterSplit.
-        """
-        _ = self.load_config()  # Validate config exists
-        rows_list: list[dict[str, Any]] = []
-
-        available_splits = self.get_available_outer_splits()
-
-        for split_num in available_splits:
-            task_dirs = self.get_task_directories(split_num)
-
-            for workflow_num, path_workflow in task_dirs:
-                workflow_name = str(path_workflow.name)
-
-                try:
-                    loader = self.get_outer_split_loader(outer_split_id=split_num, task_id=workflow_num)
-                    try:
-                        selected_features = loader.load_selected_features()
-                    except FileNotFoundError:
-                        selected_features = []
-
-                    perf_df = loader.load_scores()
-
-                    # Filter out per_split rows — only keep avg and ensemble aggregations
-                    if not perf_df.empty and "aggregation" in perf_df.columns:
-                        perf_df = perf_df[perf_df["aggregation"] != "per_split"]
-
-                    if not perf_df.empty and "result_type" in perf_df.columns:
-                        group_cols = ["result_type"]
-                        if "module" in perf_df.columns:
-                            group_cols = ["module", "result_type"]
-
-                        unique_combos = perf_df[group_cols].drop_duplicates()
-                        for _, combo in unique_combos.iterrows():
-                            mask = pd.Series(True, index=perf_df.index)
-                            for col in group_cols:
-                                mask &= perf_df[col] == combo[col]
-                            combo_perf = perf_df[mask]
-                            performance_dict = {}
-                            for _, row in combo_perf.iterrows():
-                                perf_key = f"{row['partition']}_{row['aggregation']}"
-                                performance_dict[perf_key] = row["value"]
-
-                            module_name = combo.get("module", "") if "module" in group_cols else ""
-                            rows_list.append(
-                                {
-                                    "OuterSplit": split_num,
-                                    "Task": workflow_num,
-                                    "Task_name": workflow_name,
-                                    "Module": module_name,
-                                    "Results_key": str(combo["result_type"]),
-                                    "Performance_dict": performance_dict,
-                                    "n_features": len(selected_features),
-                                    "Selected_features": sorted(selected_features),
-                                }
-                            )
-                    else:
-                        rows_list.append(
-                            {
-                                "OuterSplit": split_num,
-                                "Task": workflow_num,
-                                "Task_name": workflow_name,
-                                "Module": "",
-                                "Results_key": "",
-                                "Performance_dict": {},
-                                "n_features": len(selected_features),
-                                "Selected_features": sorted(selected_features),
-                            }
-                        )
-
-                except (FileNotFoundError, KeyError) as e:
-                    import warnings  # noqa: PLC0415
-
-                    warnings.warn(
-                        f"Could not load data for {workflow_name} in outersplit{split_num}: {e}",
-                        stacklevel=2,
-                    )
-                    continue
-
-        df = pd.DataFrame(
-            rows_list,
-            columns=[
-                "OuterSplit",
-                "Task",
-                "Task_name",
-                "Module",
-                "Results_key",
-                "Performance_dict",
-                "n_features",
-                "Selected_features",
-            ],
-        )
-        df = df.sort_values(by=["Task", "OuterSplit"], ignore_index=True)
-        return df
-
-    def build_feature_summary(
-        self,
-        sort_task: int | None = None,
-        sort_key: str | None = None,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Aggregate feature selection info across splits and tasks.
-
-        Args:
-            sort_task: Task ID to use for sorting the frequency table.
-            sort_key: Results key to use for sorting the frequency table.
-
-        Returns:
-            Tuple of two DataFrames:
-            - feature_table: Number of features per outer split for each
-              task-key combination (with Mean row).
-            - frequency_table: Feature frequency across outer splits.
-        """
-        raw = self.build_performance_summary()
-
-        # Feature count table
-        feature_table = raw.pivot_table(
-            index="OuterSplit",
-            columns=["Task", "Results_key"],
-            values="n_features",
-            aggfunc="first",
-        )
-        mean_row = feature_table.mean(axis=0)
-        feature_table.loc["Mean"] = mean_row
-        feature_table = feature_table.astype(int)
-        feature_table.index.name = "OuterSplit"
-
-        # Determine sort defaults
-        task_key_combinations = raw[["Task", "Results_key"]].drop_duplicates().sort_values(["Task", "Results_key"])
-
-        if sort_task is None:
-            sort_task = int(task_key_combinations.iloc[0]["Task"])
-            sort_key = str(task_key_combinations.iloc[0]["Results_key"])
-        elif sort_key is None:
-            task_keys = raw[raw["Task"] == sort_task]["Results_key"].unique()
-            sort_key = str(task_keys[0]) if len(task_keys) > 0 else None
-
-        # Feature frequency table
-        frequency_data: dict[tuple[int, str], dict[str, int]] = {}
-        for _, row in task_key_combinations.iterrows():
-            task = int(row["Task"])
-            key = str(row["Results_key"])
-            task_key = (task, key)
-            frequency_data[task_key] = {}
-
-            task_key_data = raw[(raw["Task"] == task) & (raw["Results_key"] == key)]
-            for _, data_row in task_key_data.iterrows():
-                for feature in data_row["Selected_features"]:
-                    if feature not in frequency_data[task_key]:
-                        frequency_data[task_key][feature] = 0
-                    frequency_data[task_key][feature] += 1
-
-        frequency_table = pd.DataFrame(frequency_data)
-        frequency_table = frequency_table.fillna(0).astype(int)
-
-        if sort_key is not None:
-            sort_col = (sort_task, sort_key)
-            if sort_col in frequency_table.columns:
-                frequency_table = frequency_table.sort_values(
-                    by=[sort_col],  # type: ignore[list-item]
-                    ascending=False,
-                )
-
-        frequency_table.index.name = "Feature"
-
-        return feature_table, frequency_table
+    return StudyInfo(
+        path=path_study,
+        config=config,
+        workflow_tasks=tuple(workflow_tasks),
+        outer_split_dirs=tuple(outer_split_dirs),
+    )

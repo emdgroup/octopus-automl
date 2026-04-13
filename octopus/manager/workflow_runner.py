@@ -176,7 +176,7 @@ class WorkflowTaskRunner:
 
         Saves the input feature columns and correlation-based feature groups
         that were used when running this task. These are needed by
-        ``TaskPredictor`` for prediction and feature importance computation.
+        ``OctoPredictor`` for prediction and feature importance computation.
 
         Files are written to a ``config/`` subdirectory to match the path
         expected by ``OuterSplitLoader``.
