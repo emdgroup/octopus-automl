@@ -30,7 +30,7 @@ print(f"  Target distribution: {df['target'].value_counts().sort_index().to_dict
 ### Create and run OctoClassification with ROC + Octo workflow
 
 study = OctoClassification(
-    study_name="example_roc_octo",
+    study_name="wf_roc_octo",
     studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="ACCBAL",  # Balanced accuracy for binary classification
     feature_cols=features,

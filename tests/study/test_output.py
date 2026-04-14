@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from tests.predict.test_predict import _create_classification_study
+from tests.poststudy.test_predict import _create_classification_study
 
 
 def test_output_path_raises_before_fit():
