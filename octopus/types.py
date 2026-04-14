@@ -126,8 +126,8 @@ class FIType(StrEnum):
     """Feature importance types for the prediction API.
 
     Used as the ``fi_type`` parameter in
-    ``TaskPredictor.calculate_fi()`` and
-    ``TaskPredictorTest.calculate_fi()``.
+    ``OctoPredictor.calculate_fi()`` and
+    ``OctoTestEvaluator.calculate_fi()``.
     """
 
     PERMUTATION = "permutation"

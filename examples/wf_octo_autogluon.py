@@ -65,7 +65,7 @@ print("=====================================\n")
 ### Create and run OctoClassification with PARALLEL Octo + AutoGluon workflow
 
 study = OctoClassification(
-    study_name="wf_octo_autogluon_parallel",
+    study_name="wf_octo_autogluon",
     studies_directory=os.environ.get("STUDIES_PATH", "./studies"),
     target_metric="AUCROC",  # Area Under ROC Curve for binary classification
     feature_cols=feature_names,
