@@ -52,7 +52,7 @@ jobs:
     needs: build
     name: Publish PyPI TEST
     environment: release-test-pypi
-    if: github.repository_owner == 'emdgroup' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    if: github.repository_owner == 'emdgroup'
     runs-on: ubuntu-latest
     steps:
       - name: Download packages built
@@ -67,7 +67,7 @@ jobs:
 
   # Upload to real PyPI on GitHub Releases.
   release-pypi:
-    needs: build
+    needs: release-test-pypi
     name: Publish PyPI PROD
     environment: release-pypi
     if: github.repository_owner == 'emdgroup' && github.event.action == 'published'
