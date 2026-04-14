@@ -91,6 +91,7 @@ study = OctoClassification(
             n_trials=100,
             n_inner_splits=5,
             ensemble_selection=True,
+            n_ensemble_candidates=100,
         ),
     ],
 )

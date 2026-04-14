@@ -265,6 +265,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Extract ensemble results
@@ -383,6 +384,7 @@ def test_ensemble_bag_has_unique_inner_split_ids(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Build trainings using the production deep-copy logic
@@ -430,6 +432,7 @@ def test_ensemble_bag_predictions_groupby_inner_split_correct(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Build trainings using the production deep-copy logic
@@ -485,6 +488,7 @@ def test_ensemble_at_least_as_good_as_best_single_model(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Compute optimized ensemble performance
@@ -531,6 +535,7 @@ def test_ensemble_with_replacement_weights_predictions(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Manually create weighted ensemble: model_a x3, model_b x1
