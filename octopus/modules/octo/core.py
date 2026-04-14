@@ -236,6 +236,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
             target_assignments=study_context.target_assignments,
             positive_class=study_context.positive_class,
             n_assigned_cpus=n_assigned_cpus,
+            ml_type=study_context.ml_type,
         )
         ensemble_paths_dict = ensel.optimized_ensemble
         return self._create_ensemble_bag(study_context, outer_split_id, n_assigned_cpus, ensemble_paths_dict, results)
