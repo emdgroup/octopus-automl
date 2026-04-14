@@ -165,18 +165,35 @@ class CorrelationType(StrEnum):
 
 
 class RelevanceMethod(StrEnum):
-    """Method used to compute feature relevance to the target.
+    """Method used to score feature relevance within correlated groups.
 
-    Used in:
-    - ``Roc.relevance_method``: scoring features within correlated groups
-    - ``Mrmr.relevance_method``: computing feature-target relevance for MRMR ranking
-
-    Each module restricts the valid subset via its own attrs validator.
+    Used in ``Roc.relevance_method``: scoring features within correlated groups.
     """
 
     F_STATISTICS = "f_statistics"
     MUTUAL_INFO = "mutual_info"
-    PERMUTATION = "permutation"
+
+
+class MRMRRelevance(StrEnum):
+    """Method used to compute feature relevance to the target in MRMR.
+
+    Used in ``Mrmr.relevance_type``:
+    - ``FROM_DEPENDENCY``: re-uses feature importances from the dependency task
+    - ``F_STATISTICS``: computes F-statistics (f_classif / f_regression) from scratch
+    """
+
+    FROM_DEPENDENCY = "from_dependency"
+    F_STATISTICS = "f_statistics"
+
+
+class MRMRFIAggregation(StrEnum):
+    """Aggregation method for feature importances in MRMR.
+
+    Used in ``Mrmr.feature_importance_type``.
+    """
+
+    MEAN = "mean"
+    COUNT = "count"
 
 
 class ScoringMethod(StrEnum):

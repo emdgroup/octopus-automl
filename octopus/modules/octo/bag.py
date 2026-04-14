@@ -516,13 +516,23 @@ class BagBase(BaseEstimator):
     def get_fi_df(self) -> pd.DataFrame:
         """Concat per-training feature importances into a single DataFrame with fi_method, fi_dataset, and training_id columns.
 
+        Also includes pre-aggregated rows (mean/count across trainings) with
+        ``training_id`` set to ``"mean"`` or ``"count"``.
+
         Returns:
             DataFrame with columns: feature, importance, fi_method, fi_dataset, training_id
         """
         all_dfs: list[pd.DataFrame] = []
         for key, value in self.fi.items():
-            # Skip aggregated keys like "internal_mean", "permutation_dev_count", etc.
             if key.endswith("_mean") or key.endswith("_count"):
+                # Aggregated rows: include with training_id="mean" or "count"
+                if isinstance(value, pd.DataFrame) and not value.empty:
+                    temp = value[["feature", "importance"]].copy()
+                    method, dataset = parse_fi_storage_key(key)
+                    temp["fi_method"] = method
+                    temp["fi_dataset"] = dataset
+                    temp["training_id"] = "mean" if key.endswith("_mean") else "count"
+                    all_dfs.append(temp)
                 continue
             if isinstance(value, dict):
                 # Per-training: {fi_key: DataFrame}
