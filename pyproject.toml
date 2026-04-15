@@ -43,11 +43,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://emdgroup.github.io/octopus/"
-Documentation = "https://emdgroup.github.io/octopus/"
-Changelog = "https://github.com/emdgroup/octopus/releases"
-GitHub = "https://github.com/emdgroup/octopus/"
-Issues = "https://github.com/emdgroup/octopus/issues/"
+Homepage = "https://emdgroup.github.io/octopus-automl/"
+Documentation = "https://emdgroup.github.io/octopus-automl/"
+Changelog = "https://github.com/emdgroup/octopus-automl/releases"
+GitHub = "https://github.com/emdgroup/octopus-automl/"
+Issues = "https://github.com/emdgroup/octopus-automl/issues/"
 
 # DEV TOOLS NOTE: The versions of all dev tools should be consistent everywhere
 # (pre-commit, environment.yml, requirements.txt, pyproject.toml, ...)

@@ -1,6 +1,6 @@
 site_name: Octopus Documentation
-site_url: https://emdgroup.github.io/octopus/
-repo_url: https://github.com/emdgroup/octopus
+site_url: https://emdgroup.github.io/octopus-automl/
+repo_url: https://github.com/emdgroup/octopus-automl
 
 edit_uri: edit/main/docs/
 
@@ -9,7 +9,7 @@ extra:
     provider: mike
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/emdgroup/octopus
+      link: https://github.com/emdgroup/octopus-automl
       name: Octopus on GitHub
 
 copyright: Copyright &copy; 2024 - 2026 Merck KGaA, Darmstadt, Germany and contributors.
@@ -102,5 +102,5 @@ nav:
       - Contributing: contributing.md
       - Contributors: contributors.md
       - Changelog: changelog.md
-      - Known Issues: "https://github.com/emdgroup/octopus/issues/"
+      - Known Issues: "https://github.com/emdgroup/octopus-automl/issues/"
       - License: license.md
