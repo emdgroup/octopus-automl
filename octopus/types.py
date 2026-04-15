@@ -47,7 +47,7 @@ class ModelName(StrEnum):
 
     Use this enum for IDE autocomplete when specifying models, e.g.::
 
-        Octo(task_id=0, models=[ModelName.XGBClassifier, ModelName.CatBoostClassifier])
+        Tako(task_id=0, models=[ModelName.XGBClassifier, ModelName.CatBoostClassifier])
 
     Plain strings still work too, but `ModelName` keeps call sites consistent.
     """
@@ -102,7 +102,7 @@ class FIComputeMethod(StrEnum):
     """Computation methods for feature importance calculation.
 
     Used in model configuration (``ModelConfig.fi_method``), module
-    configuration (``Octo.fi_methods``,
+    configuration (``Tako.fi_methods``,
     ``Mrmr.fi_method``), and internal dispatch in bag
     and training code.
     """
@@ -199,7 +199,7 @@ class MRMRFIAggregation(StrEnum):
 class ScoringMethod(StrEnum):
     """Determines which bag performance statistic is used as the Optuna optimisation target.
 
-    Used in ``Octo.scoring_method``:
+    Used in ``Tako.scoring_method``:
     - ``COMBINED``: uses the ensembled dev score across all inner splits (dev_ensemble)
     - ``AVERAGE``: uses the average of per-split dev scores (dev_avg)
     """

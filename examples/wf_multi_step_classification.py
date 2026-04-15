@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification
 
-from octopus.modules import Mrmr, Octo
+from octopus.modules import Mrmr, Tako
 from octopus.study import OctoClassification
 from octopus.types import CorrelationType, ModelName
 
@@ -57,8 +57,8 @@ study = OctoClassification(
     stratification_col="target",
     n_outer_splits=5,
     workflow=[
-        Octo(
-            description="step1_octo_full",
+        Tako(
+            description="step1_tako_full",
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier],
@@ -73,8 +73,8 @@ study = OctoClassification(
             n_features=15,
             correlation_type=CorrelationType.SPEARMAN,
         ),
-        Octo(
-            description="step3_octo_reduced",
+        Tako(
+            description="step3_tako_reduced",
             task_id=2,
             depends_on=1,
             models=[ModelName.ExtraTreesClassifier],

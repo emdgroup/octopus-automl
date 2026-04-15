@@ -11,7 +11,7 @@
 import os
 
 from octopus.example_data import load_wine_data
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoClassification
 from octopus.types import FIComputeMethod, ModelName
 
@@ -37,10 +37,10 @@ study = OctoClassification(
     outer_split_seed=1234,
     single_outer_split=0,  # only process first outer split, for quick testing
     workflow=[
-        Octo(
+        Tako(
             task_id=0,
             depends_on=None,
-            description="step_1_octo_multiclass",
+            description="step_1_tako_multiclass",
             n_inner_splits=5,
             models=[
                 ModelName.ExtraTreesClassifier,

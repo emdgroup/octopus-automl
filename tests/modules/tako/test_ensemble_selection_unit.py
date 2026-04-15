@@ -8,10 +8,10 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 from upath import UPath
 
-import octopus.modules.octo.enssel as enssel_module
-from octopus.modules.octo.bag import Bag
-from octopus.modules.octo.enssel import EnSel
-from octopus.modules.octo.training import Training
+import octopus.modules.tako.enssel as enssel_module
+from octopus.modules.tako.bag import Bag
+from octopus.modules.tako.enssel import EnSel
+from octopus.modules.tako.training import Training
 from octopus.types import MLType, ModelName
 from octopus.utils import joblib_save
 

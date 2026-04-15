@@ -11,7 +11,7 @@ Run this script before using the analysis_timetoevent.ipynb notebook::
 import os
 
 from octopus.example_data import load_survival_data
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoTimeToEvent
 from octopus.types import ModelName
 
@@ -32,8 +32,8 @@ study = OctoTimeToEvent(
     event_col="event",
     sample_id_col="index",
     workflow=[
-        Octo(
-            description="step1_octo",
+        Tako(
+            description="step1_tako",
             task_id=0,
             models=[ModelName.XGBoostCoxSurvival],
             n_trials=25,

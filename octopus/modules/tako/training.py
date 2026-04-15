@@ -1,4 +1,4 @@
-"""Octo Training."""
+"""Tako Training."""
 
 import copy
 from typing import Any, TypedDict
@@ -20,7 +20,7 @@ from octopus.types import DataPartition, FIComputeMethod, FIResultLabel, LogGrou
 
 logger = get_logger()
 
-# ── Octo-only Layer 1 primitive ────────────────────────────────
+# ── Tako-only Layer 1 primitive ────────────────────────────────
 
 
 def _compute_internal_fi(
@@ -37,7 +37,7 @@ def _compute_internal_fi(
     ``feature_importances_`` are supported and will return importances
     normally.
 
-    This is an octo-only primitive — it is not used by the predict layer
+    This is an tako-only primitive — it is not used by the predict layer
     and therefore lives here rather than in the shared
     ``octopus.feature_importance`` module.
 
@@ -92,7 +92,7 @@ def _compute_lofo(
     positive_class: int | None,
     n_targets: int,
 ) -> dict[str, pd.DataFrame]:
-    """Compute LOFO feature importance (octo-only primitive).
+    """Compute LOFO feature importance (tako-only primitive).
 
     For each feature (and feature group), retrains the model with that
     feature removed and measures the performance drop.

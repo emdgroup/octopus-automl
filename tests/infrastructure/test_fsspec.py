@@ -10,7 +10,7 @@ from sklearn.datasets import make_classification
 from sklearn.linear_model import LinearRegression
 from upath import UPath
 
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoClassification
 from octopus.types import FIComputeMethod, ModelName
 from octopus.utils import joblib_load, joblib_save
@@ -192,8 +192,8 @@ class TestFSSpecIntegration:
                     studies_directory=root_dir,
                     single_outer_split=0,
                     workflow=[
-                        Octo(
-                            description="step_1_octo",
+                        Tako(
+                            description="step_1_tako",
                             task_id=0,
                             depends_on=None,
                             n_inner_splits=3,

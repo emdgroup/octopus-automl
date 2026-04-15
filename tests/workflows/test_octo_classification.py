@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoClassification
 from octopus.types import FIComputeMethod, ModelName
 
@@ -76,10 +76,10 @@ class TestOctoIntroClassification:
             assert study.sample_id_col == "index"
             assert study.stratification_col == "target"
 
-    def test_octo_task_configuration(self):
+    def test_tako_task_configuration(self):
         """Test that Octo task can be properly configured."""
-        octo_task = Octo(
-            description="step_1_octo",
+        tako_task = Tako(
+            description="step_1_tako",
             task_id=0,
             depends_on=None,
             n_inner_splits=3,
@@ -93,19 +93,19 @@ class TestOctoIntroClassification:
             n_ensemble_candidates=5,
         )
 
-        assert isinstance(octo_task, Octo)
-        assert octo_task.task_id == 0
-        assert octo_task.depends_on is None
-        assert octo_task.description == "step_1_octo"
-        assert octo_task.n_inner_splits == 3
-        assert octo_task.models is not None
-        assert set(octo_task.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
+        assert isinstance(tako_task, Tako)
+        assert tako_task.task_id == 0
+        assert tako_task.depends_on is None
+        assert tako_task.description == "step_1_tako"
+        assert tako_task.n_inner_splits == 3
+        assert tako_task.models is not None
+        assert set(tako_task.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
 
     @pytest.mark.parametrize("model", [ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier])
     def test_single_model_configuration(self, model):
         """Test configuration with different single models."""
-        octo_task = Octo(
-            description="step_1_octo",
+        tako_task = Tako(
+            description="step_1_tako",
             task_id=0,
             depends_on=None,
             models=[model],
@@ -113,27 +113,27 @@ class TestOctoIntroClassification:
             n_inner_splits=3,
         )
 
-        assert octo_task.models == [model]
+        assert tako_task.models == [model]
 
     def test_multiple_models_configuration(self):
         """Test configuration with multiple models."""
         models = [ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier]
-        octo_task = Octo(
-            description="step_1_octo",
+        tako_task = Tako(
+            description="step_1_tako",
             task_id=0,
             depends_on=None,
             models=models,
             n_trials=5,
             n_inner_splits=3,
         )
-        assert octo_task.models is not None
-        assert set(octo_task.models) == set(models)
+        assert tako_task.models is not None
+        assert set(tako_task.models) == set(models)
 
     def test_feature_importance_configuration(self):
         """Test feature importance method configuration."""
         fi_methods = [FIComputeMethod.PERMUTATION]
-        octo_task = Octo(
-            description="step_1_octo",
+        tako_task = Tako(
+            description="step_1_tako",
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier],
@@ -141,12 +141,12 @@ class TestOctoIntroClassification:
             n_trials=3,
         )
 
-        assert octo_task.fi_methods == fi_methods
+        assert tako_task.fi_methods == fi_methods
 
     def test_ensemble_selection_configuration(self):
         """Test ensemble selection configuration."""
-        octo_task = Octo(
-            description="step_1_octo",
+        tako_task = Tako(
+            description="step_1_tako",
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
@@ -155,13 +155,13 @@ class TestOctoIntroClassification:
             n_trials=5,
         )
 
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 15
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 15
 
     def test_hyperparameter_optimization_configuration(self):
         """Test hyperparameter optimization configuration."""
-        octo_task = Octo(
-            description="step_1_octo",
+        tako_task = Tako(
+            description="step_1_tako",
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier],
@@ -171,10 +171,10 @@ class TestOctoIntroClassification:
             penalty_factor=1.5,
         )
 
-        assert octo_task.n_startup_trials == 5
-        assert octo_task.n_trials == 5
-        assert octo_task.max_features == 5
-        assert octo_task.penalty_factor == 1.5
+        assert tako_task.n_startup_trials == 5
+        assert tako_task.n_trials == 5
+        assert tako_task.max_features == 5
+        assert tako_task.penalty_factor == 1.5
 
     @pytest.mark.slow
     def test_octo_intro_classification_actual_execution(self, breast_cancer_dataset):
@@ -193,8 +193,8 @@ class TestOctoIntroClassification:
                 n_outer_splits=2,
                 studies_directory=temp_dir,
                 workflow=[
-                    Octo(
-                        description="step_1_octo",
+                    Tako(
+                        description="step_1_tako",
                         task_id=0,
                         depends_on=None,
                         n_inner_splits=3,
@@ -235,8 +235,8 @@ class TestOctoIntroClassification:
 
     def test_full_configuration_parameters(self):
         """Test that all configuration parameters from the original workflow are supported."""
-        octo_task = Octo(
-            description="step_1_octo",
+        tako_task = Tako(
+            description="step_1_tako",
             task_id=0,
             depends_on=None,
             n_inner_splits=5,
@@ -252,18 +252,18 @@ class TestOctoIntroClassification:
         )
 
         # Verify all parameters are set correctly
-        assert octo_task.description == "step_1_octo"
-        assert octo_task.task_id == 0
-        assert octo_task.depends_on is None
+        assert tako_task.description == "step_1_tako"
+        assert tako_task.task_id == 0
+        assert tako_task.depends_on is None
 
-        assert octo_task.n_inner_splits == 5
-        assert octo_task.models is not None
-        assert set(octo_task.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
-        assert octo_task.max_outliers == 0
-        assert octo_task.fi_methods == [FIComputeMethod.PERMUTATION]
-        assert octo_task.n_startup_trials == 10
-        assert octo_task.n_trials == 5
-        assert octo_task.max_features == 5
-        assert octo_task.penalty_factor == 1.0
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
+        assert tako_task.n_inner_splits == 5
+        assert tako_task.models is not None
+        assert set(tako_task.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
+        assert tako_task.max_outliers == 0
+        assert tako_task.fi_methods == [FIComputeMethod.PERMUTATION]
+        assert tako_task.n_startup_trials == 10
+        assert tako_task.n_trials == 5
+        assert tako_task.max_features == 5
+        assert tako_task.penalty_factor == 1.0
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10

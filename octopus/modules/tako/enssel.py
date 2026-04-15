@@ -10,7 +10,7 @@ from upath import UPath
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.metrics.utils import get_performance_from_predictions
-from octopus.modules.octo.bag import BagBase, recompute_prediction_from_probabilities
+from octopus.modules.tako.bag import BagBase, recompute_prediction_from_probabilities
 from octopus.types import DataPartition, MetricDirection
 from octopus.utils import joblib_load
 

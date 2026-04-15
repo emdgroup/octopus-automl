@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from octopus.models import ModelName
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoTimeToEvent
 from octopus.types import FIComputeMethod
 
@@ -88,9 +88,9 @@ class TestOctoTimeToEvent:
             assert study.sample_id_col == "index"
             assert study.target_assignments == {"duration": "duration", "event": "event"}
 
-    def test_octo_task_configuration(self):
+    def test_tako_task_configuration(self):
         """Test that Octo task can be properly configured for time-to-event."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -101,20 +101,20 @@ class TestOctoTimeToEvent:
             n_ensemble_candidates=10,
         )
 
-        assert isinstance(octo_task, Octo)
-        assert octo_task.task_id == 0
-        assert octo_task.depends_on is None
-        assert octo_task.description == "step_1"
-        assert octo_task.n_trials == 12
-        assert octo_task.max_features == 6
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
-        assert octo_task.models == [ModelName.CatBoostCoxSurvival]
+        assert isinstance(tako_task, Tako)
+        assert tako_task.task_id == 0
+        assert tako_task.depends_on is None
+        assert tako_task.description == "step_1"
+        assert tako_task.n_trials == 12
+        assert tako_task.max_features == 6
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10
+        assert tako_task.models == [ModelName.CatBoostCoxSurvival]
 
     @pytest.mark.parametrize("model_name", [ModelName.CatBoostCoxSurvival, ModelName.XGBoostCoxSurvival])
     def test_single_model_configuration(self, model_name):
         """Test configuration with each survival model individually."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -125,15 +125,15 @@ class TestOctoTimeToEvent:
             n_ensemble_candidates=10,
         )
 
-        assert octo_task.models == [model_name]
-        assert octo_task.n_trials == 12
-        assert octo_task.max_features == 6
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
+        assert tako_task.models == [model_name]
+        assert tako_task.n_trials == 12
+        assert tako_task.max_features == 6
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10
 
     def test_multi_model_configuration(self):
         """Test configuration with both survival models."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -144,14 +144,14 @@ class TestOctoTimeToEvent:
             n_ensemble_candidates=10,
         )
 
-        assert octo_task.models is not None
-        assert len(octo_task.models) == 2
-        assert ModelName.CatBoostCoxSurvival in octo_task.models
-        assert ModelName.XGBoostCoxSurvival in octo_task.models
+        assert tako_task.models is not None
+        assert len(tako_task.models) == 2
+        assert ModelName.CatBoostCoxSurvival in tako_task.models
+        assert ModelName.XGBoostCoxSurvival in tako_task.models
 
     def test_ensemble_selection_configuration(self):
         """Test ensemble selection configuration."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -162,12 +162,12 @@ class TestOctoTimeToEvent:
             n_ensemble_candidates=10,
         )
 
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10
 
     def test_hyperparameter_optimization_configuration(self):
         """Test hyperparameter optimization configuration."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -180,15 +180,15 @@ class TestOctoTimeToEvent:
             penalty_factor=1.5,
         )
 
-        assert octo_task.models is not None
-        assert len(octo_task.models) == 1
-        assert ModelName.CatBoostCoxSurvival in octo_task.models
-        assert octo_task.n_trials == 12
-        assert octo_task.max_features == 6
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
-        assert octo_task.n_startup_trials == 5
-        assert octo_task.penalty_factor == 1.5
+        assert tako_task.models is not None
+        assert len(tako_task.models) == 1
+        assert ModelName.CatBoostCoxSurvival in tako_task.models
+        assert tako_task.n_trials == 12
+        assert tako_task.max_features == 6
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10
+        assert tako_task.n_startup_trials == 5
+        assert tako_task.penalty_factor == 1.5
 
     @pytest.mark.slow
     def test_octo_timetoevent_actual_execution(self, survival_dataset):
@@ -208,7 +208,7 @@ class TestOctoTimeToEvent:
                 studies_directory=temp_dir,
                 single_outer_split=0,
                 workflow=[
-                    Octo(
+                    Tako(
                         task_id=0,
                         depends_on=None,
                         description="step_1",
@@ -249,7 +249,7 @@ class TestOctoTimeToEvent:
 
     def test_full_configuration_parameters(self):
         """Test that all configuration parameters are supported."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -265,16 +265,16 @@ class TestOctoTimeToEvent:
             n_inner_splits=5,
         )
 
-        assert octo_task.task_id == 0
-        assert octo_task.depends_on is None
-        assert octo_task.description == "step_1"
-        assert octo_task.models == [ModelName.CatBoostCoxSurvival]
-        assert octo_task.max_outliers == 0
-        assert octo_task.fi_methods == [FIComputeMethod.PERMUTATION]
-        assert octo_task.n_startup_trials == 10
-        assert octo_task.n_trials == 12
-        assert octo_task.max_features == 6
-        assert octo_task.penalty_factor == 1.0
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
-        assert octo_task.n_inner_splits == 5
+        assert tako_task.task_id == 0
+        assert tako_task.depends_on is None
+        assert tako_task.description == "step_1"
+        assert tako_task.models == [ModelName.CatBoostCoxSurvival]
+        assert tako_task.max_outliers == 0
+        assert tako_task.fi_methods == [FIComputeMethod.PERMUTATION]
+        assert tako_task.n_startup_trials == 10
+        assert tako_task.n_trials == 12
+        assert tako_task.max_features == 6
+        assert tako_task.penalty_factor == 1.0
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10
+        assert tako_task.n_inner_splits == 5

@@ -14,7 +14,7 @@ import os
 
 from octopus.example_data import load_diabetes_data
 from octopus.models.hyperparameter import IntHyperparameter
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoRegression
 from octopus.types import ModelName
 
@@ -37,7 +37,7 @@ study = OctoRegression(
     sample_id_col="index",
     single_outer_split=0,
     workflow=[
-        Octo(
+        Tako(
             task_id=0,
             models=[ModelName.RandomForestRegressor],
             n_trials=3,

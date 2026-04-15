@@ -38,7 +38,7 @@ import pandas as pd
 import pytest
 
 from octopus.models import Models
-from octopus.modules.octo.training import Training, TrainingConfig
+from octopus.modules.tako.training import Training, TrainingConfig
 from octopus.types import MLType, ModelName
 from tests.helpers import get_default_model_params
 

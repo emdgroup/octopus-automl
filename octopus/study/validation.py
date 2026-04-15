@@ -162,9 +162,9 @@ def validate_workflow(_instance: "OctoStudy", attribute: Attribute, value: Seque
 def _get_fi_methods(task: Task) -> list[FIComputeMethod] | None:
     """Return the FI methods a task produces, or None if unknown."""
     from octopus.modules.autogluon import AutoGluon  # noqa: PLC0415
-    from octopus.modules.octo import Octo  # noqa: PLC0415
+    from octopus.modules.tako import Tako  # noqa: PLC0415
 
-    if isinstance(task, Octo):
+    if isinstance(task, Tako):
         return task.fi_methods
     if isinstance(task, AutoGluon):
         return [FIComputeMethod.PERMUTATION]

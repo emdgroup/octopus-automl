@@ -16,7 +16,7 @@ from octopus.datasplit import DATASPLIT_COL, DataSplit, OuterSplits, validate_cl
 from octopus.logger import get_logger, set_logger_filename
 from octopus.manager.core import OctoManager
 from octopus.metrics import Metrics
-from octopus.modules import Octo, StudyContext, Task
+from octopus.modules import StudyContext, Tako, Task
 from octopus.types import MLType
 from octopus.utils import csv_save, get_package_name, get_version, parquet_save
 
@@ -71,7 +71,7 @@ class OctoStudy(ABC):
     """Select a single outer split to execute. Defaults to None to run all outer splits."""
 
     workflow: Sequence[Task] = field(
-        default=Factory(lambda: [Octo(task_id=0)]),
+        default=Factory(lambda: [Tako(task_id=0)]),
         validator=[validators.instance_of(list), validate_workflow],
     )
     """A list of tasks that defines the processing workflow. Each item in the list is an instance of `Task`."""

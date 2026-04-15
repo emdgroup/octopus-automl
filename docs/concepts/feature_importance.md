@@ -68,21 +68,21 @@ This method extracts the built-in `feature_importances_` attribute from tree-bas
 
 **Example:**
 ```python
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.types import ModelName
 
-# Configure Octo with RandomForest
-octo = Octo(
+# Configure Tako with RandomForest
+tako = Tako(
     task_id=0,
     models=[ModelName.RandomForestClassifier],
     n_trials=50,
 )
 
 # Fit the module
-octo.fit(...)
+tako.fit(...)
 
 # Get internal feature importances
-fi_df = octo.get_fi(method="internal")
+fi_df = tako.get_fi(method="internal")
 ```
 
 ### 2. Permutation Importance (Any Model)
@@ -151,21 +151,21 @@ This method extracts and ranks features by the absolute magnitude of their coeff
 
 **Example:**
 ```python
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.types import ModelName
 
-# Configure Octo with LogisticRegression
-octo = Octo(
+# Configure Tako with LogisticRegression
+tako = Tako(
     task_id=0,
     models=[ModelName.LogisticRegressionClassifier],
     n_trials=30,
 )
 
 # Fit the module
-octo.fit(...)
+tako.fit(...)
 
 # Get coefficient-based importances
-fi_df = octo.get_fi(method="coefficients")
+fi_df = tako.get_fi(method="coefficients")
 ```
 
 ## Error Handling
@@ -174,22 +174,22 @@ The feature importance methods include comprehensive error checking:
 
 ### Unfitted Model Error
 ```python
-module = Octo(task_id=0)
+module = Tako(task_id=0)
 # Forgot to call fit()!
 
 try:
     importance = module.get_fi()
 except ValueError as e:
-    print(e)  # "Octo must be fitted before getting feature importances"
+    print(e)  # "Tako must be fitted before getting feature importances"
 ```
 
 ### Incompatible Method Error
 ```python
 # Using LogisticRegression (no feature_importances_ attribute)
-octo.fit(...)
+tako.fit(...)
 
 try:
-    importance = octo.get_fi(method="internal")
+    importance = tako.get_fi(method="internal")
 except ValueError as e:
     print(e)  # "Model LogisticRegression does not have feature_importances_..."
 ```
@@ -205,19 +205,19 @@ except ValueError as e:
 
 ## Module-Specific Examples
 
-### Octo (Optimization Module)
+### Tako (Optimization Module)
 
 ```python
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.types import ModelName
 
-octo = Octo(
+tako = Tako(
     task_id=0,
     models=[ModelName.RandomForestClassifier, ModelName.XGBClassifier],
     n_trials=100,
 )
 
-octo.fit(
+tako.fit(
     data_traindev=train_data,
     data_test=test_data,
     feature_cols=feature_cols,
@@ -227,10 +227,10 @@ octo.fit(
 )
 
 # Get internal importances (works if best model is tree-based)
-fi_internal = octo.get_fi(method="internal")
+fi_internal = tako.get_fi(method="internal")
 
 # Get permutation importances (works for any best model)
-fi_permutation = octo.get_fi(
+fi_permutation = tako.get_fi(
     method="permutation",
     data=test_data,
     target=test_data["target"],
@@ -341,12 +341,12 @@ Feature importances are automatically calculated and saved during workflow execu
 
 ```python
 from octopus.manager.workflow_runner import WorkflowTaskRunner
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.types import ModelName
 
 # Define workflow
 workflow = [
-    Octo(task_id=0, models=[ModelName.RandomForestClassifier]),
+    Tako(task_id=0, models=[ModelName.RandomForestClassifier]),
 ]
 
 # Run workflow
@@ -360,13 +360,13 @@ runner = WorkflowTaskRunner(
 runner.run(outer_split_id=0, data_train=train_data, data_test=test_data)
 
 # After workflow completes, you can load modules and get importances
-from octopus.modules import Octo
+from octopus.modules import Tako
 
-octo_dir = study.output_path / "outersplit0" / "task0" / "module"
-loaded_octo = Octo.load(octo_dir)
+tako_dir = study.output_path / "outersplit0" / "task0" / "module"
+loaded_tako = Tako.load(tako_dir)
 
 # Get importances from loaded module
-fi_df = loaded_octo.get_fi(method="internal")
+fi_df = loaded_tako.get_fi(method="internal")
 ```
 
 ## Advanced Usage
@@ -380,12 +380,12 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from octopus.types import ModelName
 
-# Octo internally uses GridSearchCV
-octo = Octo(task_id=0, models=[ModelName.RandomForestClassifier])
-octo.fit(...)
+# If a model is wrapped in GridSearchCV, FI computation unwraps it
+tako = Tako(task_id=0, models=[ModelName.RandomForestClassifier])
+tako.fit(...)
 
-# This automatically extracts best_estimator_ from GridSearchCV
-fi_df = octo.get_fi(method="internal")
+# best_estimator_ is automatically extracted from any GridSearchCV wrapper
+fi_df = tako.get_fi(method="internal")
 ```
 
 ### Custom Feature Importance

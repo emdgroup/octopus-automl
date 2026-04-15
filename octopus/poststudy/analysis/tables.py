@@ -34,9 +34,9 @@ def workflow_graph(study_info: StudyInfo) -> str:
 
     Example::
 
-        [task 0] OCTO "step1_octo_full"
+        [task 0] TAKO "step1_tako_full"
         └── [task 1] MRMR "step2_mrmr"
-            └── [task 2] OCTO "step3_octo_reduced"
+            └── [task 2] TAKO "step3_tako_reduced"
     """
     tasks = study_info.workflow_tasks
     if not tasks:
@@ -80,7 +80,7 @@ def _walk_tree(
 
 # Module types that produce performance scores (prediction modules).
 # Feature selection modules (mrmr, roc, boruta) are skipped.
-_PREDICTION_MODULES = {"octo", "autogluon"}
+_PREDICTION_MODULES = {"tako", "autogluon"}
 
 
 def get_performance(

@@ -55,7 +55,7 @@ class OctoManager:
 
         # Initialize Ray upfront to ensure worker setup hooks are registered before any workflows execute.
         # This is critical for:
-        # 1. Inner parallelization: ML modules (e.g., Octo, AutoGluon) may spawn Ray workers for their
+        # 1. Inner parallelization: ML modules (e.g., Tako, AutoGluon) may spawn Ray workers for their
         #    internal operations (bagging, hyperparameter tuning)
         # 2. Lifecycle clarity: Explicit init → run → shutdown at the manager level makes the
         #    Ray lifecycle predictable and easier to reason about

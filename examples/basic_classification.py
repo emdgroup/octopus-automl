@@ -9,7 +9,7 @@
 import os
 
 from octopus.example_data import load_breast_cancer_data
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoClassification
 from octopus.types import ModelName
 
@@ -32,8 +32,8 @@ study = OctoClassification(
     sample_id_col="index",
     stratification_col="target",
     workflow=[
-        Octo(
-            description="step1_octo_full",
+        Tako(
+            description="step1_tako_full",
             task_id=0,
             depends_on=None,  # First task, depends on input
             models=[ModelName.ExtraTreesClassifier],

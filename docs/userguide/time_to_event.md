@@ -48,7 +48,7 @@ df = pd.DataFrame({
 
 ```python
 from octopus.study import OctoTimeToEvent
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.types import ModelName
 
 study = OctoTimeToEvent(
@@ -61,7 +61,7 @@ study = OctoTimeToEvent(
     metrics=["CI"],
     studies_directory="./results",
     workflow=[
-        Octo(
+        Tako(
             task_id=0,
             depends_on=None,
             description="survival_step",
@@ -122,7 +122,7 @@ XGBoost gradient boosting with Cox partial likelihood objective.
 ## Using Multiple Models
 
 ```python
-Octo(
+Tako(
     task_id=0,
     depends_on=None,
     description="compare_models",
@@ -144,7 +144,7 @@ The following feature importance methods are supported for T2E models via `fi_me
 Additionally, tree-based internal feature importances are always computed automatically by the underlying models.
 
 ```python
-Octo(
+Tako(
     ...,
     fi_methods=["permutation"],
 )

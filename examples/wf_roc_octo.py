@@ -9,7 +9,7 @@
 import os
 
 from octopus.example_data import load_breast_cancer_data
-from octopus.modules import Octo, Roc
+from octopus.modules import Roc, Tako
 from octopus.study import OctoClassification
 from octopus.types import CorrelationType, FIComputeMethod, ModelName, RelevanceMethod
 
@@ -50,8 +50,8 @@ study = OctoClassification(
             relevance_method=RelevanceMethod.F_STATISTICS,  # Apply F-statistics filtering
         ),
         # Step 1: Octo - Train models on filtered features from ROC step
-        Octo(
-            description="step_1_octo",
+        Tako(
+            description="step_1_tako",
             task_id=1,
             depends_on=0,  # Use output from ROC step
             # Cross-validation settings

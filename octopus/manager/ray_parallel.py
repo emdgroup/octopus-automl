@@ -13,12 +13,12 @@ from upath import UPath
 
 from octopus.datasplit import OuterSplit, OuterSplits
 from octopus.logger import get_logger, set_logger_filename
-from octopus.modules.octo.training import Training
+from octopus.modules.tako.training import Training
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from octopus.modules.octo.bag import FIWithLogging, TrainingWithLogging
+    from octopus.modules.tako.bag import FIWithLogging, TrainingWithLogging
 
 logger = get_logger()
 

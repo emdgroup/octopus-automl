@@ -1,13 +1,13 @@
 """Shared feature-importance computation primitives.
 
 This module contains the shared computation functions used by both the
-poststudy package (``octopus.poststudy.feature_importance``) and the octo
-training pipeline (``octopus.modules.octo.training``).
+poststudy package (``octopus.poststudy.feature_importance``) and the tako
+training pipeline (``octopus.modules.tako.training``).
 
 Architecture
 ------------
 Only two feature-importance algorithms are truly general-purpose and
-shared between poststudy and octo:
+shared between poststudy and tako:
 
 - **Permutation FI** — ``compute_permutation_single``
 - **SHAP FI** — ``compute_shap_single``
@@ -15,8 +15,8 @@ shared between poststudy and octo:
 A helper function ``compute_per_repeat_stats`` is a transitive dependency
 of ``compute_permutation_single`` and lives here as well.
 
-Octo-only primitives (``compute_internal_fi``, LOFO, constant) remain in
-``octopus.modules.octo.training`` because they depend on training-time
+Tako-only primitives (``compute_internal_fi``, LOFO, constant) remain in
+``octopus.modules.tako.training`` because they depend on training-time
 context and are never called from the poststudy layer.
 
 Multi-split orchestrators (``calculate_fi_permutation``, ``calculate_fi_shap``)

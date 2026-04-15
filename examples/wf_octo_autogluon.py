@@ -13,7 +13,7 @@ import os
 import pandas as pd
 from sklearn.datasets import make_classification
 
-from octopus.modules import AutoGluon, Octo
+from octopus.modules import AutoGluon, Tako
 from octopus.study import OctoClassification
 from octopus.types import FIComputeMethod, ModelName
 
@@ -75,8 +75,8 @@ study = OctoClassification(
     n_outer_splits=5,  # 5-split outer cross-validation
     workflow=[
         # Step 0: octo
-        Octo(
-            description="step_0_octo",
+        Tako(
+            description="step_0_tako",
             task_id=0,
             depends_on=None,  # No dependency (parallel with AutoGluon)
             # Cross-validation settings

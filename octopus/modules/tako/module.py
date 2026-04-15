@@ -1,4 +1,4 @@
-"""Octo module with fit/predict interface."""
+"""Tako module with fit/predict interface."""
 
 from __future__ import annotations
 
@@ -24,8 +24,8 @@ def _convert_models(value):
 
 
 @define
-class Octo(Task):
-    """Octo module for feature selection and model optimization.
+class Tako(Task):
+    """Tako module for feature selection and model optimization.
 
     Uses Optuna for hyperparameter optimization with cross-validation, supporting:
     - Multiple ML models
@@ -145,7 +145,7 @@ class Octo(Task):
 
             if incompatible_models:
                 msg = (
-                    "Octo: The following models are not compatible with constrained HPO. "
+                    "Tako: The following models are not compatible with constrained HPO. "
                     "Please remove those model or turn constrained HPO off (max_features=0): "
                     + ", ".join(incompatible_models)
                 )
@@ -153,8 +153,8 @@ class Octo(Task):
                 raise ValueError(msg)
 
     def create_module(self) -> ModuleExecution:
-        """Create OctoModule execution instance."""
+        """Create TakoModule execution instance."""
         # import only during execution to avoid heavy dependency at config stage
-        from .core import OctoModuleTemplate  # noqa: PLC0415
+        from .core import TakoModuleTemplate  # noqa: PLC0415
 
-        return OctoModuleTemplate(config=self)
+        return TakoModuleTemplate(config=self)

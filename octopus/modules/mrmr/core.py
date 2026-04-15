@@ -92,7 +92,7 @@ def _relevance_from_dependency(
 ) -> pd.DataFrame:
     """Derive MRMR relevance scores from the upstream task's feature importances.
 
-    Uses pre-aggregated FI when available (Octo provides mean/count rows).
+    Uses pre-aggregated FI when available (Tako provides mean/count rows).
     For single-model dependencies (e.g. AutoGluon), uses FI values directly.
     """
     df_fi_all = dependency_results[ResultType.BEST].fi

@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_regression
 
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoRegression
 from octopus.types import FIComputeMethod, ModelName
 
@@ -69,9 +69,9 @@ class TestOctoRegression:
             assert len(study.feature_cols) == 5
             assert study.sample_id_col == "index"
 
-    def test_octo_task_configuration(self):
+    def test_tako_task_configuration(self):
         """Test that Octo task can be properly configured."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -89,14 +89,14 @@ class TestOctoRegression:
             n_ensemble_candidates=10,
         )
 
-        assert isinstance(octo_task, Octo)
-        assert octo_task.task_id == 0
-        assert octo_task.depends_on is None
-        assert octo_task.description == "step_1"
-        assert octo_task.n_trials == 12
-        assert octo_task.max_features == 6
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
+        assert isinstance(tako_task, Tako)
+        assert tako_task.task_id == 0
+        assert tako_task.depends_on is None
+        assert tako_task.description == "step_1"
+        assert tako_task.n_trials == 12
+        assert tako_task.max_features == 6
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10
 
         expected_models = {
             ModelName.RandomForestRegressor,
@@ -106,8 +106,8 @@ class TestOctoRegression:
             ModelName.GradientBoostingRegressor,
             ModelName.CatBoostRegressor,
         }
-        assert octo_task.models is not None
-        assert set(octo_task.models) == expected_models
+        assert tako_task.models is not None
+        assert set(tako_task.models) == expected_models
 
     @pytest.mark.parametrize(
         "model",
@@ -122,7 +122,7 @@ class TestOctoRegression:
     )
     def test_single_model_configuration(self, model):
         """Test configuration with different single models."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -133,16 +133,16 @@ class TestOctoRegression:
             n_ensemble_candidates=10,
         )
 
-        assert octo_task.models == [model]
-        assert octo_task.n_trials == 12
-        assert octo_task.max_features == 6
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
+        assert tako_task.models == [model]
+        assert tako_task.n_trials == 12
+        assert tako_task.max_features == 6
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10
 
     def test_multiple_models_configuration(self):
         """Test configuration with multiple models."""
         models = [ModelName.RandomForestRegressor, ModelName.XGBRegressor, ModelName.ExtraTreesRegressor]
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -152,12 +152,12 @@ class TestOctoRegression:
             ensemble_selection=True,
             n_ensemble_candidates=10,
         )
-        assert octo_task.models is not None
-        assert set(octo_task.models) == set(models)
+        assert tako_task.models is not None
+        assert set(tako_task.models) == set(models)
 
     def test_ensemble_selection_configuration(self):
         """Test ensemble selection configuration."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -168,12 +168,12 @@ class TestOctoRegression:
             n_ensemble_candidates=10,
         )
 
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10
 
     def test_hyperparameter_optimization_configuration(self):
         """Test hyperparameter optimization configuration."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -186,10 +186,10 @@ class TestOctoRegression:
             penalty_factor=1.5,
         )
 
-        assert octo_task.n_trials == 12
-        assert octo_task.max_features == 6
-        assert octo_task.n_startup_trials == 5
-        assert octo_task.penalty_factor == 1.5
+        assert tako_task.n_trials == 12
+        assert tako_task.max_features == 6
+        assert tako_task.n_startup_trials == 5
+        assert tako_task.penalty_factor == 1.5
 
     @pytest.mark.slow
     def test_octo_regression_actual_execution(self, diabetes_dataset):
@@ -208,7 +208,7 @@ class TestOctoRegression:
                 studies_directory=temp_dir,
                 single_outer_split=0,
                 workflow=[
-                    Octo(
+                    Tako(
                         task_id=0,
                         depends_on=None,
                         description="step_1",
@@ -248,7 +248,7 @@ class TestOctoRegression:
 
     def test_full_configuration_parameters(self):
         """Test that all configuration parameters are supported."""
-        octo_task = Octo(
+        tako_task = Tako(
             task_id=0,
             depends_on=None,
             description="step_1",
@@ -272,9 +272,9 @@ class TestOctoRegression:
         )
 
         # Verify all parameters are set correctly
-        assert octo_task.task_id == 0
-        assert octo_task.depends_on is None
-        assert octo_task.description == "step_1"
+        assert tako_task.task_id == 0
+        assert tako_task.depends_on is None
+        assert tako_task.description == "step_1"
 
         expected_models = {
             ModelName.RandomForestRegressor,
@@ -284,14 +284,14 @@ class TestOctoRegression:
             ModelName.GradientBoostingRegressor,
             ModelName.CatBoostRegressor,
         }
-        assert octo_task.models is not None
-        assert set(octo_task.models) == expected_models
-        assert octo_task.max_outliers == 0
-        assert octo_task.fi_methods == [FIComputeMethod.PERMUTATION]
-        assert octo_task.n_startup_trials == 10
-        assert octo_task.n_trials == 12
-        assert octo_task.max_features == 6
-        assert octo_task.penalty_factor == 1.0
-        assert octo_task.ensemble_selection is True
-        assert octo_task.n_ensemble_candidates == 10
-        assert octo_task.n_inner_splits == 5
+        assert tako_task.models is not None
+        assert set(tako_task.models) == expected_models
+        assert tako_task.max_outliers == 0
+        assert tako_task.fi_methods == [FIComputeMethod.PERMUTATION]
+        assert tako_task.n_startup_trials == 10
+        assert tako_task.n_trials == 12
+        assert tako_task.max_features == 6
+        assert tako_task.penalty_factor == 1.0
+        assert tako_task.ensemble_selection is True
+        assert tako_task.n_ensemble_candidates == 10
+        assert tako_task.n_inner_splits == 5

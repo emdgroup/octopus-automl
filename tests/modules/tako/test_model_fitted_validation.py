@@ -9,7 +9,7 @@ This test suite validates the _validate_model_trained method across all availabl
 - Uses sklearn's check_is_fitted utility for validation
 
 Usage:
-    pytest tests/modules/octo/test_model_fitted_validation.py -v
+    pytest tests/modules/tako/test_model_fitted_validation.py -v
 """
 
 import sys
@@ -28,7 +28,7 @@ from octopus.models.hyperparameter import (
     IntHyperparameter,
 )
 from octopus.models.model_name import ModelName
-from octopus.modules.octo.training import Training
+from octopus.modules.tako.training import Training
 from octopus.types import MLType
 
 # ============================================================================
