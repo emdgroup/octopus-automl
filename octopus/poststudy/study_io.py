@@ -259,7 +259,7 @@ def find_latest_study(studies_root: str | UPath, prefix: str) -> str:
 
     Args:
         studies_root: Path to the parent directory containing study directories.
-        prefix: The study name prefix, e.g. ``"wf_octo_mrmr_octo"``.
+        prefix: The study name prefix, e.g. ``"wf_tako_mrmr_tako"``.
 
     Returns:
         Path string to the latest matching study directory.

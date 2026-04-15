@@ -6,7 +6,7 @@ import pytest
 
 from octopus.models import Models
 from octopus.models.model_name import ModelName
-from octopus.modules.octo.training import Training
+from octopus.modules.tako.training import Training
 from octopus.types import MLType
 from tests.helpers import get_default_model_params
 

@@ -7,7 +7,7 @@
 import os
 
 from octopus.example_data import load_diabetes_data
-from octopus.modules import Mrmr, Octo
+from octopus.modules import Mrmr, Tako
 from octopus.study import OctoRegression
 from octopus.types import CorrelationType, ModelName
 
@@ -30,8 +30,8 @@ study = OctoRegression(
     sample_id_col="index",
     single_outer_split=1,
     workflow=[
-        Octo(
-            description="step1_octofull",
+        Tako(
+            description="step1_takofull",
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesRegressor, ModelName.RandomForestRegressor],
@@ -45,8 +45,8 @@ study = OctoRegression(
             n_features=6,
             correlation_type=CorrelationType.RDC,
         ),
-        Octo(
-            description="step3_octo_reduced",
+        Tako(
+            description="step3_tako_reduced",
             task_id=2,
             depends_on=1,
             models=[ModelName.ExtraTreesRegressor, ModelName.RandomForestRegressor],

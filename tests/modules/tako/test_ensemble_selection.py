@@ -11,9 +11,9 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import KFold
 from upath import UPath
 
-from octopus.modules.octo.bag import Bag
-from octopus.modules.octo.enssel import EnSel
-from octopus.modules.octo.training import Training
+from octopus.modules.tako.bag import Bag
+from octopus.modules.tako.enssel import EnSel
+from octopus.modules.tako.training import Training
 from octopus.types import MLType, ModelName
 from octopus.utils import joblib_load, joblib_save
 
@@ -330,7 +330,7 @@ def _build_ensemble_trainings(ensemble_paths_dict: dict) -> list:
     """Replicate production _create_ensemble_bag deep-copy logic (core.py:259-274).
 
     Inlines the same deep-copy + inner_split_id update logic used in production.
-    Since _create_ensemble_bag is a method on OctoModuleTemplate (requires
+    Since _create_ensemble_bag is a method on TakoModuleTemplate (requires
     StudyContext), we duplicate the logic here rather than calling it directly.
     """
     trainings = []

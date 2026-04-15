@@ -5,14 +5,14 @@ the ColumnTransformer output is correctly relabeled and reordered to match
 self.feature_cols, preventing silent column name mismatch.
 
 Usage:
-    pytest tests/modules/octo/test_column_ordering.py -v
+    pytest tests/modules/tako/test_column_ordering.py -v
 """
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from octopus.modules.octo.training import Training, TrainingConfig, fi_storage_key
+from octopus.modules.tako.training import Training, TrainingConfig, fi_storage_key
 from octopus.types import FIComputeMethod, MLType, ModelName
 from tests.helpers import get_default_model_params
 

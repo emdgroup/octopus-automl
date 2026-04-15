@@ -186,7 +186,7 @@ def test_relevance_from_dependency_uses_precomputed_mean():
     dependency_results = {
         ResultType.BEST: ModuleResult(
             result_type=ResultType.BEST,
-            module="octo",
+            module="tako",
             fi=df_fi,
         )
     }

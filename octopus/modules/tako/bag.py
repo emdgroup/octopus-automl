@@ -1,4 +1,4 @@
-"""Octo Bags."""
+"""Tako Bags."""
 
 # import concurrent.futures
 # import logging
@@ -15,7 +15,7 @@ from upath import UPath
 from octopus.logger import get_logger
 from octopus.manager import ray_parallel
 from octopus.metrics.utils import get_performance_from_predictions
-from octopus.modules.octo.training import Training, fi_storage_key, parse_fi_storage_key
+from octopus.modules.tako.training import Training, fi_storage_key, parse_fi_storage_key
 
 # Adjust this import path as needed depending on your package layout
 from octopus.types import DataPartition, FIComputeMethod, LogGroup, MLType

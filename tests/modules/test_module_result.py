@@ -46,7 +46,7 @@ class TestModuleResultSaveLoad:
 
         result = ModuleResult(
             result_type=ResultType.BEST,
-            module="octo",
+            module="tako",
             selected_features=["f1", "f2"],
             scores=scores,
             predictions=predictions,
@@ -66,10 +66,10 @@ class TestModuleResultSaveLoad:
         assert (result_dir / "model" / "predictor.json").exists()
 
         # Load and verify
-        loaded = ModuleResult.load(result_dir, result_type=ResultType.BEST, module="octo")
+        loaded = ModuleResult.load(result_dir, result_type=ResultType.BEST, module="tako")
 
         assert loaded.result_type == ResultType.BEST
-        assert loaded.module == "octo"
+        assert loaded.module == "tako"
         assert loaded.selected_features == ["f1", "f2"]
         assert loaded.scores is not None
         assert not loaded.scores.empty
@@ -143,7 +143,7 @@ class TestModuleResultSaveLoad:
 
         result = ModuleResult(
             result_type=ResultType.BEST,
-            module="octo",
+            module="tako",
             selected_features=["f1"],
             scores=scores,
         )
@@ -154,7 +154,7 @@ class TestModuleResultSaveLoad:
         loaded_df = parquet_load(result_dir / "scores.parquet")
         assert "module" in loaded_df.columns
         assert "result_type" in loaded_df.columns
-        assert loaded_df.iloc[0]["module"] == "octo"
+        assert loaded_df.iloc[0]["module"] == "tako"
         assert loaded_df.iloc[0]["result_type"] == "best"
 
     def test_predictor_json_contents(self, tmp_path):
@@ -164,7 +164,7 @@ class TestModuleResultSaveLoad:
 
         result = ModuleResult(
             result_type=ResultType.BEST,
-            module="octo",
+            module="tako",
             selected_features=["a", "b", "c"],
             model=model,
         )
@@ -181,7 +181,7 @@ class TestModuleResultSaveLoad:
         """Test save/load with ENSEMBLE_SELECTION result type."""
         result = ModuleResult(
             result_type=ResultType.ENSEMBLE_SELECTION,
-            module="octo",
+            module="tako",
             selected_features=["f1"],
             scores=pd.DataFrame({"metric": ["AUCROC"], "value": [0.88]}),
         )
@@ -189,7 +189,7 @@ class TestModuleResultSaveLoad:
         result_dir = UPath(tmp_path / "ensemble_selection")
         result.save(result_dir)
 
-        loaded = ModuleResult.load(result_dir, result_type=ResultType.ENSEMBLE_SELECTION, module="octo")
+        loaded = ModuleResult.load(result_dir, result_type=ResultType.ENSEMBLE_SELECTION, module="tako")
         assert loaded.result_type == ResultType.ENSEMBLE_SELECTION
         assert loaded.selected_features == ["f1"]
         assert loaded.scores is not None

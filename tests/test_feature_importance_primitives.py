@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from octopus.feature_importance import compute_per_repeat_stats, compute_permutation_single, compute_shap_single
-from octopus.modules.octo.training import fi_storage_key, parse_fi_storage_key
+from octopus.modules.tako.training import fi_storage_key, parse_fi_storage_key
 from octopus.types import DataPartition, FIComputeMethod, MLType, ShapType
 
 # ═══════════════════════════════════════════════════════════════

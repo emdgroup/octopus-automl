@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from octopus.modules import Octo, Roc
+from octopus.modules import Roc, Tako
 from octopus.study import OctoClassification
 from octopus.types import CorrelationType, FIComputeMethod, ModelName, RelevanceMethod
 
@@ -62,8 +62,8 @@ class TestRocOctoRocWorkflow:
                 correlation_type=CorrelationType.SPEARMAN,
                 relevance_method=RelevanceMethod.F_STATISTICS,
             ),
-            Octo(
-                description="step_1_octo",
+            Tako(
+                description="step_1_tako",
                 task_id=1,
                 depends_on=0,
                 n_inner_splits=3,
@@ -94,11 +94,11 @@ class TestRocOctoRocWorkflow:
         assert first_roc.description == "step_0_roc_initial"
 
         # Verify OCTO step
-        octo_step = workflow[1]
-        assert isinstance(octo_step, Octo)
-        assert octo_step.task_id == 1
-        assert octo_step.depends_on == 0
-        assert octo_step.description == "step_1_octo"
+        tako_step = workflow[1]
+        assert isinstance(tako_step, Tako)
+        assert tako_step.task_id == 1
+        assert tako_step.depends_on == 0
+        assert tako_step.description == "step_1_tako"
 
         # Verify second ROC step
         second_roc = workflow[2]
@@ -130,8 +130,8 @@ class TestRocOctoRocWorkflow:
                         correlation_type=CorrelationType.SPEARMAN,
                         relevance_method=RelevanceMethod.F_STATISTICS,
                     ),
-                    Octo(
-                        description="step_1_octo",
+                    Tako(
+                        description="step_1_tako",
                         task_id=1,
                         depends_on=0,
                         n_inner_splits=3,
@@ -155,7 +155,7 @@ class TestRocOctoRocWorkflow:
         """Test that the sequence dependency chain is correctly configured."""
         workflow = [
             Roc(task_id=0, depends_on=None, correlation_threshold=0.85),
-            Octo(task_id=1, depends_on=0, models=[ModelName.ExtraTreesClassifier], n_trials=6),
+            Tako(task_id=1, depends_on=0, models=[ModelName.ExtraTreesClassifier], n_trials=6),
             Roc(task_id=2, depends_on=1, correlation_threshold=0.5),
         ]
 
@@ -211,7 +211,7 @@ class TestRocOctoRocWorkflow:
         """Test OCTO module configuration within the ROC-OCTO-ROC sequence."""
         workflow = [
             Roc(task_id=0, depends_on=None, correlation_threshold=0.85),
-            Octo(
+            Tako(
                 task_id=1,
                 depends_on=0,
                 models=[ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier],
@@ -222,20 +222,20 @@ class TestRocOctoRocWorkflow:
             Roc(task_id=2, depends_on=1, correlation_threshold=0.5),
         ]
 
-        octo_step = workflow[1]
+        tako_step = workflow[1]
 
-        assert isinstance(octo_step, Octo)
-        assert octo_step.models is not None
-        assert set(octo_step.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
-        assert octo_step.n_trials == 10
-        assert octo_step.max_features == 15
-        assert octo_step.n_inner_splits == 5
+        assert isinstance(tako_step, Tako)
+        assert tako_step.models is not None
+        assert set(tako_step.models) == {ModelName.ExtraTreesClassifier, ModelName.RandomForestClassifier}
+        assert tako_step.n_trials == 10
+        assert tako_step.max_features == 15
+        assert tako_step.n_inner_splits == 5
 
     def test_workflow_sequence_validation(self):
         """Test that the workflow sequence is properly validated."""
         workflow = [
             Roc(task_id=0, depends_on=None, correlation_threshold=0.85),
-            Octo(task_id=1, depends_on=0, models=[ModelName.ExtraTreesClassifier], n_trials=6),
+            Tako(task_id=1, depends_on=0, models=[ModelName.ExtraTreesClassifier], n_trials=6),
             Roc(task_id=2, depends_on=1, correlation_threshold=0.5),
         ]
 
@@ -275,8 +275,8 @@ class TestRocOctoRocWorkflow:
                         correlation_type=CorrelationType.SPEARMAN,
                         relevance_method=RelevanceMethod.F_STATISTICS,
                     ),
-                    Octo(
-                        description="step_1_octo",
+                    Tako(
+                        description="step_1_tako",
                         task_id=1,
                         depends_on=0,
                         n_inner_splits=5,

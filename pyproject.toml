@@ -183,7 +183,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "octopus.modules.roc",
-    "octopus.modules.octo",
+    "octopus.modules.tako",
     "octopus.modules.mrmr",
     "octopus.modules.boruta",
 ]

@@ -19,9 +19,9 @@ from .base import ModuleExecution, Task
 from .boruta import Boruta
 from .context import StudyContext
 from .mrmr import Mrmr
-from .octo import Octo
 from .result import ModuleResult, ResultType
 from .roc import Roc
+from .tako import Tako
 from .utils import rdc_correlation_matrix
 
 __all__ = [
@@ -32,10 +32,10 @@ __all__ = [
     "ModuleExecution",
     "ModuleResult",
     "Mrmr",
-    "Octo",
     "ResultType",
     "Roc",
     "StudyContext",
+    "Tako",
     "Task",
     "rdc_correlation_matrix",
 ]

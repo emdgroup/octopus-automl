@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoClassification, OctoRegression
 from octopus.study.core import _RUNNING_IN_TESTSUITE
 from octopus.types import MLType
@@ -66,7 +66,7 @@ def test_regression_ml_type():
 
 
 def test_default_workflow():
-    """Test that default workflow is a single Octo task."""
+    """Test that default workflow is a single Tako task."""
     with tempfile.TemporaryDirectory() as temp_dir:
         study = OctoClassification(
             study_name="test",
@@ -77,7 +77,7 @@ def test_default_workflow():
             studies_directory=temp_dir,
         )
         assert len(study.workflow) == 1
-        assert isinstance(study.workflow[0], Octo)
+        assert isinstance(study.workflow[0], Tako)
         assert study.workflow[0].task_id == 0
 
 

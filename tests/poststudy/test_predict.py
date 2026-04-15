@@ -21,7 +21,7 @@ import pytest
 from upath import UPath
 
 from octopus.example_data import load_breast_cancer_data
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.poststudy.analysis.evaluator import OctoTestEvaluator
 from octopus.poststudy.predict.predictor import OctoPredictor
 from octopus.poststudy.study_io import StudyInfo, load_study_config, load_study_information
@@ -63,8 +63,8 @@ def _create_classification_study(tmp_path: str) -> tuple[OctoClassification, pd.
         n_outer_splits=2,
         studies_directory=tmp_path,
         workflow=[
-            Octo(
-                description="step_1_octo",
+            Tako(
+                description="step_1_tako",
                 task_id=0,
                 depends_on=None,
                 n_inner_splits=3,

@@ -11,7 +11,7 @@ import pytest
 from upath import UPath
 
 from octopus.example_data import load_breast_cancer_data
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.poststudy import OctoTestEvaluator, StudyInfo, load_study_information
 from octopus.poststudy.analysis.notebook import (
     display_performance_tables,
@@ -53,7 +53,7 @@ def study_path(tmp_path_factory):
         n_outer_splits=2,
         n_cpus=1,
         workflow=[
-            Octo(
+            Tako(
                 description="step1",
                 task_id=0,
                 depends_on=None,
@@ -209,7 +209,7 @@ class TestWorkflowGraph:
         """Verify output contains task ID and module type."""
         result = workflow_graph(study_info)
         assert "[task 0]" in result
-        assert "OCTO" in result
+        assert "TAKO" in result
 
 
 class TestTaskLevel:

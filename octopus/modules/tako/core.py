@@ -1,4 +1,4 @@
-"""Octo execution module."""
+"""Tako execution module."""
 
 from __future__ import annotations
 
@@ -27,14 +27,14 @@ from .objective_optuna import ObjectiveOptuna
 from .training import Training
 
 if TYPE_CHECKING:
-    from octopus.modules import Octo, StudyContext
+    from octopus.modules import StudyContext, Tako
 
 logger = get_logger()
 
 
 @define
-class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
-    """Octo execution module. Created by Octo.create_module()."""
+class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
+    """Tako execution module. Created by Tako.create_module()."""
 
     # Internal state (set during fit)
     data_splits_: InnerSplits = field(init=False, default=Factory(dict))
@@ -60,12 +60,12 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         feature_groups: dict[str, list[str]],
         **kwargs,
     ) -> dict[ResultType, ModuleResult]:
-        """Fit Octo module by running hyperparameter optimization with Optuna."""
+        """Fit Tako module by running hyperparameter optimization with Optuna."""
         x_traindev = data_traindev[feature_cols]
         y_traindev = data_traindev[list(study_context.target_assignments.values())]
 
-        # Initialize Octo-specific setup
-        self._initialize_octo(
+        # Initialize Tako-specific setup
+        self._initialize_tako(
             study_context,
             data_traindev,
             x_traindev,
@@ -140,7 +140,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
 
         return module_results
 
-    def _initialize_octo(
+    def _initialize_tako(
         self,
         study_context: StudyContext,
         data_traindev: pd.DataFrame,
@@ -151,7 +151,7 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         scratch_dir: UPath,
         results_dir: UPath,
     ):
-        """Initialize Octo-specific data structures and directories."""
+        """Initialize Tako-specific data structures and directories."""
         # Resolve default models if none were specified
         if self.config.models is None:
             self.config.models = Models.get_defaults(study_context.ml_type)
@@ -517,4 +517,4 @@ class OctoModuleTemplate[T: Octo](ModuleExecution[T]):
         return selected_features
 
 
-type OctoModule = OctoModuleTemplate["Octo"]
+type TakoModule = TakoModuleTemplate["Tako"]

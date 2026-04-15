@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_classification
 
-from octopus.modules import Octo
+from octopus.modules import Tako
 from octopus.study import OctoClassification
 from octopus.types import FIComputeMethod, MLType, ModelName
 
@@ -87,8 +87,8 @@ class TestOctoMulticlass:
 
     def test_multiclass_task_configuration(self):
         """Test that multiclass Octo task can be properly configured."""
-        octo_task = Octo(
-            description="step_1_octo_multiclass",
+        tako_task = Tako(
+            description="step_1_tako_multiclass",
             task_id=0,
             depends_on=None,
             n_inner_splits=5,
@@ -103,13 +103,13 @@ class TestOctoMulticlass:
             n_trials=20,
         )
 
-        assert isinstance(octo_task, Octo)
-        assert octo_task.task_id == 0
-        assert octo_task.depends_on is None
-        assert octo_task.description == "step_1_octo_multiclass"
-        assert octo_task.n_inner_splits == 5
-        assert octo_task.models is not None
-        assert set(octo_task.models) == {
+        assert isinstance(tako_task, Tako)
+        assert tako_task.task_id == 0
+        assert tako_task.depends_on is None
+        assert tako_task.description == "step_1_tako_multiclass"
+        assert tako_task.n_inner_splits == 5
+        assert tako_task.models is not None
+        assert set(tako_task.models) == {
             ModelName.ExtraTreesClassifier,
             ModelName.RandomForestClassifier,
             ModelName.XGBClassifier,
@@ -127,8 +127,8 @@ class TestOctoMulticlass:
     )
     def test_multiclass_single_model_configuration(self, model):
         """Test configuration with different single multiclass models."""
-        octo_task = Octo(
-            description="step_1_octo_multiclass",
+        tako_task = Tako(
+            description="step_1_tako_multiclass",
             task_id=0,
             depends_on=None,
             models=[model],
@@ -136,7 +136,7 @@ class TestOctoMulticlass:
             n_inner_splits=3,
         )
 
-        assert octo_task.models == [model]
+        assert tako_task.models == [model]
 
     def test_multiclass_multiple_models_configuration(self):
         """Test configuration with multiple multiclass models."""
@@ -146,22 +146,22 @@ class TestOctoMulticlass:
             ModelName.XGBClassifier,
             ModelName.CatBoostClassifier,
         ]
-        octo_task = Octo(
-            description="step_1_octo_multiclass",
+        tako_task = Tako(
+            description="step_1_tako_multiclass",
             task_id=0,
             depends_on=None,
             models=models,
             n_trials=10,
             n_inner_splits=3,
         )
-        assert octo_task.models is not None
-        assert set(octo_task.models) == set(models)
+        assert tako_task.models is not None
+        assert set(tako_task.models) == set(models)
 
     def test_feature_importance_configuration(self):
         """Test feature importance method configuration for multiclass."""
         fi_methods = [FIComputeMethod.PERMUTATION]
-        octo_task = Octo(
-            description="step_1_octo_multiclass",
+        tako_task = Tako(
+            description="step_1_tako_multiclass",
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier],
@@ -169,12 +169,12 @@ class TestOctoMulticlass:
             n_trials=5,
         )
 
-        assert octo_task.fi_methods == fi_methods
+        assert tako_task.fi_methods == fi_methods
 
     def test_hyperparameter_optimization_configuration(self):
         """Test hyperparameter optimization configuration for multiclass."""
-        octo_task = Octo(
-            description="step_1_octo_multiclass",
+        tako_task = Tako(
+            description="step_1_tako_multiclass",
             task_id=0,
             depends_on=None,
             models=[ModelName.ExtraTreesClassifier],
@@ -182,8 +182,8 @@ class TestOctoMulticlass:
             n_inner_splits=5,
         )
 
-        assert octo_task.n_trials == 25
-        assert octo_task.n_inner_splits == 5
+        assert tako_task.n_trials == 25
+        assert tako_task.n_inner_splits == 5
 
     @pytest.mark.slow
     def test_multiclass_workflow_actual_execution(self, wine_dataset):
@@ -203,8 +203,8 @@ class TestOctoMulticlass:
                 studies_directory=temp_dir,
                 single_outer_split=0,
                 workflow=[
-                    Octo(
-                        description="step_1_octo_multiclass",
+                    Tako(
+                        description="step_1_tako_multiclass",
                         task_id=0,
                         depends_on=None,
                         n_inner_splits=3,
@@ -241,8 +241,8 @@ class TestOctoMulticlass:
 
     def test_full_multiclass_configuration_parameters(self):
         """Test that all configuration parameters from the multiclass workflow are supported."""
-        octo_task = Octo(
-            description="step_1_octo_multiclass",
+        tako_task = Tako(
+            description="step_1_tako_multiclass",
             task_id=0,
             depends_on=None,
             n_inner_splits=5,
@@ -258,21 +258,21 @@ class TestOctoMulticlass:
         )
 
         # Verify all parameters are set correctly
-        assert octo_task.description == "step_1_octo_multiclass"
-        assert octo_task.task_id == 0
-        assert octo_task.depends_on is None
+        assert tako_task.description == "step_1_tako_multiclass"
+        assert tako_task.task_id == 0
+        assert tako_task.depends_on is None
 
-        assert octo_task.n_inner_splits == 5
-        assert octo_task.models is not None
-        assert set(octo_task.models) == {
+        assert tako_task.n_inner_splits == 5
+        assert tako_task.models is not None
+        assert set(tako_task.models) == {
             ModelName.ExtraTreesClassifier,
             ModelName.RandomForestClassifier,
             ModelName.XGBClassifier,
             ModelName.CatBoostClassifier,
         }
-        assert octo_task.max_outliers == 0
-        assert octo_task.fi_methods == [FIComputeMethod.PERMUTATION]
-        assert octo_task.n_trials == 20
+        assert tako_task.max_outliers == 0
+        assert tako_task.fi_methods == [FIComputeMethod.PERMUTATION]
+        assert tako_task.n_trials == 20
 
     def test_multiclass_target_metric_options(self):
         """Test different target metrics suitable for multiclass classification."""
