@@ -86,7 +86,7 @@ class TestOctoMulticlass:
             assert study.stratification_col == "target"
 
     def test_multiclass_task_configuration(self):
-        """Test that multiclass Octo task can be properly configured."""
+        """Test that multiclass Tako task can be properly configured."""
         tako_task = Tako(
             description="step_1_tako_multiclass",
             task_id=0,
@@ -231,7 +231,7 @@ class TestOctoMulticlass:
             assert (study_path / "study_meta.json").exists(), "Study meta JSON file should exist"
             assert (study_path / "outersplit0").exists(), "Outer split directory should exist"
 
-            # Verify that the Octo step was executed by checking for workflow directories
+            # Verify that the Tako step was executed by checking for workflow directories
             experiment_path = study_path / "outersplit0"
             workflow_dirs = [d for d in experiment_path.iterdir() if d.is_dir() and d.name.startswith("task")]
 

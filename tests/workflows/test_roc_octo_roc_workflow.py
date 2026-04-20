@@ -93,7 +93,7 @@ class TestRocOctoRocWorkflow:
         assert first_roc.correlation_threshold == 0.85
         assert first_roc.description == "step_0_roc_initial"
 
-        # Verify OCTO step
+        # Verify Tako step
         tako_step = workflow[1]
         assert isinstance(tako_step, Tako)
         assert tako_step.task_id == 1
