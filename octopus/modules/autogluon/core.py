@@ -16,14 +16,18 @@ from octopus._optional.autogluon import (
     accuracy,
     average_precision,
     balanced_accuracy,
+    brier_score,
     f1,
     log_loss,
     mcc,
     mean_absolute_error,
+    mean_squared_error,
     precision,
     r2,
     recall,
     roc_auc,
+    roc_auc_ovr,
+    roc_auc_ovr_weighted,
     root_mean_squared_error,
 )
 from octopus.logger import get_logger
@@ -86,21 +90,27 @@ class SklearnRegressor(BaseEstimator, RegressorMixin):
         raise NotImplementedError("This regressor is already fitted. Only for inference use.")
 
 
-# Mapping of Octopus metrics to AutoGluon metrics
+# Mapping of Octopus metric name -> AutoGluon scorer.
+# Validity per ml_type is enforced upstream by Metrics.get_by_type(); this dict
+# assumes the caller has already chosen a metric supported by their ml_type
+# (e.g. AUCROC is binary-only and will error if used for multiclass).
 metrics_inventory_autogluon = {
-    "AUCROC": roc_auc,
     "ACC": accuracy,
     "ACCBAL": balanced_accuracy,
+    "ACCBAL_MC": balanced_accuracy,
     "AUCPR": average_precision,
+    "AUCROC": roc_auc,
+    "AUCROC_MACRO": roc_auc_ovr,
+    "AUCROC_WEIGHTED": roc_auc_ovr_weighted,
+    "BRIERSCORE": brier_score,
     "F1": f1,
     "LOGLOSS": log_loss,
     "MAE": mean_absolute_error,
     "MCC": mcc,
-    "MSE": root_mean_squared_error,
-    "BRIERSCORE": "brier_score_loss",
+    "MSE": mean_squared_error,
     "PRECISION": precision,
-    "RECALL": recall,
     "R2": r2,
+    "RECALL": recall,
     "RMSE": root_mean_squared_error,
 }
 
@@ -149,6 +159,11 @@ class AutoGluonModule(ModuleExecution["AutoGluon"]):
         if study_context.target_metric is None:
             raise ValueError("target_metric should be set during fit()")
 
+        if study_context.target_metric not in metrics_inventory_autogluon:
+            raise ValueError(
+                f"target_metric={study_context.target_metric!r} is not supported by AutoGluon. "
+                f"Supported metrics: {sorted(metrics_inventory_autogluon)}"
+            )
         scoring_type = metrics_inventory_autogluon[study_context.target_metric]
 
         # Initialize TabularPredictor (store temporarily for fit operations)
