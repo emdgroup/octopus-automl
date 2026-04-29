@@ -80,7 +80,7 @@ class Tako(Task):
     ensemble_selection: bool = field(validator=[validators.in_([True, False])], default=False)
     """Whether to perform ensemble selection."""
 
-    n_ensemble_candidates: int = field(validator=[validators.instance_of(int)], default=50)
+    n_ensemble_candidates: int = field(validator=[validators.instance_of(int), validators.ge(1)], default=50)
     """Number of top-performing bags to keep as candidates for ensemble selection."""
 
     n_trials: int = field(validator=[validators.instance_of(int)], default=200 if not _RUNNING_IN_TESTSUITE else 3)

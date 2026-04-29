@@ -208,6 +208,23 @@ class ScoringMethod(StrEnum):
     AVERAGE = "average"
 
 
+class PredictionKey(StrEnum):
+    """Keys for the predictions dict structure produced by Bag.get_predictions()."""
+
+    ENSEMBLE = "ensemble"
+
+
+class PerformanceKey(StrEnum):
+    """Keys for the performance dict produced by Bag.get_performance() and EnSel."""
+
+    TRAIN_AVG = "train_avg"
+    TRAIN_ENSEMBLE = "train_ensemble"
+    DEV_AVG = "dev_avg"
+    DEV_ENSEMBLE = "dev_ensemble"
+    TEST_AVG = "test_avg"
+    TEST_ENSEMBLE = "test_ensemble"
+
+
 class MetricDirection(StrEnum):
     """Optimisation direction passed to Optuna and used for sorting scan/ensemble results.
 

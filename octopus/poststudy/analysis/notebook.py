@@ -21,6 +21,7 @@ import pandas as pd
 from octopus.poststudy.analysis.plots import confusion_matrix_plot
 from octopus.poststudy.analysis.tables import confusion_matrix_data
 from octopus.poststudy.study_io import StudyInfo
+from octopus.types import PerformanceKey
 
 try:
     from IPython.display import display as _ipython_display
@@ -91,10 +92,16 @@ def display_performance_tables(
 
     target_metric = perf_df.attrs.get("target_metric", "")
 
-    _col_order = ["train_avg", "dev_avg", "dev_ensemble", "test_avg", "test_ensemble"]
-    _hidden = {"metric", "task", "key", "train_ensemble"}
+    _col_order = [
+        PerformanceKey.TRAIN_AVG,
+        PerformanceKey.DEV_AVG,
+        PerformanceKey.DEV_ENSEMBLE,
+        PerformanceKey.TEST_AVG,
+        PerformanceKey.TEST_ENSEMBLE,
+    ]
+    _hidden = {"metric", "task", "key", PerformanceKey.TRAIN_ENSEMBLE}
     available_cols = [c for c in filtered.columns if c not in _hidden]
-    display_cols = [c for c in _col_order if c in available_cols]
+    display_cols: list[str] = [c for c in _col_order if c in available_cols]
     display_cols += [c for c in available_cols if c not in display_cols]
 
     task_key_pairs: list[tuple[int, str]] = []

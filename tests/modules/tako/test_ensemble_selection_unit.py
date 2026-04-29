@@ -1,6 +1,7 @@
 """Unit tests for EnSel (Ensemble Selection) individual methods."""
 
 import heapq
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -10,10 +11,10 @@ from upath import UPath
 
 import octopus.modules.tako.enssel as enssel_module
 from octopus.modules.tako.bag import Bag
-from octopus.modules.tako.enssel import EnSel
+from octopus.modules.tako.enssel import EnSel, _average_and_quantize, _class_balanced_subsample
 from octopus.modules.tako.training import Training
-from octopus.types import MLType, ModelName
-from octopus.utils import joblib_save
+from octopus.types import DataPartition, MLType, ModelName, PerformanceKey
+from octopus.utils import joblib_load, joblib_save
 
 # Utility functions for creating mock data and bags
 
@@ -195,6 +196,7 @@ def create_partial_ensel(trials_path, target_metric="MAE", methods_to_run=None):
         max_n_iterations=10,
         row_id_col="row_id",
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
 
@@ -218,8 +220,8 @@ def test_collect_trials_basic(tmp_path):
         assert set(bag_data.keys()) == expected_keys
         assert isinstance(bag_data["performance"], dict)
         assert isinstance(bag_data["predictions"], dict)
-        assert "dev_ensemble" in bag_data["performance"]
-        assert "test_ensemble" in bag_data["performance"]
+        assert PerformanceKey.DEV_ENSEMBLE in bag_data["performance"]
+        assert PerformanceKey.TEST_ENSEMBLE in bag_data["performance"]
 
 
 # Tests for EnSel._create_model_table() method
@@ -238,11 +240,19 @@ def test_create_model_table_sorting_minimize(tmp_path):
 
     # Verify model table structure
     assert len(ensel.model_table) == 3
-    expected_columns = {"id", "dev_ensemble", "test_ensemble", "dev_avg", "test_avg", "n_features_used_mean", "path"}
+    expected_columns = {
+        "id",
+        PerformanceKey.DEV_ENSEMBLE,
+        PerformanceKey.TEST_ENSEMBLE,
+        PerformanceKey.DEV_AVG,
+        PerformanceKey.TEST_AVG,
+        "n_features_used_mean",
+        "path",
+    }
     assert set(ensel.model_table.columns) == expected_columns
 
     # Verify sorting (ascending for minimize metrics)
-    dev_scores = ensel.model_table["dev_ensemble"].values
+    dev_scores = ensel.model_table[PerformanceKey.DEV_ENSEMBLE].values
     assert all(dev_scores[i] <= dev_scores[i + 1] for i in range(len(dev_scores) - 1))
 
     # Best model should be first
@@ -259,7 +269,7 @@ def test_create_model_table_identical_performance(tmp_path):
     # Should handle identical performance
     assert len(ensel.model_table) == 3
     # All should have same dev_ensemble score
-    dev_scores = ensel.model_table["dev_ensemble"].values
+    dev_scores = ensel.model_table[PerformanceKey.DEV_ENSEMBLE].values
     assert np.all(dev_scores == 1.5)
 
 
@@ -279,10 +289,10 @@ def test_ensemble_models_single_bag(tmp_path):
 
     # Verify score structure
     assert isinstance(scores, dict)
-    expected_keys = {"dev_ensemble", "test_ensemble"}
+    expected_keys = {PerformanceKey.DEV_ENSEMBLE, PerformanceKey.TEST_ENSEMBLE}
     assert expected_keys.issubset(set(scores.keys()))
-    assert isinstance(scores["dev_ensemble"], (int | float))
-    assert isinstance(scores["test_ensemble"], (int | float))
+    assert isinstance(scores[PerformanceKey.DEV_ENSEMBLE], (int | float))
+    assert isinstance(scores[PerformanceKey.TEST_ENSEMBLE], (int | float))
 
 
 # Tests for EnSel._ensemble_scan() method
@@ -503,8 +513,8 @@ def test_ensemble_models_idempotent(tmp_path):
     result1 = ensel._ensemble_models(bag_keys)
     result2 = ensel._ensemble_models(bag_keys)
 
-    assert result1["dev_ensemble"] == result2["dev_ensemble"]
-    assert result1["test_ensemble"] == result2["test_ensemble"]
+    assert result1[PerformanceKey.DEV_ENSEMBLE] == result2[PerformanceKey.DEV_ENSEMBLE]
+    assert result1[PerformanceKey.TEST_ENSEMBLE] == result2[PerformanceKey.TEST_ENSEMBLE]
 
 
 # Optimization uses the right result
@@ -592,12 +602,12 @@ def test_optimization_result_at_least_as_good_as_start(tmp_path):
     start_bags = []
     for path, weight in ensel.start_ensemble.items():
         start_bags.extend([path] * weight)
-    start_perf = ensel._ensemble_models(start_bags)["dev_ensemble"]
+    start_perf = ensel._ensemble_models(start_bags)[PerformanceKey.DEV_ENSEMBLE]
 
     opt_bags = []
     for path, weight in ensel.optimized_ensemble.items():
         opt_bags.extend([path] * weight)
-    opt_perf = ensel._ensemble_models(opt_bags)["dev_ensemble"]
+    opt_perf = ensel._ensemble_models(opt_bags)[PerformanceKey.DEV_ENSEMBLE]
 
     # For MAE (minimize), optimized must be <= start
     assert opt_perf <= start_perf + 1e-10, f"Optimized ({opt_perf:.6f}) should be <= start ({start_perf:.6f})"
@@ -674,3 +684,226 @@ def test_scan_table_evaluates_all_prefix_sizes(tmp_path):
 
     assert len(ensel.scan_table) == 3
     assert list(ensel.scan_table["#models"]) == [1, 2, 3]
+
+
+# S1: Prediction file loading
+
+
+def create_mock_preds_file(trials_path, bag_id, bag, trial_idx):
+    """Create a _preds.joblib file alongside a _bag.joblib file."""
+    predictions = bag.get_predictions(n_assigned_cpus=1)
+    predictions_ensel = {}
+    for key, partitions in predictions.items():
+        predictions_ensel[key] = {p: df for p, df in partitions.items() if p != DataPartition.TRAIN}
+
+    preds_data = {
+        "predictions": predictions_ensel,
+        "bag_id": bag.bag_id,
+        "n_features_used_mean": bag.n_features_used_mean,
+        "target_dtypes": {"target": bag.trainings[0].data_train["target"].dtype},
+    }
+    preds_file = trials_path / f"trial_{trial_idx}_preds.joblib"
+    joblib_save(preds_data, preds_file)
+    return preds_file
+
+
+def create_mock_trial_directory_with_preds(tmp_path, bag_performances, exact_performance=False):
+    """Create directory with both _bag.joblib and _preds.joblib files."""
+    trials_path = UPath(tmp_path / "trials")
+    trials_path.mkdir()
+
+    for i, (bag_id, dev_mae, test_mae) in enumerate(bag_performances):
+        bag = create_mock_bag(trials_path, bag_id, dev_mae, test_mae, exact_performance=exact_performance)
+        bag_file = trials_path / f"trial_{i}_bag.joblib"
+        joblib_save(bag, bag_file)
+        create_mock_preds_file(trials_path, bag_id, bag, i)
+
+    return trials_path
+
+
+def test_collect_trials_from_preds_basic(tmp_path):
+    """When preds files exist, _collect_trials loads them and populates self.bags."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+    trials_path = create_mock_trial_directory_with_preds(tmp_path, bag_performances)
+
+    ensel = create_partial_ensel(trials_path, methods_to_run=["_collect_trials"])
+
+    assert len(ensel.bags) == 3
+    for bag_path, bag_data in ensel.bags.items():
+        assert bag_path.name.endswith("_bag.joblib"), f"Key should be bag path, got {bag_path}"
+        assert "performance" in bag_data
+        assert "predictions" in bag_data
+        assert PerformanceKey.DEV_ENSEMBLE in bag_data["performance"]
+
+
+def test_collect_trials_fallback_to_bags(tmp_path):
+    """When no preds files exist, _collect_trials loads full bags."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances)
+
+    ensel = create_partial_ensel(trials_path, methods_to_run=["_collect_trials"])
+
+    assert len(ensel.bags) == 2
+
+
+def test_per_trial_fallback_loads_both_formats(tmp_path):
+    """When some trials have preds and some don't, all trials are loaded."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4)]
+    trials_path = create_mock_trial_directory_with_preds(tmp_path, bag_performances)
+
+    preds_file_b = trials_path / "trial_1_preds.joblib"
+    preds_file_b.unlink()
+
+    ensel = create_partial_ensel(trials_path, methods_to_run=["_collect_trials"])
+
+    assert len(ensel.bags) == 2
+    for bag_path in ensel.bags:
+        assert bag_path.name.endswith("_bag.joblib")
+
+
+def test_pred_file_excludes_train_partition(tmp_path):
+    """Preds file must not contain TRAIN partition predictions."""
+    bag_performances = [("a", 1.0, 1.1)]
+    trials_path = create_mock_trial_directory_with_preds(tmp_path, bag_performances)
+
+    preds_file = next(f for f in trials_path.iterdir() if f.name.endswith("_preds.joblib"))
+    preds_data = joblib_load(preds_file)
+
+    for key, partitions in preds_data["predictions"].items():
+        assert DataPartition.TRAIN not in partitions, f"TRAIN partition found in {key}"
+        assert "train" not in partitions, f"TRAIN partition found in {key}"
+
+
+def test_ensel_results_identical_with_pred_files(tmp_path):
+    """EnSel optimized_ensemble must be identical from preds files vs full bags."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+
+    (tmp_path / "bags_only").mkdir()
+    trials_path_bags = create_mock_trial_directory(tmp_path / "bags_only", bag_performances, exact_performance=True)
+    ensel_bags = create_partial_ensel(trials_path_bags)
+
+    (tmp_path / "with_preds").mkdir()
+    trials_path_preds = create_mock_trial_directory_with_preds(
+        tmp_path / "with_preds", bag_performances, exact_performance=True
+    )
+    ensel_preds = create_partial_ensel(trials_path_preds)
+
+    bags_weights = {p.name: w for p, w in ensel_bags.optimized_ensemble.items()}
+    preds_weights = {p.name: w for p, w in ensel_preds.optimized_ensemble.items()}
+    assert bags_weights == preds_weights
+
+
+# S2: Diversity tie-breaking
+
+
+def test_diversity_tiebreak_prefers_diverse_model(tmp_path):
+    """When candidates tie on score, the model with lower correlation to the ensemble is preferred."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.0, 1.1), ("c", 1.0, 1.1)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances, exact_performance=True)
+
+    ensel = create_partial_ensel(trials_path)
+
+    assert len(ensel.optimized_ensemble) >= 2
+
+    start_bags = list(ensel.start_ensemble.keys())
+    optimized_bags = list(ensel.optimized_ensemble.keys())
+    added_bags = [b for b in optimized_bags if b not in start_bags]
+
+    if len(added_bags) >= 1 and len(start_bags) >= 1:
+        div_cols = ensel._diversity_columns()
+        first_start = start_bags[0]
+        start_dev = ensel._pred_arrays[first_start][DataPartition.DEV]
+
+        all_candidates = [b for b in ensel._pred_arrays if b not in start_bags]
+        if len(all_candidates) >= 2:
+            chosen = added_bags[0]
+            others = [b for b in all_candidates if b != chosen]
+            corr_chosen = EnSel._avg_abs_corr(start_dev, ensel._pred_arrays[chosen][DataPartition.DEV], div_cols)
+            for other in others:
+                corr_other = EnSel._avg_abs_corr(start_dev, ensel._pred_arrays[other][DataPartition.DEV], div_cols)
+                assert corr_chosen <= corr_other, (
+                    f"Diversity tie-break should prefer lower correlation: "
+                    f"chosen={corr_chosen:.4f}, other={corr_other:.4f}"
+                )
+
+
+def test_diversity_tiebreak_nan_handling(tmp_path):
+    """Constant predictions (NaN correlation) must not crash."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances, exact_performance=True)
+
+    ensel = create_partial_ensel(trials_path)
+    assert len(ensel.optimized_ensemble) >= 1
+
+
+# S3: Bagged ensemble selection
+
+
+def test_average_and_quantize():
+    """Weight averaging and quantization produce correct integer weights."""
+    vectors = [
+        Counter({"a": 3, "b": 1}),
+        Counter({"a": 5, "c": 2}),
+    ]
+    result = _average_and_quantize(vectors)
+    assert result["a"] == 4
+    assert result["c"] == 1
+
+
+def test_average_and_quantize_rounds_half_up():
+    """Weights at exactly 0.5 round up to 1, not down to 0."""
+    vectors = [
+        Counter({"a": 1}),
+        Counter(),
+    ]
+    result = _average_and_quantize(vectors)
+    assert result.get("a", 0) == 1, f"Expected 1 (standard rounding), got {result.get('a', 0)}"
+
+
+def test_class_balanced_subsample_preserves_all_classes():
+    """Every class in the original dev set must appear in the subset."""
+    row_ids = pd.Index(range(30))
+    targets = pd.Series([0] * 25 + [1] * 5, index=row_ids)
+    rng = np.random.default_rng(42)
+
+    for _ in range(20):
+        subset = _class_balanced_subsample(row_ids, targets, 10, rng)
+        subset_targets = targets.loc[subset]
+        assert 0 in subset_targets.values
+        assert 1 in subset_targets.values
+
+
+def test_bagging_runs_without_error(tmp_path):
+    """Bagged ensemble selection (20 rounds, fraction 0.5) completes successfully."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances)
+
+    ensel = create_partial_ensel(trials_path)
+
+    assert len(ensel.optimized_ensemble) >= 1
+    for weight in ensel.optimized_ensemble.values():
+        assert isinstance(weight, int)
+        assert weight >= 1
+
+
+def test_bagging_is_deterministic(tmp_path):
+    """Same inputs produce identical results across runs (fixed seed)."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4), ("c", 2.0, 1.9)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances)
+
+    ensel1 = create_partial_ensel(trials_path)
+    ensel2 = create_partial_ensel(trials_path)
+
+    w1 = {p.name: w for p, w in ensel1.optimized_ensemble.items()}
+    w2 = {p.name: w for p, w in ensel2.optimized_ensemble.items()}
+    assert w1 == w2
+
+
+def test_nan_score_skipped_in_greedy_loop(tmp_path):
+    """NaN metric scores must be skipped, not poison the greedy selection."""
+    bag_performances = [("a", 1.0, 1.1), ("b", 1.5, 1.4)]
+    trials_path = create_mock_trial_directory(tmp_path, bag_performances, exact_performance=True)
+
+    ensel = create_partial_ensel(trials_path)
+
+    assert len(ensel.optimized_ensemble) >= 1

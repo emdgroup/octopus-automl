@@ -18,7 +18,7 @@ from octopus.metrics.utils import get_performance_from_predictions
 from octopus.modules.tako.training import Training, fi_storage_key, parse_fi_storage_key
 
 # Adjust this import path as needed depending on your package layout
-from octopus.types import DataPartition, FIComputeMethod, LogGroup, MLType
+from octopus.types import DataPartition, FIComputeMethod, LogGroup, MLType, PerformanceKey, PredictionKey
 
 logger = get_logger()
 
@@ -347,7 +347,7 @@ class BagBase(BaseEstimator):
                 part_preds.append(training.predictions[part])
 
         # Create ensemble predictions for each partition
-        predictions["ensemble"] = {}
+        predictions[PredictionKey.ENSEMBLE] = {}
         for part, part_preds in ensemble_pool.items():
             # Get metadata from first training (all have same outer_split_id and task_id)
             first_pred = part_preds[0]
@@ -381,7 +381,7 @@ class BagBase(BaseEstimator):
             ensemble["partition"] = part
             ensemble["task_id"] = task_id
 
-            predictions["ensemble"][part] = ensemble
+            predictions[PredictionKey.ENSEMBLE][part] = ensemble
 
         return predictions
 
@@ -418,24 +418,24 @@ class BagBase(BaseEstimator):
         test_lst = []
 
         for training_id, partitions in performance.items():
-            if training_id != "ensemble":
+            if training_id != PredictionKey.ENSEMBLE:
                 train_lst.append(partitions[DataPartition.TRAIN])
                 dev_lst.append(partitions[DataPartition.DEV])
                 test_lst.append(partitions[DataPartition.TEST])
 
         # Calculate averages
-        performance_output["train_avg"] = mean(train_lst)
+        performance_output[PerformanceKey.TRAIN_AVG] = mean(train_lst)
         performance_output["train_lst"] = train_lst
-        performance_output["dev_avg"] = mean(dev_lst)
+        performance_output[PerformanceKey.DEV_AVG] = mean(dev_lst)
         performance_output["dev_lst"] = dev_lst
-        performance_output["test_avg"] = mean(test_lst)
+        performance_output[PerformanceKey.TEST_AVG] = mean(test_lst)
         performance_output["test_lst"] = test_lst
 
         # Add ensemble performance with renamed keys
-        if "ensemble" in performance:
-            performance_output["train_ensemble"] = performance["ensemble"][DataPartition.TRAIN]
-            performance_output["dev_ensemble"] = performance["ensemble"][DataPartition.DEV]
-            performance_output["test_ensemble"] = performance["ensemble"][DataPartition.TEST]
+        if PredictionKey.ENSEMBLE in performance:
+            performance_output[PerformanceKey.TRAIN_ENSEMBLE] = performance[PredictionKey.ENSEMBLE][DataPartition.TRAIN]
+            performance_output[PerformanceKey.DEV_ENSEMBLE] = performance[PredictionKey.ENSEMBLE][DataPartition.DEV]
+            performance_output[PerformanceKey.TEST_ENSEMBLE] = performance[PredictionKey.ENSEMBLE][DataPartition.TEST]
 
         return performance_output
 

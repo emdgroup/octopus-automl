@@ -14,6 +14,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from octopus.types import PerformanceKey
+
 _COLORS = [
     "#4C78A8",  # steel blue (primary)
     "#F58518",  # orange
@@ -39,7 +41,7 @@ _DEFAULT_LAYOUT: dict[str, Any] = {
 
 def dev_performance_plot(
     perf_df: pd.DataFrame,
-    value_col: str = "dev_ensemble",
+    value_col: str = PerformanceKey.DEV_ENSEMBLE,
 ) -> go.Figure:
     """Bar chart of dev performance per outersplit with a metric dropdown.
 
