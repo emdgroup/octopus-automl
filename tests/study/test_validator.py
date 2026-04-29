@@ -211,3 +211,175 @@ def test_validate_error_accumulation(validator_factory, sample_data):
     assert "Multiple validation errors found" in error_message
     assert "Reserved column names found in data" in error_message
     assert "Stratification column cannot be the same as sample_id_col" in error_message
+
+
+class TestClassificationTargetValidation:
+    """Test _validate_classification_target for binary and multiclass."""
+
+    def test_accepts_integer_target_binary(self, validator_factory):
+        """Integer-dtype target is valid for binary classification."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(50)],
+                "feature1": np.random.rand(50),
+                "target": np.random.choice([0, 1], 50),
+            }
+        )
+        validator = validator_factory(data=data, feature_cols=["feature1"], ml_type=MLType.BINARY, positive_class=1)
+        validator._validate_classification_target()
+
+    def test_accepts_boolean_target_binary(self, validator_factory):
+        """Boolean-dtype target is valid for binary classification."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(50)],
+                "feature1": np.random.rand(50),
+                "target": np.random.choice([True, False], 50),
+            }
+        )
+        validator = validator_factory(data=data, feature_cols=["feature1"], ml_type=MLType.BINARY, positive_class=1)
+        validator._validate_classification_target()
+
+    def test_accepts_non_consecutive_integer_target_multiclass(self, validator_factory):
+        """Non-consecutive integer labels [1, 3, 5] are valid for multiclass."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(60)],
+                "feature1": np.random.rand(60),
+                "target": np.tile([1, 3, 5], 20),
+            }
+        )
+        validator = validator_factory(
+            data=data, feature_cols=["feature1"], ml_type=MLType.MULTICLASS, positive_class=None
+        )
+        validator._validate_classification_target()
+
+    def test_rejects_float_target_binary(self, validator_factory):
+        """Float-dtype target is rejected for binary classification."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(50)],
+                "feature1": np.random.rand(50),
+                "target": np.random.choice([0.0, 1.0], 50),
+            }
+        )
+        validator = validator_factory(data=data, feature_cols=["feature1"], ml_type=MLType.BINARY, positive_class=1)
+        with pytest.raises(ValueError, match="integer or boolean dtype"):
+            validator._validate_classification_target()
+
+    def test_rejects_float_target_multiclass(self, validator_factory):
+        """Float-dtype target is rejected for multiclass classification."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(60)],
+                "feature1": np.random.rand(60),
+                "target": np.tile([0.0, 1.0, 2.0], 20),
+            }
+        )
+        validator = validator_factory(
+            data=data, feature_cols=["feature1"], ml_type=MLType.MULTICLASS, positive_class=None
+        )
+        with pytest.raises(ValueError, match="integer or boolean dtype"):
+            validator._validate_classification_target()
+
+    def test_rejects_object_target_multiclass(self, validator_factory):
+        """Object-dtype target is rejected for multiclass classification."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(60)],
+                "feature1": np.random.rand(60),
+                "target": np.tile(["cat", "dog", "fish"], 20),
+            }
+        )
+        validator = validator_factory(
+            data=data, feature_cols=["feature1"], ml_type=MLType.MULTICLASS, positive_class=None
+        )
+        with pytest.raises(ValueError, match="integer or boolean dtype"):
+            validator._validate_classification_target()
+
+    def test_rejects_categorical_string_target_multiclass(self, validator_factory):
+        """Categorical-dtype with string categories is rejected for multiclass."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(60)],
+                "feature1": np.random.rand(60),
+                "target": pd.Categorical(np.tile(["cat", "dog", "fish"], 20)),
+            }
+        )
+        validator = validator_factory(
+            data=data, feature_cols=["feature1"], ml_type=MLType.MULTICLASS, positive_class=None
+        )
+        with pytest.raises(ValueError, match="Categorical target columns are not supported"):
+            validator._validate_classification_target()
+
+    def test_rejects_nan_in_target_binary(self, validator_factory):
+        """NaN values in target are rejected for binary classification."""
+        target_values = np.random.choice([0, 1], 50).astype(float)
+        target_values[5] = np.nan
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(50)],
+                "feature1": np.random.rand(50),
+                "target": pd.array(target_values, dtype=pd.Int64Dtype()),
+            }
+        )
+        data.loc[5, "target"] = pd.NA
+        validator = validator_factory(data=data, feature_cols=["feature1"], ml_type=MLType.BINARY, positive_class=1)
+        with pytest.raises(ValueError, match="missing values"):
+            validator._validate_classification_target()
+
+    def test_rejects_nan_in_target_multiclass(self, validator_factory):
+        """NaN values in target are rejected for multiclass classification."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(60)],
+                "feature1": np.random.rand(60),
+                "target": pd.array(np.tile([0, 1, 2], 20), dtype=pd.Int64Dtype()),
+            }
+        )
+        data.loc[5, "target"] = pd.NA
+        validator = validator_factory(
+            data=data, feature_cols=["feature1"], ml_type=MLType.MULTICLASS, positive_class=None
+        )
+        with pytest.raises(ValueError, match="missing values"):
+            validator._validate_classification_target()
+
+    def test_rejects_multiclass_fewer_than_3_unique(self, validator_factory):
+        """Multiclass with only 2 unique values is rejected."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(50)],
+                "feature1": np.random.rand(50),
+                "target": np.random.choice([0, 1], 50),
+            }
+        )
+        validator = validator_factory(
+            data=data, feature_cols=["feature1"], ml_type=MLType.MULTICLASS, positive_class=None
+        )
+        with pytest.raises(ValueError, match="at least 3 unique target values"):
+            validator._validate_classification_target()
+
+    def test_accepts_nullable_integer_without_missing(self, validator_factory):
+        """Nullable Int64 target without missing values is accepted."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(50)],
+                "feature1": np.random.rand(50),
+                "target": pd.array(np.random.choice([0, 1], 50), dtype=pd.Int64Dtype()),
+            }
+        )
+        validator = validator_factory(data=data, feature_cols=["feature1"], ml_type=MLType.BINARY, positive_class=1)
+        validator._validate_classification_target()
+
+    def test_rejects_boolean_positive_class(self, validator_factory):
+        """Boolean positive_class is rejected with clear error message."""
+        data = pd.DataFrame(
+            {
+                "sample_id_col": [f"S{i}" for i in range(50)],
+                "feature1": np.random.rand(50),
+                "target": np.random.choice([0, 1], 50),
+            }
+        )
+        validator = validator_factory(data=data, feature_cols=["feature1"], ml_type=MLType.BINARY, positive_class=True)
+        with pytest.raises(ValueError, match="must be an integer, not a boolean"):
+            validator._validate_classification_target()

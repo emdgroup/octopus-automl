@@ -298,9 +298,9 @@ def aucroc_data(predictor: OctoTestEvaluator) -> dict[str, Any]:
     for split_id in predictor.study_info.outersplits:
         split_df = proba_df[proba_df["outersplit"] == split_id]
         probabilities = np.asarray(split_df[positive_class])
-        target = np.asarray(split_df["target"])
+        target_binary = (np.asarray(split_df["target"]) == positive_class).astype(int)
 
-        fpr, tpr, _ = roc_curve(target, probabilities, drop_intermediate=True)
+        fpr, tpr, _ = roc_curve(target_binary, probabilities, drop_intermediate=True)
         auc_score = float(auc(fpr, tpr))
         interp_tpr = np.interp(mean_fpr, fpr, tpr)
         interp_tpr[0] = 0.0
@@ -310,8 +310,8 @@ def aucroc_data(predictor: OctoTestEvaluator) -> dict[str, Any]:
 
     # Merged (pooled) ROC
     all_probabilities = np.asarray(proba_df[positive_class])
-    all_targets = np.asarray(proba_df["target"])
-    fpr_merged, tpr_merged, _ = roc_curve(all_targets, all_probabilities, drop_intermediate=True)
+    all_targets_binary = (np.asarray(proba_df["target"]) == positive_class).astype(int)
+    fpr_merged, tpr_merged, _ = roc_curve(all_targets_binary, all_probabilities, drop_intermediate=True)
     auc_merged = float(auc(fpr_merged, tpr_merged))
 
     # Averaged ROC
@@ -370,15 +370,17 @@ def confusion_matrix_data(
     summary_rows = {"Mean", "Merged", "Ensemble"}
     per_split_data: dict[int, dict[str, Any]] = {}
 
+    neg_classes = sorted(c for c in predictor.classes_ if c != positive_class)
+    class_names = [str(neg_classes[0]), str(positive_class)]
+
     for outersplit_id in predictor.study_info.outersplits:
         split_df = proba_df[proba_df["outersplit"] == outersplit_id]
         probabilities = np.asarray(split_df[positive_class])
-        target = np.asarray(split_df["target"])
+        target_binary = (np.asarray(split_df["target"]) == positive_class).astype(int)
 
         predictions = (probabilities >= threshold).astype(int)
-        cm_abs = confusion_matrix(target, predictions)
-        cm_rel = confusion_matrix(target, predictions, normalize="true")
-        class_names = [str(c) for c in predictor.classes_]
+        cm_abs = confusion_matrix(target_binary, predictions)
+        cm_rel = confusion_matrix(target_binary, predictions, normalize="true")
 
         split_series = all_scores.loc[outersplit_id]
         split_scores = pd.DataFrame({"metric": split_series.index, "score": split_series.values})

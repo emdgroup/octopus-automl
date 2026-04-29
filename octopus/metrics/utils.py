@@ -14,39 +14,6 @@ def _to_numpy(data: Any) -> np.ndarray:
     return data.to_numpy() if isinstance(data, pd.DataFrame) else np.asarray(data)
 
 
-def _get_probability_columns(pred_df: pd.DataFrame, target_col: str) -> list[int]:
-    """Extract and validate probability columns for multiclass predictions.
-
-    Args:
-        pred_df: Prediction DataFrame
-        target_col: Target column name (string) to exclude
-
-    Returns:
-        Sorted list of probability column indices
-
-    Raises:
-        ValueError: If probability columns are not consecutive integers starting from 0
-    """
-    prob_columns: list[int] = []
-    for col in pred_df.columns:
-        if isinstance(col, int) and col not in [target_col, "prediction"]:
-            prob_columns.append(col)
-
-    if not prob_columns:
-        return []
-
-    prob_columns_sorted = sorted(prob_columns)
-    expected_sequence = list(range(len(prob_columns_sorted)))
-
-    if prob_columns_sorted != expected_sequence:
-        raise ValueError(
-            f"Probability columns must be consecutive integers starting from 0. "
-            f"Found: {prob_columns_sorted}, expected: {expected_sequence}"
-        )
-
-    return prob_columns_sorted
-
-
 def get_performance_from_model(
     model: Any,
     data: pd.DataFrame,
@@ -103,12 +70,13 @@ def get_performance_from_model(
             raise ValueError(f"positive_class {positive_class} not found in model classes {model.classes_}") from e
 
         probabilities = _to_numpy(model.predict_proba(input_data))[:, positive_class_idx]
+        target_binary = (target == positive_class).astype(int)
 
         if metric.prediction_type == PredictionType.PROBABILITIES:
-            return metric.calculate(target, probabilities)
+            return metric.calculate(target_binary, probabilities)
 
         predictions = (probabilities >= threshold).astype(int)
-        return metric.calculate(target, predictions)
+        return metric.calculate(target_binary, predictions)
 
     # Multiclass classification: no positive_class means multiclass context
     if metric.supports_ml_type(MLType.MULTICLASS) and positive_class is None:
@@ -183,17 +151,38 @@ def get_performance_from_predictions(
                 # Binary classification: positive_class provided means binary context
                 if positive_class is not None and metric.supports_ml_type(MLType.BINARY):
                     probabilities = pred_df[positive_class]
+                    target_binary = (target == positive_class).astype(int)
 
                     if metric.prediction_type == PredictionType.PROBABILITIES:
-                        perf_value = metric.calculate(target, probabilities)
+                        perf_value = metric.calculate(target_binary, probabilities)
                     else:
                         predictions_binary = (probabilities >= threshold).astype(int)
-                        perf_value = metric.calculate(target, predictions_binary)
+                        perf_value = metric.calculate(target_binary, predictions_binary)
 
                 # Multiclass classification: no positive_class means multiclass context
                 elif metric.supports_ml_type(MLType.MULTICLASS) and positive_class is None:
                     if metric.prediction_type == PredictionType.PROBABILITIES:
-                        prob_columns = _get_probability_columns(pred_df, target_col)
+                        prob_columns = sorted(
+                            col for col in pred_df.columns if isinstance(col, int) and not isinstance(col, bool)
+                        )
+                        target_classes = set(target.unique())
+
+                        if len(prob_columns) < 2:
+                            raise ValueError(
+                                "Expected at least 2 integer-named probability columns "
+                                "for multiclass predictions, found "
+                                f"{len(prob_columns)}. Columns: {list(pred_df.columns)}"
+                            )
+
+                        missing = sorted(target_classes - set(prob_columns))
+                        if missing:
+                            raise ValueError(
+                                "Prediction DataFrame is missing probability columns "
+                                f"for target class labels {missing}. "
+                                f"Target classes: {sorted(target_classes)}, "
+                                f"probability columns: {prob_columns}."
+                            )
+
                         probabilities = pred_df[prob_columns].values
                         perf_value = metric.calculate(target, probabilities)
                     else:

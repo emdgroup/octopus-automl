@@ -36,11 +36,24 @@ DATASPLIT_COL = "datasplit_group"
 def validate_class_coverage(
     splits: OuterSplits | InnerSplits,
     target_col: str,
+    *,
+    expected_classes: set[int] | None = None,
 ) -> None:
-    """Verify no split partition contains only a single class.
+    """Verify class coverage across split partitions.
 
-    Raises SingleClassSplitError if any partition has just one unique class,
-    which would cause degenerate model training or undefined metrics.
+    When expected_classes is None, rejects partitions with only a single class
+    (degenerate training). When expected_classes is provided, requires every
+    partition to contain all expected classes (multiclass alignment).
+
+    Args:
+        splits: Outer or inner cross-validation splits.
+        target_col: Name of the target column.
+        expected_classes: If provided, require every partition to contain all
+            these classes. Used for multiclass to prevent models with
+            differing class sets across splits.
+
+    Raises:
+        SingleClassSplitError: If any partition violates coverage requirements.
     """
     for split_id, split in splits.items():
         if isinstance(split, OuterSplit):
@@ -49,7 +62,8 @@ def validate_class_coverage(
             partitions = {"train": split.train, "dev": split.dev}
 
         for part_name, part_df in partitions.items():
-            unique_classes = part_df[target_col].unique()
+            unique_classes = set(part_df[target_col].unique())
+
             if len(unique_classes) <= 1:
                 raise SingleClassSplitError(
                     f"Split {split_id} {part_name} partition contains only class(es) "
@@ -59,6 +73,17 @@ def validate_class_coverage(
                     "or setting `stratification_col` to the target column "
                     "for balanced splits."
                 )
+
+            if expected_classes is not None:
+                missing = expected_classes - unique_classes
+                if missing:
+                    raise SingleClassSplitError(
+                        f"Split {split_id} {part_name} partition is missing classes "
+                        f"{sorted(missing)}. Found: {sorted(unique_classes)}, "
+                        f"expected: {sorted(expected_classes)}. "
+                        "Try: setting `stratification_col` to the target column, "
+                        "increasing dataset size, or reducing `n_inner_splits`."
+                    )
 
 
 @define

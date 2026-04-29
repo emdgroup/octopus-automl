@@ -253,7 +253,10 @@ class OctoStudy(ABC):
             splits_to_validate = outer_splits
 
         if ml_type in (MLType.BINARY, MLType.MULTICLASS) and hasattr(self, "target_col"):
-            validate_class_coverage(splits_to_validate, self.target_col)
+            expected_classes = (
+                set(prepared.data[self.target_col].dropna().unique()) if ml_type == MLType.MULTICLASS else None
+            )
+            validate_class_coverage(splits_to_validate, self.target_col, expected_classes=expected_classes)
         elif ml_type == MLType.TIMETOEVENT and hasattr(self, "event_col"):
             validate_class_coverage(splits_to_validate, self.event_col)
 
@@ -414,7 +417,18 @@ class OctoClassification(OctoStudy):
             if len(unique_values) > 2:
                 ml_type, positive_class = MLType.MULTICLASS, None
             else:
-                ml_type, positive_class = MLType.BINARY, 1
+                ml_type = MLType.BINARY
+                if positive_class is None:
+                    if 1 in unique_values:
+                        positive_class = 1
+                    else:
+                        raise ValueError(
+                            f"Cannot infer positive_class for binary target with labels "
+                            f"{sorted(unique_values)}. Class 1 is not present. "
+                            f"Set positive_class explicitly."
+                        )
+        if ml_type == MLType.MULTICLASS:
+            positive_class = None
         if ml_type == MLType.BINARY and positive_class is None:
             raise ValueError("For binary classification, `positive_class` must be specified.")
         return ml_type, positive_class
@@ -422,6 +436,14 @@ class OctoClassification(OctoStudy):
     def _validate_data(self, data: pd.DataFrame, ml_type: MLType, positive_class: int | None) -> None:
         if self.target_col not in data.columns:
             raise ValueError(f"Target column '{self.target_col}' not found in input data.")
+
+        metric = Metrics.get_instance(self.target_metric)
+        if not metric.supports_ml_type(ml_type):
+            raise ValueError(
+                f"target_metric '{self.target_metric}' does not support {ml_type.value}. "
+                f"Compatible metrics: {Metrics.get_by_type(ml_type)}"
+            )
+
         super()._validate_data(data, ml_type, positive_class)
 
     @property

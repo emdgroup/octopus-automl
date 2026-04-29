@@ -179,7 +179,11 @@ class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
         ).get_inner_splits()
 
         if study_context.ml_type in (MLType.BINARY, MLType.MULTICLASS):
-            validate_class_coverage(self.data_splits_, list(study_context.target_assignments.values())[0])
+            target_col = list(study_context.target_assignments.values())[0]
+            expected_classes = (
+                set(data_traindev[target_col].dropna().unique()) if study_context.ml_type == MLType.MULTICLASS else None
+            )
+            validate_class_coverage(self.data_splits_, target_col, expected_classes=expected_classes)
         elif study_context.ml_type == MLType.TIMETOEVENT:
             validate_class_coverage(self.data_splits_, study_context.target_assignments["event"])
 

@@ -117,3 +117,81 @@ def test_ml_type_values():
                 **extra_kwargs,
             )
             assert study.ml_type == expected_ml_type
+
+
+def test_autodetect_multiclass_with_binary_metric_raises():
+    """Auto-detected multiclass with AUCROC (binary-only) raises metric compatibility error."""
+    np.random.seed(42)
+    data = pd.DataFrame(
+        {
+            "sample_id_col": [f"S{i}" for i in range(90)],
+            "feature1": np.random.rand(90),
+            "target": np.tile([0, 1, 2], 30),
+        }
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        study = OctoClassification(
+            study_name="test",
+            target_metric="AUCROC",
+            feature_cols=["feature1"],
+            target_col="target",
+            sample_id_col="sample_id_col",
+            studies_directory=temp_dir,
+        )
+
+        with pytest.raises(ValueError, match="does not support"):
+            study.fit(data)
+
+
+def test_autodetect_binary_without_class_1_raises():
+    """Auto-detected binary with labels {0, 2} raises when class 1 not present."""
+    np.random.seed(42)
+    data = pd.DataFrame(
+        {
+            "sample_id_col": [f"S{i}" for i in range(50)],
+            "feature1": np.random.rand(50),
+            "target": np.random.choice([0, 2], 50),
+        }
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        study = OctoClassification(
+            study_name="test",
+            target_metric="AUCROC",
+            feature_cols=["feature1"],
+            target_col="target",
+            sample_id_col="sample_id_col",
+            studies_directory=temp_dir,
+        )
+
+        with pytest.raises(ValueError, match="Cannot infer positive_class"):
+            study.fit(data)
+
+
+def test_multiclass_with_explicit_positive_class_normalizes_to_none():
+    """Explicit multiclass with positive_class normalizes positive_class to None."""
+    np.random.seed(42)
+    data = pd.DataFrame(
+        {
+            "sample_id_col": [f"S{i}" for i in range(90)],
+            "feature1": np.random.rand(90),
+            "target": np.tile([0, 1, 2], 30),
+        }
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        study = OctoClassification(
+            study_name="test",
+            target_metric="ACCBAL_MC",
+            feature_cols=["feature1"],
+            target_col="target",
+            sample_id_col="sample_id_col",
+            ml_type=MLType.MULTICLASS,
+            positive_class=1,
+            studies_directory=temp_dir,
+        )
+
+        ml_type, positive_class = study._resolve_ml_config(data)
+        assert ml_type == MLType.MULTICLASS
+        assert positive_class is None

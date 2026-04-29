@@ -68,7 +68,7 @@ class OctoDataValidator:
             self._validate_feature_target_overlap,
             self._validate_stratification_col,
             self._validate_column_dtypes,
-            self._validate_positive_class,
+            self._validate_classification_target,
         ]
 
         errors = []
@@ -246,36 +246,71 @@ class OctoDataValidator:
                 "These column names are used internally by Octopus."
             )
 
-    def _validate_positive_class(self):
-        """Validate positive class for binary classification.
+    def _validate_classification_target(self):
+        """Validate target column for classification tasks (binary and multiclass).
 
-        For classification tasks, validates that:
-        - Target column is integer type
-        - Target has exactly 2 unique values (binary)
-        - positive_class value exists in target column
+        Enforces a unified contract:
+        - Target must be integer or boolean dtype (rejects float, object, string-categorical)
+        - Target must not contain missing values
+        - For binary: exactly 2 unique values, positive_class set and present
+        - For multiclass: at least 3 unique values
 
         Returns:
-            None: Returns early for non-classification ml_types or if positive_class is None.
+            None: Returns early for non-classification ml_types.
 
         Raises:
-            ValueError: If any validation fails for binary classification.
+            ValueError: If any validation fails.
         """
-        if self.ml_type != MLType.BINARY:
+        if self.ml_type not in (MLType.BINARY, MLType.MULTICLASS):
             return
 
-        if self.positive_class is None:
+        if self.target_col is None:
             return
 
         target_data = self.data[self.target_col]
 
-        if not pd.api.types.is_integer_dtype(target_data):
-            raise ValueError(f"Target column must be integer type for binary classification, got {target_data.dtype}")
-
-        unique_values = target_data.dropna().unique()
-        if len(unique_values) != 2:
+        if not (pd.api.types.is_integer_dtype(target_data) or pd.api.types.is_bool_dtype(target_data)):
+            if isinstance(target_data.dtype, pd.CategoricalDtype):
+                raise ValueError(
+                    f"Categorical target columns are not supported for classification. "
+                    f"Convert target to integer labels. Got categories: {list(target_data.cat.categories)}"
+                )
             raise ValueError(
-                f"Binary classification requires exactly 2 unique values, found {len(unique_values)}: {unique_values}"
+                f"Classification target must be integer or boolean dtype, got {target_data.dtype}. "
+                f"Convert target to integer labels."
             )
 
-        if self.positive_class not in unique_values:
-            raise ValueError(f"positive_class {self.positive_class} not found in target. Available: {unique_values}")
+        if target_data.isna().any():
+            raise ValueError(
+                "Classification target contains missing values (NaN). "
+                "Remove or impute missing target values before fitting."
+            )
+
+        unique_values = target_data.dropna().unique()
+
+        if self.ml_type == MLType.BINARY:
+            if len(unique_values) != 2:
+                raise ValueError(
+                    f"Binary classification requires exactly 2 unique target values, "
+                    f"found {len(unique_values)}: {sorted(unique_values)}"
+                )
+            if isinstance(self.positive_class, bool):
+                raise ValueError(
+                    "positive_class must be an integer, not a boolean. "
+                    "Use positive_class=1 for True or positive_class=0 for False."
+                )
+            if self.positive_class is None:
+                raise ValueError("positive_class must be specified for binary classification.")
+            if self.positive_class not in unique_values:
+                raise ValueError(
+                    f"positive_class {self.positive_class} not found in target. "
+                    f"Available values: {sorted(unique_values)}"
+                )
+
+        elif self.ml_type == MLType.MULTICLASS:
+            if len(unique_values) < 3:
+                raise ValueError(
+                    f"Multiclass classification requires at least 3 unique target values, "
+                    f"found {len(unique_values)}: {sorted(unique_values)}. "
+                    f"Use ml_type=MLType.BINARY for 2-class problems."
+                )
