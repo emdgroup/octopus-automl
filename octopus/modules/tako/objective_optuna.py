@@ -9,7 +9,7 @@ from octopus.datasplit import InnerSplits
 from octopus.logger import get_logger
 from octopus.metrics import Metrics
 from octopus.models import Models
-from octopus.types import LogGroup, MetricDirection, MLType, ModelName, ScoringMethod
+from octopus.types import DataPartition, LogGroup, MetricDirection, MLType, ModelName, PerformanceKey, ScoringMethod
 from octopus.utils import joblib_save
 
 from .bag import Bag, BagClassifier, BagRegressor
@@ -17,11 +17,20 @@ from .training import Training, TrainingConfig
 
 logger = get_logger()
 
+_BAG_SUFFIX = "_bag.joblib"
+_PREDS_SUFFIX = "_preds.joblib"
+
 
 class ObjectiveOptuna:
     """Callable optuna objective.
 
     A single solution for global and individual HP optimizations.
+
+    .. note::
+        This class is **internal** to ``octopus.modules.tako`` and is
+        instantiated only by :py:class:`octopus.modules.tako.core.TakoModuleTemplate`.
+        It is not part of the public API; constructor signature changes
+        do not require deprecation cycles.
     """
 
     def __init__(
@@ -37,8 +46,7 @@ class ObjectiveOptuna:
         feature_groups: dict,
         positive_class,
         config,
-        path_study: UPath,
-        task_path: str,
+        scratch_dir: UPath,
         data_splits: InnerSplits,
         study_name,
         top_trials,
@@ -57,8 +65,7 @@ class ObjectiveOptuna:
         self.feature_groups = feature_groups
         self.positive_class = positive_class
         self.config = config
-        self.path_study = path_study
-        self.task_path = task_path
+        self.scratch_dir = scratch_dir
         self.data_splits = data_splits
         self.study_name = study_name
         self.top_trials = top_trials
@@ -177,9 +184,9 @@ class ObjectiveOptuna:
 
         # define optuna target
         if self.config.scoring_method == ScoringMethod.COMBINED:
-            optuna_target: float = bag_performance["dev_ensemble"]
+            optuna_target: float = bag_performance[PerformanceKey.DEV_ENSEMBLE]
         else:
-            optuna_target = bag_performance["dev_avg"]
+            optuna_target = bag_performance[PerformanceKey.DEV_AVG]
 
         # adjust direction, optuna always maximizes (higher = better)
         target_metric = self.target_metric
@@ -204,21 +211,51 @@ class ObjectiveOptuna:
         return optuna_target
 
     def _save_topn_trials(self, bag: BagClassifier | BagRegressor, target_value, n_trial):
-        max_n_trials = self.n_save_trials
-        path_save = self.path_study / self.task_path / "scratch" / f"trial_{n_trial}_bag.joblib"
+        """Save trial bag and lightweight predictions, evicting worst if over capacity.
 
-        # saving top n_trials to disk
-        # target_value is always "higher = better" (optuna maximizes).
-        # Min-heap: heappop removes the lowest value (worst trial).
-        heapq.heappush(self.top_trials, (target_value, path_save))
-        joblib_save(bag, path_save)
+        Writes both the full bag and a stripped-down predictions file (DEV/TEST
+        only) for fast ensemble selection loading. Maintains a bounded heap of
+        the best trials; when capacity is exceeded, the lowest-scoring trial's
+        files are deleted.
+        """
+        max_n_trials = self.n_save_trials
+        path_bag = self.scratch_dir / f"trial_{n_trial}{_BAG_SUFFIX}"
+        path_preds = self.scratch_dir / f"trial_{n_trial}{_PREDS_SUFFIX}"
+
+        # (1) Write bag
+        joblib_save(bag, path_bag)
+
+        # (2) Build and write lightweight predictions for fast EnSel loading
+        full_predictions = bag.get_predictions(n_assigned_cpus=self.n_assigned_cpus)
+        predictions_ensel = {}
+        for key, partitions in full_predictions.items():
+            predictions_ensel[key] = {p: df for p, df in partitions.items() if p != DataPartition.TRAIN}
+        predictions_data = {
+            "predictions": predictions_ensel,
+            "bag_id": bag.bag_id,
+            "n_features_used_mean": bag.n_features_used_mean,
+            "target_dtypes": {
+                col: bag.trainings[0].data_train[col].dtype
+                for col in self.target_assignments.values()
+                if col in bag.trainings[0].data_train.columns
+            },
+        }
+        joblib_save(predictions_data, path_preds)
+
+        # (3) Commit pair to the heap. Min-heap on target_value (optuna maximizes,
+        # so heappop returns the worst trial for eviction).
+        heapq.heappush(self.top_trials, (target_value, path_bag, path_preds))
+
         if len(self.top_trials) > max_n_trials:
-            # delete trial with lowest perfomrmance in n_trials
-            _, path_delete = heapq.heappop(self.top_trials)
-            if path_delete.is_file():
-                path_delete.unlink()
+            _, path_bag_delete, path_preds_delete = heapq.heappop(self.top_trials)
+            if path_bag_delete.is_file():
+                path_bag_delete.unlink()
             else:
-                raise FileNotFoundError("Problem deleting trial-pkl file")
+                logger.warning(f"Eviction target not found (already removed?): {path_bag_delete}")
+            if path_preds_delete.is_file():
+                path_preds_delete.unlink()
+            else:
+                logger.warning(f"Eviction target not found (already removed?): {path_preds_delete}")
 
     def _log_trial_scores(self, scores):
         logger.set_log_group(LogGroup.SCORES, f"OUTER {self.outer_split_id} SQE TBD")

@@ -18,7 +18,16 @@ from octopus.metrics import Metrics
 from octopus.models import Models
 from octopus.modules import ModuleExecution, ModuleResult
 from octopus.modules.mrmr.core import _maxrminr, _relevance_fstats
-from octopus.types import CorrelationType, DataPartition, FIComputeMethod, LogGroup, MetricDirection, MLType, ResultType
+from octopus.types import (
+    CorrelationType,
+    DataPartition,
+    FIComputeMethod,
+    LogGroup,
+    MetricDirection,
+    MLType,
+    PerformanceKey,
+    ResultType,
+)
 from octopus.utils import joblib_load, parquet_save
 
 from .bag import Bag, BagBase
@@ -89,6 +98,7 @@ class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
             n_assigned_cpus=n_assigned_cpus,
             results_dir=results_dir,
             results=results,
+            scratch_dir=scratch_dir,
         )
 
         # Build best ModuleResult
@@ -236,6 +246,7 @@ class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
             target_assignments=study_context.target_assignments,
             positive_class=study_context.positive_class,
             n_assigned_cpus=n_assigned_cpus,
+            ml_type=study_context.ml_type,
         )
         ensemble_paths_dict = ensel.optimized_ensemble
         return self._create_ensemble_bag(study_context, outer_split_id, n_assigned_cpus, ensemble_paths_dict, results)
@@ -291,7 +302,7 @@ class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
         logger.set_log_group(LogGroup.RESULTS)
         logger.info("Ensemble selection performance")
         logger.info(
-            f"Training: {training_id} {target_metric} (ensemble selection): Dev {ensel_scores['dev_ensemble']:.3f}, Test {ensel_scores['test_ensemble']:.3f}"
+            f"Training: {training_id} {target_metric} (ensemble selection): Dev {ensel_scores[PerformanceKey.DEV_ENSEMBLE]:.3f}, Test {ensel_scores[PerformanceKey.TEST_ENSEMBLE]:.3f}"
         )
 
         # calculate feature importances of best bag
@@ -323,6 +334,7 @@ class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
         n_assigned_cpus: int,
         results_dir: UPath,
         results: dict[str, dict],
+        scratch_dir: UPath,
     ) -> list[str]:
         """Optimization run with a global HP set over all inner splits."""
         logger.info("Running Optuna Optimization with a global HP set")
@@ -331,7 +343,6 @@ class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
         splits = self.data_splits_
         study_name = f"optuna_{outer_split_id}_{self.config.task_id}"
         outer_split_task_id = f"{outer_split_id}_{self.config.task_id}"
-        task_path = f"outersplit{outer_split_id}/task{self.config.task_id}"
 
         # Warn when the penalty_factor may not match the metric's scale
         if self.config.max_features > 0 and study_context.target_metric in {"MAE", "MSE", "RMSE"}:
@@ -356,8 +367,7 @@ class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
             feature_groups=feature_groups,
             positive_class=study_context.positive_class,
             config=self.config,
-            path_study=study_context.output_path,
-            task_path=task_path,
+            scratch_dir=scratch_dir,
             data_splits=splits,
             study_name=study_name,
             top_trials=self.top_trials_,
@@ -487,8 +497,8 @@ class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
             f"Training: {training_id} "
             f"{target_metric} "
             f"(best bag - ensembled): "
-            f"Dev {best_bag_performance['dev_ensemble']:.3f}, "
-            f"Test {best_bag_performance['test_ensemble']:.3f}"
+            f"Dev {best_bag_performance[PerformanceKey.DEV_ENSEMBLE]:.3f}, "
+            f"Test {best_bag_performance[PerformanceKey.TEST_ENSEMBLE]:.3f}"
         )
 
         # calculate feature importances of best bag

@@ -14,7 +14,7 @@ from upath import UPath
 from octopus.modules.tako.bag import Bag
 from octopus.modules.tako.enssel import EnSel
 from octopus.modules.tako.training import Training
-from octopus.types import MLType, ModelName
+from octopus.types import MLType, ModelName, PerformanceKey
 from octopus.utils import joblib_load, joblib_save
 
 
@@ -253,7 +253,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
     individual_performances = []
     for _model_name, bag in bags.items():
         scores = bag.get_performance(n_assigned_cpus=1)
-        individual_performances.append(scores["dev_ensemble"])
+        individual_performances.append(scores[PerformanceKey.DEV_ENSEMBLE])
 
     best_individual_mae = min(individual_performances)
 
@@ -265,6 +265,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Extract ensemble results
@@ -274,7 +275,7 @@ def test_ensemble_selection_ensembled_data(tmp_path):
     # Calculate ensemble performance
     start_bags = list(start_ensemble.keys())
     start_scores = ensel._ensemble_models(start_bags)
-    ensemble_mae = start_scores["dev_ensemble"]
+    ensemble_mae = start_scores[PerformanceKey.DEV_ENSEMBLE]
 
     # Calculate true optimal ensemble performance using same bag predictions
     # Sum individual bag dev predictions instead of ensemble selection's averaging
@@ -383,6 +384,7 @@ def test_ensemble_bag_has_unique_inner_split_ids(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Build trainings using the production deep-copy logic
@@ -430,6 +432,7 @@ def test_ensemble_bag_predictions_groupby_inner_split_correct(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Build trainings using the production deep-copy logic
@@ -475,7 +478,7 @@ def test_ensemble_at_least_as_good_as_best_single_model(tmp_path):
     individual_performances = []
     for bag in bags.values():
         scores = bag.get_performance(n_assigned_cpus=1)
-        individual_performances.append(scores["dev_ensemble"])
+        individual_performances.append(scores[PerformanceKey.DEV_ENSEMBLE])
     best_individual_mae = min(individual_performances)
 
     ensel = EnSel(
@@ -485,13 +488,14 @@ def test_ensemble_at_least_as_good_as_best_single_model(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Compute optimized ensemble performance
     opt_bags = []
     for path, weight in ensel.optimized_ensemble.items():
         opt_bags.extend([path] * weight)
-    opt_perf = ensel._ensemble_models(opt_bags)["dev_ensemble"]
+    opt_perf = ensel._ensemble_models(opt_bags)[PerformanceKey.DEV_ENSEMBLE]
 
     # For MAE (minimize), ensemble must be <= best individual
     assert opt_perf <= best_individual_mae + 1e-10, (
@@ -531,6 +535,7 @@ def test_ensemble_with_replacement_weights_predictions(tmp_path):
         row_id_col="row_id",
         target_assignments={"default": "target"},
         n_assigned_cpus=1,
+        ml_type=MLType.REGRESSION,
     )
 
     # Manually create weighted ensemble: model_a x3, model_b x1
@@ -547,6 +552,6 @@ def test_ensemble_with_replacement_weights_predictions(tmp_path):
 
     # The two must produce different dev_ensemble scores
     # (unless predictions are identical, which they're not for different models)
-    assert weighted_result["dev_ensemble"] != equal_result["dev_ensemble"], (
+    assert weighted_result[PerformanceKey.DEV_ENSEMBLE] != equal_result[PerformanceKey.DEV_ENSEMBLE], (
         "Weighted [A,A,A,B] and equal [A,B] ensembles should produce different scores"
     )
