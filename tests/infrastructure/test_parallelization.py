@@ -43,7 +43,7 @@ def test_inner_parallelization_setup_in_workers(tmp_path, outer_splits):
         assert len(threadpool_info) >= 2
 
         for lib in threadpool_info:
-            assert lib["num_threads"] == 1
+            assert lib["num_threads"] == n_cpus_per_worker
 
     ray_parallel.run_parallel_outer(
         outer_split_data=outer_splits,
