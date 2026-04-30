@@ -81,6 +81,7 @@ def f1_metric() -> Metric:
         higher_is_better=True,
         prediction_type=PredictionType.PREDICTIONS,
         scorer_string="f1",
+        metric_params={"zero_division": 0},
     )
 
 
@@ -133,6 +134,7 @@ def precision_metric() -> Metric:
         higher_is_better=True,
         prediction_type=PredictionType.PREDICTIONS,
         scorer_string="precision",
+        metric_params={"zero_division": 0},
     )
 
 
@@ -146,4 +148,5 @@ def recall_metric() -> Metric:
         higher_is_better=True,
         prediction_type=PredictionType.PREDICTIONS,
         scorer_string="recall",
+        metric_params={"zero_division": 0},
     )

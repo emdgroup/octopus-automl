@@ -34,9 +34,8 @@ class TestFSSpecIntegration:
         assert loaded.coef_.tolist() == model.coef_.tolist()
 
     @pytest.fixture
-    def breast_cancer_dataset(self):
-        """Create synthetic binary classification dataset for testing (faster than breast cancer dataset)."""
-        # Create synthetic binary classification dataset with reduced size for faster testing
+    def classification_dataset(self):
+        """Create synthetic binary classification dataset for fsspec I/O testing."""
         X, y = make_classification(
             n_samples=30,
             n_features=5,
@@ -46,7 +45,6 @@ class TestFSSpecIntegration:
             random_state=42,
         )
 
-        # Create DataFrame similar to breast cancer dataset structure
         feature_names = [f"feature_{i}" for i in range(5)]
         df = pd.DataFrame(X, columns=feature_names)
         df["target"] = y
@@ -105,12 +103,12 @@ class TestFSSpecIntegration:
         assert loaded.coef_.tolist() == model.coef_.tolist()
 
     @pytest.mark.slow
-    def test_fsspec_mocked_s3_support(self, breast_cancer_dataset, s3_base):
+    def test_fsspec_mocked_s3_support(self, classification_dataset, s3_base):
         """Test Amazon S3 support using a local S3 servervia the s3:// protocol of fsspec."""
         endpoint_uri, bucket_name = s3_base
 
         self.run_experiment(
-            breast_cancer_dataset,
+            classification_dataset,
             root_dir=UPath(
                 f"s3://{bucket_name}/",
                 endpoint_url=endpoint_uri,
@@ -130,7 +128,7 @@ class TestFSSpecIntegration:
         reason="Testing against a real S3 bucket needs AWS credentials.",
     )
     @pytest.mark.slow
-    def test_fsspec_s3_support(self, breast_cancer_dataset):
+    def test_fsspec_s3_support(self, classification_dataset):
         """Test Amazon S3 support via the s3:// protocol of fsspec.
 
         This test requires real AWS credentials and a real, existing S3 bucket.
@@ -150,7 +148,7 @@ class TestFSSpecIntegration:
         bucket_name = os.environ["OCTOPUS_TEST_S3_BUCKET_NAME"]
 
         self.run_experiment(
-            breast_cancer_dataset,
+            classification_dataset,
             root_dir=UPath(
                 f"s3://{bucket_name}/",
                 # endpoint_url=endpoint_uri,
@@ -158,18 +156,18 @@ class TestFSSpecIntegration:
         )
 
     @pytest.mark.slow
-    def test_fsspec_in_memory_support(self, breast_cancer_dataset):
+    def test_fsspec_in_memory_support(self, classification_dataset):
         """Test for working memory file system support via the memory:// protocol of fsspec."""
-        self.run_experiment(breast_cancer_dataset, root_dir=UPath("memory://test_dir/"))
+        self.run_experiment(classification_dataset, root_dir=UPath("memory://test_dir/"))
 
-    def run_experiment(self, breast_cancer_dataset, root_dir: UPath):
+    def run_experiment(self, classification_dataset, root_dir: UPath):
         """Run an example experiment with a specified study directory.
 
         Test that the Octopus intro classification workflow actually runs end-to-end, using a
         specific UPath / fsspec compatible directory.
         This is more or less a copy of test_octo_intro_classification_actual_execution().
         """
-        df, features = breast_cancer_dataset
+        df, features = classification_dataset
 
         with tempfile.TemporaryDirectory(delete=True) as tmpdir:
             old_dir = os.getcwd()
@@ -182,7 +180,7 @@ class TestFSSpecIntegration:
             try:
                 study = OctoClassification(
                     study_name="test_octo_intro_execution",
-                    target_metric="ACCBAL",
+                    target_metric="AUCROC",
                     feature_cols=features,
                     target_col="target",
                     sample_id_col="index",
