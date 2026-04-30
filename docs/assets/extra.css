@@ -1,0 +1,16 @@
+[data-md-color-scheme="brand"] {
+    --md-primary-fg-color: #EB3C96;
+    --md-primary-fg-color--transparent: #EB3C9625;
+    --md-primary-fg-color--light: #EB3C96;
+    --md-primary-fg-color--dark: #EB3C96;
+
+    --md-primary-bg-color: #2DBECD;
+    --md-primary-bg-color--light: #2DBECDAA;
+
+    --md-accent-fg-color: #2DBECD;
+    --md-accent-fg-color--transparent: #2DBECDAA;
+
+    --md-accent-bg-color: #503291;
+    --md-accent-bg-color--light: #E1C3CDAA;
+
+}
