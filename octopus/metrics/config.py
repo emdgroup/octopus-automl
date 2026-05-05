@@ -66,7 +66,8 @@ class Metric:
                 f"Metric '{self.name}' is a time-to-event metric. "
                 "Use calculate_t2e(event_indicator, event_time, estimate) instead."
             )
-        return float(self.metric_function(y_true, y_pred, **self.metric_params))
+        params = {**self.metric_params, **kwargs}
+        return float(self.metric_function(y_true, y_pred, **params))
 
     def calculate_t2e(
         self, event_indicator: OctoArrayLike, event_time: OctoArrayLike, estimate: OctoArrayLike, **kwargs

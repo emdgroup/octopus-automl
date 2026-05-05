@@ -488,3 +488,40 @@ def test_validate_class_coverage_passes_when_all_classes_present():
     }
 
     validate_class_coverage(splits, "target")
+
+
+def test_validate_class_coverage_with_expected_classes_missing_raises():
+    """Multiclass split missing a class raises when expected_classes is passed."""
+    splits: OuterSplits = {
+        0: OuterSplit(
+            traindev=pd.DataFrame({"target": [0, 1, 2, 0, 1, 2], DATASPLIT_COL: [0, 0, 0, 1, 1, 1]}),
+            test=pd.DataFrame({"target": [0, 1, 0, 1], DATASPLIT_COL: [2, 2, 3, 3]}),
+        ),
+    }
+
+    with pytest.raises(SingleClassSplitError, match="missing classes"):
+        validate_class_coverage(splits, "target", expected_classes={0, 1, 2})
+
+
+def test_validate_class_coverage_with_expected_classes_all_present_passes():
+    """Multiclass split with all expected classes passes."""
+    splits: OuterSplits = {
+        0: OuterSplit(
+            traindev=pd.DataFrame({"target": [0, 1, 2, 0, 1, 2], DATASPLIT_COL: [0, 0, 0, 1, 1, 1]}),
+            test=pd.DataFrame({"target": [0, 1, 2], DATASPLIT_COL: [2, 2, 2]}),
+        ),
+    }
+
+    validate_class_coverage(splits, "target", expected_classes={0, 1, 2})
+
+
+def test_validate_class_coverage_without_expected_classes_allows_subset():
+    """Without expected_classes, a partition with 2 of 3 classes passes (existing behavior)."""
+    splits: OuterSplits = {
+        0: OuterSplit(
+            traindev=pd.DataFrame({"target": [0, 1, 2, 0, 1, 2], DATASPLIT_COL: [0, 0, 0, 1, 1, 1]}),
+            test=pd.DataFrame({"target": [0, 1, 0, 1], DATASPLIT_COL: [2, 2, 3, 3]}),
+        ),
+    }
+
+    validate_class_coverage(splits, "target")
