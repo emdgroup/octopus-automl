@@ -3,7 +3,7 @@
 import pytest
 
 from octopus.metrics import Metrics
-from octopus.modules.autogluon.core import metrics_inventory_autogluon
+from octopus.modules.autogluon.core import _AG_METRIC_MAP
 from octopus.types import MLType
 
 
@@ -14,7 +14,7 @@ class TestAutogluonMetricsCoverage:
     def test_all_metrics_covered(self, ml_type: MLType) -> None:
         """Every octopus metric for the given ML type must have an AG mapping."""
         octopus_metrics = set(Metrics.get_by_type(ml_type))
-        ag_metrics = set(metrics_inventory_autogluon.keys())
+        ag_metrics = set(_AG_METRIC_MAP.keys())
         missing = sorted(octopus_metrics - ag_metrics)
         assert not missing, (
             f"Octopus {ml_type.value} metrics missing from autogluon inventory: {missing}. "
@@ -24,7 +24,7 @@ class TestAutogluonMetricsCoverage:
     def test_t2e_metrics_excluded(self) -> None:
         """Time-to-event metrics should NOT be in the AG inventory."""
         t2e_metrics = set(Metrics.get_by_type(MLType.TIMETOEVENT))
-        ag_metrics = set(metrics_inventory_autogluon.keys())
+        ag_metrics = set(_AG_METRIC_MAP.keys())
         assert t2e_metrics, "Expected at least one T2E metric to exist"
         overlap = t2e_metrics & ag_metrics
         assert not overlap, f"T2E metrics should not be in AG inventory: {overlap}"
