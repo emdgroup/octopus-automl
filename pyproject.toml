@@ -35,7 +35,10 @@ dependencies = [
     "rapidfuzz>=3.14",
     "scikit-learn>=1.7.0,<2",
     "shap>=0.51",
-    "torch>=2.0,<3",
+    # torch>=2.11 needs nvidia-nccl-cu13, while xgboost<3.4 (capped by autogluon 1.5) needs
+    # nvidia-nccl-cu12. On Linux both install nvidia/nccl/lib/libnccl.so.2, and if the cu12
+    # copy wins, `import torch` fails with "undefined symbol: ncclCommResume".
+    "torch>=2.0,<2.11",
     "xgboost>=3.0",
     "fsspec>=2025.10.0",
     "universal_pathlib>=0.3.6",
