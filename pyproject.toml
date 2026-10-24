@@ -7,7 +7,7 @@ authors = [
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE.txt", "CONTRIBUTORS.md"]
-requires-python =">=3.12,<=3.14"
+requires-python =">=3.12,<3.14"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -154,6 +154,8 @@ local_scheme = "dirty-tag"
 [tool.uv]
 # licensecheck depends indirectly on attrs<24 but we need attrs>=25.3.0
 override-dependencies = ["attrs>=25.3.0"]
+# Otherwise uv locks an autogluon nightly build, which pip users never get.
+prerelease-package = { autogluon-tabular = "disallow" }
 
 [tool.mypy]
 python_version = "3.12"
