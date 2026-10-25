@@ -1,10 +1,4 @@
 import os
-
-# Must be set before `ray` is imported (Ray reads it on import). Prevents Ray from
-# starting workers via `uv run` in a copy of the working directory without `.git`,
-# where building octopus fails. Workers reuse the test interpreter instead.
-os.environ["RAY_ENABLE_UV_RUN_RUNTIME_ENV"] = "0"
-
 from datetime import UTC, datetime
 from unittest.mock import patch
 
