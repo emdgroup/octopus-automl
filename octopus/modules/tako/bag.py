@@ -665,7 +665,7 @@ class BagBase(BaseEstimator):
                 # Find the feature with the highest importance in fi_df
                 fi_filtered = fi_df[fi_df["feature"].isin(features)]
                 if not fi_filtered.empty:
-                    best_feature = fi_filtered.loc[fi_filtered["importance"].idxmax(), "feature"]
+                    best_feature = fi_filtered["feature"].iloc[fi_filtered["importance"].argmax()]
                     feat_additional.append(best_feature)
 
         # Add the additional features to feat_single and remove duplicates
