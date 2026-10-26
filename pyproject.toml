@@ -35,10 +35,7 @@ dependencies = [
     "rapidfuzz>=3.14",
     "scikit-learn>=1.7.0,<2",
     "shap>=0.51",
-    # torch>=2.11 needs nvidia-nccl-cu13, while xgboost<3.4 (capped by autogluon 1.5) needs
-    # nvidia-nccl-cu12. On Linux both install nvidia/nccl/lib/libnccl.so.2, and if the cu12
-    # copy wins, `import torch` fails with "undefined symbol: ncclCommResume".
-    "torch>=2.0,<2.11",
+    "torch>=2.0,<3",
     "xgboost>=3.0",
     "fsspec>=2025.10.0",
     "universal_pathlib>=0.3.6",
@@ -154,7 +151,7 @@ local_scheme = "dirty-tag"
 [tool.uv]
 # licensecheck depends indirectly on attrs<24 but we need attrs>=25.3.0
 override-dependencies = ["attrs>=25.3.0"]
-# Otherwise uv locks an autogluon nightly build, which pip users never get.
+# Otherwise uv locks an autogluon nightly build, which pip installs only with `--pre`.
 prerelease-package = { autogluon-tabular = "disallow" }
 
 [tool.mypy]

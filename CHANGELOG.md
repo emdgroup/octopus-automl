@@ -7,7 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 - build: restrict supported Python versions to 3.12 and 3.13; 3.14 was never installable with the pinned dependencies
-- fix: cap torch below 2.11 so its CUDA 13 NCCL library does not clash with xgboost's CUDA 12 NCCL on Linux
 - refactor: rename sequence to workflow
 - changed name of output directory
 
