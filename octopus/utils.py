@@ -110,7 +110,7 @@ def parquet_load(path: str | Path | UPath) -> pd.DataFrame:
 
     md = table.schema.metadata or {}
     if _PARQUET_METADATA_KEY not in md:
-        return table.to_pandas()  # type: ignore[no-any-return]
+        return table.to_pandas()
 
     fidelity = json.loads(md[_PARQUET_METADATA_KEY].decode("utf-8"))
 

@@ -105,15 +105,25 @@ lint = [
     "pyupgrade==3.21.0", # see DEV TOOLS NOTE
     "ruff==0.14.1", # see DEV TOOLS NOTE
     "licensecheck>=2025.1.0",
-    "mypy==1.18.2", # see DEV TOOLS NOTE
-    "joblib-stubs>=1.5.2.0.20250831",
-    "pandas-stubs>=2.3,<3",
-    "plotly-stubs==0.0.6",
+    # TYPE CHECKING NOTE: mypy runs as a local pre-commit hook in this environment,
+    # so everything imported by the checked code (octopus, tests, examples, docs)
+    # has to be installed here for mypy to see the real types.
+    "mypy==2.4.1",
+    "octopus-automl[recommended]",
+    "joblib-stubs>=1.5.3.1.20260117,<1.6", # stubs must match the installed joblib version
+    "pandas-stubs>=2.3.3.260113,<3", # stubs must match the installed pandas version
+    "plotly-stubs>=0.1.4",
+    "pyarrow-stubs>=20.0.0.20260819",
+    "botocore-stubs>=1.43.123",
+    "types-boto3-s3>=1.43.106",
     "scikit-learn-stubs>=0.0.3",
-    "scipy-stubs>=1.16.3.0",
-    "types-networkx>=3.5",
-    "types-pytz>=2025.2.0",
-    "types-jmespath>=1.0.2"
+    "scipy-stubs[scipy]>=1.16.3.3", # the extra keeps the stubs in line with the installed scipy version
+    "types-networkx>=3.6.1.20261031",
+    "types-pytz>=2026.6.0.20261031",
+    "types-jmespath>=1.1.0.20260724",
+    "pytest>=9.2.0",
+    "moto>=5.2.5",
+    "mkdocs-gen-files>=0.6.1",
 ]
 test = [
     "octopus-automl[recommended]",
@@ -164,32 +174,18 @@ warn_unused_ignores = true
 exclude = ["docs", "studies"]
 
 
-[[tool.mypy.overrides]]
-module = "boruta.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "autogluon.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "shap.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "catboost.*"
-ignore_missing_imports = true
-
-# Ignore attr-defined errors in module __init__ files
-# This is a known limitation with mypy not recognizing attrs @define decorator
+# No type information (py.typed or stubs) is available for these packages
 [[tool.mypy.overrides]]
 module = [
-    "octopus.modules.roc",
-    "octopus.modules.tako",
-    "octopus.modules.mrmr",
-    "octopus.modules.boruta",
+    "autogluon.*",
+    "boruta.*",
+    "catboost.*",
+    "ipywidgets.*",
+    "lifelines.*",
+    "shap.*",
+    "threadpoolctl",
 ]
-disable_error_code = ["attr-defined"]
+ignore_missing_imports = true
 
 [tool.pytest]
 testpaths = ["tests"]
