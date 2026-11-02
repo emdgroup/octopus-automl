@@ -145,6 +145,9 @@ def test_create_trial_parameters():
         def predict(self, X):
             return X
 
+        def predict_proba(self, X):
+            return X
+
     # Register a test model for this test
     @Models.register("TestModel")
     def test_model() -> ModelConfig:

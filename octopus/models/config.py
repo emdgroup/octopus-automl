@@ -1,6 +1,6 @@
 """Machine learning models config."""
 
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from attrs import Attribute, define, field, validators
 
@@ -58,13 +58,55 @@ class EstimatorLike(Protocol):
         ...
 
 
+@runtime_checkable
+class ClassifierLike(EstimatorLike, Protocol):
+    """Interface of the model classes registered for classification (binary or multiclass).
+
+    In addition to the estimator interface, classifiers must provide class probabilities.
+    Fitted classifiers must also expose the ``classes_`` attribute (scikit-learn convention),
+    which cannot be part of the runtime-checkable protocol because it only exists after fitting.
+    """
+
+    def predict_proba(self, X: Any, /) -> Any:
+        """Predict class probabilities."""
+        ...
+
+
+_CLASSIFICATION_ML_TYPES = frozenset({MLType.BINARY, MLType.MULTICLASS})
+
+
+def validate_classifier_interface(instance: "ModelConfig", attribute: Attribute, value: frozenset[MLType]) -> None:
+    """Validate that models registered for classification provide the classifier interface.
+
+    Args:
+        instance: The instance of ModelConfig being validated.
+        attribute: The name of the attribute being validated.
+        value: The ml_types of the model.
+
+    Raises:
+        TypeError: If the model supports a classification ml_type but its class does not
+            implement ``predict_proba``.
+    """
+    if not value & _CLASSIFICATION_ML_TYPES:
+        return
+    model_class = instance.model_class
+    if not (isinstance(model_class, type) and issubclass(model_class, ClassifierLike)):
+        classification_types = ", ".join(sorted(t.value for t in value & _CLASSIFICATION_ML_TYPES))
+        raise TypeError(
+            f"Model class {getattr(model_class, '__name__', model_class)!r} is registered for "
+            f"{classification_types} but does not implement predict_proba()."
+        )
+
+
 @define(slots=False)
 class ModelConfig:
     """Create model config."""
 
     model_class: type[EstimatorLike]
     fi_method: FIComputeMethod = field(converter=FIComputeMethod)
-    ml_types: frozenset[MLType] = field(converter=to_ml_types_frozenset, validator=validate_ml_types)
+    ml_types: frozenset[MLType] = field(
+        converter=to_ml_types_frozenset, validator=[validate_ml_types, validate_classifier_interface]
+    )
     hyperparameters: list[Hyperparameter] = field(validator=validate_hyperparameters)
     n_repeats: None | int = field(factory=lambda: None)
     n_jobs: None | str = field(factory=lambda: "n_jobs")

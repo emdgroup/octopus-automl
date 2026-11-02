@@ -20,6 +20,14 @@ class DummyModel(BaseEstimator):
         return X
 
 
+class DummyClassifier(DummyModel):
+    """Dummy classifier for testing."""
+
+    def predict_proba(self, X):
+        """Predict probabilities (identity)."""
+        return X
+
+
 def test_model_config_initialization():
     """Test initialization of ModelConfig."""
     hyperparameters = [
@@ -66,3 +74,39 @@ def test_model_config_with_conflict():
             n_jobs="n_jobs",
             model_seed="random_seed",
         )
+
+
+@pytest.mark.parametrize("ml_type", [MLType.BINARY, MLType.MULTICLASS])
+def test_model_config_classification_requires_predict_proba(ml_type):
+    """Classification models must implement predict_proba."""
+    with pytest.raises(TypeError, match=r"'DummyModel' is registered for .* but does not implement predict_proba"):
+        ModelConfig(
+            model_class=DummyModel,
+            fi_method=FIComputeMethod.INTERNAL,
+            ml_types=[ml_type],
+            hyperparameters=[],
+        )
+
+
+@pytest.mark.parametrize("ml_types", [[MLType.BINARY], [MLType.MULTICLASS], [MLType.BINARY, MLType.MULTICLASS]])
+def test_model_config_classification_with_predict_proba(ml_types):
+    """Classification models implementing predict_proba are accepted."""
+    model = ModelConfig(
+        model_class=DummyClassifier,
+        fi_method=FIComputeMethod.INTERNAL,
+        ml_types=ml_types,
+        hyperparameters=[],
+    )
+    assert model.model_class is DummyClassifier
+
+
+@pytest.mark.parametrize("ml_type", [MLType.REGRESSION, MLType.TIMETOEVENT])
+def test_model_config_non_classification_without_predict_proba(ml_type):
+    """predict_proba is not required for regression and time-to-event models."""
+    model = ModelConfig(
+        model_class=DummyModel,
+        fi_method=FIComputeMethod.INTERNAL,
+        ml_types=[ml_type],
+        hyperparameters=[],
+    )
+    assert model.supports_ml_type(ml_type)
