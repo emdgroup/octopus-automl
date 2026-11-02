@@ -24,11 +24,14 @@ from octopus.poststudy.study_io import StudyInfo
 from octopus.types import PerformanceKey
 
 try:
-    from IPython.display import display as _ipython_display
+    from IPython.display import display
+
+    _ipython_display: Callable[..., object] | None = display
 except ImportError:
     _ipython_display = None
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import Any
 
     from octopus.poststudy.analysis.evaluator import OctoTestEvaluator
