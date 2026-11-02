@@ -47,36 +47,17 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py312-plus]
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v1.19.1"
-    hooks:
-      - id: mypy
-        exclude: ^datasets/|studies/
-        additional_dependencies:
-          - types-networkx
-          - pandas-stubs
-          - attrs
-          - ray
-          - numpy
-          - scikit-learn-stubs
-          - optuna
-          - pytest
-          #- mlxtend
-          - scipy-stubs
-          - joblib-stubs
-          #- shap
-          #- xgboost
-          #- catboost
-          #- lz4
-          #- autogluon
-          - polars
-          - plotly-stubs
-          - duckdb
-          - altair
-          - rapidfuzz
-        #- boruta
   - repo: local
     hooks:
+    - id: mypy
+      name: mypy
+      description: Type checks with mypy in the project environment locked in uv.lock (lint extra)
+      # --inexact keeps packages from other extras that are installed in the local .venv
+      entry: uv run --extra lint --locked --inexact mypy
+      language: system
+      types_or: [python, pyi]
+      exclude: ^datasets/|studies/
+      require_serial: true
     - id: license-checker
       name: License Checker
       description: This Hook checks for compatible licenses in all dependencies

@@ -302,7 +302,7 @@ class TabularNNClassifier(ClassifierMixin, BaseEstimator):
                 return np.column_stack([probs_class0, probs_class1])
             else:
                 probs = torch.softmax(logits, dim=1).numpy()
-                return probs  # type: ignore[no-any-return]
+                return probs
 
     def predict(self, X: Any) -> np.ndarray:
         """Predict class labels.

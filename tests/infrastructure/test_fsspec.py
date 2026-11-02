@@ -1,6 +1,7 @@
 import os
 import stat
 import tempfile
+from typing import TYPE_CHECKING, cast
 
 import pandas as pd
 import pytest
@@ -14,6 +15,9 @@ from octopus.modules import Tako
 from octopus.study import OctoClassification
 from octopus.types import FIComputeMethod, ModelName
 from octopus.utils import joblib_load, joblib_save
+
+if TYPE_CHECKING:
+    from types_boto3_s3 import S3Client
 
 
 class TestFSSpecIntegration:
@@ -72,7 +76,7 @@ class TestFSSpecIntegration:
         # Region MUST be us-east-1 so that CreateBucket works without
         # LocationConstraint (any other region requires it).
         session = Session()
-        client = session.create_client("s3", region_name="us-east-1", endpoint_url=endpoint_uri)
+        client = cast("S3Client", session.create_client("s3", region_name="us-east-1", endpoint_url=endpoint_uri))
         client.create_bucket(Bucket=bucket_name, ACL="public-read-write")
 
         print("server up")
