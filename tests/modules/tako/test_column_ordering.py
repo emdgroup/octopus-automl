@@ -190,7 +190,7 @@ class TestColumnOrdering:
         assert not fi_df.empty, "Internal FI should not be empty"
 
         # num1 should be the most important feature (target = 10*num1 + 0.01*num2 + noise)
-        top_feature = fi_df.loc[fi_df["importance"].idxmax(), "feature"]
+        top_feature = fi_df["feature"].iloc[fi_df["importance"].argmax()]
         assert top_feature == "num1", (
             f"Expected num1 to be most important feature but got {top_feature}. "
             f"FI values:\n{fi_df.sort_values('importance', ascending=False)}"
@@ -209,7 +209,7 @@ class TestColumnOrdering:
         assert not fi_df.empty, "Permutation FI should not be empty"
 
         # num1 (or its group numerical_group) should be the most important feature
-        top_feature = fi_df.loc[fi_df["importance"].idxmax(), "feature"]
+        top_feature = fi_df["feature"].iloc[fi_df["importance"].argmax()]
         assert top_feature in ("num1", "numerical_group"), (
             f"Expected num1 or numerical_group to be most important feature but got {top_feature}. "
             f"FI values:\n{fi_df.sort_values('importance', ascending=False)}"

@@ -317,7 +317,7 @@ class TabularNNClassifier(ClassifierMixin, BaseEstimator):
         y_pred_encoded = np.argmax(proba, axis=1)
 
         if self.is_binary_:
-            return self.classes_[y_pred_encoded]  # type: ignore
+            return self.classes_[y_pred_encoded]
         else:
             return self.target_encoder_.inverse_transform(y_pred_encoded)
 
