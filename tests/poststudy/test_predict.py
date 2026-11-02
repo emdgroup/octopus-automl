@@ -27,7 +27,7 @@ from octopus.poststudy.predict.predictor import OctoPredictor
 from octopus.poststudy.study_io import StudyInfo, load_study_config, load_study_information
 from octopus.study import OctoClassification
 from octopus.types import FIComputeMethod, FIType, MLType, ModelName
-from octopus.utils import parquet_load
+from octopus.utils import parquet_load, parquet_save
 
 
 @pytest.fixture(autouse=True)
@@ -227,13 +227,13 @@ class TestLoadPartitionGuards:
         original_data = parquet_load(prepared_path)
 
         duped = pd.concat([original_data, original_data.iloc[:1]], ignore_index=True)
-        duped.to_parquet(prepared_path)
+        parquet_save(duped, prepared_path, index=False)
 
         try:
             with pytest.raises(ValueError, match="duplicate values"):
                 _load_partition(UPath(study_path), 0, "traindev")
         finally:
-            original_data.to_parquet(prepared_path)
+            parquet_save(original_data, prepared_path, index=False)
 
     def test_valid_row_ids(self, study_path):
         """Verify load_partition succeeds with valid unique IDs."""

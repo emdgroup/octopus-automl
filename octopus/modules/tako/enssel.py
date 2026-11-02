@@ -523,7 +523,7 @@ class EnSel:
                 if best_score_this_iter is None or self._is_better(score, best_score_this_iter):
                     best_score_this_iter = score
                     best_model_this_iter = model
-                elif score == best_score_this_iter:
+                elif score == best_score_this_iter and best_model_this_iter is not None:
                     if model in bags_ensemble and best_model_this_iter not in bags_ensemble:
                         best_model_this_iter = model
                     elif (model in bags_ensemble) == (best_model_this_iter in bags_ensemble):
