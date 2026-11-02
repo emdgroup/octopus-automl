@@ -200,11 +200,12 @@ def test_add_datasplit_group_with_categorical_and_nan():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     assert "datasplit_group" in prep.data.columns
     # Rows 0 and 2 share features (a, 1), rows 3 and 5 share features (None, 3)
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[2, "datasplit_group"]
-    assert prep.data.loc[3, "datasplit_group"] == prep.data.loc[5, "datasplit_group"]
+    assert groups[0] == groups[2]
+    assert groups[3] == groups[5]
     assert prep.data["datasplit_group"].nunique() == 4
 
 
@@ -229,10 +230,11 @@ def test_add_datasplit_group_with_mixed_types_and_nan():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     assert "datasplit_group" in prep.data.columns
     # Rows 0 and 3 share features (x, 1.5, alpha, inf)
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[3, "datasplit_group"]
+    assert groups[0] == groups[3]
     assert prep.data["datasplit_group"].nunique() == 4
 
 
@@ -259,11 +261,12 @@ def test_add_datasplit_group_with_all_nan_column():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     assert "datasplit_group" in prep.data.columns
     # Rows 0 and 2 share features (nan, 1), rows 1 and 3 share features (nan, 2)
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[2, "datasplit_group"]
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[3, "datasplit_group"]
+    assert groups[0] == groups[2]
+    assert groups[1] == groups[3]
     assert prep.data["datasplit_group"].nunique() == 2
 
 
@@ -289,9 +292,10 @@ def test_add_datasplit_group_same_sample_different_features():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[1, "datasplit_group"]
-    assert prep.data.loc[2, "datasplit_group"] == prep.data.loc[3, "datasplit_group"]
+    assert groups[0] == groups[1]
+    assert groups[2] == groups[3]
 
 
 def test_add_datasplit_group_same_features_different_samples():
@@ -316,9 +320,10 @@ def test_add_datasplit_group_same_features_different_samples():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[1, "datasplit_group"]
-    assert prep.data.loc[2, "datasplit_group"] == prep.data.loc[3, "datasplit_group"]
+    assert groups[0] == groups[1]
+    assert groups[2] == groups[3]
     assert prep.data["datasplit_group"].nunique() == 2
 
 
@@ -386,14 +391,15 @@ def test_add_datasplit_group_transitive_closure():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     # All rows 0, 1, 2 should be in the same datasplit_group due to transitive closure
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[1, "datasplit_group"]
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[2, "datasplit_group"]
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[2, "datasplit_group"]
+    assert groups[0] == groups[1]
+    assert groups[1] == groups[2]
+    assert groups[0] == groups[2]
 
     # Row 3 should be in a different group (no connection to others)
-    assert prep.data.loc[3, "datasplit_group"] != prep.data.loc[0, "datasplit_group"]
+    assert groups[3] != groups[0]
 
     # Should have exactly 2 unique groups: {0,1,2} and {3}
     assert prep.data["datasplit_group"].nunique() == 2
@@ -427,15 +433,14 @@ def test_add_datasplit_group_transitive_closure_long_chain():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     # All rows 0-4 should be in the same group through the chain
     for i in range(4):
-        assert prep.data.loc[i, "datasplit_group"] == prep.data.loc[i + 1, "datasplit_group"], (
-            f"Row {i} and {i + 1} should be in the same group"
-        )
+        assert groups[i] == groups[i + 1], f"Row {i} and {i + 1} should be in the same group"
 
     # Row 5 should be independent
-    assert prep.data.loc[5, "datasplit_group"] != prep.data.loc[0, "datasplit_group"]
+    assert groups[5] != groups[0]
 
     # Should have exactly 2 unique groups
     assert prep.data["datasplit_group"].nunique() == 2
@@ -464,15 +469,16 @@ def test_add_datasplit_group_same_sample_consecutive():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     # Rows 0, 1, 2 should be in same group (same sample_id_col)
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[1, "datasplit_group"]
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[2, "datasplit_group"]
+    assert groups[0] == groups[1]
+    assert groups[1] == groups[2]
 
     # Rows 3 and 4 should be in different groups
-    assert prep.data.loc[3, "datasplit_group"] != prep.data.loc[0, "datasplit_group"]
-    assert prep.data.loc[4, "datasplit_group"] != prep.data.loc[0, "datasplit_group"]
-    assert prep.data.loc[3, "datasplit_group"] != prep.data.loc[4, "datasplit_group"]
+    assert groups[3] != groups[0]
+    assert groups[4] != groups[0]
+    assert groups[3] != groups[4]
 
 
 def test_add_datasplit_group_same_sample_with_gaps():
@@ -498,15 +504,16 @@ def test_add_datasplit_group_same_sample_with_gaps():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     # Rows 0, 3, 5 should be in same group (same sample_id_col "s1")
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[3, "datasplit_group"]
-    assert prep.data.loc[3, "datasplit_group"] == prep.data.loc[5, "datasplit_group"]
+    assert groups[0] == groups[3]
+    assert groups[3] == groups[5]
 
     # Other rows should be in different groups
-    assert prep.data.loc[1, "datasplit_group"] != prep.data.loc[0, "datasplit_group"]
-    assert prep.data.loc[2, "datasplit_group"] != prep.data.loc[0, "datasplit_group"]
-    assert prep.data.loc[4, "datasplit_group"] != prep.data.loc[0, "datasplit_group"]
+    assert groups[1] != groups[0]
+    assert groups[2] != groups[0]
+    assert groups[4] != groups[0]
 
 
 def test_add_datasplit_group_same_features_consecutive():
@@ -532,14 +539,15 @@ def test_add_datasplit_group_same_features_consecutive():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     # Rows 1, 2, 3 should be in same group (same features)
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[2, "datasplit_group"]
-    assert prep.data.loc[2, "datasplit_group"] == prep.data.loc[3, "datasplit_group"]
+    assert groups[1] == groups[2]
+    assert groups[2] == groups[3]
 
     # Rows 0 and 4 should be in different groups
-    assert prep.data.loc[0, "datasplit_group"] != prep.data.loc[1, "datasplit_group"]
-    assert prep.data.loc[4, "datasplit_group"] != prep.data.loc[1, "datasplit_group"]
+    assert groups[0] != groups[1]
+    assert groups[4] != groups[1]
 
 
 def test_add_datasplit_group_same_features_with_gaps():
@@ -565,15 +573,16 @@ def test_add_datasplit_group_same_features_with_gaps():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     # Rows 1, 4, 7 should be in same group (same features [2, "b"])
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[4, "datasplit_group"]
-    assert prep.data.loc[4, "datasplit_group"] == prep.data.loc[7, "datasplit_group"]
+    assert groups[1] == groups[4]
+    assert groups[4] == groups[7]
 
     # Other rows should be in different groups
-    assert prep.data.loc[0, "datasplit_group"] != prep.data.loc[1, "datasplit_group"]
-    assert prep.data.loc[2, "datasplit_group"] != prep.data.loc[1, "datasplit_group"]
-    assert prep.data.loc[3, "datasplit_group"] != prep.data.loc[1, "datasplit_group"]
+    assert groups[0] != groups[1]
+    assert groups[2] != groups[1]
+    assert groups[3] != groups[1]
 
 
 def test_add_datasplit_group_complex_with_gaps():
@@ -684,25 +693,26 @@ def test_add_datasplit_group_complex_with_gaps():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     # Rows 1, 3, 5 should be connected by sample_id_col "s1"
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[3, "datasplit_group"]
-    assert prep.data.loc[3, "datasplit_group"] == prep.data.loc[5, "datasplit_group"]
+    assert groups[1] == groups[3]
+    assert groups[3] == groups[5]
 
     # Rows 5, 9, 20 should be connected by features [100, "x"]
-    assert prep.data.loc[5, "datasplit_group"] == prep.data.loc[9, "datasplit_group"]
-    assert prep.data.loc[9, "datasplit_group"] == prep.data.loc[20, "datasplit_group"]
+    assert groups[5] == groups[9]
+    assert groups[9] == groups[20]
 
     # All rows 1, 3, 5, 9, 20 should be in the same group (transitive closure)
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[5, "datasplit_group"]
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[9, "datasplit_group"]
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[20, "datasplit_group"]
+    assert groups[1] == groups[5]
+    assert groups[1] == groups[9]
+    assert groups[1] == groups[20]
 
     # Row 0 should be independent
-    assert prep.data.loc[0, "datasplit_group"] != prep.data.loc[1, "datasplit_group"]
+    assert groups[0] != groups[1]
 
     # Row 2 should be independent
-    assert prep.data.loc[2, "datasplit_group"] != prep.data.loc[1, "datasplit_group"]
+    assert groups[2] != groups[1]
 
 
 def test_add_datasplit_group_single_row():
@@ -819,22 +829,23 @@ def test_add_datasplit_group_multiple_independent_groups():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     # Should have exactly 4 groups
     assert prep.data["datasplit_group"].nunique() == 4
 
     # Group A: rows 0, 1, 2
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[1, "datasplit_group"]
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[2, "datasplit_group"]
+    assert groups[0] == groups[1]
+    assert groups[1] == groups[2]
 
     # Group B: rows 3, 4
-    assert prep.data.loc[3, "datasplit_group"] == prep.data.loc[4, "datasplit_group"]
+    assert groups[3] == groups[4]
 
     # Groups should be independent
-    group_a = prep.data.loc[0, "datasplit_group"]
-    group_b = prep.data.loc[3, "datasplit_group"]
-    group_c = prep.data.loc[5, "datasplit_group"]
-    group_d = prep.data.loc[6, "datasplit_group"]
+    group_a = groups[0]
+    group_b = groups[3]
+    group_c = groups[5]
+    group_d = groups[6]
 
     assert len({group_a, group_b, group_c, group_d}) == 4
 
@@ -932,16 +943,17 @@ def test_add_datasplit_group_nan_in_sample_id_col():
     )
 
     prep._add_datasplit_group()
+    groups = prep.data["datasplit_group"]
 
     # Rows 1 and 3 should be grouped (same sample_id_col "s1")
-    assert prep.data.loc[1, "datasplit_group"] == prep.data.loc[3, "datasplit_group"]
+    assert groups[1] == groups[3]
 
     # All NaN sample_id rows are grouped together by pandas groupby with dropna=False
-    assert prep.data.loc[0, "datasplit_group"] == prep.data.loc[2, "datasplit_group"]
-    assert prep.data.loc[2, "datasplit_group"] == prep.data.loc[4, "datasplit_group"]
+    assert groups[0] == groups[2]
+    assert groups[2] == groups[4]
 
     # NaN group is separate from "s1" group
-    assert prep.data.loc[0, "datasplit_group"] != prep.data.loc[1, "datasplit_group"]
+    assert groups[0] != groups[1]
 
     # 2 groups total: {0, 2, 4} (NaN) and {1, 3} (s1)
     assert prep.data["datasplit_group"].nunique() == 2

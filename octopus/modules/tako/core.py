@@ -391,7 +391,7 @@ class TakoModuleTemplate[T: Tako](ModuleExecution[T]):
         # create study with in-memory storage
         study = optuna.create_study(
             study_name=study_name,
-            direction=MetricDirection.MAXIMIZE,  # metric adjustment in optuna objective
+            direction=MetricDirection.MAXIMIZE.value,  # metric adjustment in optuna objective
             sampler=sampler,
         )
 

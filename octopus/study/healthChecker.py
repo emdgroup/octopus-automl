@@ -529,7 +529,7 @@ class OctoDataHealthChecker:
         np.fill_diagonal(mask, False)
         rows_idx, cols_idx = np.where(np.triu(mask))
         col_names = corr_matrix.columns
-        for r, c in zip(rows_idx, cols_idx, strict=True):
+        for r, c in zip(rows_idx.astype(int), cols_idx.astype(int), strict=True):
             rn, cn = col_names[r], col_names[c]
             highly_correlated.setdefault(rn, set()).add(cn)
             highly_correlated.setdefault(cn, set()).add(rn)
@@ -649,8 +649,10 @@ class OctoDataHealthChecker:
         """
         numeric_df = self.data[self.feature_cols].select_dtypes(include=[np.number])
         infinity_mask = np.isinf(numeric_df)
-        infinity_value_share = infinity_mask.mean()
-        infinity_value_dict = {col: share for col, share in infinity_value_share.items() if share > 0}
+        infinity_value_share = np.atleast_1d(infinity_mask.mean(axis=0))
+        infinity_value_dict = {
+            col: share for col, share in zip(numeric_df.columns, infinity_value_share, strict=True) if share > 0
+        }
 
         if infinity_value_dict:
             affected_items = list(infinity_value_dict.keys())
@@ -666,9 +668,7 @@ class OctoDataHealthChecker:
                 severity="Info",
                 description=description.strip(),
                 action=(
-                    "Investigate these columns and decide on an appropriate "
-                    "strategy to handle infinity values (e.g., imputation, "
-                    "removal, or capping)."
+                    "Investigate these columns and decide on an appropriate strategy to handle infinity values (e.g., imputation, removal, or capping)."
                 ),
             )
 
