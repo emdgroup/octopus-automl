@@ -12,7 +12,7 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from octopus.logger import get_logger
-from octopus.models.config import OctoArrayLike, OctoMatrixLike
+from octopus.types import OctoArrayLike, OctoMatrixLike
 
 logger = get_logger()
 
