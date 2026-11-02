@@ -59,9 +59,9 @@ class TestWorkflowValidation:
         else:
             test_workflow = []
             for name in workflow_tasks:
-                if name in request._fixturemanager._arg2fixturedefs:
+                try:
                     test_workflow.append(request.getfixturevalue(name))
-                else:
+                except pytest.FixtureLookupError:
                     test_workflow.append(name)
 
         with tempfile.TemporaryDirectory() as temp_dir:
