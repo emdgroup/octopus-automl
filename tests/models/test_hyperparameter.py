@@ -5,9 +5,10 @@ from unittest.mock import MagicMock
 
 import optuna
 import pytest
+from sklearn.base import BaseEstimator
 
 from octopus.models import Models
-from octopus.models.config import BaseModel, ModelConfig
+from octopus.models.config import ModelConfig
 from octopus.models.hyperparameter import (
     CategoricalHyperparameter,
     FixedHyperparameter,
@@ -135,10 +136,14 @@ def test_create_trial_parameters():
         FixedHyperparameter(name="fixed_param", value=42),
     ]
 
-    class DummyModel(BaseModel):
+    class DummyModel(BaseEstimator):
         """Dummy model for testing."""
 
-        pass
+        def fit(self, X, y):
+            return self
+
+        def predict(self, X):
+            return X
 
     # Register a test model for this test
     @Models.register("TestModel")

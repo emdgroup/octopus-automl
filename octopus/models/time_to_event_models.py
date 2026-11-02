@@ -13,7 +13,7 @@ from .wrapper_models.XGBoostCoxSurvival import XGBoostCoxSurvival
 def catboost_cox_survival() -> ModelConfig:
     """CatBoost Cox survival model config."""
     return ModelConfig(
-        model_class=CatBoostCoxSurvival,  # type: ignore[arg-type]
+        model_class=CatBoostCoxSurvival,
         ml_types=[MLType.TIMETOEVENT],
         fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,
@@ -41,7 +41,7 @@ def catboost_cox_survival() -> ModelConfig:
 def xgboost_cox_survival() -> ModelConfig:
     """XGBoost Cox survival model config."""
     return ModelConfig(
-        model_class=XGBoostCoxSurvival,  # type: ignore[arg-type]
+        model_class=XGBoostCoxSurvival,
         ml_types=[MLType.TIMETOEVENT],
         fi_method=FIComputeMethod.INTERNAL,
         chpo_compatible=True,

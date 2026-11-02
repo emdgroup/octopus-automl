@@ -1,15 +1,13 @@
 """Machine learning models config."""
 
-import numpy as np
+from typing import Any, Protocol
+
 from attrs import Attribute, define, field, validators
-from sklearn.base import BaseEstimator
 
 from octopus.models.hyperparameter import Hyperparameter
 from octopus.types import (
     FIComputeMethod,
     MLType,
-    OctoArrayLike,
-    OctoMatrixLike,
     to_ml_types_frozenset,
     validate_ml_types,
 )
@@ -36,31 +34,35 @@ def validate_hyperparameters(instance: "ModelConfig", attribute: Attribute, valu
             raise ValueError(f"""Hyperparameter '{hyperparameter.name}' is not allowed in 'hyperparameters'.""")
 
 
-class BaseModel(BaseEstimator):
-    """Base model class."""
+class EstimatorLike(Protocol):
+    """Interface of the model classes registered in octopus (scikit-learn estimator API).
 
-    def fit(self, X: OctoMatrixLike | OctoArrayLike, y: OctoArrayLike, *args, **kwargs):
-        """Fit model."""
+    Model classes do not need to inherit from this class; any class providing these
+    methods matches, e.g. scikit-learn, XGBoost and CatBoost estimators.
+    """
+
+    def fit(self, X: Any, y: Any, /) -> Any:
+        """Fit the model."""
         ...
 
-    def predict(self, X: OctoMatrixLike | OctoArrayLike, **kwargs) -> np.ndarray:
+    def predict(self, X: Any, /) -> Any:
         """Predict."""
-        raise NotImplementedError("predict not implemented for this model.")
+        ...
 
-    def predict_proba(self, X: OctoMatrixLike | OctoArrayLike, **kwargs) -> np.ndarray:
-        """Predict probabilities."""
-        raise NotImplementedError("predict_proba not implemented for this model.")
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        """Get the model parameters."""
+        ...
 
-    def set_params(self, **kwargs) -> "BaseModel":
-        """Set parameters."""
-        return self
+    def set_params(self, **params: Any) -> Any:
+        """Set the model parameters."""
+        ...
 
 
 @define(slots=False)
 class ModelConfig:
     """Create model config."""
 
-    model_class: type[BaseModel]
+    model_class: type[EstimatorLike]
     fi_method: FIComputeMethod = field(converter=FIComputeMethod)
     ml_types: frozenset[MLType] = field(converter=to_ml_types_frozenset, validator=validate_ml_types)
     hyperparameters: list[Hyperparameter] = field(validator=validate_hyperparameters)

@@ -1,16 +1,23 @@
 """Test hyperparameter."""
 
 import pytest
+from sklearn.base import BaseEstimator
 
-from octopus.models.config import BaseModel, ModelConfig
+from octopus.models.config import ModelConfig
 from octopus.models.hyperparameter import CategoricalHyperparameter, FloatHyperparameter
 from octopus.types import FIComputeMethod, MLType
 
 
-class DummyModel(BaseModel):
+class DummyModel(BaseEstimator):
     """Dummy model for testing."""
 
-    pass
+    def fit(self, X, y):
+        """Fit (no-op)."""
+        return self
+
+    def predict(self, X):
+        """Predict (identity)."""
+        return X
 
 
 def test_model_config_initialization():
