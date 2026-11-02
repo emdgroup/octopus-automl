@@ -11,10 +11,10 @@ selection. Otherwise, filter parameters must be passed explicitly.
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+from upath import UPath
 
 from octopus.diagnostics._data_loader import (
     load_fi,
@@ -31,6 +31,9 @@ from octopus.diagnostics._plots import (
     plot_predictions_vs_truth_chart,
 )
 from octopus.types import FIResultLabel, MetricDirection, MLType
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _has_ipywidgets() -> bool:
@@ -69,15 +72,15 @@ class StudyDiagnostics:
         diag.plot_optuna_trials()
     """
 
-    def __init__(self, study_path: str | Path) -> None:
-        self._study_path = Path(study_path)
+    def __init__(self, study_path: str | Path | UPath) -> None:
+        self._study_path = UPath(study_path)
         if not self._study_path.exists():
             raise FileNotFoundError(f"Study path does not exist: {self._study_path}")
 
         # Load config
         config_path = self._study_path / "study_config.json"
         if config_path.exists():
-            with open(config_path) as f:
+            with config_path.open() as f:
                 self._config: dict[str, Any] = json.load(f)
         else:
             self._config = {}
@@ -91,7 +94,7 @@ class StudyDiagnostics:
     # ── Properties ──────────────────────────────────────────────
 
     @property
-    def study_path(self) -> Path:
+    def study_path(self) -> UPath:
         """Path to the study directory."""
         return self._study_path
 

@@ -842,22 +842,22 @@ def test_diversity_tiebreak_nan_handling(tmp_path):
 def test_average_and_quantize():
     """Weight averaging and quantization produce correct integer weights."""
     vectors = [
-        Counter({"a": 3, "b": 1}),
-        Counter({"a": 5, "c": 2}),
+        Counter({UPath("a"): 3, UPath("b"): 1}),
+        Counter({UPath("a"): 5, UPath("c"): 2}),
     ]
     result = _average_and_quantize(vectors)
-    assert result["a"] == 4
-    assert result["c"] == 1
+    assert result[UPath("a")] == 4
+    assert result[UPath("c")] == 1
 
 
 def test_average_and_quantize_rounds_half_up():
     """Weights at exactly 0.5 round up to 1, not down to 0."""
     vectors = [
-        Counter({"a": 1}),
-        Counter(),
+        Counter({UPath("a"): 1}),
+        Counter[UPath](),
     ]
     result = _average_and_quantize(vectors)
-    assert result.get("a", 0) == 1, f"Expected 1 (standard rounding), got {result.get('a', 0)}"
+    assert result.get(UPath("a"), 0) == 1, f"Expected 1 (standard rounding), got {result.get(UPath('a'), 0)}"
 
 
 def test_class_balanced_subsample_preserves_all_classes():

@@ -10,6 +10,7 @@ from sklearn.datasets import make_classification, make_regression
 
 from octopus.modules import AutoGluon
 from octopus.study import OctoClassification, OctoRegression
+from octopus.utils import parquet_load
 
 
 class TestAutogluonWorkflows:
@@ -144,7 +145,7 @@ class TestAutogluonWorkflows:
         assert predictions_path.exists(), "Predictions parquet should exist"
         assert scores_path.exists(), "Scores parquet should exist"
 
-        predictions = pd.read_parquet(predictions_path)
+        predictions = parquet_load(predictions_path)
         # Parquet roundtrip stringifies int column names; check both forms.
         prediction_values = set(predictions["prediction"].astype(int).unique())
         assert prediction_values.issubset({0, 1, 2})
@@ -155,7 +156,7 @@ class TestAutogluonWorkflows:
         prob_sums = predictions[prob_cols].sum(axis=1)
         assert ((prob_sums - 1.0).abs() < 1e-3).all(), "row probabilities should sum to ~1.0"
 
-        scores = pd.read_parquet(scores_path)
+        scores = parquet_load(scores_path)
         for metric in ("ACCBAL_MC", "AUCROC_MACRO"):
             metric_rows = scores[scores["metric"] == metric]
             assert not metric_rows.empty, f"missing {metric} in scores"
