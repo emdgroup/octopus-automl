@@ -317,7 +317,8 @@ class TabularNNClassifier(ClassifierMixin, BaseEstimator):
         y_pred_encoded = np.argmax(proba, axis=1)
 
         if self.is_binary_:
-            return self.classes_[y_pred_encoded]
+            y_pred: np.ndarray = self.classes_[y_pred_encoded]
+            return y_pred
         else:
             return self.target_encoder_.inverse_transform(y_pred_encoded)
 
@@ -407,4 +408,5 @@ class TabularNNClassificationModel(nn.Module):
         # Concatenate with numerical features
         x = torch.cat([cat_features, X_numerical], dim=1)
 
-        return self.network(x)
+        output: torch.Tensor = self.network(x)
+        return output

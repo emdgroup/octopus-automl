@@ -353,4 +353,5 @@ class TabularNNModel(nn.Module):
         # Concatenate with numerical features
         x = torch.cat([cat_features, X_numerical], dim=1)
 
-        return self.network(x)
+        output: torch.Tensor = self.network(x)
+        return output
