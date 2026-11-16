@@ -39,9 +39,9 @@ jobs:
             git config --local user.email "mkdocs-upload[bot]@users.noreply.github.com"
             git config --local user.name "mkdocs-upload[bot]"
 
-      - name: Build with MkDocs
-        run: uv run --extra docs --locked mkdocs build
+      - name: Build with ProperDocs
+        run: uv run --extra docs --locked properdocs build
 
-      - name: Deploy with MkDocs (only on main branch)
+      - name: Deploy with ProperDocs (only on main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: uv run --extra docs --locked mkdocs gh-deploy --force
+        run: uv run --extra docs --locked properdocs gh-deploy --force
