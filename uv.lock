@@ -3,9 +3,9 @@ revision = 5
 requires-python = ">=3.12, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
-    "(python_full_version >= '3.13' and platform_machine != 'x86_64') or (python_full_version >= '3.13' and sys_platform != 'darwin')",
+    "python_full_version >= '3.13' and (platform_machine != 'x86_64' or sys_platform != 'darwin')",
     "python_full_version < '3.13' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
-    "(python_full_version < '3.13' and platform_machine != 'x86_64') or (python_full_version < '3.13' and sys_platform != 'darwin')",
+    "python_full_version < '3.13' and (platform_machine != 'x86_64' or sys_platform != 'darwin')",
 ]
 
 [options]
@@ -2149,7 +2149,7 @@ dependencies = [
     { name = "nbformat" },
     { name = "packaging" },
     { name = "prometheus-client" },
-    { name = "pywinpty", marker = "(os_name == 'nt' and platform_machine != 'x86_64') or (os_name == 'nt' and sys_platform != 'darwin')" },
+    { name = "pywinpty", marker = "os_name == 'nt'" },
     { name = "pyzmq" },
     { name = "send2trash" },
     { name = "terminado" },
@@ -2167,7 +2167,7 @@ name = "jupyter-server-terminals"
 version = "0.5.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywinpty", marker = "(os_name == 'nt' and platform_machine != 'x86_64') or (os_name == 'nt' and sys_platform != 'darwin')" },
+    { name = "pywinpty", marker = "os_name == 'nt'" },
     { name = "terminado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f4/a7/bcd0a9b0cbba88986fe944aaaf91bfda603e5a50bda8ed15123f381a3b2f/jupyter_server_terminals-0.5.4.tar.gz", hash = "sha256:bbda128ed41d0be9020349f9f1f2a4ab9952a73ed5f5ac9f1419794761fb87f5", size = 31770, upload-time = "2026-01-14T16:53:20.213Z" }
@@ -2686,6 +2686,20 @@ wheels = [
 ]
 
 [[package]]
+name = "mkdocs-document-dates"
+version = "3.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "babel" },
+    { name = "mkdocs" },
+    { name = "properdocs" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e6/22/9b502fbfab9c404fa2cb1d424aee4ce63fb76a9529e51c5e894f7e7852cb/mkdocs_document_dates-3.9.0.tar.gz", hash = "sha256:84038f63f0b4b2398ca2b7106962770821e7827c9dbfdd67823ca7fdade94875", size = 197269, upload-time = "2026-11-21T15:31:12.214Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ca/bd/edb13401e87b3baba95fe8710594a39e29ee54e10dd9195cb8e4902302d3/mkdocs_document_dates-3.9.0-py3-none-any.whl", hash = "sha256:542f469cca38514f13e800fc5e11f46de8c327b1f7805c30f7395f3b5af1f6e4", size = 202133, upload-time = "2026-11-21T15:31:09.113Z" },
+]
+
+[[package]]
 name = "mkdocs-gen-files"
 version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2726,8 +2740,17 @@ wheels = [
 ]
 
 [[package]]
-name = "mkdocs-material"
-version = "9.7.7"
+name = "mkdocs-material-extensions"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/79/9b/9b4c96d6593b2a541e1cb8b34899a6d021d208bb357042823d4d2cabdbe7/mkdocs_material_extensions-1.3.1.tar.gz", hash = "sha256:10c9511cea88f568257f960358a467d12b970e1f7b2c0e5fb2bb48cab1928443", size = 11847, upload-time = "2023-11-22T19:09:45.208Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5b/54/662a4743aa81d9582ee9339d4ffa3c8fd40a4965e033d77b9da9774d3960/mkdocs_material_extensions-1.3.1-py3-none-any.whl", hash = "sha256:adff8b62700b25cb77b53358dad940f3ef973dd6db797907c49e3c2ef3ab4e31", size = 8728, upload-time = "2023-11-22T19:09:43.465Z" },
+]
+
+[[package]]
+name = "mkdocs-materialx"
+version = "10.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "babel" },
@@ -2736,24 +2759,18 @@ dependencies = [
     { name = "jinja2" },
     { name = "markdown" },
     { name = "mkdocs" },
+    { name = "mkdocs-document-dates" },
     { name = "mkdocs-material-extensions" },
+    { name = "pagefind", extra = ["extended"] },
     { name = "paginate" },
+    { name = "properdocs" },
     { name = "pygments" },
     { name = "pymdown-extensions" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/cd/c05d3a530ba7934f144fb45f7203cd236adc25c7bdcc34673d202f4b0278/mkdocs_material-9.7.7.tar.gz", hash = "sha256:c0649c065b1b0512d60aad8c10f947f8e455284475239b364b610f2deb4d0855", size = 4097923, upload-time = "2026-07-17T16:21:33.156Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/03/7542fc7369483801cef0a1091abaa4209cf7df76a2f017da5098fc51b0f4/mkdocs_materialx-10.2.3.tar.gz", hash = "sha256:ca48166549639f363cd30fc621815e86a2f34d9aada48bf6d10ea46acd269ef9", size = 4342306, upload-time = "2026-11-21T16:17:30.208Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ad/21/17c1bc9e6f47c972ad66fb2ac2568f99f90f1207eeb6fc3b34d094dba7b5/mkdocs_material-9.7.7-py3-none-any.whl", hash = "sha256:8ea9bb1737a5b524a5f9dcf2e1b4ebda8274ae3008aa7845720a97083bef708f", size = 9305438, upload-time = "2026-07-17T16:21:30.017Z" },
-]
-
-[[package]]
-name = "mkdocs-material-extensions"
-version = "1.3.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/79/9b/9b4c96d6593b2a541e1cb8b34899a6d021d208bb357042823d4d2cabdbe7/mkdocs_material_extensions-1.3.1.tar.gz", hash = "sha256:10c9511cea88f568257f960358a467d12b970e1f7b2c0e5fb2bb48cab1928443", size = 11847, upload-time = "2023-11-22T19:09:45.208Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/54/662a4743aa81d9582ee9339d4ffa3c8fd40a4965e033d77b9da9774d3960/mkdocs_material_extensions-1.3.1-py3-none-any.whl", hash = "sha256:adff8b62700b25cb77b53358dad940f3ef973dd6db797907c49e3c2ef3ab4e31", size = 8728, upload-time = "2023-11-22T19:09:43.465Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/d3/6516761405e27f7311de5d1ec935595b52575ff27b92fd2298b0f49911bb/mkdocs_materialx-10.2.3-py3-none-any.whl", hash = "sha256:2e1f85d612b3d814d954272cfa822142104dfb90e8a1adea98eb144f0d74c4b4", size = 10224412, upload-time = "2026-11-21T16:17:27.854Z" },
 ]
 
 [[package]]
@@ -3382,7 +3399,7 @@ dev = [
     { name = "mkdocs" },
     { name = "mkdocs-gen-files" },
     { name = "mkdocs-literate-nav" },
-    { name = "mkdocs-material" },
+    { name = "mkdocs-materialx" },
     { name = "mkdocstrings-python" },
     { name = "moto", extra = ["s3", "server"] },
     { name = "mypy" },
@@ -3393,6 +3410,7 @@ dev = [
     { name = "pandas-stubs" },
     { name = "plotly-stubs" },
     { name = "pre-commit" },
+    { name = "properdocs" },
     { name = "pyarrow-stubs" },
     { name = "pydoclint" },
     { name = "pytest" },
@@ -3424,7 +3442,7 @@ docs = [
     { name = "mkdocs" },
     { name = "mkdocs-gen-files" },
     { name = "mkdocs-literate-nav" },
-    { name = "mkdocs-material" },
+    { name = "mkdocs-materialx" },
     { name = "mkdocstrings-python" },
     { name = "moto", extra = ["s3", "server"] },
     { name = "mypy" },
@@ -3434,6 +3452,7 @@ docs = [
     { name = "pandas-stubs" },
     { name = "plotly-stubs" },
     { name = "pre-commit" },
+    { name = "properdocs" },
     { name = "pyarrow-stubs" },
     { name = "pydoclint" },
     { name = "pytest" },
@@ -3562,11 +3581,11 @@ requires-dist = [
     { name = "jupytext", marker = "extra == 'docs'", specifier = ">=1.19.0" },
     { name = "licensecheck", marker = "extra == 'lint'", specifier = ">=2025.1.0" },
     { name = "lifelines", marker = "extra == 'survival'", specifier = ">=0.29.0" },
-    { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6.1,<2" },
+    { name = "mkdocs", marker = "extra == 'docs'", specifier = "<=1.6.1" },
     { name = "mkdocs-gen-files", marker = "extra == 'docs'", specifier = ">=0.6.0" },
     { name = "mkdocs-gen-files", marker = "extra == 'lint'", specifier = ">=0.6.1" },
     { name = "mkdocs-literate-nav", marker = "extra == 'docs'", specifier = ">=0.6.2" },
-    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.7.1" },
+    { name = "mkdocs-materialx", marker = "extra == 'docs'", specifier = ">=10.0.0,<11" },
     { name = "mkdocstrings-python", marker = "extra == 'docs'", specifier = ">=2.0.1" },
     { name = "moto", marker = "extra == 'lint'", specifier = ">=5.2.5" },
     { name = "moto", extras = ["s3", "server"], marker = "extra == 'test'", specifier = ">=5.1.17" },
@@ -3596,6 +3615,7 @@ requires-dist = [
     { name = "pandas-stubs", marker = "extra == 'lint'", specifier = ">=2.3.3.260113,<3" },
     { name = "plotly-stubs", marker = "extra == 'lint'", specifier = ">=0.1.4" },
     { name = "pre-commit", marker = "extra == 'lint'", specifier = "==4.3.0" },
+    { name = "properdocs", marker = "extra == 'docs'", specifier = ">=1.6.1,<2" },
     { name = "pyarrow", specifier = ">=17.0.0" },
     { name = "pyarrow-stubs", marker = "extra == 'lint'", specifier = ">=20.0.0.20260819" },
     { name = "pydoclint", marker = "extra == 'lint'", specifier = "==0.7.3" },
@@ -3804,6 +3824,33 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/65/ee/299d360cdc32edc7d2cf530f3accf79c4fca01e96ffc950d8a52213bd8e4/packaging-26.0.tar.gz", hash = "sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4", size = 143416, upload-time = "2026-01-21T20:50:39.064Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/b9/c538f279a4e237a006a2c98387d081e9eb060d203d8ed34467cc0f0b9b53/packaging-26.0-py3-none-any.whl", hash = "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529", size = 74366, upload-time = "2026-01-21T20:50:37.788Z" },
+]
+
+[[package]]
+name = "pagefind"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/d0/911ef8922cb5035b2ea53b045c99cc03cbe8916b0238d26cd6d241b0144c/pagefind-1.6.0.tar.gz", hash = "sha256:744864df19d4dc0d75873ec9117e67328a1aaa208151c7acfca5fab03dcc41d8", size = 77717, upload-time = "2026-11-01T11:30:28.636Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/5d/73cac7ac098267a65810cc46cac0c96bee7d189d289b3bd75ad0d75b19a7/pagefind-1.6.0-py3-none-any.whl", hash = "sha256:c1ab35dd3573f95a8d8f25f9ffac30db8829577b5945641d1bdbf60620a3bd5c", size = 10239, upload-time = "2026-11-01T11:30:03.039Z" },
+]
+
+[package.optional-dependencies]
+extended = [
+    { name = "pagefind-bin-extended" },
+]
+
+[[package]]
+name = "pagefind-bin-extended"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/25/1e0c41af3abb66567cf24d02fac4d9402c72c8757ae18b12c791a80cb15a/pagefind_bin_extended-1.6.0-py3-none-macosx_12_0_arm64.whl", hash = "sha256:bfb1e4e597a8ef72bbd19f14197c40a9b85f0ecc250d282a9146057ba8bc28d2", size = 7042266, upload-time = "2026-11-01T11:30:17.509Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/35/87cf33ebb45db4268d356f4f0bc21b5afb7a0bdbb58bed3ae4225df32db5/pagefind_bin_extended-1.6.0-py3-none-macosx_12_0_x86_64.whl", hash = "sha256:99708a712f7726a24b126c528f30c865bee20609d048869653b71ff3ef590906", size = 7089801, upload-time = "2026-11-01T11:30:19.397Z" },
+    { url = "https://files.pythonhosted.org/packages/06/ea/dbab52131e3588dfcbb3ef7eff2efd3b703cb9b944afc91948b048eddd25/pagefind_bin_extended-1.6.0-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.musllinux_1_1_x86_64.whl", hash = "sha256:2feaa020607f50619aa85acd449ec72f21aa2badc761d208b9d9081ab8319e7a", size = 7462594, upload-time = "2026-11-01T11:30:21.177Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/2a/1f85a248e612f1b890480f55ef67fb1648444a37e5577e88f920a100eb7f/pagefind_bin_extended-1.6.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:6f4083d60983c93507c7f0c29dbeed047931869ce8741bfdb888187d84b280a8", size = 7202870, upload-time = "2026-11-01T11:30:23.242Z" },
+    { url = "https://files.pythonhosted.org/packages/b8/20/5138e78af997a3c59f3c6ddd4f2840fb4e837cabb7be07f728c159111ad0/pagefind_bin_extended-1.6.0-py3-none-win_amd64.whl", hash = "sha256:aa0f02472a9ab4cc7a80add88c9d62d269962eaaebdb2392c41387c93b428178", size = 7250427, upload-time = "2026-11-01T11:30:24.947Z" },
+    { url = "https://files.pythonhosted.org/packages/45/48/71da0822f547fc00d67306132b5c2fa3022f0c4fa74463d7ed34c342563d/pagefind_bin_extended-1.6.0-py3-none-win_arm64.whl", hash = "sha256:9db35ab5586a3c9f7e870455b656211ecf3e5637ed1a5d8a7ff62805dc4065d0", size = 7115000, upload-time = "2026-11-01T11:30:26.914Z" },
 ]
 
 [[package]]
@@ -5486,7 +5533,7 @@ version = "0.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ptyprocess", marker = "os_name != 'nt'" },
-    { name = "pywinpty", marker = "(os_name == 'nt' and platform_machine != 'x86_64') or (os_name == 'nt' and sys_platform != 'darwin')" },
+    { name = "pywinpty", marker = "os_name == 'nt'" },
     { name = "tornado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8a/11/965c6fd8e5cc254f1fe142d547387da17a8ebfd75a3455f637c663fb38a0/terminado-0.18.1.tar.gz", hash = "sha256:de09f2c4b85de4765f7714688fff57d3e75bad1f909b589fde880460c753fd2e", size = 32701, upload-time = "2024-03-12T14:34:39.026Z" }
