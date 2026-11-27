@@ -1,0 +1,30 @@
+/* Merck KGaA brand colors */
+
+/* Top bar and tabs: Merck blue with white text (~5.6:1 contrast) */
+[data-md-color-primary="custom"] {
+    --md-primary-fg-color: #0F69AF;
+    --md-primary-fg-color--light: #2DBECD;
+    --md-primary-fg-color--dark: #0B4F85;
+    --md-primary-bg-color: #FFFFFF;
+    --md-primary-bg-color--light: #FFFFFFB3;
+}
+
+/* Hover, active and focus states: vibrant magenta */
+[data-md-color-accent="custom"] {
+    --md-accent-fg-color: #EB3C96;
+    --md-accent-fg-color--transparent: #EB3C961A;
+    --md-accent-bg-color: #FFFFFF;
+    --md-accent-bg-color--light: #FFFFFFB3;
+}
+
+/* Light mode: darker blue for links so they stay readable on white */
+[data-md-color-scheme="default"] {
+    --md-typeset-a-color: #0F69AF;
+}
+
+/* Dark mode: blue and magenta are too dim on the dark background, use cyan */
+[data-md-color-scheme="slate"] {
+    --md-typeset-a-color: #2DBECD;
+    --md-accent-fg-color: #2DBECD;
+    --md-accent-fg-color--transparent: #2DBECD1A;
+}
